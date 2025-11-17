@@ -7,11 +7,13 @@ interface UserData {
   nickname: string
   status: string
   balance: number
+  profit: number
   totalDeposit: number
   totalWithdraw: number
   plan: string
   kycRequired: boolean
   isBlocked: boolean
+  lastProfitUpdate: string | null
   planProgress: {
     currentPlan: string
     dailyPercent: number

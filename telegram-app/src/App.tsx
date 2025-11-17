@@ -42,6 +42,33 @@ function App() {
   // Fetch real user data from bot API
   const { userData, loading, error, refreshData } = useUserData(telegramUserId)
 
+  // Reinvest profit to balance
+  const handleReinvest = async () => {
+    if (!userData || userData.profit <= 0) return
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/reinvest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Reinvest success:', result)
+        // Refresh user data to show updated balance and profit
+        await refreshData()
+      } else {
+        const error = await response.json()
+        console.error('Reinvest error:', error)
+      }
+    } catch (err) {
+      console.error('Reinvest network error:', err)
+    }
+  }
+
   useEffect(() => {
     document.title = t.appTitle
   }, [t.appTitle])
@@ -106,7 +133,7 @@ function App() {
     }
   }
 
-  const quickAmounts = [10, 100, 500, 1000, 5000]
+  const quickAmounts = [10, 100, 500, 1000, 35000, 100000]
   const timePeriods = [
     { value: '7', label: '7 Day' },
     { value: '30', label: '30 Day' },
@@ -1113,7 +1140,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <a 
-                      href="https://t.me/AiSyntrixTrade_bot" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-all border border-primary/20 cursor-pointer"
@@ -1148,10 +1175,12 @@ function App() {
                   <div className="flex items-center justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.profit}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">${(userProfile.balance - userProfile.totalDeposit + userProfile.totalWithdraw).toFixed(2)}</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">${(userData?.profit || 0).toFixed(2)}</p>
                     </div>
                     <Button 
-                      className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
+                      className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleReinvest}
+                      disabled={!userData || userData.profit <= 0}
                     >
                       {t.reinvest}
                     </Button>
@@ -1259,7 +1288,7 @@ function App() {
                     </div>
                     <div className="flex gap-2">
                       <a 
-                        href="https://t.me/AiSyntrixTrade_bot" 
+                        href="https://t.me/+T-daFo58lL4yNDY6" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer"
@@ -1331,7 +1360,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <a 
-                      href="https://t.me/AiSyntrixTrade_bot" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-12 h-12 rounded bg-black flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
@@ -1479,7 +1508,7 @@ function App() {
                   </div>
                   <div className="flex gap-1.5 sm:gap-2 shrink-0">
                     <a 
-                      href="https://t.me/AiSyntrixTrade_bot" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer"
@@ -1602,7 +1631,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <a 
-                      href="https://t.me/AiSyntrixTrade_bot" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 rounded bg-black flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"

@@ -1,4 +1,4 @@
-import { Bot, Context, InlineKeyboard, session, SessionFlavor } from 'grammy'
+import { Bot, Context, InlineKeyboard } from 'grammy'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
 import { startApiServer, stopApiServer } from './api.js'
@@ -12,6 +12,9 @@ const prisma = new PrismaClient()
 const bot = new Bot(process.env.BOT_TOKEN!)
 const ADMIN_ID = process.env.ADMIN_ID!
 const WEBAPP_URL = process.env.WEBAPP_URL!
+
+// Admin state management
+const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number }>()
 
 // Tariff plans configuration
 const TARIFF_PLANS = [
@@ -58,15 +61,6 @@ async function updateUserPlan(userId: number) {
   return planInfo
 }
 
-interface SessionData {
-  awaitingInput?: string
-  targetUserId?: number
-}
-
-type MyContext = Context & SessionFlavor<SessionData>
-
-bot.use(session({ initial: (): SessionData => ({}) }))
-
 // ============= USER COMMANDS =============
 
 bot.command('start', async (ctx) => {
@@ -95,7 +89,8 @@ bot.command('start', async (ctx) => {
   }
 
   // Update plan based on balance
-  const planInfo = await updateUserPlan(user.id)
+  await updateUserPlan(user.id)
+  const planInfo = calculateTariffPlan(user.balance)
   const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
 
   const keyboard = new InlineKeyboard()
@@ -140,7 +135,8 @@ bot.command('balance', async (ctx) => {
   }
 
   // Update plan and get tariff info
-  const planInfo = await updateUserPlan(user.id)
+  await updateUserPlan(user.id)
+  const planInfo = calculateTariffPlan(user.balance)
 
   // Create progress bar
   const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
@@ -384,7 +380,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
   )
 })
 
-bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx: MyContext) => {
+bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
   if (ctx.from?.id.toString() !== ADMIN_ID) {
     await ctx.answerCallbackQuery('Access denied')
     return
@@ -398,8 +394,7 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx: MyContext) => {
     return
   }
 
-  ctx.session.awaitingInput = 'add_balance'
-  ctx.session.targetUserId = userId
+  adminState.set(ADMIN_ID, { awaitingInput: 'add_balance', targetUserId: userId })
 
   const keyboard = new InlineKeyboard()
     .text('Cancel', `manage_${userId}`)
@@ -414,13 +409,14 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx: MyContext) => {
   await ctx.answerCallbackQuery()
 })
 
-bot.on('message:text', async (ctx: MyContext) => {
+bot.on('message:text', async (ctx) => {
   if (ctx.from?.id.toString() !== ADMIN_ID) return
-  if (!ctx.session.awaitingInput) return
+  const state = adminState.get(ADMIN_ID)
+  if (!state?.awaitingInput) return
 
-  if (ctx.session.awaitingInput === 'add_balance') {
+  if (state.awaitingInput === 'add_balance') {
     const amount = parseFloat(ctx.message?.text || '')
-    const userId = ctx.session.targetUserId
+    const userId = state.targetUserId
 
     if (isNaN(amount) || !userId || amount <= 0) {
       await ctx.reply('❌ Invalid amount. Please enter a positive number.')
@@ -446,7 +442,8 @@ bot.on('message:text', async (ctx: MyContext) => {
     })
 
     // Update tariff plan based on new balance
-    const planInfo = await updateUserPlan(user.id)
+    await updateUserPlan(user.id)
+    const planInfo = calculateTariffPlan(user.balance)
     const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
 
     // Notify user
@@ -480,8 +477,7 @@ bot.on('message:text', async (ctx: MyContext) => {
       { parse_mode: 'Markdown' }
     )
 
-    ctx.session.awaitingInput = undefined
-    ctx.session.targetUserId = undefined
+    adminState.delete(ADMIN_ID)
   }
 })
 
