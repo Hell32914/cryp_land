@@ -25,12 +25,35 @@ model User {
   kycRequired       Boolean       @default(false)
   isBlocked         Boolean       @default(false)
   lastProfitUpdate  DateTime?
+  referredBy        String?
+  referralEarnings  Float         @default(0)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   
   deposits          Deposit[]
   withdrawals       Withdrawal[]
   notifications     Notification[]
+  referrals         Referral[]    @relation("UserReferrals")
+}
+
+model Referral {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation("UserReferrals", fields: [userId], references: [id])
+  referredUserId  Int
+  referredUsername String?
+  level           Int
+  earnings        Float    @default(0)
+  createdAt       DateTime @default(now())
+}
+
+model DailyProfitUpdate {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Float
+  timestamp   DateTime
+  dailyTotal  Float
+  createdAt   DateTime @default(now())
 }
 
 model Deposit {

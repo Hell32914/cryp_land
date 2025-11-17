@@ -9,8 +9,8 @@ type TransactionStatus = 'PENDING' | 'COMPLETED' | 'REJECTED'
 dotenv.config()
 
 const prisma = new PrismaClient()
-const bot = new Bot(process.env.BOT_TOKEN!)
-const ADMIN_ID = process.env.ADMIN_ID!
+export const bot = new Bot(process.env.BOT_TOKEN!)
+export const ADMIN_ID = process.env.ADMIN_ID!
 const WEBAPP_URL = process.env.WEBAPP_URL!
 
 // Admin state management
@@ -44,6 +44,107 @@ function calculateTariffPlan(balance: number) {
   }
 }
 
+// Create referral chain for user who reached $1000 deposit
+async function createReferralChain(user: any) {
+  if (!user.referredBy) return
+
+  try {
+    // Check if referral chain already exists
+    const existingReferral = await prisma.referral.findFirst({
+      where: { referredUserId: user.id }
+    })
+
+    if (existingReferral) {
+      console.log(`Referral chain already exists for user ${user.telegramId}`)
+      return
+    }
+
+    const referrer = await prisma.user.findUnique({
+      where: { telegramId: user.referredBy }
+    })
+
+    if (referrer) {
+      // Level 1: Direct referral
+      await prisma.referral.create({
+        data: {
+          userId: referrer.id,
+          referredUserId: user.id,
+          referredUsername: user.username || `user_${user.telegramId}`,
+          level: 1,
+          earnings: 0
+        }
+      })
+
+      console.log(`✅ Created Level 1 referral: ${referrer.telegramId} -> ${user.telegramId}`)
+
+      // Notify referrer
+      await bot.api.sendMessage(
+        referrer.telegramId,
+        `🎉 *Referral Activated!*\n\n👤 @${user.username || 'User'} reached $1000 deposit!\n💰 You now earn 4% of their daily profits.`,
+        { parse_mode: 'Markdown' }
+      ).catch(() => {})
+
+      // Level 2: Referrer's referrer
+      if (referrer.referredBy) {
+        const level2Referrer = await prisma.user.findUnique({
+          where: { telegramId: referrer.referredBy }
+        })
+
+        if (level2Referrer) {
+          await prisma.referral.create({
+            data: {
+              userId: level2Referrer.id,
+              referredUserId: user.id,
+              referredUsername: user.username || `user_${user.telegramId}`,
+              level: 2,
+              earnings: 0
+            }
+          })
+
+          console.log(`✅ Created Level 2 referral: ${level2Referrer.telegramId} -> ${user.telegramId}`)
+
+          // Notify L2 referrer
+          await bot.api.sendMessage(
+            level2Referrer.telegramId,
+            `🎉 *Level 2 Referral Activated!*\n\n👤 @${user.username || 'User'} (referred by @${referrer.username || 'User'}) reached $1000!\n💰 You now earn 3% of their daily profits.`,
+            { parse_mode: 'Markdown' }
+          ).catch(() => {})
+
+          // Level 3: Level 2's referrer
+          if (level2Referrer.referredBy) {
+            const level3Referrer = await prisma.user.findUnique({
+              where: { telegramId: level2Referrer.referredBy }
+            })
+
+            if (level3Referrer) {
+              await prisma.referral.create({
+                data: {
+                  userId: level3Referrer.id,
+                  referredUserId: user.id,
+                  referredUsername: user.username || `user_${user.telegramId}`,
+                  level: 3,
+                  earnings: 0
+                }
+              })
+
+              console.log(`✅ Created Level 3 referral: ${level3Referrer.telegramId} -> ${user.telegramId}`)
+
+              // Notify L3 referrer
+              await bot.api.sendMessage(
+                level3Referrer.telegramId,
+                `🎉 *Level 3 Referral Activated!*\n\n👤 @${user.username || 'User'} reached $1000!\n💰 You now earn 2% of their daily profits.`,
+                { parse_mode: 'Markdown' }
+              ).catch(() => {})
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error creating referral chain:', error)
+  }
+}
+
 // Update user plan based on balance
 async function updateUserPlan(userId: number) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
@@ -72,20 +173,31 @@ bot.command('start', async (ctx) => {
   })
 
   if (!user) {
+    // Parse referral code from start parameter
+    const startPayload = ctx.match as string
+    let referrerId: string | null = null
+    
+    if (startPayload && startPayload.startsWith('ref5')) {
+      referrerId = startPayload.slice(4) // Remove 'ref5' prefix
+    }
+
     user = await prisma.user.create({
       data: {
         telegramId,
         username: ctx.from?.username,
         firstName: ctx.from?.first_name,
-        lastName: ctx.from?.last_name
+        lastName: ctx.from?.last_name,
+        referredBy: referrerId
       }
     })
 
     // Notify admin about new user
     await bot.api.sendMessage(
       ADMIN_ID,
-      `🆕 New user registered:\n@${ctx.from?.username || 'no_username'}\nID: ${telegramId}`
+      `🆕 New user registered:\n@${ctx.from?.username || 'no_username'}\nID: ${telegramId}${referrerId ? `\n👥 Referred by: ${referrerId}` : ''}`
     )
+
+    // Referral will be activated when user reaches $1000 deposit
   }
 
   // Update plan based on balance
@@ -426,7 +538,9 @@ bot.on('message:text', async (ctx) => {
     // Get current user to check status
     const currentUser = await prisma.user.findUnique({ where: { id: userId } })
     const newBalance = (currentUser?.balance || 0) + amount
+    const newTotalDeposit = (currentUser?.totalDeposit || 0) + amount
     const shouldActivate = currentUser?.status === 'INACTIVE' && newBalance >= 10
+    const shouldCreateReferral = currentUser && currentUser.totalDeposit < 1000 && newTotalDeposit >= 1000
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -437,6 +551,11 @@ bot.on('message:text', async (ctx) => {
         ...(shouldActivate && { status: 'ACTIVE' })
       }
     })
+
+    // Create referral chain if user reached $1000 total deposit
+    if (shouldCreateReferral) {
+      await createReferralChain(user)
+    }
 
     // Create deposit record
     await prisma.deposit.create({
@@ -567,6 +686,42 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   await ctx.answerCallbackQuery()
 })
 
+// Generate random profit updates throughout the day
+function generateDailyUpdates(totalProfit: number): { amount: number, timestamp: Date }[] {
+  const updates: { amount: number, timestamp: Date }[] = []
+  const numUpdates = Math.floor(Math.random() * 8) + 4 // 4-11 updates
+  
+  // Generate random percentages that sum to 1
+  const percentages: number[] = []
+  let sum = 0
+  for (let i = 0; i < numUpdates; i++) {
+    const rand = Math.random()
+    percentages.push(rand)
+    sum += rand
+  }
+  
+  // Normalize percentages
+  const normalizedPercentages = percentages.map(p => p / sum)
+  
+  // Generate random timestamps throughout the day
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+  
+  for (let i = 0; i < numUpdates; i++) {
+    const randomTime = startOfDay.getTime() + Math.random() * (endOfDay.getTime() - startOfDay.getTime())
+    const timestamp = new Date(randomTime)
+    const amount = totalProfit * normalizedPercentages[i]
+    
+    updates.push({ amount, timestamp })
+  }
+  
+  // Sort by timestamp
+  updates.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+  
+  return updates
+}
+
 // Daily profit accrual function
 async function accrueDailyProfit() {
   try {
@@ -589,7 +744,123 @@ async function accrueDailyProfit() {
         }
       })
 
-      console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%)`)
+      // Generate random daily updates
+      const updates = generateDailyUpdates(dailyProfit)
+      
+      // Delete old daily updates for this user
+      await prisma.dailyProfitUpdate.deleteMany({
+        where: { userId: user.id }
+      })
+      
+      // Create new daily updates
+      for (const update of updates) {
+        await prisma.dailyProfitUpdate.create({
+          data: {
+            userId: user.id,
+            amount: update.amount,
+            timestamp: update.timestamp,
+            dailyTotal: dailyProfit
+          }
+        })
+      }
+
+      console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%) - ${updates.length} updates`)
+
+      // Distribute referral earnings (3-level cascade: 4%, 3%, 2%)
+      if (user.referredBy) {
+        try {
+          // Level 1: Direct referrer gets 4%
+          const level1Referrer = await prisma.user.findUnique({
+            where: { telegramId: user.referredBy }
+          })
+
+          if (level1Referrer) {
+            const level1Earnings = dailyProfit * 0.04
+            await prisma.user.update({
+              where: { id: level1Referrer.id },
+              data: {
+                referralEarnings: level1Referrer.referralEarnings + level1Earnings
+              }
+            })
+
+            // Update referral record
+            await prisma.referral.updateMany({
+              where: {
+                userId: level1Referrer.id,
+                referredUserId: user.id,
+                level: 1
+              },
+              data: {
+                earnings: { increment: level1Earnings }
+              }
+            })
+
+            console.log(`  └─ 💎 L1: $${level1Earnings.toFixed(2)} to ${level1Referrer.telegramId}`)
+
+            // Level 2: Referrer's referrer gets 3%
+            if (level1Referrer.referredBy) {
+              const level2Referrer = await prisma.user.findUnique({
+                where: { telegramId: level1Referrer.referredBy }
+              })
+
+              if (level2Referrer) {
+                const level2Earnings = dailyProfit * 0.03
+                await prisma.user.update({
+                  where: { id: level2Referrer.id },
+                  data: {
+                    referralEarnings: level2Referrer.referralEarnings + level2Earnings
+                  }
+                })
+
+                await prisma.referral.updateMany({
+                  where: {
+                    userId: level2Referrer.id,
+                    referredUserId: user.id,
+                    level: 2
+                  },
+                  data: {
+                    earnings: { increment: level2Earnings }
+                  }
+                })
+
+                console.log(`  └─ 💎 L2: $${level2Earnings.toFixed(2)} to ${level2Referrer.telegramId}`)
+
+                // Level 3: Level 2's referrer gets 2%
+                if (level2Referrer.referredBy) {
+                  const level3Referrer = await prisma.user.findUnique({
+                    where: { telegramId: level2Referrer.referredBy }
+                  })
+
+                  if (level3Referrer) {
+                    const level3Earnings = dailyProfit * 0.02
+                    await prisma.user.update({
+                      where: { id: level3Referrer.id },
+                      data: {
+                        referralEarnings: level3Referrer.referralEarnings + level3Earnings
+                      }
+                    })
+
+                    await prisma.referral.updateMany({
+                      where: {
+                        userId: level3Referrer.id,
+                        referredUserId: user.id,
+                        level: 3
+                      },
+                      data: {
+                        earnings: { increment: level3Earnings }
+                      }
+                    })
+
+                    console.log(`  └─ 💎 L3: $${level3Earnings.toFixed(2)} to ${level3Referrer.telegramId}`)
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`  └─ ❌ Error distributing referral earnings for user ${user.telegramId}:`, error)
+        }
+      }
     }
 
     console.log(`✅ Daily profit accrual completed for ${users.length} users`)

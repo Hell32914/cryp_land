@@ -33,6 +33,14 @@ function App() {
   const [withdrawWalletAddress, setWithdrawWalletAddress] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [selectedLanguage, setSelectedLanguage] = useKV<Language>('app-language', 'ENGLISH')
+  const [referrals, setReferrals] = useState<any[]>([])
+  const [loadingReferrals, setLoadingReferrals] = useState(false)
+  const [dailyUpdates, setDailyUpdates] = useState<any[]>([])
+  const [loadingDailyUpdates, setLoadingDailyUpdates] = useState(false)
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [loadingTransactions, setLoadingTransactions] = useState(false)
+  const [depositQrCode, setDepositQrCode] = useState<string>('')
+  const [depositAddress, setDepositAddress] = useState<string>('')
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -41,6 +49,208 @@ function App() {
   
   // Fetch real user data from bot API
   const { userData, loading, error, refreshData } = useUserData(telegramUserId)
+
+  // Fetch referrals
+  const fetchReferrals = async () => {
+    if (!telegramUserId) return
+
+    setLoadingReferrals(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referrals`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setReferrals(data.referrals || [])
+      }
+    } catch (error) {
+      console.error('Error fetching referrals:', error)
+    } finally {
+      setLoadingReferrals(false)
+    }
+  }
+
+  // Reinvest referral earnings to balance
+  const handleReferralReinvest = async () => {
+    if (!userData || userData.referralEarnings <= 0) return
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referral-reinvest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(`Successfully reinvested $${data.reinvestedAmount.toFixed(2)} referral earnings!`)
+        await refreshData()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to reinvest referral earnings')
+      }
+    } catch (error) {
+      console.error('Error reinvesting referral earnings:', error)
+      toast.error('Network error')
+    }
+  }
+
+  // Fetch daily updates
+  const fetchDailyUpdates = async () => {
+    if (!telegramUserId) return
+
+    setLoadingDailyUpdates(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/daily-updates`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setDailyUpdates(data.updates || [])
+      }
+    } catch (error) {
+      console.error('Error fetching daily updates:', error)
+    } finally {
+      setLoadingDailyUpdates(false)
+    }
+  }
+
+  // Fetch referrals when invite tab is opened
+  useEffect(() => {
+    if (activeTab === 'invite') {
+      fetchReferrals()
+    }
+  }, [activeTab])
+
+  // Fetch transactions
+  const fetchTransactions = async () => {
+    if (!telegramUserId) return
+
+    setLoadingTransactions(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/transactions`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setTransactions(data.transactions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error)
+    } finally {
+      setLoadingTransactions(false)
+    }
+  }
+
+  // Handle deposit
+  const handleDepositSubmit = async () => {
+    if (!selectedCurrency || !depositAmountInput) {
+      toast.error('Please select currency and enter amount')
+      return
+    }
+
+    const amount = parseFloat(depositAmountInput)
+    if (isNaN(amount) || amount < 10) {
+      toast.error('Minimum deposit amount is $10')
+      return
+    }
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/create-deposit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount,
+          currency: selectedCurrency
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setDepositQrCode(data.qrCode)
+        setDepositAddress(data.address)
+        toast.success('Deposit invoice created! Please scan QR code or use the address.')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to create deposit')
+      }
+    } catch (error) {
+      console.error('Error creating deposit:', error)
+      toast.error('Network error')
+    }
+  }
+
+  // Handle withdrawal
+  const handleWithdrawalSubmit = async () => {
+    if (!selectedCurrency || !selectedNetwork || !withdrawWalletAddress || !withdrawAmount) {
+      toast.error('Please fill all fields')
+      return
+    }
+
+    const amount = parseFloat(withdrawAmount)
+    if (isNaN(amount) || amount < 10) {
+      toast.error('Minimum withdrawal amount is $10')
+      return
+    }
+
+    if (!userData || amount > userData.balance) {
+      toast.error('Insufficient balance')
+      return
+    }
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/create-withdrawal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount,
+          currency: selectedCurrency,
+          address: withdrawWalletAddress,
+          network: selectedNetwork
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        toast.success(data.message || 'Withdrawal request created!')
+        setWithdrawOpen(false)
+        setWithdrawWalletAddress('')
+        setWithdrawAmount('')
+        await refreshData()
+        await fetchTransactions()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Failed to create withdrawal')
+      }
+    } catch (error) {
+      console.error('Error creating withdrawal:', error)
+      toast.error('Network error')
+    }
+  }
+
+  // Fetch daily updates when home tab is opened and refresh every minute
+  useEffect(() => {
+    if (activeTab === 'home') {
+      fetchDailyUpdates()
+      const interval = setInterval(fetchDailyUpdates, 60000) // Update every minute
+      return () => clearInterval(interval)
+    }
+  }, [activeTab])
+
+  // Fetch transactions when wallet tab is opened
+  useEffect(() => {
+    if (activeTab === 'wallet') {
+      fetchTransactions()
+    }
+  }, [activeTab])
 
   // Reinvest profit to balance
   const handleReinvest = async () => {
@@ -352,12 +562,16 @@ function App() {
               <Button
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-4 sm:py-5 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
                 disabled={!selectedCurrency || !selectedNetwork || !withdrawWalletAddress || !withdrawAmount}
+                onClick={handleWithdrawalSubmit}
               >
                 CONFIRM WITHDRAW
               </Button>
 
               <p className="text-xs sm:text-sm text-muted-foreground text-center">
                 FEE: <span className="font-bold text-foreground">$0.00</span>
+              </p>
+              <p className="text-xs text-muted-foreground text-center">
+                Min withdrawal: $10 • Automatic processing for amounts &lt; $100
               </p>
             </div>
           </div>
@@ -433,9 +647,44 @@ function App() {
             <Button
               className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-4 sm:py-5 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
               disabled={!selectedCurrency || !depositAmountInput}
+              onClick={handleDepositSubmit}
             >
               {t.continue}
             </Button>
+
+            {depositQrCode && (
+              <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-4">
+                <h3 className="text-sm font-bold text-foreground">Scan QR Code to Pay</h3>
+                <div className="flex justify-center p-4 bg-white rounded-lg">
+                  <img src={depositQrCode} alt="Payment QR Code" className="w-48 h-48" />
+                </div>
+                {depositAddress && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Or send to address:</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={depositAddress}
+                        readOnly
+                        className="flex-1 bg-background text-xs"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(depositAddress)
+                          toast.success('Address copied!')
+                        }}
+                      >
+                        <Copy size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground text-center">
+                  Payment expires in 30 minutes
+                </p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -1257,41 +1506,56 @@ function App() {
 
               <div className="bg-card rounded-lg p-6">
                 <h3 className="text-lg font-bold text-foreground mb-4 tracking-wide uppercase">{t.dailyUpdate}</h3>
-                {userData?.lastProfitUpdate ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg border border-accent/20">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Last Profit Accrual</p>
-                        <p className="text-sm font-semibold text-foreground">
-                          {new Date(userData.lastProfitUpdate).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                {loadingDailyUpdates ? (
+                  <p className="text-center text-muted-foreground py-8">Loading updates...</p>
+                ) : dailyUpdates.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">{t.noEarningsData}</p>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {dailyUpdates.map((update, index) => (
+                      <div 
+                        key={update.id}
+                        className="flex items-center justify-between p-3 bg-accent/5 hover:bg-accent/10 rounded-lg border border-accent/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                            <span className="text-xs font-bold text-accent">#{index + 1}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">
+                              +${update.amount.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(update.timestamp).toLocaleTimeString('en-US', { 
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">
+                            {userData?.planProgress?.currentPlan}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground mb-1">Daily Profit</p>
+                    ))}
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-muted-foreground">Total Daily Profit</p>
                         <p className="text-lg font-bold text-accent">
-                          +${((userData.balance * (userData.planProgress?.dailyPercent || 0)) / 100).toFixed(2)}
+                          +${dailyUpdates.length > 0 ? dailyUpdates[0].dailyTotal.toFixed(2) : '0.00'}
                         </p>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="p-3 bg-secondary/50 rounded">
-                        <p className="text-muted-foreground text-xs mb-1">Plan</p>
-                        <p className="font-semibold text-foreground">{userData.planProgress?.currentPlan}</p>
-                      </div>
-                      <div className="p-3 bg-secondary/50 rounded">
-                        <p className="text-muted-foreground text-xs mb-1">Rate</p>
-                        <p className="font-semibold text-foreground">{userData.planProgress?.dailyPercent}% daily</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-muted-foreground">Updates shown</p>
+                        <p className="text-xs font-semibold text-foreground">
+                          {dailyUpdates.length} updates today
+                        </p>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">{t.noEarningsData}</p>
                 )}
               </div>
             </div>
@@ -1378,7 +1642,55 @@ function App() {
 
               <div className="bg-card rounded-lg p-6 border border-border">
                 <h3 className="text-lg font-bold text-foreground mb-4 tracking-wider">{t.transactionsHistory}</h3>
-                <p className="text-center text-muted-foreground py-8">{t.noTransactionsYet}</p>
+                {loadingTransactions ? (
+                  <p className="text-center text-muted-foreground py-8">Loading transactions...</p>
+                ) : transactions.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">{t.noTransactionsYet}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {transactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 hover:border-accent/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
+                          }`}>
+                            <span className="text-sm font-bold">
+                              {tx.type === 'DEPOSIT' ? '↓' : '↑'}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">
+                              {tx.type === 'DEPOSIT' ? 'Deposit' : 'Withdrawal'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {tx.currency} • {new Date(tx.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-bold ${
+                            tx.type === 'DEPOSIT' ? 'text-green-500' : 'text-red-500'
+                          }`}>
+                            {tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toFixed(2)}
+                          </p>
+                          <p className="text-xs">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs ${
+                              tx.status === 'COMPLETED' ? 'bg-green-500/20 text-green-500' :
+                              tx.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500' :
+                              tx.status === 'PROCESSING' ? 'bg-blue-500/20 text-blue-500' :
+                              'bg-red-500/20 text-red-500'
+                            }`}>
+                              {tx.status}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1416,10 +1728,12 @@ function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-sm mb-1">{t.referralBalance}</p>
-                    <p className="text-2xl font-bold text-black">$ 0.00</p>
+                    <p className="text-2xl font-bold text-black">$ {(userData?.referralEarnings || 0).toFixed(2)}</p>
                   </div>
                   <Button 
                     className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-8 py-6 text-base"
+                    disabled={!userData || userData.referralEarnings <= 0}
+                    onClick={handleReferralReinvest}
                   >
                     {t.reinvest}
                   </Button>
@@ -1513,7 +1827,39 @@ function App() {
 
               <div className="bg-background rounded-lg p-6 border border-border">
                 <h3 className="text-lg font-bold text-foreground mb-4 tracking-wider">{t.yourReferrals}</h3>
-                <p className="text-center text-muted-foreground py-8">{t.noReferralsYet}</p>
+                
+                {loadingReferrals ? (
+                  <p className="text-center text-muted-foreground py-8">Loading referrals...</p>
+                ) : referrals.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">{t.noReferralsYet}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {referrals.map((referral) => (
+                      <div 
+                        key={referral.id}
+                        className="flex items-center justify-between p-4 bg-card rounded-lg border border-border"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                            <User size={20} weight="duotone" className="text-accent-foreground" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">@{referral.referredUsername}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Level {referral.level} • {new Date(referral.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-accent">+${referral.earnings.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {referral.level === 1 ? '4%' : referral.level === 2 ? '3%' : '2%'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

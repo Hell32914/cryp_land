@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
+export interface Referral {
+  id: number
+  referredUsername: string
+  level: number
+  earnings: number
+  createdAt: string
+}
+
 interface UserData {
   id: string
   nickname: string
@@ -14,6 +22,7 @@ interface UserData {
   kycRequired: boolean
   isBlocked: boolean
   lastProfitUpdate: string | null
+  referralEarnings: number
   planProgress: {
     currentPlan: string
     dailyPercent: number

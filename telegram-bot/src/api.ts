@@ -75,6 +75,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,
       lastProfitUpdate: user.lastProfitUpdate,
+      referralEarnings: user.referralEarnings || 0,
       planProgress: {
         currentPlan: planProgress.currentPlan,
         dailyPercent: planProgress.dailyPercent,
@@ -173,6 +174,343 @@ app.post('/api/user/:telegramId/reinvest', async (req, res) => {
       newBalance: updatedUser.balance,
       newProfit: updatedUser.profit,
       newPlan: updatedUser.plan
+    })
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Get user referrals
+app.get('/api/user/:telegramId/referrals', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const referrals = await prisma.referral.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    res.json({
+      referrals,
+      totalReferralEarnings: user.referralEarnings
+    })
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Get daily profit updates
+app.get('/api/user/:telegramId/daily-updates', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const updates = await prisma.dailyProfitUpdate.findMany({
+      where: { userId: user.id },
+      orderBy: { timestamp: 'asc' }
+    })
+
+    // Filter updates that are in the past (up to current time)
+    const now = new Date()
+    const visibleUpdates = updates.filter((update: any) => new Date(update.timestamp) <= now)
+
+    res.json({
+      updates: visibleUpdates,
+      totalUpdates: updates.length,
+      totalProfit: updates.length > 0 ? updates[0].dailyTotal : 0
+    })
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Reinvest referral earnings to balance
+app.post('/api/user/:telegramId/referral-reinvest', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    if (user.referralEarnings <= 0) {
+      return res.status(400).json({ error: 'No referral earnings to reinvest' })
+    }
+
+    const referralAmount = user.referralEarnings
+
+    // Move referral earnings to balance and reset referralEarnings
+    const updatedUser = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        balance: user.balance + referralAmount,
+        totalDeposit: user.totalDeposit + referralAmount,
+        referralEarnings: 0,
+        plan: calculatePlanProgress(user.balance + referralAmount).currentPlan
+      }
+    })
+
+    // Create notification
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type: 'REINVEST',
+        message: `Successfully reinvested $${referralAmount.toFixed(2)} referral earnings to your balance`
+      }
+    })
+
+    res.json({
+      success: true,
+      reinvestedAmount: referralAmount,
+      newBalance: updatedUser.balance,
+      newReferralEarnings: updatedUser.referralEarnings,
+      newPlan: updatedUser.plan
+    })
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Create deposit invoice
+app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+    const { amount, currency } = req.body
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    if (!amount || amount < 10) {
+      return res.status(400).json({ error: 'Minimum deposit amount is $10' })
+    }
+
+    if (!currency) {
+      return res.status(400).json({ error: 'Currency is required' })
+    }
+
+    // Import OxaPay service
+    const { createInvoice } = await import('./oxapay.js')
+    
+    const invoice = await createInvoice({
+      amount,
+      currency,
+      description: `Deposit for ${user.username || user.telegramId}`
+    })
+
+    // Create deposit record
+    const deposit = await prisma.deposit.create({
+      data: {
+        userId: user.id,
+        amount,
+        status: 'PENDING',
+        currency,
+        txHash: invoice.trackId
+      }
+    })
+
+    res.json({
+      success: true,
+      depositId: deposit.id,
+      trackId: invoice.trackId,
+      payLink: invoice.payLink,
+      qrCode: invoice.qrCode,
+      address: invoice.address,
+      amount: invoice.amount
+    })
+  } catch (error: any) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: error.message || 'Internal server error' })
+  }
+})
+
+// Create withdrawal request
+app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+    const { amount, currency, address, network } = req.body
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    if (!amount || amount < 10) {
+      return res.status(400).json({ error: 'Minimum withdrawal amount is $10' })
+    }
+
+    if (amount > user.balance) {
+      return res.status(400).json({ error: 'Insufficient balance' })
+    }
+
+    if (!address || !currency) {
+      return res.status(400).json({ error: 'Address and currency are required' })
+    }
+
+    // Create withdrawal record
+    const withdrawal = await prisma.withdrawal.create({
+      data: {
+        userId: user.id,
+        amount,
+        status: 'PENDING',
+        currency,
+        address,
+        network: network || 'TRC20'
+      }
+    })
+
+    // If amount < 100, process automatically via OxaPay
+    if (amount < 100) {
+      try {
+        const { createPayout } = await import('./oxapay.js')
+        
+        const payout = await createPayout({
+          address,
+          amount,
+          currency,
+          network: network || 'TRC20'
+        })
+
+        // Update withdrawal with trackId
+        await prisma.withdrawal.update({
+          where: { id: withdrawal.id },
+          data: {
+            txHash: payout.trackId,
+            status: 'PROCESSING'
+          }
+        })
+
+        // Deduct from user balance
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            balance: user.balance - amount,
+            totalWithdraw: user.totalWithdraw + amount
+          }
+        })
+
+        res.json({
+          success: true,
+          withdrawalId: withdrawal.id,
+          trackId: payout.trackId,
+          status: 'PROCESSING',
+          message: 'Withdrawal is being processed automatically'
+        })
+      } catch (error: any) {
+        // Update withdrawal status to failed
+        await prisma.withdrawal.update({
+          where: { id: withdrawal.id },
+          data: { status: 'FAILED' }
+        })
+
+        throw error
+      }
+    } else {
+      // Amount >= 100, notify admin for manual processing
+      const { bot, ADMIN_ID } = await import('./index.js')
+      
+      await bot.api.sendMessage(
+        ADMIN_ID,
+        `🔔 *Withdrawal Request*\n\n` +
+        `👤 User: @${user.username || 'no_username'}\n` +
+        `💰 Amount: $${amount.toFixed(2)}\n` +
+        `💎 Currency: ${currency}\n` +
+        `🌐 Network: ${network || 'TRC20'}\n` +
+        `📍 Address: \`${address}\`\n\n` +
+        `⚠️ Manual approval required (amount >= $100)`,
+        { parse_mode: 'Markdown' }
+      )
+
+      res.json({
+        success: true,
+        withdrawalId: withdrawal.id,
+        status: 'PENDING',
+        message: 'Withdrawal request sent to admin for approval'
+      })
+    }
+  } catch (error: any) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: error.message || 'Internal server error' })
+  }
+})
+
+// Get transaction history
+app.get('/api/user/:telegramId/transactions', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId },
+      include: {
+        deposits: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        },
+        withdrawals: {
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        }
+      }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // Combine and sort transactions
+    const transactions = [
+      ...user.deposits.map((d: any) => ({
+        id: `deposit_${d.id}`,
+        type: 'DEPOSIT',
+        amount: d.amount,
+        currency: d.currency,
+        status: d.status,
+        address: d.txHash,
+        createdAt: d.createdAt
+      })),
+      ...user.withdrawals.map((w: any) => ({
+        id: `withdrawal_${w.id}`,
+        type: 'WITHDRAWAL',
+        amount: w.amount,
+        currency: w.currency,
+        status: w.status,
+        address: w.address,
+        createdAt: w.createdAt
+      }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    res.json({
+      transactions
     })
   } catch (error) {
     console.error('API Error:', error)
