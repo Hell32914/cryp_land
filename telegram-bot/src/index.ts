@@ -13,6 +13,51 @@ const bot = new Bot(process.env.BOT_TOKEN!)
 const ADMIN_ID = process.env.ADMIN_ID!
 const WEBAPP_URL = process.env.WEBAPP_URL!
 
+// Tariff plans configuration
+const TARIFF_PLANS = [
+  { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
+  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
+  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
+  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
+  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
+]
+
+// Calculate tariff plan based on balance
+function calculateTariffPlan(balance: number) {
+  const plan = TARIFF_PLANS.find(p => balance >= p.minDeposit && balance <= p.maxDeposit) || TARIFF_PLANS[0]
+  const nextPlan = TARIFF_PLANS[TARIFF_PLANS.indexOf(plan) + 1]
+  const leftUntilNext = nextPlan ? nextPlan.minDeposit - balance : 0
+  const progress = nextPlan 
+    ? ((balance - plan.minDeposit) / (nextPlan.minDeposit - plan.minDeposit)) * 100
+    : 100
+  
+  return {
+    currentPlan: plan.name,
+    dailyPercent: plan.dailyPercent,
+    nextPlan: nextPlan?.name || null,
+    leftUntilNext: leftUntilNext > 0 ? leftUntilNext : 0,
+    progress: Math.min(Math.max(progress, 0), 100)
+  }
+}
+
+// Update user plan based on balance
+async function updateUserPlan(userId: number) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) return
+
+  const planInfo = calculateTariffPlan(user.balance)
+  
+  if (user.plan !== planInfo.currentPlan) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { plan: planInfo.currentPlan }
+    })
+  }
+  
+  return planInfo
+}
+
 interface SessionData {
   awaitingInput?: string
   targetUserId?: number
@@ -49,17 +94,32 @@ bot.command('start', async (ctx) => {
     )
   }
 
+  // Update plan based on balance
+  const planInfo = await updateUserPlan(user.id)
+  const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
+
   const keyboard = new InlineKeyboard()
     .webApp('🚀 Open Syntrix', WEBAPP_URL)
 
-  await ctx.reply(
-    `👋 Welcome to Syntrix Bot!\n\n` +
-    `Your account: ${user.status}\n` +
-    `Balance: $${user.balance.toFixed(2)}\n` +
-    `Plan: ${user.plan}\n\n` +
-    `Click the button below to start trading:`,
-    { reply_markup: keyboard }
-  )
+  let welcomeMessage = `👋 *Welcome to Syntrix Bot!*\n\n`
+  welcomeMessage += `📊 Status: ${user.status.replace(/_/g, '\\_')}\n`
+  welcomeMessage += `💰 Balance: $${user.balance.toFixed(2)}\n`
+  welcomeMessage += `📈 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n\n`
+  
+  if (planInfo.nextPlan) {
+    welcomeMessage += `🎯 Progress to ${planInfo.nextPlan}:\n`
+    welcomeMessage += `${progressBar} ${planInfo.progress.toFixed(0)}%\n`
+    welcomeMessage += `💵 $${planInfo.leftUntilNext.toFixed(2)} left\n\n`
+  } else {
+    welcomeMessage += `🏆 Highest plan achieved!\n\n`
+  }
+  
+  welcomeMessage += `Click the button below to start trading:`
+
+  await ctx.reply(welcomeMessage, { 
+    reply_markup: keyboard,
+    parse_mode: 'Markdown'
+  })
 })
 
 bot.command('balance', async (ctx) => {
@@ -79,20 +139,35 @@ bot.command('balance', async (ctx) => {
     return
   }
 
-  let message = `💰 Your Balance: $${user.balance.toFixed(2)}\n\n`
-  message += `📊 Status: ${user.status}\n`
-  message += `📈 Plan: ${user.plan}\n`
+  // Update plan and get tariff info
+  const planInfo = await updateUserPlan(user.id)
+
+  // Create progress bar
+  const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
+
+  let message = `💰 *Your Balance:* $${user.balance.toFixed(2)}\n\n`
+  message += `📊 *Status:* ${user.status.replace(/_/g, '\\_')}\n`
+  message += `📈 *Current Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n\n`
+  
+  if (planInfo.nextPlan) {
+    message += `🎯 *Progress to ${planInfo.nextPlan}:*\n`
+    message += `${progressBar} ${planInfo.progress.toFixed(0)}%\n`
+    message += `💵 *$${planInfo.leftUntilNext.toFixed(2)} left until ${planInfo.nextPlan}*\n\n`
+  } else {
+    message += `🏆 *Congratulations! You have the highest plan!*\n\n`
+  }
+
   message += `💵 Total Deposited: $${user.totalDeposit.toFixed(2)}\n`
   message += `💸 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n`
 
   if (user.deposits.length > 0) {
-    message += `📥 Recent Deposits:\n`
+    message += `📥 *Recent Deposits:*\n`
     user.deposits.forEach(d => {
-      message += `  $${d.amount} - ${d.status} (${d.createdAt.toLocaleDateString()})\n`
+      message += `  • $${d.amount} - ${d.status} (${d.createdAt.toLocaleDateString()})\n`
     })
   }
 
-  await ctx.reply(message)
+  await ctx.reply(message, { parse_mode: 'Markdown' })
 })
 
 // ============= ADMIN COMMANDS =============
@@ -370,8 +445,22 @@ bot.on('message:text', async (ctx: MyContext) => {
       }
     })
 
+    // Update tariff plan based on new balance
+    const planInfo = await updateUserPlan(user.id)
+    const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
+
     // Notify user
-    const userMessage = `💰 *Balance Added!*\n\n+$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}`
+    let userMessage = `💰 *Balance Added!*\n\n+$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}\n\n`
+    userMessage += `📈 *Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n`
+    
+    if (planInfo.nextPlan) {
+      userMessage += `\n🎯 *Progress to ${planInfo.nextPlan}:*\n`
+      userMessage += `${progressBar} ${planInfo.progress.toFixed(0)}%\n`
+      userMessage += `💵 $${planInfo.leftUntilNext.toFixed(2)} left until ${planInfo.nextPlan}`
+    } else {
+      userMessage += `\n🏆 *You have the highest plan!*`
+    }
+    
     await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
     
     await prisma.notification.create({
