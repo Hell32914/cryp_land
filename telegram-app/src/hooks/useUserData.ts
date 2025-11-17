@@ -12,6 +12,13 @@ interface UserData {
   plan: string
   kycRequired: boolean
   isBlocked: boolean
+  planProgress: {
+    currentPlan: string
+    dailyPercent: number
+    nextPlan: string | null
+    leftUntilNext: number
+    progress: number
+  }
   deposits: Array<{
     amount: number
     status: string

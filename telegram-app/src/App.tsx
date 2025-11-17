@@ -598,10 +598,20 @@ function App() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="h-12 rounded border-2 border-accent flex items-center justify-center bg-background">
-                      <span className="text-foreground font-bold">0%</span>
+                    <div className="h-12 rounded border-2 border-accent overflow-hidden bg-background relative">
+                      <div 
+                        className="h-full bg-accent/20 transition-all duration-500"
+                        style={{ width: `${userData?.planProgress?.progress || 0}%` }}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center text-foreground font-bold">
+                        {userData?.planProgress?.progress?.toFixed(0) || 0}%
+                      </span>
                     </div>
-                    <p className="text-center text-foreground font-bold">$0.00 / $10</p>
+                    <p className="text-center text-foreground font-bold">
+                      {userData?.planProgress?.nextPlan 
+                        ? `$${userData.planProgress.leftUntilNext.toFixed(2)} left until ${userData.planProgress.nextPlan}`
+                        : '🏆 Highest plan!'}
+                    </p>
                   </div>
 
                   <Button 
