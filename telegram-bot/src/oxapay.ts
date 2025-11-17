@@ -1,6 +1,9 @@
 import axios from 'axios'
+import dotenv from 'dotenv'
 
-const OXAPAY_API_KEY = 'HB7C0E-DIYI2B-P97EK0-YHMVBS'
+dotenv.config()
+
+const OXAPAY_API_KEY = process.env.OXAPAY_API_KEY || ''
 const OXAPAY_BASE_URL = 'https://api.oxapay.com'
 
 export interface CreateInvoiceParams {
@@ -35,6 +38,10 @@ export interface CreatePayoutResponse {
 
 // Create payment invoice (deposit)
 export async function createInvoice(params: CreateInvoiceParams): Promise<CreateInvoiceResponse> {
+  if (!OXAPAY_API_KEY || OXAPAY_API_KEY === 'YOUR_OXAPAY_API_KEY_HERE') {
+    throw new Error('OxaPay API key is not configured. Please add OXAPAY_API_KEY to .env file')
+  }
+
   try {
     const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/request`, {
       merchant: OXAPAY_API_KEY,
@@ -68,6 +75,10 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<Create
 
 // Create payout (withdrawal)
 export async function createPayout(params: CreatePayoutParams): Promise<CreatePayoutResponse> {
+  if (!OXAPAY_API_KEY || OXAPAY_API_KEY === 'YOUR_OXAPAY_API_KEY_HERE') {
+    throw new Error('OxaPay API key is not configured. Please add OXAPAY_API_KEY to .env file')
+  }
+
   try {
     const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/payout`, {
       merchant: OXAPAY_API_KEY,
