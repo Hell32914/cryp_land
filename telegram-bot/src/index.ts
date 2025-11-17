@@ -686,6 +686,147 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   await ctx.answerCallbackQuery()
 })
 
+// Approve withdrawal
+bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const withdrawalId = parseInt(ctx.match![1])
+  
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      include: { user: true }
+    })
+
+    if (!withdrawal) {
+      await ctx.answerCallbackQuery('❌ Withdrawal not found')
+      return
+    }
+
+    if (withdrawal.status !== 'PENDING') {
+      await ctx.answerCallbackQuery(`❌ Withdrawal already ${withdrawal.status}`)
+      return
+    }
+
+    // Try to process via OxaPay
+    try {
+      const { createPayout } = await import('./oxapay.js')
+      
+      const payout = await createPayout({
+        address: withdrawal.address,
+        amount: withdrawal.amount,
+        currency: withdrawal.currency,
+        network: withdrawal.network
+      })
+
+      // Update withdrawal status
+      await prisma.withdrawal.update({
+        where: { id: withdrawalId },
+        data: {
+          status: 'PROCESSING',
+          txHash: payout.trackId
+        }
+      })
+
+      // Deduct from user balance
+      await prisma.user.update({
+        where: { id: withdrawal.userId },
+        data: {
+          balance: { decrement: withdrawal.amount },
+          totalWithdraw: { increment: withdrawal.amount }
+        }
+      })
+
+      // Notify user
+      await bot.api.sendMessage(
+        withdrawal.user.telegramId,
+        `✅ *Withdrawal Approved*\n\n` +
+        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💎 Currency: ${withdrawal.currency}\n` +
+        `🌐 Network: ${withdrawal.network}\n` +
+        `📍 Address: \`${withdrawal.address}\`\n\n` +
+        `⏳ Processing... Track ID: ${payout.trackId}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      await ctx.editMessageText(
+        ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & PROCESSED*\n' +
+        `🔗 Track ID: ${payout.trackId}`,
+        { parse_mode: 'Markdown' }
+      )
+      await ctx.answerCallbackQuery('✅ Withdrawal approved and processing')
+
+    } catch (error: any) {
+      // If OxaPay fails, mark as pending and ask admin to process manually
+      await ctx.answerCallbackQuery('⚠️ OxaPay error. Please process manually.')
+      await ctx.editMessageText(
+        ctx.callbackQuery.message!.text + '\n\n⚠️ *OxaPay Error*\n' +
+        `Error: ${error.message}\n\n` +
+        `Please process this withdrawal manually and then update status.`,
+        { parse_mode: 'Markdown' }
+      )
+    }
+  } catch (error) {
+    console.error('Error approving withdrawal:', error)
+    await ctx.answerCallbackQuery('❌ Error processing withdrawal')
+  }
+})
+
+// Reject withdrawal
+bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const withdrawalId = parseInt(ctx.match![1])
+  
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      include: { user: true }
+    })
+
+    if (!withdrawal) {
+      await ctx.answerCallbackQuery('❌ Withdrawal not found')
+      return
+    }
+
+    if (withdrawal.status !== 'PENDING') {
+      await ctx.answerCallbackQuery(`❌ Withdrawal already ${withdrawal.status}`)
+      return
+    }
+
+    // Update withdrawal status to rejected
+    await prisma.withdrawal.update({
+      where: { id: withdrawalId },
+      data: { status: 'REJECTED' }
+    })
+
+    // Notify user
+    await bot.api.sendMessage(
+      withdrawal.user.telegramId,
+      `❌ *Withdrawal Rejected*\n\n` +
+      `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+      `💎 Currency: ${withdrawal.currency}\n\n` +
+      `Your balance remains unchanged. Please contact support for more information.`,
+      { parse_mode: 'Markdown' }
+    )
+
+    await ctx.editMessageText(
+      ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED*',
+      { parse_mode: 'Markdown' }
+    )
+    await ctx.answerCallbackQuery('❌ Withdrawal rejected')
+  } catch (error) {
+    console.error('Error rejecting withdrawal:', error)
+    await ctx.answerCallbackQuery('❌ Error rejecting withdrawal')
+  }
+})
+
 // Generate random profit updates throughout the day
 function generateDailyUpdates(totalProfit: number): { amount: number, timestamp: Date }[] {
   const updates: { amount: number, timestamp: Date }[] = []

@@ -442,13 +442,24 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       await bot.api.sendMessage(
         ADMIN_ID,
         `🔔 *Withdrawal Request*\n\n` +
-        `👤 User: @${user.username || 'no_username'}\n` +
+        `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
         `💰 Amount: $${amount.toFixed(2)}\n` +
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +
         `📍 Address: \`${address}\`\n\n` +
-        `⚠️ Manual approval required (amount >= $100)`,
-        { parse_mode: 'Markdown' }
+        `⚠️ Manual approval required (amount >= $100)\n` +
+        `🆔 Withdrawal ID: ${withdrawal.id}`,
+        { 
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Approve & Process', callback_data: `approve_withdrawal_${withdrawal.id}` },
+                { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
+              ]
+            ]
+          }
+        }
       )
 
       res.json({
