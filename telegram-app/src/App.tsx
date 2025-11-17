@@ -1256,8 +1256,43 @@ function App() {
               </div>
 
               <div className="bg-card rounded-lg p-6">
-                <h3 className="text-lg font-bold text-foreground mb-4 tracking-wide">{t.dailyUpdate}</h3>
-                <p className="text-center text-muted-foreground py-8">{t.noEarningsData}</p>
+                <h3 className="text-lg font-bold text-foreground mb-4 tracking-wide uppercase">{t.dailyUpdate}</h3>
+                {userData?.lastProfitUpdate ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg border border-accent/20">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Last Profit Accrual</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {new Date(userData.lastProfitUpdate).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground mb-1">Daily Profit</p>
+                        <p className="text-lg font-bold text-accent">
+                          +${((userData.balance * (userData.planProgress?.dailyPercent || 0)) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="p-3 bg-secondary/50 rounded">
+                        <p className="text-muted-foreground text-xs mb-1">Plan</p>
+                        <p className="font-semibold text-foreground">{userData.planProgress?.currentPlan}</p>
+                      </div>
+                      <div className="p-3 bg-secondary/50 rounded">
+                        <p className="text-muted-foreground text-xs mb-1">Rate</p>
+                        <p className="font-semibold text-foreground">{userData.planProgress?.dailyPercent}% daily</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">{t.noEarningsData}</p>
+                )}
               </div>
             </div>
           )}
