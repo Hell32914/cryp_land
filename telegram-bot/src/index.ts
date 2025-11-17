@@ -423,11 +423,18 @@ bot.on('message:text', async (ctx) => {
       return
     }
 
+    // Get current user to check status
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } })
+    const newBalance = (currentUser?.balance || 0) + amount
+    const shouldActivate = currentUser?.status === 'INACTIVE' && newBalance >= 10
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         balance: { increment: amount },
-        totalDeposit: { increment: amount }
+        totalDeposit: { increment: amount },
+        // Activate profile if balance >= $10 and currently inactive
+        ...(shouldActivate && { status: 'ACTIVE' })
       }
     })
 
@@ -448,6 +455,13 @@ bot.on('message:text', async (ctx) => {
 
     // Notify user
     let userMessage = `💰 *Balance Added!*\n\n+$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}\n\n`
+    
+    // Add activation message if account was just activated
+    if (shouldActivate) {
+      userMessage += `🎉 *Account Activated!*\n\n`
+      userMessage += `You can now start earning daily profits!\n\n`
+    }
+    
     userMessage += `📈 *Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n`
     
     if (planInfo.nextPlan) {
