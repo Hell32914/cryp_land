@@ -1088,6 +1088,32 @@ function App() {
                     {t.website}
                   </Button>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                  >
+                    FAQ
+                  </Button>
+                  <Button 
+                    className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                  >
+                    Whitepaper
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                  >
+                    Security
+                  </Button>
+                  <Button 
+                    className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                  >
+                    Advantages
+                  </Button>
+                </div>
               </div>
 
               <div className="relative overflow-hidden rounded-lg bg-black p-8 mt-6">
