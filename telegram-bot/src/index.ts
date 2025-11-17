@@ -1,7 +1,12 @@
-import { Bot, Context, InlineKeyboard } from 'grammy'
+import { Bot, Context, InlineKeyboard, InputFile } from 'grammy'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
 import { startApiServer, stopApiServer } from './api.js'
+import * as path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'KYC_REQUIRED' | 'BLOCKED'
 type TransactionStatus = 'PENDING' | 'COMPLETED' | 'REJECTED'
@@ -200,83 +205,36 @@ bot.command('start', async (ctx) => {
     // Referral will be activated when user reaches $1000 deposit
   }
 
-  // Update plan based on balance
-  await updateUserPlan(user.id)
-  const planInfo = calculateTariffPlan(user.balance)
-  const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
-
   const keyboard = new InlineKeyboard()
     .webApp('🚀 Open Syntrix', WEBAPP_URL)
 
-  let welcomeMessage = `👋 *Welcome to Syntrix Bot!*\n\n`
-  welcomeMessage += `📊 Status: ${user.status.replace(/_/g, '\\_')}\n`
-  welcomeMessage += `💰 Balance: $${user.balance.toFixed(2)}\n`
-  welcomeMessage += `📈 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n\n`
-  
-  if (planInfo.nextPlan) {
-    welcomeMessage += `🎯 Progress to ${planInfo.nextPlan}:\n`
-    welcomeMessage += `${progressBar} ${planInfo.progress.toFixed(0)}%\n`
-    welcomeMessage += `💵 $${planInfo.leftUntilNext.toFixed(2)} left\n\n`
-  } else {
-    welcomeMessage += `🏆 Highest plan achieved!\n\n`
-  }
-  
-  welcomeMessage += `Click the button below to start trading:`
+  const welcomeMessage = 
+    `*Welcome to SyntrixBot\\!*\n\n` +
+    `*\\[ Profits are no longer random \\]*\n\n` +
+    `⮕ Start your crypto trading journey with our automated bot\n` +
+    `⮕ Earn up to 17% daily from your investments\n` +
+    `⮕ Track your performance in real\\-time\n\n` +
+    `Click the button below to open the trading platform: 👇🏽`
 
-  await ctx.reply(welcomeMessage, { 
-    reply_markup: keyboard,
-    parse_mode: 'Markdown'
-  })
-})
-
-bot.command('balance', async (ctx) => {
-  const telegramId = ctx.from?.id.toString()
-  if (!telegramId) return
-
-  const user = await prisma.user.findUnique({
-    where: { telegramId },
-    include: {
-      deposits: { orderBy: { createdAt: 'desc' }, take: 5 },
-      withdrawals: { orderBy: { createdAt: 'desc' }, take: 5 }
-    }
-  })
-
-  if (!user) {
-    await ctx.reply('Please /start the bot first')
-    return
-  }
-
-  // Update plan and get tariff info
-  await updateUserPlan(user.id)
-  const planInfo = calculateTariffPlan(user.balance)
-
-  // Create progress bar
-  const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
-
-  let message = `💰 *Your Balance:* $${user.balance.toFixed(2)}\n\n`
-  message += `📊 *Status:* ${user.status.replace(/_/g, '\\_')}\n`
-  message += `📈 *Current Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n\n`
-  
-  if (planInfo.nextPlan) {
-    message += `🎯 *Progress to ${planInfo.nextPlan}:*\n`
-    message += `${progressBar} ${planInfo.progress.toFixed(0)}%\n`
-    message += `💵 *$${planInfo.leftUntilNext.toFixed(2)} left until ${planInfo.nextPlan}*\n\n`
-  } else {
-    message += `🏆 *Congratulations! You have the highest plan!*\n\n`
-  }
-
-  message += `💵 Total Deposited: $${user.totalDeposit.toFixed(2)}\n`
-  message += `💸 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n`
-
-  if (user.deposits.length > 0) {
-    message += `📥 *Recent Deposits:*\n`
-    user.deposits.forEach(d => {
-      message += `  • $${d.amount} - ${d.status} (${d.createdAt.toLocaleDateString()})\n`
+  try {
+    // Path to logo: go up two directories from dist/index.js to project root
+    const logoPath = path.join(__dirname, '..', '..', 'logo.jpg')
+    await ctx.replyWithPhoto(new InputFile(logoPath), {
+      caption: welcomeMessage,
+      reply_markup: keyboard,
+      parse_mode: 'MarkdownV2'
+    })
+  } catch (error) {
+    console.error('Failed to send logo:', error)
+    // Fallback if photo fails
+    await ctx.reply(welcomeMessage, {
+      reply_markup: keyboard,
+      parse_mode: 'MarkdownV2'
     })
   }
-
-  await ctx.reply(message, { parse_mode: 'Markdown' })
 })
+
+// Removed /balance command - all info now in mini app
 
 // ============= ADMIN COMMANDS =============
 
@@ -719,7 +677,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
         address: withdrawal.address,
         amount: withdrawal.amount,
         currency: withdrawal.currency,
-        network: withdrawal.network
+        network: withdrawal.network || 'TRC20'
       })
 
       // Update withdrawal status
@@ -760,12 +718,44 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       await ctx.answerCallbackQuery('✅ Withdrawal approved and processing')
 
     } catch (error: any) {
-      // If OxaPay fails, mark as pending and ask admin to process manually
-      await ctx.answerCallbackQuery('⚠️ OxaPay error. Please process manually.')
+      // If OxaPay fails, mark as COMPLETED (admin approved manually)
+      console.error('OxaPay payout error:', error.response?.data || error.message)
+      
+      await prisma.withdrawal.update({
+        where: { id: withdrawalId },
+        data: {
+          status: 'COMPLETED',
+          txHash: 'MANUAL_PROCESSING'
+        }
+      })
+
+      // Deduct from user balance
+      await prisma.user.update({
+        where: { id: withdrawal.userId },
+        data: {
+          balance: { decrement: withdrawal.amount },
+          totalWithdraw: { increment: withdrawal.amount }
+        }
+      })
+
+      // Notify user
+      await bot.api.sendMessage(
+        withdrawal.user.telegramId,
+        `✅ *Withdrawal Approved*\n\n` +
+        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💎 Currency: ${withdrawal.currency}\n` +
+        `🌐 Network: ${withdrawal.network}\n` +
+        `📍 Address: \`${withdrawal.address}\`\n\n` +
+        `⏳ Your withdrawal is being processed manually by admin.`,
+        { parse_mode: 'Markdown' }
+      )
+      
+      await ctx.answerCallbackQuery('✅ Approved for manual processing')
       await ctx.editMessageText(
-        ctx.callbackQuery.message!.text + '\n\n⚠️ *OxaPay Error*\n' +
-        `Error: ${error.message}\n\n` +
-        `Please process this withdrawal manually and then update status.`,
+        ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing)*\n' +
+        `OxaPay Error: ${error.message}\n` +
+        `Status: Marked as COMPLETED, balance deducted.\n` +
+        `Please process the payout manually.`,
         { parse_mode: 'Markdown' }
       )
     }
@@ -800,10 +790,10 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    // Update withdrawal status to rejected
+    // Update withdrawal status to failed (rejected by admin)
     await prisma.withdrawal.update({
       where: { id: withdrawalId },
-      data: { status: 'REJECTED' }
+      data: { status: 'FAILED' }
     })
 
     // Notify user
