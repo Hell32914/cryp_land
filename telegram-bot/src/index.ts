@@ -223,9 +223,9 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `👤 *User Details*\n\n` +
-    `Username: @${user.username || 'no_username'}\n` +
+    `Username: @${user.username || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
-    `Status: ${statusEmoji} ${user.status}\n\n` +
+    `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
     `💰 Balance: $${user.balance.toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
     `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
@@ -297,9 +297,9 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `👤 *User Details*\n\n` +
-    `Username: @${user.username || 'no_username'}\n` +
+    `Username: @${user.username || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
-    `Status: ${statusEmoji} ${user.status}\n\n` +
+    `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
     `💰 Balance: $${user.balance.toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
     `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
