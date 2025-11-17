@@ -611,10 +611,8 @@ function App() {
                         {userData?.planProgress?.progress?.toFixed(0) || 0}%
                       </span>
                     </div>
-                    <p className="text-center text-foreground font-bold">
-                      {userData?.planProgress?.nextPlan 
-                        ? `$${userData.planProgress.leftUntilNext.toFixed(2)} left until ${userData.planProgress.nextPlan}`
-                        : '🏆 Highest plan!'}
+                    <p className="text-center text-foreground font-semibold">
+                      {userData?.planProgress?.currentPlan || userProfile.plan} ({userData?.planProgress?.dailyPercent || 0}% daily)
                     </p>
                   </div>
 
