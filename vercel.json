@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd telegram-app && npm install && npm run build",
+  "outputDirectory": "telegram-app/dist",
+  "installCommand": "cd telegram-app && npm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
