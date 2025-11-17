@@ -1,6 +1,7 @@
 import { Bot, Context, InlineKeyboard, session, SessionFlavor } from 'grammy'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { startApiServer, stopApiServer } from './api.js'
 
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'KYC_REQUIRED' | 'BLOCKED'
 type TransactionStatus = 'PENDING' | 'COMPLETED' | 'REJECTED'
@@ -472,18 +473,29 @@ bot.catch((err) => {
   console.error('Bot error:', err)
 })
 
-// Start bot
+// Start bot and API server
 console.log('🤖 Syntrix Bot starting...')
+startApiServer()
+console.log('✅ Starting Grammy bot...')
 bot.start()
+  .then(() => console.log('✅ Bot started successfully'))
+  .catch((err) => {
+    console.error('❌ Bot start error:', err)
+    process.exit(1)
+  })
 
 // Graceful shutdown
-process.once('SIGINT', () => {
-  console.log('Bot stopping...')
-  bot.stop()
-  prisma.$disconnect()
+process.once('SIGINT', async () => {
+  console.log('🛑 Bot stopping (SIGINT)...')
+  await bot.stop()
+  stopApiServer()
+  await prisma.$disconnect()
+  process.exit(0)
 })
-process.once('SIGTERM', () => {
-  console.log('Bot stopping...')
-  bot.stop()
-  prisma.$disconnect()
+process.once('SIGTERM', async () => {
+  console.log('🛑 Bot stopping (SIGTERM)...')
+  await bot.stop()
+  stopApiServer()
+  await prisma.$disconnect()
+  process.exit(0)
 })

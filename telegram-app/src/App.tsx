@@ -10,6 +10,7 @@ import { toast, Toaster } from 'sonner'
 import { useKV } from '@github/spark/hooks'
 import { translations, type Language } from '@/lib/translations'
 import { AnimatedBackground } from '@/components/AnimatedBackground'
+import { useUserData } from '@/hooks/useUserData'
 
 type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'profile'
 
@@ -30,6 +31,12 @@ function App() {
   const [selectedLanguage, setSelectedLanguage] = useKV<Language>('app-language', 'ENGLISH')
   
   const t = translations[selectedLanguage || 'ENGLISH']
+
+  // Get Telegram user ID (fallback to 503856039 for local testing)
+  const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
+  
+  // Fetch real user data from bot API
+  const { userData, loading, error, refreshData } = useUserData(telegramUserId)
 
   useEffect(() => {
     document.title = t.appTitle
@@ -54,11 +61,17 @@ function App() {
     return () => document.removeEventListener('focusin', handleFocus)
   }, [])
 
+  // User profile with real data from bot API
   const userProfile = {
-    id: '503856039',
-    nickname: 'dnscxrbl',
-    plan: 'Basic',
-    status: 'Inactive'
+    id: userData?.id || telegramUserId || '503856039',
+    nickname: userData?.nickname || window.Telegram?.WebApp?.initDataUnsafe?.user?.username || 'User',
+    plan: userData?.plan || 'Bronze',
+    status: userData?.status || 'INACTIVE',
+    balance: userData?.balance || 0,
+    totalDeposit: userData?.totalDeposit || 0,
+    totalWithdraw: userData?.totalWithdraw || 0,
+    isBlocked: userData?.isBlocked || false,
+    kycRequired: userData?.kycRequired || false
   }
 
   const tariffPlans = [
@@ -165,6 +178,41 @@ function App() {
     return names[lang]
   }
 
+  // Show loading state
+  if (loading) {
+    return (
+      <>
+        <AnimatedBackground />
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-foreground/70">Loading user data...</p>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <>
+        <AnimatedBackground />
+        <Toaster />
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="text-destructive text-5xl">⚠️</div>
+            <h2 className="text-xl font-bold text-foreground">Connection Error</h2>
+            <p className="text-foreground/70">{error}</p>
+            <Button onClick={refreshData} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Retry
+            </Button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <AnimatedBackground />
@@ -204,7 +252,7 @@ function App() {
             </h2>
 
             <p className="text-foreground text-sm sm:text-base">
-              {t.availableBalance} <span className="font-bold text-primary">$0.00</span>
+              {t.availableBalance} <span className="font-bold text-primary">${userProfile.balance.toFixed(2)}</span>
             </p>
 
             <div className="space-y-2">
@@ -486,20 +534,20 @@ function App() {
                   <div className="flex items-start justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.totalBalance}</p>
-                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ 0.00</p>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {userProfile.balance.toFixed(2)}</p>
                     </div>
                     <Badge 
                       variant="outline" 
-                      className="border-destructive text-destructive bg-destructive/10 px-3 py-1 rounded-lg text-xs"
+                      className={userProfile.status === 'ACTIVE' ? 'border-green-500 text-green-500 bg-green-500/10 px-3 py-1 rounded-lg text-xs' : 'border-destructive text-destructive bg-destructive/10 px-3 py-1 rounded-lg text-xs'}
                     >
-                      • {t.inactive}
+                      • {userProfile.status === 'ACTIVE' ? 'Active' : userProfile.status === 'BLOCKED' ? 'Blocked' : userProfile.status === 'KYC_REQUIRED' ? 'KYC Required' : t.inactive}
                     </Badge>
                   </div>
 
                   <div className="flex items-center justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.profit}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">$0.00</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">${(userProfile.balance - userProfile.totalDeposit + userProfile.totalWithdraw).toFixed(2)}</p>
                     </div>
                     <Button 
                       className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
@@ -511,7 +559,7 @@ function App() {
                   <div className="flex items-center justify-between pb-3">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.deposit}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">$0.00</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">${userProfile.totalDeposit.toFixed(2)}</p>
                     </div>
                     <Button 
                       className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
@@ -621,7 +669,7 @@ function App() {
                   </h2>
 
                   <div className="space-y-4">
-                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">$0.00</span></p>
+                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">${userProfile.balance.toFixed(2)}</span></p>
                     
                     <Button 
                       className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6 text-base"
