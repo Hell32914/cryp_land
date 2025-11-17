@@ -587,7 +587,11 @@ function App() {
 
                 <div className="relative space-y-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-foreground font-bold">$10.00 {t.leftUntilBronze}</p>
+                    <p className="text-foreground font-bold">
+                      {userData?.planProgress?.nextPlan 
+                        ? `$${userData.planProgress.leftUntilNext.toFixed(2)} left until ${userData.planProgress.nextPlan}`
+                        : '🏆 Highest plan achieved!'}
+                    </p>
                     <Button 
                       variant="ghost" 
                       size="icon"
