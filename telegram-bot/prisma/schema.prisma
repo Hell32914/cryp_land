@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  telegramId    String        @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  status        UserStatus    @default(INACTIVE)
+  balance       Float         @default(0)
+  totalDeposit  Float         @default(0)
+  totalWithdraw Float         @default(0)
+  plan          String        @default("Bronze")
+  kycRequired   Boolean       @default(false)
+  isBlocked     Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  deposits      Deposit[]
+  withdrawals   Withdrawal[]
+  notifications Notification[]
+}
+
+model Deposit {
+  id          Int            @id @default(autoincrement())
+  userId      Int
+  user        User           @relation(fields: [userId], references: [id])
+  amount      Float
+  status      TransactionStatus @default(PENDING)
+  currency    String         @default("USDT")
+  network     String?
+  txHash      String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Withdrawal {
+  id          Int            @id @default(autoincrement())
+  userId      Int
+  user        User           @relation(fields: [userId], references: [id])
+  amount      Float
+  status      TransactionStatus @default(PENDING)
+  currency    String         @default("USDT")
+  network     String?
+  address     String
+  txHash      String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  KYC_REQUIRED
+  BLOCKED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+}
