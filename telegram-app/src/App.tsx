@@ -23,6 +23,10 @@ function App() {
   const [languageOpen, setLanguageOpen] = useState(false)
   const [depositOpen, setDepositOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [faqOpen, setFaqOpen] = useState(false)
+  const [whitepaperOpen, setWhitepaperOpen] = useState(false)
+  const [securityOpen, setSecurityOpen] = useState(false)
+  const [advantagesOpen, setAdvantagesOpen] = useState(false)
   const [selectedCurrency, setSelectedCurrency] = useState('')
   const [selectedNetwork, setSelectedNetwork] = useState('')
   const [depositAmountInput, setDepositAmountInput] = useState('')
@@ -481,6 +485,130 @@ function App() {
                 {getLanguageDisplayName(language)}
               </Button>
             ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={faqOpen} onOpenChange={setFaqOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
+              FAQ
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-foreground">
+            <div>
+              <h3 className="font-bold text-accent mb-2">What is Syntrix?</h3>
+              <p className="text-muted-foreground">Syntrix is an advanced AI-powered trading platform that provides automated cryptocurrency trading solutions with daily returns based on your investment tier.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">How do the tariff plans work?</h3>
+              <p className="text-muted-foreground">We offer 6 tier plans from Bronze to Black, each with increasing daily return percentages. The more you invest, the higher your daily earnings percentage.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">Is my investment safe?</h3>
+              <p className="text-muted-foreground">We use industry-leading security measures including cold wallet storage, multi-signature transactions, and 24/7 monitoring to protect your funds.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">How do I withdraw my funds?</h3>
+              <p className="text-muted-foreground">You can withdraw your funds at any time through the Wallet section. Simply enter the amount and your wallet address, and we'll process your withdrawal within 24 hours.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={whitepaperOpen} onOpenChange={setWhitepaperOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
+              Whitepaper
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-foreground">
+            <div>
+              <h3 className="font-bold text-accent mb-2">1. Introduction</h3>
+              <p className="text-muted-foreground">Syntrix leverages cutting-edge artificial intelligence and machine learning algorithms to analyze cryptocurrency markets and execute profitable trades 24/7.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">2. Technology Stack</h3>
+              <p className="text-muted-foreground">Our platform is built on advanced neural networks trained on years of market data, enabling predictive analysis and automated decision-making.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">3. Revenue Model</h3>
+              <p className="text-muted-foreground">Daily returns are generated through algorithmic trading strategies across multiple exchanges, with profits distributed to investors based on their tier level.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">4. Risk Management</h3>
+              <p className="text-muted-foreground">We employ sophisticated risk management protocols including stop-loss mechanisms, portfolio diversification, and market volatility analysis.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
+              Security
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-foreground">
+            <div>
+              <h3 className="font-bold text-accent mb-2">🔒 Cold Wallet Storage</h3>
+              <p className="text-muted-foreground">95% of user funds are stored in offline cold wallets, protecting against online threats and hacking attempts.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">🛡️ Multi-Signature Protection</h3>
+              <p className="text-muted-foreground">All transactions require multiple approvals through our multi-signature wallet system, preventing unauthorized access.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">🔐 End-to-End Encryption</h3>
+              <p className="text-muted-foreground">All communications and data transfers are protected with military-grade AES-256 encryption.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">👁️ 24/7 Monitoring</h3>
+              <p className="text-muted-foreground">Our security team monitors the platform around the clock, with automated alerts for suspicious activities.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">✅ KYC Verification</h3>
+              <p className="text-muted-foreground">We implement Know Your Customer procedures to prevent fraud and ensure platform integrity.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={advantagesOpen} onOpenChange={setAdvantagesOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
+              Advantages
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-foreground">
+            <div>
+              <h3 className="font-bold text-accent mb-2">🤖 AI-Powered Trading</h3>
+              <p className="text-muted-foreground">Advanced algorithms analyze markets 24/7, making data-driven decisions faster than any human trader.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">💰 Daily Returns</h3>
+              <p className="text-muted-foreground">Earn passive income daily with returns ranging from 0.5% to 7% depending on your investment tier.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">📱 Mobile-First Platform</h3>
+              <p className="text-muted-foreground">Trade and manage your investments seamlessly through our Telegram Mini App, accessible anywhere, anytime.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">🎯 No Experience Required</h3>
+              <p className="text-muted-foreground">Our AI handles all trading decisions. Simply invest and watch your portfolio grow automatically.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">🌐 Global Access</h3>
+              <p className="text-muted-foreground">Accept multiple cryptocurrencies and provide instant withdrawals to users worldwide.</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-accent mb-2">🎁 Referral Program</h3>
+              <p className="text-muted-foreground">Earn additional income by inviting friends. Get commissions from their investments automatically.</p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1092,11 +1220,13 @@ function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                    onClick={() => setFaqOpen(true)}
                   >
                     FAQ
                   </Button>
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                    onClick={() => setWhitepaperOpen(true)}
                   >
                     Whitepaper
                   </Button>
@@ -1105,11 +1235,13 @@ function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                    onClick={() => setSecurityOpen(true)}
                   >
                     Security
                   </Button>
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
+                    onClick={() => setAdvantagesOpen(true)}
                   >
                     Advantages
                   </Button>
