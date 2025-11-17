@@ -557,6 +557,46 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   await ctx.answerCallbackQuery()
 })
 
+// Daily profit accrual function
+async function accrueDailyProfit() {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        status: 'ACTIVE',
+        balance: { gt: 0 }
+      }
+    })
+
+    for (const user of users) {
+      const planInfo = calculateTariffPlan(user.balance)
+      const dailyProfit = (user.balance * planInfo.dailyPercent) / 100
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          profit: user.profit + dailyProfit,
+          lastProfitUpdate: new Date()
+        }
+      })
+
+      console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%)`)
+    }
+
+    console.log(`✅ Daily profit accrual completed for ${users.length} users`)
+  } catch (error) {
+    console.error('❌ Error accruing daily profit:', error)
+  }
+}
+
+// Run daily profit accrual every 24 hours
+setInterval(accrueDailyProfit, 24 * 60 * 60 * 1000)
+
+// Also run on startup (for testing)
+setTimeout(() => {
+  console.log('🔄 Running initial profit accrual...')
+  accrueDailyProfit()
+}, 5000)
+
 // Error handling
 bot.catch((err) => {
   console.error('Bot error:', err)

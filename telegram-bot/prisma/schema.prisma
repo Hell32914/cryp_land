@@ -11,24 +11,26 @@ datasource db {
 }
 
 model User {
-  id            Int           @id @default(autoincrement())
-  telegramId    String        @unique
-  username      String?
-  firstName     String?
-  lastName      String?
-  status        String        @default("INACTIVE")
-  balance       Float         @default(0)
-  totalDeposit  Float         @default(0)
-  totalWithdraw Float         @default(0)
-  plan          String        @default("Bronze")
-  kycRequired   Boolean       @default(false)
-  isBlocked     Boolean       @default(false)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id                Int           @id @default(autoincrement())
+  telegramId        String        @unique
+  username          String?
+  firstName         String?
+  lastName          String?
+  status            String        @default("INACTIVE")
+  balance           Float         @default(0)
+  profit            Float         @default(0)
+  totalDeposit      Float         @default(0)
+  totalWithdraw     Float         @default(0)
+  plan              String        @default("Bronze")
+  kycRequired       Boolean       @default(false)
+  isBlocked         Boolean       @default(false)
+  lastProfitUpdate  DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
   
-  deposits      Deposit[]
-  withdrawals   Withdrawal[]
-  notifications Notification[]
+  deposits          Deposit[]
+  withdrawals       Withdrawal[]
+  notifications     Notification[]
 }
 
 model Deposit {

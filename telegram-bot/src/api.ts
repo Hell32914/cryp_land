@@ -68,11 +68,13 @@ app.get('/api/user/:telegramId', async (req, res) => {
       nickname: user.username || user.firstName || 'User',
       status: user.status,
       balance: user.balance,
+      profit: user.profit || 0,
       totalDeposit: user.totalDeposit,
       totalWithdraw: user.totalWithdraw,
       plan: user.plan,
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,
+      lastProfitUpdate: user.lastProfitUpdate,
       planProgress: {
         currentPlan: planProgress.currentPlan,
         dailyPercent: planProgress.dailyPercent,
@@ -120,6 +122,58 @@ app.get('/api/user/:telegramId/notifications', async (req, res) => {
     })
 
     res.json(notifications)
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Reinvest profit to balance
+app.post('/api/user/:telegramId/reinvest', async (req, res) => {
+  try {
+    const { telegramId } = req.params
+    
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    if (user.profit <= 0) {
+      return res.status(400).json({ error: 'No profit to reinvest' })
+    }
+
+    const profitAmount = user.profit
+
+    // Move profit to balance and reset profit
+    const updatedUser = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        balance: user.balance + profitAmount,
+        totalDeposit: user.totalDeposit + profitAmount,
+        profit: 0,
+        plan: calculatePlanProgress(user.balance + profitAmount).currentPlan
+      }
+    })
+
+    // Create notification
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type: 'REINVEST',
+        message: `Successfully reinvested $${profitAmount.toFixed(2)} to your balance`
+      }
+    })
+
+    res.json({
+      success: true,
+      reinvestedAmount: profitAmount,
+      newBalance: updatedUser.balance,
+      newProfit: updatedUser.profit,
+      newPlan: updatedUser.plan
+    })
   } catch (error) {
     console.error('API Error:', error)
     res.status(500).json({ error: 'Internal server error' })

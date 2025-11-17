@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "profit" REAL NOT NULL DEFAULT 0;
+ALTER TABLE "User" ADD COLUMN "lastProfitUpdate" DATETIME;
