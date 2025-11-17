@@ -523,7 +523,7 @@ function App() {
               </div>
 
               <div className="bg-card rounded-lg p-6 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0 opacity-5 pointer-events-none">
                   <svg className="w-full h-full">
                     <pattern id="circuit-home" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
                       <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-primary"/>
@@ -574,7 +574,7 @@ function App() {
           {activeTab === 'wallet' && (
             <div className="space-y-6 pb-4">
               <div className="relative overflow-hidden rounded-lg bg-card border border-border p-6">
-                <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0 opacity-5 pointer-events-none">
                   <svg className="w-full h-full">
                     <pattern id="circuit-wallet" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
                       <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-primary"/>
@@ -729,7 +729,7 @@ function App() {
               </div>
 
               <div className="relative overflow-hidden rounded-lg bg-background border border-border p-6">
-                <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0 opacity-5 pointer-events-none">
                   <svg className="w-full h-full">
                     <pattern id="circuit-invite" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
                       <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-primary"/>
@@ -795,7 +795,7 @@ function App() {
           {activeTab === 'calculator' && (
             <div className="space-y-6 pb-4">
               <div className="relative overflow-hidden rounded-lg bg-card border border-border p-4 sm:p-6">
-                <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0 opacity-5 pointer-events-none">
                   <svg className="w-full h-full">
                     <pattern id="circuit" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
                       <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-primary"/>
@@ -1030,7 +1030,7 @@ function App() {
               </div>
 
               <div className="relative overflow-hidden rounded-lg bg-black p-8 mt-6">
-                <div className="absolute inset-0 opacity-10">
+                <div className="absolute inset-0 opacity-10 pointer-events-none">
                   <svg className="w-full h-full">
                     <pattern id="circuit-profile" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
                       <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-primary"/>
