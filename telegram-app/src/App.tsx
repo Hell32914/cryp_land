@@ -35,6 +35,25 @@ function App() {
     document.title = t.appTitle
   }, [t.appTitle])
 
+  useEffect(() => {
+    // Fix for Telegram Mini App input focus
+    const handleFocus = () => {
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.expand()
+      }
+      // Scroll input into view
+      setTimeout(() => {
+        const activeElement = document.activeElement as HTMLInputElement
+        if (activeElement?.tagName === 'INPUT') {
+          activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 100)
+    }
+
+    document.addEventListener('focusin', handleFocus)
+    return () => document.removeEventListener('focusin', handleFocus)
+  }, [])
+
   const userProfile = {
     id: '503856039',
     nickname: 'dnscxrbl',
@@ -822,14 +841,17 @@ function App() {
 
                 <div className="space-y-5 sm:space-y-6">
                   <div className="space-y-2 sm:space-y-3">
-                    <label className="text-sm sm:text-base font-medium text-foreground">{t.depositAmount}</label>
+                    <label className="text-sm sm:text-base font-medium text-foreground" htmlFor="deposit-amount">{t.depositAmount}</label>
                     <Input
                       id="deposit-amount"
                       type="number"
+                      inputMode="decimal"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
                       placeholder={t.enterAmount}
                       className="bg-background border-border text-foreground text-base sm:text-lg h-12 sm:h-14"
+                      autoComplete="off"
+                      readOnly={false}
                     />
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
                       {quickAmounts.map((amount) => (
@@ -846,14 +868,17 @@ function App() {
                   </div>
 
                   <div className="space-y-2 sm:space-y-3">
-                    <label className="text-sm sm:text-base font-medium text-foreground">{t.timePeriodSelection}</label>
+                    <label className="text-sm sm:text-base font-medium text-foreground" htmlFor="time-period">{t.timePeriodSelection}</label>
                     <Input
                       id="time-period"
                       type="number"
+                      inputMode="numeric"
                       value={timePeriod}
                       onChange={(e) => setTimePeriod(e.target.value)}
                       placeholder={t.enterDays}
                       className="bg-background border-border text-foreground text-base sm:text-lg h-12 sm:h-14"
+                      autoComplete="off"
+                      readOnly={false}
                     />
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
                       {timePeriods.map((period) => (

@@ -5,6 +5,13 @@ import '@github/spark/spark'
 import './index.css'
 import App from './App.tsx'
 
+// Initialize Telegram WebApp
+if (window.Telegram?.WebApp) {
+  window.Telegram.WebApp.ready()
+  window.Telegram.WebApp.expand()
+  window.Telegram.WebApp.enableClosingConfirmation()
+}
+
 function ErrorFallback({ error }: { error: Error }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
