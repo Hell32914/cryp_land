@@ -62,11 +62,12 @@ function App() {
   }
 
   const tariffPlans = [
-    { name: 'Bronze', minDeposit: 10, maxDeposit: 999, dailyPercent: 0.5 },
-    { name: 'Silver', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 1.0 },
-    { name: 'Gold', minDeposit: 5000, maxDeposit: 34999, dailyPercent: 1.5 },
-    { name: 'Platinum', minDeposit: 35000, maxDeposit: 99999, dailyPercent: 2.0 },
-    { name: 'Diamond', minDeposit: 100000, maxDeposit: Infinity, dailyPercent: 2.5 }
+    { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+    { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
+    { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
+    { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
+    { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
+    { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
   ]
 
   const getPlanByDeposit = (amount: number) => {
@@ -88,7 +89,7 @@ function App() {
     }
   }
 
-  const quickAmounts = [10, 1000, 5000, 35000, 100000]
+  const quickAmounts = [10, 100, 500, 1000, 5000]
   const timePeriods = [
     { value: '7', label: '7 Day' },
     { value: '30', label: '30 Day' },
