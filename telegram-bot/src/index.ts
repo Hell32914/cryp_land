@@ -1,6 +1,9 @@
 import { Bot, Context, InlineKeyboard, session, SessionFlavor } from 'grammy'
-import { PrismaClient, UserStatus, TransactionStatus } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+
+type UserStatus = 'ACTIVE' | 'INACTIVE' | 'KYC_REQUIRED' | 'BLOCKED'
+type TransactionStatus = 'PENDING' | 'COMPLETED' | 'REJECTED'
 
 dotenv.config()
 
@@ -99,13 +102,49 @@ bot.command('admin', async (ctx) => {
     return
   }
 
-  const keyboard = new InlineKeyboard()
-    .text('📊 All Users', 'admin_users').row()
-    .text('💰 Add Balance', 'admin_add_balance').row()
-    .text('📥 Deposits', 'admin_deposits').row()
-    .text('📤 Withdrawals', 'admin_withdrawals')
+  const usersCount = await prisma.user.count()
+  const depositsCount = await prisma.deposit.count()
+  const withdrawalsCount = await prisma.withdrawal.count()
 
-  await ctx.reply('🔐 Admin Panel', { reply_markup: keyboard })
+  const keyboard = new InlineKeyboard()
+    .text(`📊 Users (${usersCount})`, 'admin_users').row()
+    .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
+    .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
+    .text('🔄 Refresh', 'admin_menu')
+
+  await ctx.reply(
+    '🔐 *Admin Panel*\n\n' +
+    `Total Users: ${usersCount}\n` +
+    `Total Deposits: ${depositsCount}\n` +
+    `Total Withdrawals: ${withdrawalsCount}`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+})
+
+bot.callbackQuery('admin_menu', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const usersCount = await prisma.user.count()
+  const depositsCount = await prisma.deposit.count()
+  const withdrawalsCount = await prisma.withdrawal.count()
+
+  const keyboard = new InlineKeyboard()
+    .text(`📊 Users (${usersCount})`, 'admin_users').row()
+    .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
+    .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
+    .text('🔄 Refresh', 'admin_menu')
+
+  await ctx.editMessageText(
+    '🔐 *Admin Panel*\n\n' +
+    `Total Users: ${usersCount}\n` +
+    `Total Deposits: ${depositsCount}\n` +
+    `Total Withdrawals: ${withdrawalsCount}`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await ctx.answerCallbackQuery('Refreshed')
 })
 
 bot.callbackQuery('admin_users', async (ctx) => {
@@ -116,33 +155,36 @@ bot.callbackQuery('admin_users', async (ctx) => {
 
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
-    take: 20
+    take: 10
   })
 
-  let message = '👥 Users List:\n\n'
-  
-  for (const user of users) {
-    message += `━━━━━━━━━━━━━━━\n`
-    message += `👤 @${user.username || 'no_username'}\n`
-    message += `🆔 ID: ${user.telegramId}\n`
-    message += `📊 Status: ${user.status}\n`
-    message += `💰 Balance: $${user.balance.toFixed(2)}\n`
-    message += `📥 Deposit: $${user.totalDeposit.toFixed(2)}\n`
-    message += `📤 Withdraw: $${user.totalWithdraw.toFixed(2)}\n`
-    
-    if (user.kycRequired) message += `⚠️ KYC Required\n`
-    if (user.isBlocked) message += `🚫 BLOCKED\n`
-    
-    const keyboard = new InlineKeyboard()
-      .text('✏️ Manage', `manage_${user.id}`)
-    
-    await ctx.reply(message, { reply_markup: keyboard })
-    message = ''
+  if (users.length === 0) {
+    await ctx.editMessageText('👥 No users yet')
+    await ctx.answerCallbackQuery()
+    return
   }
 
-  if (message === '') {
-    await ctx.answerCallbackQuery('Users list sent')
-  }
+  let message = '👥 Users List (10 latest):\n\n'
+  
+  users.forEach((user, index) => {
+    message += `${index + 1}. @${user.username || 'no_username'}\n`
+    message += `   ID: ${user.telegramId}\n`
+    message += `   💰 $${user.balance.toFixed(2)} | ${user.status}\n\n`
+  })
+
+  const keyboard = new InlineKeyboard()
+  users.forEach((user, index) => {
+    if (index % 2 === 0) {
+      keyboard.text(`${index + 1}`, `manage_${user.id}`)
+    } else {
+      keyboard.text(`${index + 1}`, `manage_${user.id}`).row()
+    }
+  })
+  if (users.length % 2 === 1) keyboard.row()
+  keyboard.text('◀️ Back to Admin', 'admin_menu')
+
+  await ctx.editMessageText(message, { reply_markup: keyboard })
+  await ctx.answerCallbackQuery()
 })
 
 bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
@@ -152,27 +194,45 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   }
 
   const userId = parseInt(ctx.match![1])
-  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const user = await prisma.user.findUnique({ 
+    where: { id: userId },
+    include: {
+      deposits: { take: 3, orderBy: { createdAt: 'desc' } },
+      withdrawals: { take: 3, orderBy: { createdAt: 'desc' } }
+    }
+  })
 
   if (!user) {
     await ctx.answerCallbackQuery('User not found')
     return
   }
 
+  let statusEmoji = '⚪️'
+  if (user.status === 'ACTIVE') statusEmoji = '✅'
+  if (user.status === 'INACTIVE') statusEmoji = '⏸'
+  if (user.status === 'KYC_REQUIRED') statusEmoji = '📋'
+  if (user.status === 'BLOCKED') statusEmoji = '🚫'
+
   const keyboard = new InlineKeyboard()
     .text('✅ Activate', `status_${userId}_ACTIVE`)
     .text('⏸ Deactivate', `status_${userId}_INACTIVE`).row()
     .text('📋 KYC Required', `status_${userId}_KYC_REQUIRED`)
     .text('🚫 Block', `status_${userId}_BLOCKED`).row()
-    .text('💰 Add Balance', `add_balance_${userId}`)
-    .text('◀️ Back', 'admin_users')
+    .text('💰 Add Balance', `add_balance_${userId}`).row()
+    .text('◀️ Back to Users', 'admin_users')
 
   await ctx.editMessageText(
-    `Managing: @${user.username}\n` +
-    `Status: ${user.status}\n` +
-    `Balance: $${user.balance}`,
-    { reply_markup: keyboard }
+    `👤 *User Details*\n\n` +
+    `Username: @${user.username || 'no_username'}\n` +
+    `ID: \`${user.telegramId}\`\n` +
+    `Status: ${statusEmoji} ${user.status}\n\n` +
+    `💰 Balance: $${user.balance.toFixed(2)}\n` +
+    `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+    `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
+    `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
+  await ctx.answerCallbackQuery()
 })
 
 bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
@@ -195,18 +255,23 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
 
   // Notify user
   let statusMessage = ''
+  let statusEmoji = '⚪️'
   switch (newStatus) {
     case 'ACTIVE':
-      statusMessage = '✅ Your account has been activated!'
+      statusMessage = '✅ Your account has been activated! You can now use all features.'
+      statusEmoji = '✅'
       break
     case 'INACTIVE':
-      statusMessage = '⏸ Your account has been deactivated'
+      statusMessage = '⏸ Your account has been deactivated. Contact support for details.'
+      statusEmoji = '⏸'
       break
     case 'KYC_REQUIRED':
-      statusMessage = '📋 KYC verification required. Please contact support.'
+      statusMessage = '📋 KYC verification required. Please contact support to verify your identity.'
+      statusEmoji = '📋'
       break
     case 'BLOCKED':
       statusMessage = '🚫 Your account has been blocked. Contact support for details.'
+      statusEmoji = '🚫'
       break
   }
 
@@ -219,11 +284,28 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     }
   })
 
-  await ctx.answerCallbackQuery(`Status changed to ${newStatus}`)
-  await ctx.editMessageReplyMarkup({
-    reply_markup: new InlineKeyboard()
-      .text('✅ Done', 'admin_users')
-  })
+  await ctx.answerCallbackQuery(`✓ Status changed to ${newStatus}`)
+  
+  // Return to user management with updated info
+  const keyboard = new InlineKeyboard()
+    .text('✅ Activate', `status_${userId}_ACTIVE`)
+    .text('⏸ Deactivate', `status_${userId}_INACTIVE`).row()
+    .text('📋 KYC Required', `status_${userId}_KYC_REQUIRED`)
+    .text('🚫 Block', `status_${userId}_BLOCKED`).row()
+    .text('💰 Add Balance', `add_balance_${userId}`).row()
+    .text('◀️ Back to Users', 'admin_users')
+
+  await ctx.editMessageText(
+    `👤 *User Details*\n\n` +
+    `Username: @${user.username || 'no_username'}\n` +
+    `ID: \`${user.telegramId}\`\n` +
+    `Status: ${statusEmoji} ${user.status}\n\n` +
+    `💰 Balance: $${user.balance.toFixed(2)}\n` +
+    `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+    `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
+    `✅ Status updated successfully!`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
 })
 
 bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx: MyContext) => {
@@ -233,10 +315,26 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx: MyContext) => {
   }
 
   const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  
+  if (!user) {
+    await ctx.answerCallbackQuery('User not found')
+    return
+  }
+
   ctx.session.awaitingInput = 'add_balance'
   ctx.session.targetUserId = userId
 
-  await ctx.reply('Enter amount to add (e.g., 100):')
+  const keyboard = new InlineKeyboard()
+    .text('Cancel', `manage_${userId}`)
+
+  await ctx.editMessageText(
+    `💰 *Add Balance*\n\n` +
+    `User: @${user.username || 'no_username'}\n` +
+    `Current Balance: $${user.balance.toFixed(2)}\n\n` +
+    `Please reply with the amount to add (e.g., 100):`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
   await ctx.answerCallbackQuery()
 })
 
@@ -245,11 +343,11 @@ bot.on('message:text', async (ctx: MyContext) => {
   if (!ctx.session.awaitingInput) return
 
   if (ctx.session.awaitingInput === 'add_balance') {
-    const amount = parseFloat(ctx.message.text)
+    const amount = parseFloat(ctx.message?.text || '')
     const userId = ctx.session.targetUserId
 
-    if (isNaN(amount) || !userId) {
-      await ctx.reply('Invalid amount')
+    if (isNaN(amount) || !userId || amount <= 0) {
+      await ctx.reply('❌ Invalid amount. Please enter a positive number.')
       return
     }
 
@@ -272,21 +370,24 @@ bot.on('message:text', async (ctx: MyContext) => {
     })
 
     // Notify user
-    const message = `💰 Balance added!\n\n+$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}`
-    await bot.api.sendMessage(user.telegramId, message)
+    const userMessage = `💰 *Balance Added!*\n\n+$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}`
+    await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
     
     await prisma.notification.create({
       data: {
         userId: user.id,
         type: 'DEPOSIT',
-        message
+        message: userMessage
       }
     })
 
-    // Notify admin
-    await bot.api.sendMessage(
-      ADMIN_ID,
-      `✅ Added $${amount} to @${user.username}\nNew balance: $${user.balance}`
+    // Confirm to admin
+    await ctx.reply(
+      `✅ *Balance Added Successfully*\n\n` +
+      `User: @${user.username || 'no_username'}\n` +
+      `Amount: +$${amount.toFixed(2)}\n` +
+      `New Balance: $${user.balance.toFixed(2)}`,
+      { parse_mode: 'Markdown' }
     )
 
     ctx.session.awaitingInput = undefined
@@ -306,17 +407,27 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
     take: 10
   })
 
-  let message = '📥 Recent Deposits:\n\n'
-  
-  for (const deposit of deposits) {
-    message += `━━━━━━━━━━━━━━━\n`
-    message += `@${deposit.user.username || 'no_username'}\n`
-    message += `💵 $${deposit.amount}\n`
-    message += `📊 ${deposit.status}\n`
-    message += `📅 ${deposit.createdAt.toLocaleString()}\n`
+  if (deposits.length === 0) {
+    const keyboard = new InlineKeyboard()
+      .text('◀️ Back to Admin', 'admin_menu')
+    await ctx.editMessageText('📥 No deposits yet', { reply_markup: keyboard })
+    await ctx.answerCallbackQuery()
+    return
   }
 
-  await ctx.editMessageText(message || 'No deposits yet')
+  let message = '📥 *Recent Deposits* (10 latest):\n\n'
+  
+  deposits.forEach((deposit, index) => {
+    const statusEmoji = deposit.status === 'COMPLETED' ? '✅' : deposit.status === 'PENDING' ? '⏳' : '❌'
+    message += `${index + 1}. @${deposit.user.username || 'no_username'}\n`
+    message += `   💵 $${deposit.amount.toFixed(2)} | ${statusEmoji} ${deposit.status}\n`
+    message += `   📅 ${deposit.createdAt.toLocaleDateString()}\n\n`
+  })
+
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
   await ctx.answerCallbackQuery()
 })
 
@@ -332,28 +443,27 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
     take: 10
   })
 
-  let message = '📤 Recent Withdrawals:\n\n'
-  
-  for (const withdrawal of withdrawals) {
-    message += `━━━━━━━━━━━━━━━\n`
-    message += `@${withdrawal.user.username || 'no_username'}\n`
-    message += `💵 $${withdrawal.amount}\n`
-    message += `📊 ${withdrawal.status}\n`
-    message += `📅 ${withdrawal.createdAt.toLocaleString()}\n`
-    
-    if (withdrawal.status === 'PENDING') {
-      const keyboard = new InlineKeyboard()
-        .text('✅ Approve', `approve_withdrawal_${withdrawal.id}`)
-        .text('❌ Reject', `reject_withdrawal_${withdrawal.id}`)
-      
-      await ctx.reply(
-        `⏳ Pending withdrawal:\n@${withdrawal.user.username}\n$${withdrawal.amount}`,
-        { reply_markup: keyboard }
-      )
-    }
+  if (withdrawals.length === 0) {
+    const keyboard = new InlineKeyboard()
+      .text('◀️ Back to Admin', 'admin_menu')
+    await ctx.editMessageText('📤 No withdrawals yet', { reply_markup: keyboard })
+    await ctx.answerCallbackQuery()
+    return
   }
 
-  await ctx.editMessageText(message || 'No withdrawals yet')
+  let message = '📤 *Recent Withdrawals* (10 latest):\n\n'
+  
+  withdrawals.forEach((withdrawal, index) => {
+    const statusEmoji = withdrawal.status === 'COMPLETED' ? '✅' : withdrawal.status === 'PENDING' ? '⏳' : '❌'
+    message += `${index + 1}. @${withdrawal.user.username || 'no_username'}\n`
+    message += `   💵 $${withdrawal.amount.toFixed(2)} | ${statusEmoji} ${withdrawal.status}\n`
+    message += `   📅 ${withdrawal.createdAt.toLocaleDateString()}\n\n`
+  })
+
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
   await ctx.answerCallbackQuery()
 })
 

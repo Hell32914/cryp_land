@@ -16,7 +16,7 @@ model User {
   username      String?
   firstName     String?
   lastName      String?
-  status        UserStatus    @default(INACTIVE)
+  status        String        @default("INACTIVE")
   balance       Float         @default(0)
   totalDeposit  Float         @default(0)
   totalWithdraw Float         @default(0)
@@ -36,7 +36,7 @@ model Deposit {
   userId      Int
   user        User           @relation(fields: [userId], references: [id])
   amount      Float
-  status      TransactionStatus @default(PENDING)
+  status      String         @default("PENDING")
   currency    String         @default("USDT")
   network     String?
   txHash      String?
@@ -49,7 +49,7 @@ model Withdrawal {
   userId      Int
   user        User           @relation(fields: [userId], references: [id])
   amount      Float
-  status      TransactionStatus @default(PENDING)
+  status      String         @default("PENDING")
   currency    String         @default("USDT")
   network     String?
   address     String
@@ -66,17 +66,4 @@ model Notification {
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  KYC_REQUIRED
-  BLOCKED
-}
-
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  REJECTED
 }
