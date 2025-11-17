@@ -161,7 +161,7 @@ export const translations = {
     security: 'Security',
     website: 'Website',
     faq: 'FAQ',
-    welcomeMatrix: 'Welcome to the Matrix',
+    welcomeMatrix: 'WELCOME TO SYNTRIX',
     profitsNotRandom: 'Profits Are Not Random'
   }
 } as const
