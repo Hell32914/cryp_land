@@ -16,6 +16,9 @@ model User {
   username          String?
   firstName         String?
   lastName          String?
+  languageCode      String?
+  ipAddress         String?
+  country           String?
   status            String        @default("INACTIVE")
   balance           Float         @default(0)
   profit            Float         @default(0)

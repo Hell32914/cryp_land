@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
+import axios from 'axios'
 
 const prisma = new PrismaClient()
 const app = express()
@@ -38,6 +39,29 @@ function calculatePlanProgress(balance: number) {
 }
 
 // Get user data by Telegram ID
+// Get country from IP using ipapi.co
+async function getCountryFromIP(ip: string): Promise<string | null> {
+  try {
+    // Skip if localhost or private IP
+    if (ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+      return null
+    }
+    
+    const response = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 3000 })
+    return response.data.country_name || null
+  } catch (error) {
+    console.error('Error getting country from IP:', error)
+    return null
+  }
+}
+
+// Get client IP from request
+function getClientIP(req: express.Request): string {
+  const forwarded = req.headers['x-forwarded-for']
+  const ip = forwarded ? (typeof forwarded === 'string' ? forwarded.split(',')[0] : forwarded[0]) : req.socket.remoteAddress
+  return ip || 'unknown'
+}
+
 app.get('/api/user/:telegramId', async (req, res) => {
   try {
     const { telegramId } = req.params
@@ -58,6 +82,21 @@ app.get('/api/user/:telegramId', async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
+    }
+
+    // Update IP address and country on each request
+    const clientIP = getClientIP(req)
+    if (clientIP && clientIP !== 'unknown' && clientIP !== user.ipAddress) {
+      const country = await getCountryFromIP(clientIP)
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ipAddress: clientIP,
+          country: country || user.country
+        }
+      })
+      user.ipAddress = clientIP
+      if (country) user.country = country
     }
 
     // Calculate plan progress

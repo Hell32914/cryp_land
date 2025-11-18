@@ -192,6 +192,7 @@ bot.command('start', async (ctx) => {
         username: ctx.from?.username,
         firstName: ctx.from?.first_name,
         lastName: ctx.from?.last_name,
+        languageCode: ctx.from?.language_code,
         referredBy: referrerId
       }
     })
@@ -363,10 +364,25 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     .text('💰 Add Balance', `add_balance_${userId}`).row()
     .text('◀️ Back to Users', 'admin_users')
 
+  // Get country flag from language code
+  const getCountryFlag = (langCode: string | null) => {
+    if (!langCode) return '🌍'
+    const countryFlags: Record<string, string> = {
+      'ru': '🇷🇺', 'en': '🇺🇸', 'uk': '🇺🇦', 'de': '🇩🇪', 'fr': '🇫🇷',
+      'es': '🇪🇸', 'it': '🇮🇹', 'pt': '🇵🇹', 'pl': '🇵🇱', 'tr': '🇹🇷',
+      'ar': '🇸🇦', 'zh': '🇨🇳', 'ja': '🇯🇵', 'ko': '🇰🇷', 'hi': '🇮🇳',
+      'id': '🇮🇩', 'vi': '🇻🇳', 'th': '🇹🇭', 'fa': '🇮🇷', 'he': '🇮🇱'
+    }
+    return countryFlags[langCode] || '🌍'
+  }
+
   await ctx.editMessageText(
     `👤 *User Details*\n\n` +
-    `Username: @${user.username || 'no\\_username'}\n` +
+    `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
+    `${getCountryFlag(user.languageCode)} Language: ${user.languageCode?.toUpperCase() || 'Unknown'}\n` +
+    `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
+    `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`` : ''}\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
     `💰 Balance: $${user.balance.toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
@@ -439,7 +455,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `👤 *User Details*\n\n` +
-    `Username: @${user.username || 'no\\_username'}\n` +
+    `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
     `💰 Balance: $${user.balance.toFixed(2)}\n` +
@@ -471,7 +487,7 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `💰 *Add Balance*\n\n` +
-    `User: @${user.username || 'no_username'}\n` +
+    `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `Current Balance: $${user.balance.toFixed(2)}\n\n` +
     `Please reply with the amount to add (e.g., 100):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -562,7 +578,7 @@ bot.on('message:text', async (ctx) => {
     // Confirm to admin
     await ctx.reply(
       `✅ *Balance Added Successfully*\n\n` +
-      `User: @${user.username || 'no_username'}\n` +
+      `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
       `Amount: +$${amount.toFixed(2)}\n` +
       `New Balance: $${user.balance.toFixed(2)}`,
       { parse_mode: 'Markdown' }
