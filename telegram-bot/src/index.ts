@@ -2,6 +2,9 @@ import { Bot, Context, InlineKeyboard, InputFile } from 'grammy'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
 import { startApiServer, stopApiServer } from './api.js'
+import { scheduleTradingCards, postTradingCard, rescheduleCards } from './tradingCardScheduler.js'
+import { generateTradingCard, formatCardCaption, getLastTradingPostData } from './cardGenerator.js'
+import { getCardSettings, updateCardSettings } from './cardSettings.js'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -17,6 +20,7 @@ const prisma = new PrismaClient()
 export const bot = new Bot(process.env.BOT_TOKEN!)
 export const ADMIN_ID = process.env.ADMIN_ID!
 const WEBAPP_URL = process.env.WEBAPP_URL!
+const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
 const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number }>()
@@ -253,6 +257,8 @@ bot.command('admin', async (ctx) => {
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
     .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
+    .text('📸 Generate Card', 'admin_generate_card')
+    .text('⚙️ Card Settings', 'admin_card_settings').row()
     .text('🔄 Refresh', 'admin_menu')
 
   await ctx.reply(
@@ -278,6 +284,8 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
     .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
+    .text('📸 Generate Card', 'admin_generate_card')
+    .text('⚙️ Card Settings', 'admin_card_settings').row()
     .text('🔄 Refresh', 'admin_menu')
 
   await ctx.editMessageText(
@@ -660,6 +668,161 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   await ctx.answerCallbackQuery()
 })
 
+// Generate trading card (admin test)
+bot.callbackQuery('admin_generate_card', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  await ctx.answerCallbackQuery('Generating card...')
+  
+  try {
+    // Generate card image
+    const imageBuffer = await generateTradingCard()
+    
+    // Get data for caption
+    const cardData = await getLastTradingPostData()
+    const caption = formatCardCaption(cardData)
+    
+    // Send to admin only (for testing)
+    await ctx.replyWithPhoto(new InputFile(imageBuffer), {
+      caption: caption
+    })
+  } catch (error) {
+    console.error('Failed to generate card:', error)
+    await ctx.reply('❌ Failed to generate trading card. Check console for details.')
+  }
+})
+
+// Card settings menu
+bot.callbackQuery('admin_card_settings', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const settings = await getCardSettings()
+
+  const keyboard = new InlineKeyboard()
+    .text(`📊 Posts: ${settings.minPerDay}-${settings.maxPerDay}/day`, 'card_set_count').row()
+    .text(`🕐 Time: ${settings.startTime}-${settings.endTime}`, 'card_set_time').row()
+    .text('🔄 Reschedule Now', 'card_reschedule').row()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await ctx.editMessageText(
+    '⚙️ *Trading Card Settings*\n\n' +
+    `📊 Posts per day: ${settings.minPerDay}-${settings.maxPerDay}\n` +
+    `🕐 Time range: ${settings.startTime}-${settings.endTime} (Kyiv)\n\n` +
+    'Tap to modify settings',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await ctx.answerCallbackQuery()
+})
+
+// Set card count
+bot.callbackQuery('card_set_count', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  await ctx.answerCallbackQuery('Send new values')
+  await ctx.reply(
+    'Send new card count range in format:\n`min-max`\n\nExample: `4-16`',
+    { parse_mode: 'Markdown' }
+  )
+  
+  adminState.set(ADMIN_ID, { awaitingInput: 'card_count' })
+})
+
+// Set time range
+bot.callbackQuery('card_set_time', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  await ctx.answerCallbackQuery('Send new time range')
+  await ctx.reply(
+    'Send new time range in format:\n`HH:MM-HH:MM`\n\nExample: `07:49-22:30` (Kyiv time)',
+    { parse_mode: 'Markdown' }
+  )
+  
+  adminState.set(ADMIN_ID, { awaitingInput: 'card_time' })
+})
+
+// Reschedule cards immediately
+bot.callbackQuery('card_reschedule', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  await ctx.answerCallbackQuery('Rescheduling...')
+  
+  try {
+    await rescheduleCards(bot, CHANNEL_ID)
+    await ctx.editMessageText(
+      '✅ Cards rescheduled successfully!\n\nCheck console for new schedule.',
+      { reply_markup: new InlineKeyboard().text('◀️ Back to Settings', 'admin_card_settings') }
+    )
+  } catch (error) {
+    console.error('Failed to reschedule:', error)
+    await ctx.reply('❌ Failed to reschedule cards. Check console.')
+  }
+})
+
+// Handle text input for card settings (add to existing message handler or create new one)
+bot.on('message:text', async (ctx) => {
+  if (ctx.from?.id.toString() !== ADMIN_ID) return
+  
+  const state = adminState.get(ADMIN_ID)
+  if (!state?.awaitingInput) return
+
+  const input = ctx.message.text
+
+  try {
+    if (state.awaitingInput === 'card_count') {
+      const match = input.match(/^(\d+)-(\d+)$/)
+      if (!match) {
+        await ctx.reply('❌ Invalid format. Use: min-max (e.g., 4-16)')
+        return
+      }
+
+      const min = parseInt(match[1])
+      const max = parseInt(match[2])
+
+      if (min < 1 || max > 50 || min >= max) {
+        await ctx.reply('❌ Invalid range. Min should be 1-50 and less than max.')
+        return
+      }
+
+      await updateCardSettings({ minPerDay: min, maxPerDay: max })
+      await ctx.reply(`✅ Updated! Cards per day: ${min}-${max}`)
+      
+      adminState.delete(ADMIN_ID)
+    } else if (state.awaitingInput === 'card_time') {
+      const match = input.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/)
+      if (!match) {
+        await ctx.reply('❌ Invalid format. Use: HH:MM-HH:MM (e.g., 07:49-22:30)')
+        return
+      }
+
+      const startTime = `${match[1]}:${match[2]}`
+      const endTime = `${match[3]}:${match[4]}`
+
+      await updateCardSettings({ startTime, endTime })
+      await ctx.reply(`✅ Updated! Time range: ${startTime}-${endTime} (Kyiv)`)
+      
+      adminState.delete(ADMIN_ID)
+    }
+  } catch (error) {
+    console.error('Failed to update settings:', error)
+    await ctx.reply('❌ Failed to update settings. Check console.')
+  }
+})
+
 // Approve withdrawal
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
   if (ctx.from?.id.toString() !== ADMIN_ID) {
@@ -1035,7 +1198,11 @@ console.log('🤖 Syntrix Bot starting...')
 startApiServer()
 console.log('✅ Starting Grammy bot...')
 bot.start()
-  .then(() => console.log('✅ Bot started successfully'))
+  .then(async () => {
+    console.log('✅ Bot started successfully')
+    // Initialize trading card scheduler
+    await scheduleTradingCards(bot, CHANNEL_ID)
+  })
   .catch((err) => {
     console.error('❌ Bot start error:', err)
     process.exit(1)

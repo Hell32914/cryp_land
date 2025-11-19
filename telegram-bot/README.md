@@ -61,6 +61,12 @@ BOT_TOKEN=YOUR_BOT_TOKEN_FROM_BOTFATHER
 ADMIN_ID=503856039
 DATABASE_URL="file:./dev.db"
 WEBAPP_URL=https://telegram-see-gichmain-hell32914s-projects.vercel.app
+
+# Trading Cards Settings
+CARDS_MIN_PER_DAY=4          # Минимальное количество карточек в день
+CARDS_MAX_PER_DAY=16         # Максимальное количество карточек в день
+CARDS_START_TIME=07:49       # Начало отправки (время Киева)
+CARDS_END_TIME=22:30         # Конец отправки (время Киева)
 ```
 
 ### 4. Инициализировать базу данных

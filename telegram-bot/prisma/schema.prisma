@@ -95,3 +95,15 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model TradingPost {
+  id          Int      @id @default(autoincrement())
+  orderNumber Int      @unique
+  pair        String
+  position    String
+  profit      Float
+  leverage    Int
+  entryPrice  Float
+  lastPrice   Float
+  postedAt    DateTime @default(now())
+}

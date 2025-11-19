@@ -27,6 +27,8 @@ function App() {
   const [whitepaperOpen, setWhitepaperOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
   const [advantagesOpen, setAdvantagesOpen] = useState(false)
+  const [howToDepositOpen, setHowToDepositOpen] = useState(false)
+  const [howToWithdrawOpen, setHowToWithdrawOpen] = useState(false)
   const [selectedCurrency, setSelectedCurrency] = useState('')
   const [selectedNetwork, setSelectedNetwork] = useState('')
   const [depositAmountInput, setDepositAmountInput] = useState('')
@@ -1361,6 +1363,67 @@ function App() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={howToDepositOpen} onOpenChange={setHowToDepositOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
+              How to Deposit
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-foreground text-sm">
+            <ol className="space-y-3 ml-4 list-decimal">
+              <li className="text-muted-foreground">
+                Click <span className="font-bold text-accent">Deposit</span> on the main wallet screen.
+              </li>
+              <li className="text-muted-foreground">
+                Select the currency (e.g., USDT) and choose the network (e.g., Ethereum).
+              </li>
+              <li className="text-muted-foreground">
+                Enter the amount you want to deposit (minimum $10) and press <span className="font-bold text-accent">Continue</span>.
+              </li>
+              <li className="text-muted-foreground">
+                A deposit page will open with the amount, wallet address, and QR code.
+              </li>
+              <li className="text-muted-foreground">
+                Send the exact amount to the given wallet address within the time limit.
+              </li>
+              <li className="text-muted-foreground">
+                After network confirmation, the funds will appear in your balance.
+              </li>
+            </ol>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={howToWithdrawOpen} onOpenChange={setHowToWithdrawOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
+              How to Withdraw
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-foreground text-sm">
+            <ol className="space-y-3 ml-4 list-decimal">
+              <li className="text-muted-foreground">
+                Click <span className="font-bold text-accent">Withdraw</span> on the main wallet screen.
+              </li>
+              <li className="text-muted-foreground">
+                Select the currency and network.
+              </li>
+              <li className="text-muted-foreground">
+                Enter the recipient's wallet address and the withdrawal amount.
+              </li>
+              <li className="text-muted-foreground">
+                Double-check the details and confirm.
+              </li>
+              <li className="text-muted-foreground">
+                Once processed and confirmed by the network, the funds will arrive in your wallet.
+              </li>
+            </ol>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       <div className="min-h-screen bg-background text-foreground flex flex-col relative overflow-hidden">
         <header className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border backdrop-blur-sm bg-background/80 sticky top-0 z-40">
@@ -1619,7 +1682,10 @@ function App() {
                       {t.depositBtn}
                     </Button>
                     
-                    <button className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-2">
+                    <button 
+                      className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-2"
+                      onClick={() => setHowToDepositOpen(true)}
+                    >
                       <span className="text-sm">{t.howToDeposit}</span>
                       <Info size={16} />
                     </button>
@@ -1632,7 +1698,10 @@ function App() {
                       {t.withdraw}
                     </Button>
                     
-                    <button className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-2">
+                    <button 
+                      className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors py-2"
+                      onClick={() => setHowToWithdrawOpen(true)}
+                    >
                       <span className="text-sm">{t.howToWithdraw}</span>
                       <Info size={16} />
                     </button>

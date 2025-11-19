@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const OXAPAY_API_KEY = process.env.OXAPAY_API_KEY || ''
+const OXAPAY_PAYOUT_API_KEY = process.env.OXAPAY_PAYOUT_API_KEY || ''
 const OXAPAY_BASE_URL = 'https://api.oxapay.com'
 
 export interface CreateInvoiceParams {
@@ -56,11 +57,14 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<Create
     })
 
     if (response.data.result === 100) {
+      // Generate QR code image URL using QR Server API
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(response.data.payLink)}`
+      
       return {
         success: true,
         trackId: response.data.trackId,
         payLink: response.data.payLink,
-        qrCode: response.data.payLink, // OxaPay provides QR-ready link
+        qrCode: qrCodeUrl,
         address: response.data.address,
         amount: response.data.amount
       }
@@ -75,13 +79,13 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<Create
 
 // Create payout (withdrawal)
 export async function createPayout(params: CreatePayoutParams): Promise<CreatePayoutResponse> {
-  if (!OXAPAY_API_KEY || OXAPAY_API_KEY === 'YOUR_OXAPAY_API_KEY_HERE') {
-    throw new Error('OxaPay API key is not configured. Please add OXAPAY_API_KEY to .env file')
+  if (!OXAPAY_PAYOUT_API_KEY || OXAPAY_PAYOUT_API_KEY === 'YOUR_OXAPAY_API_KEY_HERE') {
+    throw new Error('OxaPay Payout API key is not configured. Please add OXAPAY_PAYOUT_API_KEY to .env file')
   }
 
   try {
     const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/payout`, {
-      merchant: OXAPAY_API_KEY,
+      merchant: OXAPAY_PAYOUT_API_KEY,
       address: params.address,
       amount: params.amount,
       currency: params.currency,
