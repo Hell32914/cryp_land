@@ -88,8 +88,8 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
       merchant: OXAPAY_PAYOUT_API_KEY,
       address: params.address,
       amount: params.amount,
-      currency: params.currency,
-      network: params.network || 'TRC20',
+      currency: params.currency.toLowerCase(), // OxaPay requires lowercase
+      network: (params.network || 'TRC20').toLowerCase(), // OxaPay requires lowercase
       callbackUrl: ''
     })
 
