@@ -1253,12 +1253,14 @@ async function startBot() {
     // Initialize database first
     await initDatabase()
     
-    // Start API server
-    startApiServer()
+    // Set webhook URL
+    const webhookUrl = process.env.WEBHOOK_URL || 'https://syntrix-bot.onrender.com'
+    console.log(`🔗 Setting webhook to: ${webhookUrl}/webhook`)
+    await bot.api.setWebhook(`${webhookUrl}/webhook`)
+    console.log('✅ Webhook set successfully')
     
-    // Start bot
-    console.log('✅ Starting Grammy bot...')
-    await bot.start()
+    // Start API server (includes webhook handler)
+    startApiServer(bot)
     
     console.log('✅ Bot started successfully')
     // Initialize trading card scheduler

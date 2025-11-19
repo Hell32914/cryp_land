@@ -2,6 +2,8 @@ import express from 'express'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
 import axios from 'axios'
+import { webhookCallback } from 'grammy'
+import type { Bot } from 'grammy'
 
 const prisma = new PrismaClient()
 const app = express()
@@ -575,7 +577,13 @@ app.get('/health', (req, res) => {
 
 let server: any
 
-export function startApiServer() {
+export function startApiServer(bot?: Bot) {
+  // Add webhook endpoint if bot is provided
+  if (bot) {
+    app.post('/webhook', webhookCallback(bot, 'express'))
+    console.log('✅ Webhook handler registered at /webhook')
+  }
+  
   server = app.listen(PORT, () => {
     console.log(`🌐 API Server running on http://localhost:${PORT}`)
   })
