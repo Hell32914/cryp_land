@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
-    "start": "sh start.sh",
+    "start": "node init-db.cjs && node dist/index.js",
     "start:direct": "node dist/index.js",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",

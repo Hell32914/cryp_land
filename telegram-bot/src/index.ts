@@ -1205,20 +1205,55 @@ bot.catch((err) => {
   console.error('Bot error:', err)
 })
 
+// Initialize database before starting
+async function initDatabase() {
+  try {
+    console.log('🔄 Checking database connection...')
+    await prisma.$connect()
+    console.log('✅ Database connected successfully')
+    
+    // Test if tables exist by trying a simple query
+    try {
+      await prisma.user.count()
+    } catch (error: any) {
+      if (error.code === 'P2021') {
+        console.log('⚠️  Database tables not found. Please run: npx prisma db push')
+        console.log('💡 Or set up database manually on first deployment')
+      }
+      throw error
+    }
+  } catch (error) {
+    console.error('❌ Database initialization error:', error)
+    throw error
+  }
+}
+
 // Start bot and API server
-console.log('🤖 Syntrix Bot starting...')
-startApiServer()
-console.log('✅ Starting Grammy bot...')
-bot.start()
-  .then(async () => {
+async function startBot() {
+  try {
+    console.log('🤖 Syntrix Bot starting...')
+    
+    // Initialize database first
+    await initDatabase()
+    
+    // Start API server
+    startApiServer()
+    
+    // Start bot
+    console.log('✅ Starting Grammy bot...')
+    await bot.start()
+    
     console.log('✅ Bot started successfully')
     // Initialize trading card scheduler
     await scheduleTradingCards(bot, CHANNEL_ID)
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error('❌ Bot start error:', err)
     process.exit(1)
-  })
+  }
+}
+
+// Run the bot
+startBot()
 
 // Graceful shutdown
 process.once('SIGINT', async () => {
