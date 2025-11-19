@@ -382,6 +382,7 @@ app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
       depositId: deposit.id,
       trackId: invoice.trackId,
       payLink: invoice.payLink,
+      paymentUrl: invoice.payLink,
       qrCode: invoice.qrCode,
       address: invoice.address,
       amount: invoice.amount
