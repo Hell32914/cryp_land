@@ -1013,13 +1013,25 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   // Normalize percentages
   const normalizedPercentages = percentages.map(p => p / sum)
   
-  // Generate random timestamps throughout the day
+  // Generate random timestamps from NOW until end of day (not from start of day)
   const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
   
+  // If there's not enough time left today (less than 1 hour), extend to next day
+  const timeUntilEndOfDay = endOfDay.getTime() - now.getTime()
+  const minimumTimeWindow = 60 * 60 * 1000 // 1 hour in milliseconds
+  
+  let endTime: Date
+  if (timeUntilEndOfDay < minimumTimeWindow) {
+    // Extend to next day at 23:59
+    endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59)
+  } else {
+    endTime = endOfDay
+  }
+  
   for (let i = 0; i < numUpdates; i++) {
-    const randomTime = startOfDay.getTime() + Math.random() * (endOfDay.getTime() - startOfDay.getTime())
+    // Generate timestamps from current time onwards
+    const randomTime = now.getTime() + Math.random() * (endTime.getTime() - now.getTime())
     const timestamp = new Date(randomTime)
     const amount = totalProfit * normalizedPercentages[i]
     
