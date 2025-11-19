@@ -84,14 +84,22 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
   }
 
   try {
-    const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/payout`, {
-      merchant: OXAPAY_PAYOUT_API_KEY,
-      address: params.address,
-      amount: params.amount,
-      currency: params.currency.toLowerCase(), // OxaPay requires lowercase
-      network: (params.network || 'TRC20').toLowerCase(), // OxaPay requires lowercase
-      callbackUrl: ''
-    })
+    const response = await axios.post(
+      'https://api.oxapay.com/v1/payout',
+      {
+        address: params.address,
+        amount: params.amount,
+        currency: params.currency.toUpperCase(), // Use uppercase as in docs
+        network: (params.network || 'TRC20').toUpperCase(), // Use uppercase as in docs
+        description: `Withdrawal ${params.amount} ${params.currency}`
+      },
+      {
+        headers: {
+          'payout_api_key': OXAPAY_PAYOUT_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
 
     if (response.data.result === 100) {
       return {

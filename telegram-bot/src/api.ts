@@ -425,16 +425,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.status(400).json({ error: 'Address and currency are required' })
     }
 
-    // Deduct from user balance IMMEDIATELY when creating withdrawal
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        balance: { decrement: amount },
-        totalWithdraw: { increment: amount }
-      }
-    })
-
-    // Create withdrawal record
+    // Create withdrawal record first (don't deduct balance yet)
     const withdrawal = await prisma.withdrawal.create({
       data: {
         userId: user.id,
@@ -458,7 +449,15 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           network: network || 'TRC20'
         })
 
-        // Update withdrawal with trackId
+        // SUCCESS: Deduct balance and update withdrawal
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            balance: { decrement: amount },
+            totalWithdraw: { increment: amount }
+          }
+        })
+
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
           data: {
@@ -475,16 +474,27 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           message: 'Withdrawal is being processed automatically'
         })
       } catch (error: any) {
-        // Update withdrawal status to failed
+        // FAILED: Mark withdrawal as failed, DON'T deduct balance
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
           data: { status: 'FAILED' }
         })
 
-        throw error
+        return res.status(400).json({ 
+          error: 'Failed to process withdrawal. Please contact support.',
+          details: error.message 
+        })
       }
     } else {
-      // Amount >= 100, notify admin for manual processing
+      // Amount > 100, deduct balance and notify admin for manual approval
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          balance: { decrement: amount },
+          totalWithdraw: { increment: amount }
+        }
+      })
+
       const { bot, ADMIN_ID } = await import('./index.js')
       
       await bot.api.sendMessage(
@@ -495,7 +505,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +
         `📍 Address: \`${address}\`\n\n` +
-        `⚠️ Manual approval required (amount >= $100)\n` +
+        `⚠️ Manual approval required (amount > $100)\n` +
         `🆔 Withdrawal ID: ${withdrawal.id}`,
         { 
           parse_mode: 'Markdown',
@@ -514,7 +524,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         success: true,
         withdrawalId: withdrawal.id,
         status: 'PENDING',
-        message: 'Withdrawal request sent to admin for approval'
+        message: 'Withdrawal request sent to admin for approval. Balance has been reserved.'
       })
     }
   } catch (error: any) {

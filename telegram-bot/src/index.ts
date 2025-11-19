@@ -996,14 +996,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
         }
       })
 
-      // Deduct from user balance
-      await prisma.user.update({
-        where: { id: withdrawal.userId },
-        data: {
-          balance: { decrement: withdrawal.amount },
-          totalWithdraw: { increment: withdrawal.amount }
-        }
-      })
+      // Note: Balance already deducted when withdrawal was created (amount > $100)
 
       // Notify user
       await bot.api.sendMessage(
@@ -1036,14 +1029,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
         }
       })
 
-      // Deduct from user balance
-      await prisma.user.update({
-        where: { id: withdrawal.userId },
-        data: {
-          balance: { decrement: withdrawal.amount },
-          totalWithdraw: { increment: withdrawal.amount }
-        }
-      })
+      // Note: Balance already deducted when withdrawal was created (amount > $100)
 
       // Notify user
       await bot.api.sendMessage(
@@ -1061,7 +1047,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       await ctx.editMessageText(
         ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing)*\n' +
         `OxaPay Error: ${error.message}\n` +
-        `Status: Marked as COMPLETED, balance deducted.\n` +
+        `Status: Marked as COMPLETED.\n` +
         `Please process the payout manually.`,
         { parse_mode: 'Markdown' }
       )
@@ -1103,21 +1089,30 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       data: { status: 'FAILED' }
     })
 
+    // Return the amount back to user balance
+    await prisma.user.update({
+      where: { id: withdrawal.userId },
+      data: {
+        balance: { increment: withdrawal.amount },
+        totalWithdraw: { decrement: withdrawal.amount }
+      }
+    })
+
     // Notify user
     await bot.api.sendMessage(
       withdrawal.user.telegramId,
       `❌ *Withdrawal Rejected*\n\n` +
       `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
       `💎 Currency: ${withdrawal.currency}\n\n` +
-      `Your balance remains unchanged. Please contact support for more information.`,
+      `💳 Your balance has been restored. Please contact support for more information.`,
       { parse_mode: 'Markdown' }
     )
 
     await ctx.editMessageText(
-      ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED*',
+      ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED* (Balance restored)',
       { parse_mode: 'Markdown' }
     )
-    await ctx.answerCallbackQuery('❌ Withdrawal rejected')
+    await ctx.answerCallbackQuery('❌ Withdrawal rejected, balance restored')
   } catch (error) {
     console.error('Error rejecting withdrawal:', error)
     await ctx.answerCallbackQuery('❌ Error rejecting withdrawal')
