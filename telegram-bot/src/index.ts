@@ -222,8 +222,8 @@ bot.command('start', async (ctx) => {
     `Click the button below to open the trading platform: 👇🏽`
 
   try {
-    // Path to logo: go up two directories from dist/index.js to project root
-    const logoPath = path.join(__dirname, '..', '..', 'logo.jpg')
+    // Path to logo: go up from dist/ to telegram-bot root, then up to project root
+    const logoPath = path.join(__dirname, '..', '..', '..', 'logo.jpg')
     await ctx.replyWithPhoto(new InputFile(logoPath), {
       caption: welcomeMessage,
       reply_markup: keyboard,
@@ -1255,8 +1255,9 @@ async function startBot() {
     
     // Set webhook URL
     const webhookUrl = process.env.WEBHOOK_URL || 'https://syntrix-bot.onrender.com'
-    console.log(`🔗 Setting webhook to: ${webhookUrl}/webhook`)
-    await bot.api.setWebhook(`${webhookUrl}/webhook`)
+    const fullWebhookUrl = webhookUrl.startsWith('http') ? webhookUrl : `https://${webhookUrl}`
+    console.log(`🔗 Setting webhook to: ${fullWebhookUrl}/webhook`)
+    await bot.api.setWebhook(`${fullWebhookUrl}/webhook`)
     console.log('✅ Webhook set successfully')
     
     // Start API server (includes webhook handler)
