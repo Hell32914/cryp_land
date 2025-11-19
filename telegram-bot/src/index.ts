@@ -25,6 +25,17 @@ const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0
 // Admin state management
 const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number }>()
 
+// Check if user is admin (super admin or database admin)
+async function isAdmin(userId: string): Promise<boolean> {
+  if (userId === ADMIN_ID) return true
+  
+  const user = await prisma.user.findUnique({
+    where: { telegramId: userId }
+  })
+  
+  return user?.isAdmin || false
+}
+
 // Tariff plans configuration
 const TARIFF_PLANS = [
   { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
@@ -244,7 +255,8 @@ bot.command('start', async (ctx) => {
 // ============= ADMIN COMMANDS =============
 
 bot.command('admin', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.reply('⛔️ Access denied')
     return
   }
@@ -259,6 +271,7 @@ bot.command('admin', async (ctx) => {
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
     .text('📸 Generate Card', 'admin_generate_card')
     .text('⚙️ Card Settings', 'admin_card_settings').row()
+    .text('👥 Manage Admins', 'admin_manage_admins').row()
     .text('🔄 Refresh', 'admin_menu')
 
   await ctx.reply(
@@ -270,8 +283,69 @@ bot.command('admin', async (ctx) => {
   )
 })
 
+// Manage Admins
+bot.callbackQuery('admin_manage_admins', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || userId !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Only super admin can manage admins')
+    return
+  }
+
+  const admins = await prisma.user.findMany({
+    where: { isAdmin: true },
+    select: { telegramId: true, username: true, firstName: true }
+  })
+
+  let message = '👥 *Admin Management*\n\n'
+  message += '*Current Admins:*\n'
+  if (admins.length === 0) {
+    message += 'No additional admins\n'
+  } else {
+    admins.forEach((admin, i) => {
+      message += `${i + 1}\\. @${admin.username || admin.firstName || admin.telegramId}\n`
+    })
+  }
+  message += '\nℹ️ Use buttons below to manage'
+
+  const keyboard = new InlineKeyboard()
+    .text('➕ Add Admin', 'admin_add_admin').row()
+
+  if (admins.length > 0) {
+    keyboard.text('➖ Remove Admin', 'admin_remove_admin').row()
+  }
+
+  keyboard.text('🔙 Back', 'admin_menu')
+
+  await ctx.editMessageText(message, {
+    reply_markup: keyboard,
+    parse_mode: 'MarkdownV2'
+  })
+  await ctx.answerCallbackQuery()
+})
+
+// Add Admin
+bot.callbackQuery('admin_add_admin', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || userId !== ADMIN_ID) {
+    await ctx.answerCallbackQuery('Only super admin can add admins')
+    return
+  }
+
+  adminState.set(userId, { awaitingInput: 'add_admin' })
+
+  await ctx.editMessageText(
+    '🆔 *Add New Admin*\n\n' +
+    'Send me the Telegram ID of the user you want to make admin\\.\n' +
+    'You can find their ID by forwarding their message to @userinfobot\n\n' +
+    '⚠️ Send /cancel to abort',
+    { parse_mode: 'MarkdownV2' }
+  )
+  await ctx.answerCallbackQuery()
+})
+
 bot.callbackQuery('admin_menu', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -504,9 +578,63 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
 })
 
 bot.on('message:text', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) return
-  const state = adminState.get(ADMIN_ID)
+  const userId = ctx.from?.id.toString()
+  if (!userId) return
+  
+  const state = adminState.get(userId)
   if (!state?.awaitingInput) return
+
+  // Handle add admin
+  if (state.awaitingInput === 'add_admin') {
+    if (userId !== ADMIN_ID) {
+      await ctx.reply('⛔️ Only super admin can add admins')
+      return
+    }
+
+    const targetId = ctx.message?.text?.trim()
+    if (!targetId) {
+      await ctx.reply('❌ Invalid Telegram ID')
+      return
+    }
+
+    try {
+      // Check if user exists
+      let user = await prisma.user.findUnique({
+        where: { telegramId: targetId }
+      })
+
+      if (!user) {
+        await ctx.reply(`❌ User with ID ${targetId} not found in database`)
+        return
+      }
+
+      if (user.isAdmin) {
+        await ctx.reply(`⚠️ User @${user.username || targetId} is already an admin`)
+        adminState.delete(userId)
+        return
+      }
+
+      // Make user admin
+      await prisma.user.update({
+        where: { telegramId: targetId },
+        data: { isAdmin: true }
+      })
+
+      await ctx.reply(
+        `✅ Successfully added @${user.username || targetId} as admin\n\n` +
+        `They now have access to admin commands.`
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error adding admin:', error)
+      await ctx.reply('❌ Failed to add admin. Please try again.')
+    }
+    return
+  }
+
+  // Only super admin can do other operations
+  if (userId !== ADMIN_ID) return
 
   if (state.awaitingInput === 'add_balance') {
     const amount = parseFloat(ctx.message?.text || '')

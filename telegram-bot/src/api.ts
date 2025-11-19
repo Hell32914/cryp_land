@@ -425,6 +425,15 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.status(400).json({ error: 'Address and currency are required' })
     }
 
+    // Deduct from user balance IMMEDIATELY when creating withdrawal
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        balance: { decrement: amount },
+        totalWithdraw: { increment: amount }
+      }
+    })
+
     // Create withdrawal record
     const withdrawal = await prisma.withdrawal.create({
       data: {
@@ -437,8 +446,8 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       }
     })
 
-    // If amount < 100, process automatically via OxaPay
-    if (amount < 100) {
+    // If amount <= 100, process automatically via OxaPay
+    if (amount <= 100) {
       try {
         const { createPayout } = await import('./oxapay.js')
         
@@ -455,15 +464,6 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           data: {
             txHash: payout.trackId,
             status: 'PROCESSING'
-          }
-        })
-
-        // Deduct from user balance
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            balance: user.balance - amount,
-            totalWithdraw: user.totalWithdraw + amount
           }
         })
 

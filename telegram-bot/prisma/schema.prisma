@@ -27,6 +27,7 @@ model User {
   plan              String        @default("Bronze")
   kycRequired       Boolean       @default(false)
   isBlocked         Boolean       @default(false)
+  isAdmin           Boolean       @default(false)
   lastProfitUpdate  DateTime?
   referredBy        String?
   referralEarnings  Float         @default(0)
