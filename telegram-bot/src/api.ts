@@ -360,10 +360,16 @@ app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
     // Import OxaPay service
     const { createInvoice } = await import('./oxapay.js')
     
+    // Get callback URL from environment or use Railway URL
+    const callbackUrl = process.env.WEBHOOK_URL 
+      ? `${process.env.WEBHOOK_URL.startsWith('http') ? process.env.WEBHOOK_URL : `https://${process.env.WEBHOOK_URL}`}/api/oxapay-callback`
+      : 'https://crypland-production.up.railway.app/api/oxapay-callback'
+    
     const invoice = await createInvoice({
       amount,
       currency,
-      description: `Deposit for ${user.username || user.telegramId}`
+      description: `Deposit for ${user.username || user.telegramId}`,
+      callbackUrl
     })
 
     // Create deposit record
@@ -568,6 +574,60 @@ app.get('/api/user/:telegramId/transactions', async (req, res) => {
   } catch (error) {
     console.error('API Error:', error)
     res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// OxaPay payment callback
+app.post('/api/oxapay-callback', async (req, res) => {
+  try {
+    console.log('📥 OxaPay callback received:', req.body)
+    
+    const { trackId, status, orderid, amount } = req.body
+    
+    // Only process if payment is completed
+    if (status !== 'Paid' && status !== 'paid') {
+      console.log(`⏳ Payment not completed yet. Status: ${status}`)
+      return res.json({ success: true })
+    }
+
+    // Find deposit by trackId
+    const deposit = await prisma.deposit.findFirst({
+      where: { txHash: trackId },
+      include: { user: true }
+    })
+
+    if (!deposit) {
+      console.log(`⚠️ Deposit not found for trackId: ${trackId}`)
+      return res.json({ success: false, error: 'Deposit not found' })
+    }
+
+    if (deposit.status === 'COMPLETED') {
+      console.log(`✓ Deposit already processed: ${trackId}`)
+      return res.json({ success: true, message: 'Already processed' })
+    }
+
+    // Update deposit status to COMPLETED
+    await prisma.deposit.update({
+      where: { id: deposit.id },
+      data: { status: 'COMPLETED' }
+    })
+
+    // Add amount to user balance
+    await prisma.user.update({
+      where: { id: deposit.userId },
+      data: {
+        balance: { increment: deposit.amount },
+        totalDeposit: { increment: deposit.amount }
+      }
+    })
+
+    console.log(`✅ Deposit completed: $${deposit.amount} added to user ${deposit.user.telegramId}`)
+    
+    // Send notification to user (optional, import bot if needed)
+    res.json({ success: true })
+  } catch (error) {
+    console.error('❌ OxaPay callback error:', error)
+    res.status(500).json({ success: false, error: 'Internal error' })
   }
 })
 
