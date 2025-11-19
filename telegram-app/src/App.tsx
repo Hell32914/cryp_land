@@ -471,22 +471,6 @@ function App() {
               <ArrowLeft size={16} className="sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">{t.back}</span>
             </Button>
-            <div className="flex gap-1.5 sm:gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 text-foreground hover:bg-muted/50 rounded-lg"
-              >
-                <QrCode size={18} className="sm:w-5 sm:h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 text-foreground hover:bg-muted/50 rounded-lg"
-              >
-                <ClipboardText size={18} className="sm:w-5 sm:h-5" />
-              </Button>
-            </div>
           </div>
 
           <div className="px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -569,11 +553,8 @@ function App() {
                 CONFIRM WITHDRAW
               </Button>
 
-              <p className="text-xs sm:text-sm text-muted-foreground text-center">
-                FEE: <span className="font-bold text-foreground">$0.00</span>
-              </p>
               <p className="text-xs text-muted-foreground text-center">
-                Min withdrawal: $10 • Automatic processing for amounts &lt; $100
+                Min withdrawal: $10
               </p>
             </div>
           </div>
@@ -591,22 +572,6 @@ function App() {
               <ArrowLeft size={16} className="sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">{t.back}</span>
             </Button>
-            <div className="flex gap-1.5 sm:gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 text-foreground hover:bg-muted/50 rounded-lg"
-              >
-                <QrCode size={18} className="sm:w-5 sm:h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 sm:w-10 sm:h-10 border border-border/50 text-foreground hover:bg-muted/50 rounded-lg"
-              >
-                <ClipboardText size={18} className="sm:w-5 sm:h-5" />
-              </Button>
-            </div>
           </div>
 
           <div className="px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
