@@ -43,6 +43,7 @@ function App() {
   const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [depositQrCode, setDepositQrCode] = useState<string>('')
   const [depositAddress, setDepositAddress] = useState<string>('')
+  const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -176,6 +177,7 @@ function App() {
         const data = await response.json()
         setDepositQrCode(data.qrCode)
         setDepositAddress(data.address)
+        setDepositPaymentUrl(data.paymentUrl)
         toast.success('Deposit invoice created! Please scan QR code or use the address.')
       } else {
         const error = await response.json()
@@ -625,6 +627,16 @@ function App() {
                 <div className="flex justify-center p-4 bg-white rounded-lg">
                   <img src={depositQrCode} alt="Payment QR Code" className="w-48 h-48" />
                 </div>
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                  onClick={() => {
+                    if (depositPaymentUrl) {
+                      window.open(depositPaymentUrl, '_blank')
+                    }
+                  }}
+                >
+                  Open Payment Link
+                </Button>
                 {depositAddress && (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Or send to address:</p>
