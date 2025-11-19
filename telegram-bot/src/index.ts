@@ -1215,12 +1215,29 @@ async function initDatabase() {
     // Test if tables exist by trying a simple query
     try {
       await prisma.user.count()
+      console.log('✅ Database tables verified')
     } catch (error: any) {
       if (error.code === 'P2021') {
-        console.log('⚠️  Database tables not found. Please run: npx prisma db push')
-        console.log('💡 Or set up database manually on first deployment')
+        console.log('⚠️  Database tables not found. Auto-creating...')
+        
+        // Try to push database schema automatically
+        const { execSync } = await import('child_process')
+        try {
+          execSync('npx prisma db push --accept-data-loss --skip-generate', { 
+            stdio: 'inherit' 
+          })
+          console.log('✅ Database tables created successfully')
+          
+          // Verify again
+          await prisma.user.count()
+          console.log('✅ Database verification passed')
+        } catch (pushError) {
+          console.error('❌ Failed to create database tables:', pushError)
+          throw pushError
+        }
+      } else {
+        throw error
       }
-      throw error
     }
   } catch (error) {
     console.error('❌ Database initialization error:', error)
