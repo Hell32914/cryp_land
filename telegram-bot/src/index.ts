@@ -222,8 +222,8 @@ bot.command('start', async (ctx) => {
     `Click the button below to open the trading platform: 👇🏽`
 
   try {
-    // Path to logo: go up from dist/ to telegram-bot root, then up to project root
-    const logoPath = path.join(__dirname, '..', '..', '..', 'logo.jpg')
+    // Path to logo: go up from dist/ to telegram-bot root where logo.jpg is located
+    const logoPath = path.join(__dirname, '..', 'logo.jpg')
     await ctx.replyWithPhoto(new InputFile(logoPath), {
       caption: welcomeMessage,
       reply_markup: keyboard,
