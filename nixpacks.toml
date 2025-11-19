@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
+
+[phases.install]
+cmds = ["cd telegram-bot && npm install"]
+
+[phases.build]
+cmds = ["cd telegram-bot && npm run build"]
+
+[start]
+cmd = "cd telegram-bot && node dist/index.js"
