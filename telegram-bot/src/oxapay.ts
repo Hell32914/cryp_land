@@ -127,6 +127,13 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
       response: error.response?.data,
       status: error.response?.status
     })
+
+    // Handle specific OxaPay errors with user-friendly messages
+    const oxaError = error.response?.data?.error
+    if (oxaError?.key === 'amount_exceeds_balance') {
+      throw new Error('Service temporarily unavailable. Withdrawal will be processed manually by admin.')
+    }
+
     throw new Error(error.response?.data?.message || error.message || 'Failed to create payout')
   }
 }

@@ -484,7 +484,53 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           stack: error.stack
         })
 
-        // FAILED: Mark withdrawal as failed, DON'T deduct balance
+        // Check if this is OxaPay balance issue - send to admin for manual processing
+        if (error.message.includes('Service temporarily unavailable') || error.message.includes('balance')) {
+          console.log(`⚠️ OxaPay balance issue, sending to admin for manual processing`)
+
+          // Deduct balance (reserve funds)
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              balance: { decrement: amount },
+              totalWithdraw: { increment: amount }
+            }
+          })
+
+          const { bot, ADMIN_ID } = await import('./index.js')
+          
+          await bot.api.sendMessage(
+            ADMIN_ID,
+            `🔔 *Withdrawal Request (Auto-Failed)*\n\n` +
+            `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
+            `💰 Amount: $${amount.toFixed(2)}\n` +
+            `💎 Currency: ${currency}\n` +
+            `🌐 Network: ${network || 'TRC20'}\n` +
+            `📍 Address: \`${address}\`\n\n` +
+            `⚠️ OxaPay unavailable - requires manual processing\n` +
+            `🆔 Withdrawal ID: ${withdrawal.id}`,
+            { 
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '✅ Process & Complete', callback_data: `approve_withdrawal_${withdrawal.id}` },
+                    { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
+                  ]
+                ]
+              }
+            }
+          )
+
+          return res.json({
+            success: true,
+            withdrawalId: withdrawal.id,
+            status: 'PENDING',
+            message: 'Withdrawal request sent to admin for manual processing. Your balance has been reserved.'
+          })
+        }
+
+        // Other errors: Mark as FAILED, don't deduct balance
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
           data: { status: 'FAILED' }
