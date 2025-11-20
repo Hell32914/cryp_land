@@ -2141,7 +2141,7 @@ function App() {
                   </Button>
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
-                    onClick={() => window.open('https://landing-5dswbi4l5-hell32914s-projects.vercel.app/', '_blank')}
+                    onClick={() => window.open('https://authentic-commitment-production.up.railway.app/', '_blank')}
                   >
                     {t.website}
                   </Button>
