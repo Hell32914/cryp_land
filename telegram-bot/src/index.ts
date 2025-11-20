@@ -20,6 +20,7 @@ const prisma = new PrismaClient()
 export const bot = new Bot(process.env.BOT_TOKEN!)
 export const ADMIN_ID = process.env.ADMIN_ID!
 const WEBAPP_URL = process.env.WEBAPP_URL!
+const LANDING_URL = 'https://authentic-commitment-production.up.railway.app/'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
@@ -222,7 +223,8 @@ bot.command('start', async (ctx) => {
   }
 
   const keyboard = new InlineKeyboard()
-    .webApp('🚀 Open Syntrix', WEBAPP_URL)
+    .webApp('🚀 Open Syntrix', WEBAPP_URL).row()
+    .url('🌐 Visit Website', LANDING_URL)
 
   const welcomeMessage = 
     `*Welcome to SyntrixBot\\!*\n\n` +
@@ -230,6 +232,7 @@ bot.command('start', async (ctx) => {
     `⮕ Start your crypto trading journey with our automated bot\n` +
     `⮕ Earn up to 17% daily from your investments\n` +
     `⮕ Track your performance in real\\-time\n\n` +
+    `🌐 Learn more: ${LANDING_URL.replace(/[-.]/g, '\\$&')}\n\n` +
     `Click the button below to open the trading platform: 👇🏽`
 
   try {
