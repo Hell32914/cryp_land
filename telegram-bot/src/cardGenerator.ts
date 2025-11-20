@@ -177,26 +177,25 @@ async function drawBackground(ctx: CanvasRenderingContext2D, width: number, heig
  * Draw header with avatar and bot info
  */
 function drawHeader(ctx: CanvasRenderingContext2D, data: TradingCardData, layout: any) {
-  // Avatar and bot name are already in the background image, only draw timestamp
-  // Draw timestamp below the "SyntrixBot" text on background - white color
+  // Draw timestamp (only time, not date) - background has static text
   ctx.fillStyle = '#ffffff'
-  ctx.font = '25px Arial'
+  ctx.font = '22px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
+  // Format as ISO datetime without T
   const timestamp = data.timestamp.toISOString().replace('T', ' ').substring(0, 19)
-  // Position timestamp below SyntrixBot text (around y=115-120)
-  ctx.fillText(timestamp, 130, 90)
+  ctx.fillText(timestamp, 130, 95)
 }
 
 /**
  * Draw trading pair name (centered)
  */
 function drawPairName(ctx: CanvasRenderingContext2D, pair: string, layout: any, width: number) {
-  // Remove slash from pair name (e.g., BTC/USDT -> BTCUSDT)
+  // Draw pair name without slash
   const pairWithoutSlash = pair.replace('/', '')
   
   ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 42px Arial'
+  ctx.font = 'bold 40px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   ctx.fillText(`${pairWithoutSlash} Perpetual`, layout.marginLeft, layout.pairY)
@@ -211,7 +210,7 @@ function drawPositionBadge(ctx: CanvasRenderingContext2D, position: string, leve
   const isLong = position === 'Long'
   const accentColor = isLong ? '#0ecb81' : '#f6465d'
 
-  ctx.font = 'bold 28px Arial'
+  ctx.font = 'bold 26px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   ctx.fillStyle = accentColor
@@ -220,10 +219,10 @@ function drawPositionBadge(ctx: CanvasRenderingContext2D, position: string, leve
   ctx.fillText(posText, x, y)
 
   ctx.fillStyle = '#666666'
-  ctx.fillText('|', x + textWidth + 14, y)
+  ctx.fillText('|', x + textWidth + 12, y)
 
   ctx.fillStyle = '#ffffff'
-  ctx.fillText(`${leverage}x`, x + textWidth + 38, y)
+  ctx.fillText(`${leverage}x`, x + textWidth + 32, y)
 }
 
 /**
@@ -232,10 +231,10 @@ function drawPositionBadge(ctx: CanvasRenderingContext2D, position: string, leve
 function drawProfit(ctx: CanvasRenderingContext2D, profit: number, layout: any, width: number) {
   const formattedProfit = `${profit >= 0 ? '+' : ''}${formatPercent(profit)}%`
   ctx.fillStyle = profit >= 0 ? '#0ecb81' : '#f6465d'
-  ctx.font = 'bold 100px Arial'
+  ctx.font = 'bold 95px Arial'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillText(formattedProfit, width / 2 - 110, layout.profitY)
+  ctx.fillText(formattedProfit, width / 2, layout.profitY)
 }
 
 /**
@@ -250,8 +249,8 @@ function drawPrices(
   const baseY = layout.priceBlockY
   const labelColor = '#999999'
   const valueColor = '#ffffff'
-  const labelFont = '20px Arial'
-  const valueFont = 'bold 38px Arial'
+  const labelFont = '18px Arial'
+  const valueFont = 'bold 34px Arial'
   const entryX = layout.marginLeft
   const lastPriceX = 390
 
@@ -264,7 +263,7 @@ function drawPrices(
 
   ctx.fillStyle = valueColor
   ctx.font = valueFont
-  ctx.fillText(formatPrice(entryPrice), entryX, baseY + 35)
+  ctx.fillText(formatPrice(entryPrice), entryX, baseY + 32)
 
   // Last Price
   ctx.fillStyle = labelColor
@@ -273,7 +272,7 @@ function drawPrices(
 
   ctx.fillStyle = valueColor
   ctx.font = valueFont
-  ctx.fillText(formatPrice(lastPrice), lastPriceX, baseY + 35)
+  ctx.fillText(formatPrice(lastPrice), lastPriceX, baseY + 32)
 }
 
 /**
