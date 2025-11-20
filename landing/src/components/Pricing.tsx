@@ -109,8 +109,11 @@ export function Pricing() {
                     className="w-full" 
                     variant={plan.popular ? "default" : "outline"}
                     size="lg"
+                    asChild
                   >
-                    Начать сейчас
+                    <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                      Начать сейчас
+                    </a>
                   </Button>
                 </CardFooter>
               </Card>

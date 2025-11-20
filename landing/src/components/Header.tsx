@@ -85,17 +85,21 @@ export function Header() {
             transition={{ delay: 0.4 }}
           >
             <LanguageSelector />
-            <Button variant="ghost" className="group">
-              {t.header.signIn}
+            <Button variant="ghost" className="group" asChild>
+              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                {t.header.signIn}
+              </a>
             </Button>
-            <Button className="group relative overflow-hidden">
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                initial={{ x: "-100%" }}
-                whileHover={{ x: "100%" }}
-                transition={{ duration: 0.6 }}
-              />
-              <span className="relative">{t.header.getStarted}</span>
+            <Button className="group relative overflow-hidden" asChild>
+              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  initial={{ x: "-100%" }}
+                  whileHover={{ x: "100%" }}
+                  transition={{ duration: 0.6 }}
+                />
+                <span className="relative">{t.header.getStarted}</span>
+              </a>
             </Button>
           </motion.div>
 
@@ -131,8 +135,16 @@ export function Header() {
                 ))}
                 <div className="flex flex-col gap-2 pt-4">
                   <LanguageSelector />
-                  <Button variant="ghost" className="w-full">{t.header.signIn}</Button>
-                  <Button className="w-full">{t.header.getStarted}</Button>
+                  <Button variant="ghost" className="w-full" asChild>
+                    <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                      {t.header.signIn}
+                    </a>
+                  </Button>
+                  <Button className="w-full" asChild>
+                    <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                      {t.header.getStarted}
+                    </a>
+                  </Button>
                 </div>
               </div>
             </motion.div>

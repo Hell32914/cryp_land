@@ -225,6 +225,7 @@ bot.command('start', async (ctx) => {
   const keyboard = new InlineKeyboard()
     .webApp('🚀 Open Syntrix', WEBAPP_URL).row()
     .url('🌐 Visit Website', LANDING_URL)
+    .url('💬 Support', 'https://t.me/SyntrixSupport')
 
   const welcomeMessage = 
     `*Welcome to SyntrixBot\\!*\n\n` +

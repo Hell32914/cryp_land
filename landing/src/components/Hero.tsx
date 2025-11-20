@@ -101,17 +101,19 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
           >
-            <Button size="lg" className="group relative overflow-hidden px-8 py-6 text-base shadow-lg transition-all hover:shadow-xl">
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                initial={{ x: "-100%" }}
-                whileHover={{ x: "100%" }}
-                transition={{ duration: 0.6 }}
-              />
-              <span className="relative flex items-center">
-                {t.hero.startTrading}
-                <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" weight="bold" />
-              </span>
+            <Button size="lg" className="group relative overflow-hidden px-8 py-6 text-base shadow-lg transition-all hover:shadow-xl" asChild>
+              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  initial={{ x: "-100%" }}
+                  whileHover={{ x: "100%" }}
+                  transition={{ duration: 0.6 }}
+                />
+                <span className="relative flex items-center">
+                  {t.hero.startTrading}
+                  <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" weight="bold" />
+                </span>
+              </a>
             </Button>
             <Button size="lg" variant="outline" className="group px-8 py-6 text-base">
               <Lightning className="mr-2 transition-all group-hover:text-accent" weight="duotone" />

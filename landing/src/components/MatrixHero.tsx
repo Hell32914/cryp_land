@@ -165,17 +165,20 @@ export function MatrixHero() {
               <Button 
                 size="lg" 
                 className="group relative overflow-hidden px-8 py-6 text-base shadow-lg transition-all hover:shadow-xl"
+                asChild
               >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  initial={{ x: "-100%" }}
-                  whileHover={{ x: "100%" }}
-                  transition={{ duration: 0.6 }}
-                />
-                <span className="relative flex items-center">
-                  {t.matrixHero.startNow}
-                  <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" weight="bold" />
-                </span>
+                <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: "100%" }}
+                    transition={{ duration: 0.6 }}
+                  />
+                  <span className="relative flex items-center">
+                    {t.matrixHero.startNow}
+                    <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" weight="bold" />
+                  </span>
+                </a>
               </Button>
             </motion.div>
           </motion.div>

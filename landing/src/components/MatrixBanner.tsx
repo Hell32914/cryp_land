@@ -126,14 +126,17 @@ export function MatrixBanner() {
                 style={{
                   backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px)"
                 }}
+                asChild
               >
-                <motion.span
-                  className="relative flex items-center gap-2"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  JOIN BOT
-                </motion.span>
+                <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                  <motion.span
+                    className="relative flex items-center gap-2"
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    JOIN BOT
+                  </motion.span>
+                </a>
               </Button>
             </motion.div>
           </motion.div>
