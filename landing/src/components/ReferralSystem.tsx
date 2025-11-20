@@ -89,7 +89,7 @@ export function ReferralSystem() {
                 </defs>
                 
                 <path 
-                  d="M 10 60 Q 90 60 170 190" 
+                  d="M 10 60 Q 90 80 170 190" 
                   stroke="url(#line-gradient-1)" 
                   strokeWidth="2" 
                   fill="none"
@@ -98,7 +98,7 @@ export function ReferralSystem() {
                 />
                 
                 <path 
-                  d="M 10 190 L 170 190" 
+                  d="M 10 190 Q 90 190 170 190" 
                   stroke="url(#line-gradient-2)" 
                   strokeWidth="2" 
                   fill="none"
@@ -108,7 +108,7 @@ export function ReferralSystem() {
                 />
                 
                 <path 
-                  d="M 10 320 Q 90 320 170 190" 
+                  d="M 10 320 Q 90 300 170 190" 
                   stroke="url(#line-gradient-3)" 
                   strokeWidth="2" 
                   fill="none"
