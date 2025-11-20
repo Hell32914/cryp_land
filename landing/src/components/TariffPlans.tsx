@@ -6,11 +6,12 @@ import { ArrowRight } from "@phosphor-icons/react"
 import { useLanguage } from "@/lib/LanguageContext"
 
 const tariffPlans = [
-  { name: "Bronze", percentage: "1%", range: "$10 - 100", min: 10, max: 100 },
-  { name: "Silver", percentage: "2.5%", range: "$100 - 500", min: 100, max: 500 },
-  { name: "Gold", percentage: "3.5%", range: "$500 - 1000", min: 500, max: 1000 },
-  { name: "Platinum", percentage: "5%", range: "$1000 - 5000", min: 1000, max: 5000 },
-  { name: "Diamond", percentage: "7.5%", range: "$5000 - 20000", min: 5000, max: 20000 }
+  { name: "Bronze", percentage: "0.5%", range: "$10 - 99", min: 10, max: 99 },
+  { name: "Silver", percentage: "1%", range: "$100 - 499", min: 100, max: 499 },
+  { name: "Gold", percentage: "2%", range: "$500 - 999", min: 500, max: 999 },
+  { name: "Platinum", percentage: "3%", range: "$1000 - 4999", min: 1000, max: 4999 },
+  { name: "Diamond", percentage: "5%", range: "$5000 - 19999", min: 5000, max: 19999 },
+  { name: "Black", percentage: "7%", range: "$20000+", min: 20000, max: Infinity }
 ]
 
 const depositAmounts = [10, 27000, 45000, 63000, 100000]
@@ -165,7 +166,7 @@ export function TariffPlans() {
                         </span>
                       </div>
 
-                      {depositValue[0] >= plan.min && depositValue[0] <= plan.max && (
+                      {depositValue[0] >= plan.min && (plan.max === Infinity || depositValue[0] <= plan.max) && (
                         <motion.div
                           layoutId="active-plan"
                           className="absolute inset-0 rounded-lg border-2 border-primary pointer-events-none"
@@ -188,13 +189,13 @@ export function TariffPlans() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">{t.tariffPlans.selectedPlan}</span>
                       <span className="font-mono text-foreground font-medium">
-                        {tariffPlans.find(p => depositValue[0] >= p.min && depositValue[0] <= p.max)?.name || "N/A"}
+                        {tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))?.name || "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">{t.tariffPlans.dailyProfit}</span>
                       <span className="font-mono text-primary font-semibold">
-                        {tariffPlans.find(p => depositValue[0] >= p.min && depositValue[0] <= p.max)?.percentage || "0%"}
+                        {tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))?.percentage || "0%"}
                       </span>
                     </div>
                     <div className="pt-3 border-t border-border/30">
@@ -202,7 +203,7 @@ export function TariffPlans() {
                         <span className="text-sm text-muted-foreground">{t.tariffPlans.estimatedProfit}</span>
                         <span className="font-mono text-xl text-foreground font-bold">
                           ${(() => {
-                            const plan = tariffPlans.find(p => depositValue[0] >= p.min && depositValue[0] <= p.max)
+                            const plan = tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))
                             const rate = plan ? parseFloat(plan.percentage) / 100 : 0
                             return (depositValue[0] * rate * timeValue[0]).toFixed(2)
                           })()}
