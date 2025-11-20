@@ -85,11 +85,6 @@ export function Header() {
             transition={{ delay: 0.4 }}
           >
             <LanguageSelector />
-            <Button variant="ghost" className="group" asChild>
-              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
-                {t.header.signIn}
-              </a>
-            </Button>
             <Button className="group relative overflow-hidden" asChild>
               <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
                 <motion.div
@@ -135,11 +130,6 @@ export function Header() {
                 ))}
                 <div className="flex flex-col gap-2 pt-4">
                   <LanguageSelector />
-                  <Button variant="ghost" className="w-full" asChild>
-                    <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
-                      {t.header.signIn}
-                    </a>
-                  </Button>
                   <Button className="w-full" asChild>
                     <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
                       {t.header.getStarted}
