@@ -145,8 +145,8 @@ async function getNextOrderNumber(): Promise<number> {
  */
 async function drawBackground(ctx: CanvasRenderingContext2D, width: number, height: number) {
   try {
-    // Load the background image from telegram-bot root
-    const backgroundPath = path.join(__dirname, '..', 'card_logo3.png')
+    // Load the clean background image without any text
+    const backgroundPath = path.join(__dirname, '..', 'assets', 'card-background.png')
     const background = await canvasLoadImage(backgroundPath)
     ctx.drawImage(background, 0, 0, width, height)
   } catch (error) {
@@ -177,14 +177,36 @@ async function drawBackground(ctx: CanvasRenderingContext2D, width: number, heig
  * Draw header with avatar and bot info
  */
 function drawHeader(ctx: CanvasRenderingContext2D, data: TradingCardData, layout: any) {
-  // Draw timestamp (only time, not date) - background has static text
+  const avatarX = 47
+  const avatarY = 55
+  const avatarSize = 60
+  const avatarRadius = avatarSize / 2
+
+  // Draw circular avatar background
+  ctx.fillStyle = data.avatarBackground || '#F0B90B'
+  ctx.beginPath()
+  ctx.arc(avatarX + avatarRadius, avatarY + avatarRadius, avatarRadius, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Draw avatar initial
+  ctx.fillStyle = data.avatarTextColor || '#0B0B0B'
+  ctx.font = 'bold 28px Arial'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(data.botInitial, avatarX + avatarRadius, avatarY + avatarRadius + 2)
+
+  // Draw bot name
   ctx.fillStyle = '#ffffff'
-  ctx.font = '22px Arial'
+  ctx.font = 'bold 28px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  // Format as ISO datetime without T
+  ctx.fillText('SyntrixBot', avatarX + avatarSize + 20, avatarY + 5)
+
+  // Draw timestamp
+  ctx.fillStyle = '#999999'
+  ctx.font = '18px Arial'
   const timestamp = data.timestamp.toISOString().replace('T', ' ').substring(0, 19)
-  ctx.fillText(timestamp, 130, 95)
+  ctx.fillText(timestamp, avatarX + avatarSize + 20, avatarY + 38)
 }
 
 /**
@@ -287,7 +309,21 @@ async function drawFooter(
   const footerY = layout.footerY
   const leftMargin = layout.marginLeft
 
-  // Binance Futures logo and referral code already in background image - skip drawing
+  // Draw Binance Futures logo text
+  ctx.fillStyle = '#F0B90B'
+  ctx.font = 'bold 20px Arial'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText('◆ BINANCE', leftMargin, footerY)
+  
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 20px Arial'
+  ctx.fillText('FUTURES', leftMargin + 115, footerY)
+
+  // Draw referral code
+  ctx.fillStyle = '#cccccc'
+  ctx.font = '16px Arial'
+  ctx.fillText(`Referral Code ${referralCode}`, leftMargin, footerY + 35)
 
   // Draw QR code (raised higher with rounded corners)
   const qrSize = 130
