@@ -177,14 +177,14 @@ async function drawBackground(ctx: CanvasRenderingContext2D, width: number, heig
  * Draw header with avatar and bot info
  */
 function drawHeader(ctx: CanvasRenderingContext2D, data: TradingCardData, layout: any) {
-  // Avatar and bot name are on the background image
-  // Only draw timestamp
-  ctx.fillStyle = '#999999'
-  ctx.font = '18px Arial'
+  // Avatar, bot name, and Bot label are already on background
+  // Draw timestamp below the Bot label
+  ctx.fillStyle = '#666666'
+  ctx.font = '16px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   const timestamp = data.timestamp.toISOString().replace('T', ' ').substring(0, 19)
-  ctx.fillText(timestamp, 130, 95)
+  ctx.fillText(timestamp, 127, 75)
 }
 
 /**
