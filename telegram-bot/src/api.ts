@@ -452,8 +452,11 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
 
         console.log(`✅ OxaPay payout successful:`, payout)
 
+        // Calculate new balance before deduction
+        const newBalance = user.balance - amount
+
         // SUCCESS: Deduct balance and update withdrawal
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
           where: { id: user.id },
           data: {
             balance: { decrement: amount },
@@ -469,7 +472,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           }
         })
 
-        console.log(`✅ Balance deducted, withdrawal marked as COMPLETED`)
+        console.log(`✅ Balance deducted, withdrawal marked as COMPLETED. New balance: $${newBalance.toFixed(2)}`)
 
         // Notify user about successful withdrawal
         try {
@@ -482,7 +485,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
             `🌐 Network: ${network || 'TRC20'}\n` +
             `📍 Address: \`${address}\`\n\n` +
             `🔗 Track ID: ${payout.trackId}\n\n` +
-            `💳 New balance: $${(user.balance - amount).toFixed(2)}`,
+            `💳 New balance: $${newBalance.toFixed(2)}`,
             { parse_mode: 'Markdown' }
           )
         } catch (err) {
@@ -495,7 +498,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           trackId: payout.trackId,
           status: 'COMPLETED',
           message: 'Withdrawal completed successfully',
-          newBalance: user.balance - amount
+          newBalance: newBalance
         })
       } catch (error: any) {
         console.error(`❌ Withdrawal ${withdrawal.id} failed:`, {
@@ -595,7 +598,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         }
       )
 
-      res.json({
+      return res.json({
         success: true,
         withdrawalId: withdrawal.id,
         status: 'PENDING',
@@ -603,8 +606,18 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       })
     }
   } catch (error: any) {
-    console.error('API Error:', error)
-    res.status(500).json({ error: error.message || 'Internal server error' })
+    console.error('❌ Withdrawal API Error:', error)
+    
+    // If response already sent, don't try to send again
+    if (res.headersSent) {
+      console.error('⚠️ Headers already sent, cannot send error response')
+      return
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to process withdrawal. Please contact support.',
+      details: error.message 
+    })
   }
 })
 
