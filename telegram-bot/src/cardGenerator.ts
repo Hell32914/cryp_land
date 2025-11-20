@@ -187,8 +187,8 @@ async function drawBackground(ctx: CanvasRenderingContext2D, width: number, heig
 function drawHeader(ctx: CanvasRenderingContext2D, data: TradingCardData, layout: any) {
   // Background image already has avatar and SyntrixBot name
   // Draw timestamp below the SyntrixBot name
-  ctx.fillStyle = '#999999'
-  ctx.font = '18px Arial'
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '36px Arial'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   const timestamp = data.timestamp.toISOString().replace('T', ' ').substring(0, 19)
