@@ -98,6 +98,7 @@ function generateFallbackPrice(symbol: string): number {
     'XRPUSDT': [0.4, 0.8],
     'ADAUSDT': [0.3, 0.7],
     'DOGEUSDT': [0.05, 0.15],
+    'SHIBUSDT': [0.00001, 0.00003],
     'TONUSDT': [2, 6],
   }
   
@@ -114,5 +115,8 @@ function getPriceDecimals(price: number): number {
   if (price >= 10) return 2
   if (price >= 1) return 3
   if (price >= 0.1) return 4
-  return 5
+  if (price >= 0.01) return 5
+  if (price >= 0.001) return 6
+  if (price >= 0.0001) return 7
+  return 8 // For very small prices like SHIB
 }
