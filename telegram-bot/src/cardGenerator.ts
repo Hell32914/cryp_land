@@ -10,9 +10,10 @@ const __dirname = path.dirname(__filename)
 
 const prisma = new PrismaClient()
 
-// Register system font with Cyrillic support
+// Register Arial font with Cyrillic support from project fonts folder
 try {
-  registerFont('C:\\Windows\\Fonts\\arial.ttf', { family: 'Arial' })
+  const fontPath = path.join(__dirname, '..', 'fonts', 'arial.ttf')
+  registerFont(fontPath, { family: 'Arial' })
 } catch (error) {
   console.warn('Failed to register Arial font, using default:', error)
 }
