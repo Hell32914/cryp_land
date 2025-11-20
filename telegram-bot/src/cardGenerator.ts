@@ -236,7 +236,7 @@ function drawProfit(ctx: CanvasRenderingContext2D, profit: number, layout: any, 
   ctx.font = 'bold 95px Arial'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillText(formattedProfit, width / 2 - 50, layout.profitY)
+  ctx.fillText(formattedProfit, width / 2 - 140, layout.profitY)
 }
 
 /**
