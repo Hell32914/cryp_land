@@ -84,13 +84,20 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
   }
 
   try {
+    console.log('📤 Sending payout request:', {
+      address: params.address,
+      amount: params.amount,
+      currency: params.currency.toUpperCase(),
+      network: (params.network || 'TRC20').toUpperCase()
+    })
+
     const response = await axios.post(
       'https://api.oxapay.com/v1/payout',
       {
         address: params.address,
         amount: params.amount,
-        currency: params.currency.toUpperCase(), // Use uppercase as in docs
-        network: (params.network || 'TRC20').toUpperCase(), // Use uppercase as in docs
+        currency: params.currency.toUpperCase(),
+        network: (params.network || 'TRC20').toUpperCase(),
         description: `Withdrawal ${params.amount} ${params.currency}`
       },
       {
@@ -101,6 +108,8 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
       }
     )
 
+    console.log('📥 OxaPay payout response:', JSON.stringify(response.data, null, 2))
+
     if (response.data.result === 100) {
       return {
         success: true,
@@ -109,11 +118,16 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
         amount: response.data.amount
       }
     } else {
+      console.error('❌ OxaPay returned error:', response.data)
       throw new Error(response.data.message || 'Failed to create payout')
     }
   } catch (error: any) {
-    console.error('OxaPay createPayout error:', error.response?.data || error.message)
-    throw error
+    console.error('❌ OxaPay createPayout error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
+    throw new Error(error.response?.data?.message || error.message || 'Failed to create payout')
   }
 }
 
