@@ -126,8 +126,9 @@ export async function postTradingCard(bot: Bot, channelId: string) {
     const cardData = await getLastTradingPostData()
     const caption = formatCardCaption(cardData)
     
-    // Get all registered users
+    // Get all active users
     const users = await prisma.user.findMany({
+      where: { status: 'ACTIVE' },
       select: { telegramId: true }
     })
     

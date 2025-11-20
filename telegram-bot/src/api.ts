@@ -471,12 +471,31 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
 
         console.log(`✅ Balance deducted, withdrawal marked as COMPLETED`)
 
-        res.json({
+        // Notify user about successful withdrawal
+        try {
+          const { bot } = await import('./index.js')
+          await bot.api.sendMessage(
+            user.telegramId,
+            `✅ *Withdrawal Completed*\n\n` +
+            `💰 Amount: $${amount.toFixed(2)}\n` +
+            `💎 Currency: ${currency}\n` +
+            `🌐 Network: ${network || 'TRC20'}\n` +
+            `📍 Address: \`${address}\`\n\n` +
+            `🔗 Track ID: ${payout.trackId}\n\n` +
+            `💳 New balance: $${(user.balance - amount).toFixed(2)}`,
+            { parse_mode: 'Markdown' }
+          )
+        } catch (err) {
+          console.error('Failed to notify user:', err)
+        }
+
+        return res.json({
           success: true,
           withdrawalId: withdrawal.id,
           trackId: payout.trackId,
           status: 'COMPLETED',
-          message: 'Withdrawal completed successfully'
+          message: 'Withdrawal completed successfully',
+          newBalance: user.balance - amount
         })
       } catch (error: any) {
         console.error(`❌ Withdrawal ${withdrawal.id} failed:`, {
