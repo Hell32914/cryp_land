@@ -117,72 +117,7 @@ export function Hero() {
             </Button>
           </motion.div>
           
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="mt-12 flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground"
-          >
-            <motion.div 
-              className="flex items-center gap-2"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <motion.div 
-                className="h-2 w-2 rounded-full bg-primary"
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.7, 1, 0.7]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-              <span>{t.hero.users}</span>
-            </motion.div>
-            <motion.div 
-              className="flex items-center gap-2"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <motion.div 
-                className="h-2 w-2 rounded-full bg-accent"
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.7, 1, 0.7]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.3
-                }}
-              />
-              <span>{t.hero.support}</span>
-            </motion.div>
-            <motion.div 
-              className="flex items-center gap-2"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <motion.div 
-                className="h-2 w-2 rounded-full bg-primary"
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.7, 1, 0.7]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.6
-                }}
-              />
-              <span>{t.hero.uptime}</span>
-            </motion.div>
-          </motion.div>
+
         </motion.div>
       </div>
     </section>

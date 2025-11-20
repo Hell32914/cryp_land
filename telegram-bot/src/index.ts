@@ -19,6 +19,7 @@ dotenv.config()
 const prisma = new PrismaClient()
 export const bot = new Bot(process.env.BOT_TOKEN!)
 export const ADMIN_ID = process.env.ADMIN_ID!
+const ADMIN_ID_2 = process.env.ADMIN_ID_2!
 const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://authentic-commitment-production.up.railway.app/'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
@@ -28,7 +29,7 @@ const adminState = new Map<string, { awaitingInput?: string, targetUserId?: numb
 
 // Check if user is admin (super admin or database admin)
 async function isAdmin(userId: string): Promise<boolean> {
-  if (userId === ADMIN_ID) return true
+  if (userId === ADMIN_ID || userId === ADMIN_ID_2) return true
   
   const user = await prisma.user.findUnique({
     where: { telegramId: userId }
@@ -290,7 +291,7 @@ bot.command('admin', async (ctx) => {
 // Manage Admins
 bot.callbackQuery('admin_manage_admins', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || userId !== ADMIN_ID) {
+  if (!userId || (userId !== ADMIN_ID && userId !== ADMIN_ID_2)) {
     await ctx.answerCallbackQuery('Only super admin can manage admins')
     return
   }
@@ -330,7 +331,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
 // Add Admin
 bot.callbackQuery('admin_add_admin', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || userId !== ADMIN_ID) {
+  if (!userId || (userId !== ADMIN_ID && userId !== ADMIN_ID_2)) {
     await ctx.answerCallbackQuery('Only super admin can add admins')
     return
   }
@@ -377,7 +378,8 @@ bot.callbackQuery('admin_menu', async (ctx) => {
 })
 
 bot.callbackQuery('admin_users', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -417,7 +419,8 @@ bot.callbackQuery('admin_users', async (ctx) => {
 })
 
 bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -480,7 +483,8 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
 })
 
 bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -553,7 +557,8 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
 })
 
 bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -590,7 +595,7 @@ bot.on('message:text', async (ctx) => {
 
   // Handle add admin
   if (state.awaitingInput === 'add_admin') {
-    if (userId !== ADMIN_ID) {
+    if (userId !== ADMIN_ID && userId !== ADMIN_ID_2) {
       await ctx.reply('⛔️ Only super admin can add admins')
       return
     }
@@ -638,7 +643,7 @@ bot.on('message:text', async (ctx) => {
   }
 
   // Only super admin can do other operations
-  if (userId !== ADMIN_ID) return
+  if (userId !== ADMIN_ID && userId !== ADMIN_ID_2) return
 
   if (state.awaitingInput === 'add_balance') {
     const amount = parseFloat(ctx.message?.text || '')
@@ -729,7 +734,8 @@ bot.on('message:text', async (ctx) => {
 })
 
 bot.callbackQuery('admin_deposits', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -765,7 +771,8 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
 })
 
 bot.callbackQuery('admin_withdrawals', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -802,7 +809,8 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
 
 // Generate trading card (admin test)
 bot.callbackQuery('admin_generate_card', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -829,7 +837,8 @@ bot.callbackQuery('admin_generate_card', async (ctx) => {
 
 // Card settings menu
 bot.callbackQuery('admin_card_settings', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -854,7 +863,8 @@ bot.callbackQuery('admin_card_settings', async (ctx) => {
 
 // Set card count
 bot.callbackQuery('card_set_count', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -870,7 +880,8 @@ bot.callbackQuery('card_set_count', async (ctx) => {
 
 // Set time range
 bot.callbackQuery('card_set_time', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -886,7 +897,8 @@ bot.callbackQuery('card_set_time', async (ctx) => {
 
 // Reschedule cards immediately
 bot.callbackQuery('card_reschedule', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -957,7 +969,8 @@ bot.on('message:text', async (ctx) => {
 
 // Approve withdrawal
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1064,7 +1077,8 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
 
 // Reject withdrawal
 bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }

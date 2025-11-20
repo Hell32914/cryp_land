@@ -465,18 +465,18 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           where: { id: withdrawal.id },
           data: {
             txHash: payout.trackId,
-            status: 'PROCESSING'
+            status: 'COMPLETED'
           }
         })
 
-        console.log(`💰 Balance deducted, withdrawal marked as PROCESSING`)
+        console.log(`✅ Balance deducted, withdrawal marked as COMPLETED`)
 
         res.json({
           success: true,
           withdrawalId: withdrawal.id,
           trackId: payout.trackId,
-          status: 'PROCESSING',
-          message: 'Withdrawal is being processed automatically'
+          status: 'COMPLETED',
+          message: 'Withdrawal completed successfully'
         })
       } catch (error: any) {
         console.error(`❌ Withdrawal ${withdrawal.id} failed:`, {
