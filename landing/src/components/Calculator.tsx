@@ -34,13 +34,24 @@ export function Calculator() {
   const daysNum = parseInt(days) || 0
   
   const getPlanByDeposit = (amount: number) => {
-    return tariffPlans.find(plan => amount >= plan.minDeposit && amount <= plan.maxDeposit) || tariffPlans[0]
+    if (amount < 10) return tariffPlans[0] // Bronze for amounts less than $10
+    
+    const foundPlan = tariffPlans.find(plan => amount >= plan.minDeposit && amount <= plan.maxDeposit)
+    
+    // If no plan found (amount > 19999), return Black plan
+    if (!foundPlan && amount >= 20000) {
+      return tariffPlans[5] // Black plan
+    }
+    
+    return foundPlan || tariffPlans[0]
   }
 
   const plan = getPlanByDeposit(investmentNum)
   const dailyRate = plan.dailyPercent / 100
 
   const calculateProfit = () => {
+    if (investmentNum === 0 || daysNum === 0) return 0
+    
     if (reinvest) {
       return investmentNum * Math.pow(1 + dailyRate, daysNum)
     } else {
@@ -52,6 +63,9 @@ export function Calculator() {
   const profit = total - investmentNum
 
   const formatCurrency = (value: number) => {
+    // Handle NaN and invalid values
+    if (!isFinite(value) || isNaN(value)) return '$0'
+    
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'USD',
