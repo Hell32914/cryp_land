@@ -39,11 +39,6 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2
 })
 
-const priceFormatterIntl = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 3
-})
-
 /**
  * Generate a trading card image
  */
@@ -341,8 +336,30 @@ function formatPercent(value: number) {
 }
 
 function formatPrice(value: number) {
+  // Determine how many decimal places we need based on the value
+  let decimals: number
+  
+  if (value >= 1) {
+    // For prices >= 1, use up to 2 decimals
+    decimals = 2
+  } else if (value >= 0.01) {
+    // For prices 0.01-0.99, use up to 4 decimals
+    decimals = 4
+  } else if (value >= 0.0001) {
+    // For prices 0.0001-0.0099, use up to 6 decimals
+    decimals = 6
+  } else {
+    // For very small prices (like SHIB), use up to 8 decimals
+    decimals = 8
+  }
+  
+  const formatter = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals
+  })
+  
   // Format with comma as decimal separator
-  return priceFormatterIntl.format(value).replace('.', ',')
+  return formatter.format(value).replace('.', ',')
 }
 
 /**

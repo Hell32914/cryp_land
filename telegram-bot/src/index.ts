@@ -1215,7 +1215,7 @@ async function accrueDailyProfit() {
         where: { userId: user.id }
       })
       
-      // Create new daily updates
+      // Create new daily updates and notify user
       for (const update of updates) {
         await prisma.dailyProfitUpdate.create({
           data: {
@@ -1225,6 +1225,20 @@ async function accrueDailyProfit() {
             dailyTotal: dailyProfit
           }
         })
+        
+        // Send notification to user
+        try {
+          await bot.api.sendMessage(
+            user.telegramId,
+            `💰 *Daily Profit Update*\n\n` +
+            `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
+            `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)\n` +
+            `💎 Total daily: $${dailyProfit.toFixed(2)}`,
+            { parse_mode: 'Markdown' }
+          )
+        } catch (err) {
+          console.error(`Failed to notify user ${user.telegramId}:`, err)
+        }
       }
 
       console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%) - ${updates.length} updates`)

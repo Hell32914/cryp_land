@@ -678,12 +678,13 @@ app.post('/api/oxapay-callback', async (req, res) => {
       data: { status: 'COMPLETED' }
     })
 
-    // Add amount to user balance
+    // Add amount to user balance and activate account if needed
     const updatedUser = await prisma.user.update({
       where: { id: deposit.userId },
       data: {
         balance: { increment: deposit.amount },
-        totalDeposit: { increment: deposit.amount }
+        totalDeposit: { increment: deposit.amount },
+        status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
       }
     })
 

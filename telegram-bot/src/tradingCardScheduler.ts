@@ -111,10 +111,14 @@ function toKyivTime(utcTime: string): string {
 }
 
 /**
- * Post a trading card to the channel
+ * Post a trading card to all registered users
  */
 export async function postTradingCard(bot: Bot, channelId: string) {
   try {
+    // Import Prisma to get all users
+    const { PrismaClient } = await import('@prisma/client')
+    const prisma = new PrismaClient()
+    
     // Generate card image
     const imageBuffer = await generateTradingCard()
     
@@ -122,13 +126,29 @@ export async function postTradingCard(bot: Bot, channelId: string) {
     const cardData = await getLastTradingPostData()
     const caption = formatCardCaption(cardData)
     
-    // Post to channel
-    await bot.api.sendPhoto(channelId, new InputFile(imageBuffer), {
-      caption: caption,
-      parse_mode: 'Markdown'
+    // Get all registered users
+    const users = await prisma.user.findMany({
+      select: { telegramId: true }
     })
     
-    console.log(`✅ Trading card #${cardData.orderNumber} posted successfully`)
+    // Send to all users
+    let successCount = 0
+    for (const user of users) {
+      try {
+        await bot.api.sendPhoto(user.telegramId, new InputFile(imageBuffer), {
+          caption: caption,
+          parse_mode: 'Markdown'
+        })
+        successCount++
+      } catch (error: any) {
+        // Skip if user blocked the bot or other error
+        console.error(`Failed to send card to ${user.telegramId}:`, error.message)
+      }
+    }
+    
+    await prisma.$disconnect()
+    
+    console.log(`✅ Trading card #${cardData.orderNumber} sent to ${successCount}/${users.length} users`)
   } catch (error) {
     console.error('❌ Failed to post trading card:', error)
   }
