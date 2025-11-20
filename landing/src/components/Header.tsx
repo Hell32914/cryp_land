@@ -4,14 +4,14 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { LanguageSelector } from "@/components/LanguageSelector"
 import { useLanguage } from "@/lib/LanguageContext"
+import { WhitepaperDialog } from "@/components/WhitepaperDialog"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { t } = useLanguage()
 
   const navItems = [
-    { label: t.header.telegramChannel, href: "https://t.me/syntrix_official", external: true },
-    { label: t.header.whitepaper, href: "#whitepaper", external: false }
+    { label: t.header.telegramChannel, href: "https://t.me/syntrix_official", external: true }
   ]
 
   return (
@@ -76,6 +76,15 @@ export function Header() {
                 />
               </motion.a>
             ))}
+            <motion.div
+              className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: navItems.length * 0.1 }}
+              whileHover={{ scale: 1.05 }}
+            >
+              <WhitepaperDialog />
+            </motion.div>
           </div>
 
           <motion.div 
@@ -128,6 +137,9 @@ export function Header() {
                     {item.label}
                   </a>
                 ))}
+                <div className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
+                  <WhitepaperDialog />
+                </div>
                 <div className="flex flex-col gap-2 pt-4">
                   <LanguageSelector />
                   <Button className="w-full" asChild>

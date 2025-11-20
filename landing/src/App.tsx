@@ -10,7 +10,6 @@ import { Leaderboard } from "@/components/Leaderboard"
 import { FAQ } from "@/components/FAQ"
 import { FinalCTA } from "@/components/FinalCTA"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
-import { Whitepaper } from "@/components/Whitepaper"
 
 function App() {
   return (
@@ -27,7 +26,6 @@ function App() {
         <ReferralSystem />
         <Statistics />
         <Leaderboard />
-        <Whitepaper />
         <div id="faq">
           <FAQ />
         </div>

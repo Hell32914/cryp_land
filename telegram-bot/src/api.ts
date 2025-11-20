@@ -679,7 +679,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
     })
 
     // Add amount to user balance
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: deposit.userId },
       data: {
         balance: { increment: deposit.amount },
@@ -688,6 +688,27 @@ app.post('/api/oxapay-callback', async (req, res) => {
     })
 
     console.log(`✅ Deposit completed: $${deposit.amount} added to user ${deposit.user.telegramId}`)
+    
+    // Check if user reached $1000 and activate referral
+    if (updatedUser.totalDeposit >= 1000 && updatedUser.referredBy && !updatedUser.isActiveReferral) {
+      await prisma.user.update({
+        where: { id: updatedUser.id },
+        data: { isActiveReferral: true }
+      })
+      
+      // Notify referrer
+      try {
+        const { bot: botInstance } = await import('./index.js')
+        await botInstance.api.sendMessage(
+          updatedUser.referredBy,
+          `🎉 Your referral has become active! They reached $1000 deposit.\nYou will now earn 4% from their daily profits.`
+        )
+      } catch (err) {
+        console.error('Failed to notify referrer:', err)
+      }
+      
+      console.log(`✅ Referral activated: ${deposit.user.telegramId} for referrer ${updatedUser.referredBy}`)
+    }
     
     // Send notification to user (optional, import bot if needed)
     res.json({ success: true })

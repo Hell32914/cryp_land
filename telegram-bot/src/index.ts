@@ -1216,7 +1216,8 @@ async function accrueDailyProfit() {
       console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%) - ${updates.length} updates`)
 
       // Distribute referral earnings (3-level cascade: 4%, 3%, 2%)
-      if (user.referredBy) {
+      // Only if user is active referral (totalDeposit >= $1000)
+      if (user.referredBy && user.isActiveReferral) {
         try {
           // Level 1: Direct referrer gets 4%
           const level1Referrer = await prisma.user.findUnique({
