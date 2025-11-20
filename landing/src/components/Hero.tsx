@@ -96,7 +96,7 @@ export function Hero() {
           </motion.p>
           
           <motion.div 
-            className="flex flex-col gap-4 sm:flex-row"
+            className="flex justify-center"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
@@ -114,10 +114,6 @@ export function Hero() {
                   <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" weight="bold" />
                 </span>
               </a>
-            </Button>
-            <Button size="lg" variant="outline" className="group px-8 py-6 text-base">
-              <Lightning className="mr-2 transition-all group-hover:text-accent" weight="duotone" />
-              {t.hero.learnMore}
             </Button>
           </motion.div>
           
