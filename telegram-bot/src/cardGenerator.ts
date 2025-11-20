@@ -1,4 +1,4 @@
-import { createCanvas, loadImage as canvasLoadImage, CanvasRenderingContext2D, Image } from 'canvas'
+import { createCanvas, loadImage as canvasLoadImage, CanvasRenderingContext2D, Image, registerFont } from 'canvas'
 import QRCode from 'qrcode'
 import { PrismaClient } from '@prisma/client'
 import { generateTradingData } from './binanceApi.js'
@@ -9,6 +9,13 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const prisma = new PrismaClient()
+
+// Register system font with Cyrillic support
+try {
+  registerFont('C:\\Windows\\Fonts\\arial.ttf', { family: 'Arial' })
+} catch (error) {
+  console.warn('Failed to register Arial font, using default:', error)
+}
 
 interface TradingCardData {
   botName: string
@@ -177,41 +184,8 @@ async function drawBackground(ctx: CanvasRenderingContext2D, width: number, heig
  * Draw header with avatar and bot info
  */
 function drawHeader(ctx: CanvasRenderingContext2D, data: TradingCardData, layout: any) {
-  const avatarX = 47
-  const avatarY = 55
-  const avatarSize = 60
-  const avatarRadius = avatarSize / 2
-
-  // Draw circular avatar background
-  ctx.fillStyle = data.avatarBackground || '#F0B90B'
-  ctx.beginPath()
-  ctx.arc(avatarX + avatarRadius, avatarY + avatarRadius, avatarRadius, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Draw avatar initial
-  ctx.fillStyle = data.avatarTextColor || '#0B0B0B'
-  ctx.font = 'bold 32px Arial'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(data.botInitial, avatarX + avatarRadius, avatarY + avatarRadius + 2)
-
-  // Draw bot name
-  ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 28px Arial'
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillText('SyntrixBot', avatarX + avatarSize + 20, avatarY + 5)
-
-  // Draw "Bot" label
-  ctx.fillStyle = '#999999'
-  ctx.font = '16px Arial'
-  ctx.fillText('Bot', avatarX + avatarSize + 20, avatarY + 40)
-
-  // Draw timestamp
-  ctx.fillStyle = '#666666'
-  ctx.font = '16px Arial'
-  const timestamp = data.timestamp.toISOString().replace('T', ' ').substring(0, 19)
-  ctx.fillText(timestamp, avatarX + avatarSize + 20, avatarY + 65)
+  // Background image already has avatar and SyntrixBot name
+  // No additional drawing needed
 }
 
 /**
@@ -314,21 +288,8 @@ async function drawFooter(
   const footerY = layout.footerY
   const leftMargin = layout.marginLeft
 
-  // Draw Binance Futures logo
-  ctx.fillStyle = '#F0B90B'
-  ctx.font = 'bold 22px Arial'
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillText('◆ BINANCE', leftMargin, footerY)
-  
-  ctx.fillStyle = '#ffffff'
-  ctx.font = 'bold 22px Arial'
-  ctx.fillText('FUTURES', leftMargin + 110, footerY)
-
-  // Draw referral code
-  ctx.fillStyle = '#999999'
-  ctx.font = '16px Arial'
-  ctx.fillText(`Referral Code ${referralCode}`, leftMargin, footerY + 35)
+  // Background image already has Binance logo and referral code text
+  // Only draw QR code
   
   // Draw QR code (raised higher with rounded corners)
   const qrSize = 130
