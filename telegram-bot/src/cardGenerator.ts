@@ -145,8 +145,8 @@ async function getNextOrderNumber(): Promise<number> {
  */
 async function drawBackground(ctx: CanvasRenderingContext2D, width: number, height: number) {
   try {
-    // Load the background image from project root
-    const backgroundPath = path.join(__dirname, '..', '..', 'card_logo3.png')
+    // Load the background image from telegram-bot root
+    const backgroundPath = path.join(__dirname, '..', 'card_logo3.png')
     const background = await canvasLoadImage(backgroundPath)
     ctx.drawImage(background, 0, 0, width, height)
   } catch (error) {
