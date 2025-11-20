@@ -440,6 +440,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
     // If amount <= 100, process automatically via OxaPay
     if (amount <= 100) {
       try {
+        console.log(`💸 Processing withdrawal ${withdrawal.id} for user ${user.telegramId}`)
         const { createPayout } = await import('./oxapay.js')
         
         const payout = await createPayout({
@@ -448,6 +449,8 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           currency,
           network: network || 'TRC20'
         })
+
+        console.log(`✅ OxaPay payout successful:`, payout)
 
         // SUCCESS: Deduct balance and update withdrawal
         await prisma.user.update({
@@ -466,6 +469,8 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           }
         })
 
+        console.log(`💰 Balance deducted, withdrawal marked as PROCESSING`)
+
         res.json({
           success: true,
           withdrawalId: withdrawal.id,
@@ -474,6 +479,11 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           message: 'Withdrawal is being processed automatically'
         })
       } catch (error: any) {
+        console.error(`❌ Withdrawal ${withdrawal.id} failed:`, {
+          error: error.message,
+          stack: error.stack
+        })
+
         // FAILED: Mark withdrawal as failed, DON'T deduct balance
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
