@@ -1,5 +1,5 @@
-// Create a proper background with logo, avatar, and Binance branding
-import { createCanvas, loadImage } from 'canvas';
+// Create background with ONLY graphics, NO TEXT
+import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -39,55 +39,8 @@ vignette.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
 ctx.fillStyle = vignette;
 ctx.fillRect(0, 0, width, height);
 
-// Draw avatar circle
-const avatarX = 47;
-const avatarY = 55;
-const avatarSize = 60;
-const avatarRadius = avatarSize / 2;
-
-ctx.fillStyle = '#F0B90B';
-ctx.beginPath();
-ctx.arc(avatarX + avatarRadius, avatarY + avatarRadius, avatarRadius, 0, Math.PI * 2);
-ctx.fill();
-
-// Draw avatar initial "S"
-ctx.fillStyle = '#0B0B0B';
-ctx.font = 'bold 32px Arial';
-ctx.textAlign = 'center';
-ctx.textBaseline = 'middle';
-ctx.fillText('S', avatarX + avatarRadius, avatarY + avatarRadius + 2);
-
-// Draw bot name "SyntrixBot"
-ctx.fillStyle = '#ffffff';
-ctx.font = 'bold 28px Arial';
-ctx.textAlign = 'left';
-ctx.textBaseline = 'top';
-ctx.fillText('SyntrixBot', avatarX + avatarSize + 20, avatarY + 5);
-
-// Draw "Bot" label
-ctx.fillStyle = '#999999';
-ctx.font = '16px Arial';
-ctx.fillText('Bot', avatarX + avatarSize + 20, avatarY + 40);
-
-// Draw Binance Futures logo at bottom
-const footerY = 900;
-ctx.fillStyle = '#F0B90B';
-ctx.font = 'bold 22px Arial';
-ctx.textAlign = 'left';
-ctx.textBaseline = 'top';
-ctx.fillText('◆ BINANCE', 47, footerY);
-
-ctx.fillStyle = '#ffffff';
-ctx.font = 'bold 22px Arial';
-ctx.fillText('FUTURES', 157, footerY);
-
-// Draw "Referral Code SyntrixBot" text
-ctx.fillStyle = '#999999';
-ctx.font = '16px Arial';
-ctx.fillText('Referral Code SyntrixBot', 47, footerY + 35);
-
-// Save the image
+// Save the image (graphics only, no text)
 const buffer = canvas.toBuffer('image/png');
 fs.writeFileSync(path.join(__dirname, 'card_logo3.png'), buffer);
 
-console.log('✅ Background image created: card_logo3.png');
+console.log('✅ Background image created: card_logo3.png (graphics only)');
