@@ -157,7 +157,7 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
   }
 }
 
-// Check payment status
+// Check payment status (for deposits)
 export async function checkPaymentStatus(trackId: string): Promise<any> {
   try {
     const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/inquiry`, {
@@ -168,6 +168,41 @@ export async function checkPaymentStatus(trackId: string): Promise<any> {
     return response.data
   } catch (error: any) {
     console.error('OxaPay checkPaymentStatus error:', error.response?.data || error.message)
+    throw error
+  }
+}
+
+// Check payout status (for withdrawals)
+export async function checkPayoutStatus(trackId: string): Promise<any> {
+  if (!OXAPAY_PAYOUT_API_KEY || OXAPAY_PAYOUT_API_KEY === 'YOUR_OXAPAY_API_KEY_HERE') {
+    throw new Error('OxaPay Payout API key is not configured')
+  }
+
+  try {
+    console.log('🔍 Checking payout status for trackId:', trackId)
+    
+    const response = await axios.post(
+      'https://api.oxapay.com/v1/payout/inquiry',
+      {
+        trackId: trackId
+      },
+      {
+        headers: {
+          'payout_api_key': OXAPAY_PAYOUT_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    console.log('📥 OxaPay payout status response:', JSON.stringify(response.data, null, 2))
+
+    return response.data
+  } catch (error: any) {
+    console.error('❌ OxaPay checkPayoutStatus error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
     throw error
   }
 }

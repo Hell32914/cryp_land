@@ -35,3 +35,19 @@ export function usePerformanceMode() {
 
   return isLowPerformance
 }
+
+// Helper to get animation config based on performance mode
+export function useAnimationConfig() {
+  const isLowPerformance = usePerformanceMode()
+  
+  return {
+    // Disable complex animations on low-performance devices
+    enabled: !isLowPerformance,
+    // Reduced durations for better performance
+    duration: isLowPerformance ? 0.2 : 0.6,
+    // Simpler easing
+    ease: isLowPerformance ? "linear" : "easeInOut",
+    // Disable viewport animations on mobile to prevent re-renders
+    viewport: isLowPerformance ? false : { once: true, amount: 0.3 }
+  }
+}

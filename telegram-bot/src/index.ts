@@ -1185,25 +1185,21 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   // Normalize percentages
   const normalizedPercentages = percentages.map(p => p / sum)
   
-  // Generate random timestamps from NOW until end of day (not from start of day)
+  // Generate random timestamps throughout the CURRENT day (00:00 to 23:59)
+  // This ensures updates are spread evenly across 24 hours
   const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
   
-  // If there's not enough time left today (less than 1 hour), extend to next day
-  const timeUntilEndOfDay = endOfDay.getTime() - now.getTime()
-  const minimumTimeWindow = 60 * 60 * 1000 // 1 hour in milliseconds
-  
-  let endTime: Date
-  if (timeUntilEndOfDay < minimumTimeWindow) {
-    // Extend to next day at 23:59
-    endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59)
-  } else {
-    endTime = endOfDay
+  // If we're past 22:00, generate for next day instead
+  if (now.getHours() >= 22) {
+    startOfDay.setDate(startOfDay.getDate() + 1)
+    endOfDay.setDate(endOfDay.getDate() + 1)
   }
   
   for (let i = 0; i < numUpdates; i++) {
-    // Generate timestamps from current time onwards
-    const randomTime = now.getTime() + Math.random() * (endTime.getTime() - now.getTime())
+    // Generate timestamps spread throughout the day
+    const randomTime = startOfDay.getTime() + Math.random() * (endOfDay.getTime() - startOfDay.getTime())
     const timestamp = new Date(randomTime)
     const amount = totalProfit * normalizedPercentages[i]
     
@@ -1246,7 +1242,7 @@ async function accrueDailyProfit() {
         where: { userId: user.id }
       })
       
-      // Create new daily updates and notify user
+      // Create new daily updates (notifications will be sent by scheduler)
       for (const update of updates) {
         await prisma.dailyProfitUpdate.create({
           data: {
@@ -1256,20 +1252,6 @@ async function accrueDailyProfit() {
             dailyTotal: dailyProfit
           }
         })
-        
-        // Send notification to user
-        try {
-          await bot.api.sendMessage(
-            user.telegramId,
-            `💰 *Daily Profit Update*\n\n` +
-            `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
-            `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)\n` +
-            `💎 Total daily: $${dailyProfit.toFixed(2)}`,
-            { parse_mode: 'Markdown' }
-          )
-        } catch (err) {
-          console.error(`Failed to notify user ${user.telegramId}:`, err)
-        }
       }
 
       console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%) - ${updates.length} updates`)
@@ -1378,14 +1360,191 @@ async function accrueDailyProfit() {
   }
 }
 
+// Function to check and send scheduled profit notifications
+async function sendScheduledNotifications() {
+  try {
+    const now = new Date()
+    
+    // Find all updates that should be sent now (timestamp passed, not yet notified)
+    const pendingUpdates = await prisma.dailyProfitUpdate.findMany({
+      where: {
+        timestamp: {
+          lte: now
+        },
+        notified: false
+      },
+      include: {
+        user: true
+      },
+      orderBy: {
+        timestamp: 'asc'
+      }
+    })
+
+    for (const update of pendingUpdates) {
+      try {
+        const planInfo = calculateTariffPlan(update.user.balance)
+        
+        await bot.api.sendMessage(
+          update.user.telegramId,
+          `💰 *Daily Profit Update*\n\n` +
+          `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
+          `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)\n` +
+          `💎 Total daily: $${update.dailyTotal.toFixed(2)}`,
+          { parse_mode: 'Markdown' }
+        )
+        
+        console.log(`📤 Sent profit notification to user ${update.user.telegramId}: $${update.amount.toFixed(2)}`)
+        
+        // Mark as notified
+        await prisma.dailyProfitUpdate.update({
+          where: { id: update.id },
+          data: { notified: true }
+        })
+      } catch (err) {
+        console.error(`Failed to send notification to user ${update.user.telegramId}:`, err)
+      }
+    }
+    
+    if (pendingUpdates.length > 0) {
+      console.log(`✅ Sent ${pendingUpdates.length} scheduled profit notifications`)
+    }
+  } catch (error) {
+    console.error('❌ Error sending scheduled notifications:', error)
+  }
+}
+
+// Function to check and update withdrawal statuses
+async function checkPendingWithdrawals() {
+  try {
+    // Find all PROCESSING withdrawals with trackId
+    const pendingWithdrawals = await prisma.withdrawal.findMany({
+      where: {
+        status: 'PROCESSING',
+        txHash: { not: null }
+      },
+      include: {
+        user: true
+      }
+    })
+
+    if (pendingWithdrawals.length === 0) {
+      return
+    }
+
+    console.log(`🔍 Checking ${pendingWithdrawals.length} pending withdrawals...`)
+
+    for (const withdrawal of pendingWithdrawals) {
+      try {
+        const { checkPayoutStatus } = await import('./oxapay.js')
+        const status = await checkPayoutStatus(withdrawal.txHash!)
+
+        console.log(`📊 Withdrawal ${withdrawal.id} status:`, status)
+
+        // OxaPay payout statuses:
+        // - Pending: Still processing
+        // - Sending: Being sent to blockchain
+        // - Paid: Successfully completed
+        // - Expired: Failed/Expired
+        // - Canceled: Canceled
+
+        if (status.result === 100) {
+          const payoutStatus = status.status?.toLowerCase()
+
+          if (payoutStatus === 'paid' || payoutStatus === 'confirmed') {
+            // Withdrawal completed successfully
+            await prisma.withdrawal.update({
+              where: { id: withdrawal.id },
+              data: { status: 'COMPLETED' }
+            })
+
+            // Notify user
+            try {
+              await bot.api.sendMessage(
+                withdrawal.user.telegramId,
+                `✅ *Withdrawal Completed*\n\n` +
+                `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+                `💎 Currency: ${withdrawal.currency}\n` +
+                `🌐 Network: ${withdrawal.network}\n` +
+                `📍 Address: \`${withdrawal.address}\`\n\n` +
+                `✅ Your withdrawal has been successfully processed!`,
+                { parse_mode: 'Markdown' }
+              )
+            } catch (err) {
+              console.error('Failed to notify user:', err)
+            }
+
+            console.log(`✅ Withdrawal ${withdrawal.id} marked as COMPLETED`)
+          } else if (payoutStatus === 'expired' || payoutStatus === 'canceled' || payoutStatus === 'failed') {
+            // Withdrawal failed - refund user
+            await prisma.withdrawal.update({
+              where: { id: withdrawal.id },
+              data: { status: 'FAILED' }
+            })
+
+            // Refund balance
+            await prisma.user.update({
+              where: { id: withdrawal.userId },
+              data: {
+                balance: { increment: withdrawal.amount },
+                totalWithdraw: { decrement: withdrawal.amount }
+              }
+            })
+
+            // Notify user
+            try {
+              await bot.api.sendMessage(
+                withdrawal.user.telegramId,
+                `❌ *Withdrawal Failed*\n\n` +
+                `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+                `💎 Currency: ${withdrawal.currency}\n\n` +
+                `⚠️ The withdrawal could not be processed.\n` +
+                `💳 Your balance has been refunded: $${(withdrawal.user.balance + withdrawal.amount).toFixed(2)}`,
+                { parse_mode: 'Markdown' }
+              )
+            } catch (err) {
+              console.error('Failed to notify user:', err)
+            }
+
+            console.log(`❌ Withdrawal ${withdrawal.id} FAILED and refunded`)
+          }
+          // If status is 'pending' or 'sending', keep as PROCESSING
+        }
+      } catch (error: any) {
+        console.error(`Failed to check withdrawal ${withdrawal.id}:`, error.message)
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error checking pending withdrawals:', error)
+  }
+}
+
 // Run daily profit accrual every 24 hours
 setInterval(accrueDailyProfit, 24 * 60 * 60 * 1000)
+
+// Check for scheduled notifications every minute
+setInterval(sendScheduledNotifications, 60 * 1000)
+
+// Check pending withdrawals every 5 minutes
+setInterval(checkPendingWithdrawals, 5 * 60 * 1000)
 
 // Also run on startup (for testing)
 setTimeout(() => {
   console.log('🔄 Running initial profit accrual...')
   accrueDailyProfit()
 }, 5000)
+
+// Start notification scheduler
+setTimeout(() => {
+  console.log('🔄 Starting notification scheduler...')
+  sendScheduledNotifications()
+}, 10000)
+
+// Start withdrawal status checker
+setTimeout(() => {
+  console.log('🔄 Starting withdrawal status checker...')
+  checkPendingWithdrawals()
+}, 15000)
 
 // Error handling
 bot.catch((err) => {

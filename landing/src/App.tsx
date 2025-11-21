@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
+import { MotionConfig } from "framer-motion"
 import { Header } from "@/components/Header"
 import { Hero } from "@/components/Hero"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
@@ -14,11 +15,18 @@ const FAQ = lazy(() => import("@/components/FAQ").then(m => ({ default: m.FAQ })
 const FinalCTA = lazy(() => import("@/components/FinalCTA").then(m => ({ default: m.FinalCTA })))
 
 function App() {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768)
+  }, [])
+
   return (
-    <div className="min-h-screen">
-      <AnimatedBackground />
-      <Header />
-      <main>
+    <MotionConfig reducedMotion={isMobile ? "always" : "never"}>
+      <div className="min-h-screen">
+        <AnimatedBackground />
+        <Header />
+        <main>
         <Hero />
         <Suspense fallback={<div className="min-h-[400px]" />}>
           <MatrixHero />
@@ -49,7 +57,8 @@ function App() {
       <Suspense fallback={<div className="min-h-[200px]" />}>
         <FinalCTA />
       </Suspense>
-    </div>
+      </div>
+    </MotionConfig>
   )
 }
 

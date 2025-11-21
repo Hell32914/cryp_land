@@ -27,7 +27,10 @@
   /* Reduce blur on mobile for better performance */
   @media (max-width: 768px) {
     .blur-3xl {
-      filter: blur(40px) !important;
+      filter: blur(30px) !important;
+    }
+    .blur-2xl {
+      filter: blur(20px) !important;
     }
     .backdrop-blur-sm {
       backdrop-filter: blur(2px) !important;
@@ -35,6 +38,19 @@
     .backdrop-blur {
       backdrop-filter: blur(4px) !important;
     }
+    
+    /* Disable shadows on mobile */
+    .shadow-lg, .shadow-xl, .shadow-2xl {
+      box-shadow: none !important;
+    }
+  }
+  
+  /* Enable hardware acceleration for transforms */
+  [class*="translate"],
+  [class*="scale"],
+  [class*="rotate"] {
+    will-change: transform;
+    transform: translateZ(0);
   }
 }
 

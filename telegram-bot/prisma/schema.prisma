@@ -39,6 +39,7 @@ model User {
   withdrawals       Withdrawal[]
   notifications     Notification[]
   referrals         Referral[]    @relation("UserReferrals")
+  dailyUpdates      DailyProfitUpdate[] @relation("UserDailyUpdates")
 }
 
 model Referral {
@@ -55,9 +56,11 @@ model Referral {
 model DailyProfitUpdate {
   id          Int      @id @default(autoincrement())
   userId      Int
+  user        User     @relation("UserDailyUpdates", fields: [userId], references: [id])
   amount      Float
   timestamp   DateTime
   dailyTotal  Float
+  notified    Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
 

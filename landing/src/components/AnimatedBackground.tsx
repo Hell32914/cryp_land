@@ -10,13 +10,19 @@ export function AnimatedBackground() {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    // Completely disable canvas animation on mobile for best performance
+    const isMobile = window.innerWidth < 768
+    if (isMobile) {
+      console.log('Mobile detected - canvas animation disabled')
+      return
+    }
+
     const ctx = canvas.getContext("2d", { alpha: false })
     if (!ctx) return
 
-    // Detect mobile/low-end devices
-    const isMobile = window.innerWidth < 768
+    // Detect low-end devices
     const isLowEnd = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4
-    const shouldReduceEffects = isMobile || isLowEnd
+    const shouldReduceEffects = isLowEnd
 
     const setCanvasSize = () => {
       // Reduce canvas resolution on mobile for better performance
@@ -163,16 +169,24 @@ export function AnimatedBackground() {
 
   return (
     <>
+      {/* Canvas animation - hidden on mobile */}
       <canvas
         ref={canvasRef}
-        className="fixed inset-0 -z-10 opacity-50"
+        className="hidden md:block fixed inset-0 -z-10 opacity-50"
         style={{ mixBlendMode: "screen" }}
       />
       
       <div className="fixed inset-0 -z-10 overflow-hidden">
-        {/* Simplified blur effects for better mobile performance */}
+        {/* Static blur effects on mobile, animated on desktop */}
+        <div className="md:hidden">
+          {/* Static blurs for mobile - no animation */}
+          <div className="absolute left-[5%] top-[15%] h-[300px] w-[300px] rounded-full bg-primary/15 blur-2xl" />
+          <div className="absolute right-[8%] top-[25%] h-[250px] w-[250px] rounded-full bg-accent/10 blur-2xl" />
+        </div>
+        
+        {/* Animated blurs for desktop only */}
         <motion.div
-          className="absolute left-[5%] top-[15%] h-[400px] w-[400px] md:h-[600px] md:w-[600px] rounded-full bg-primary/20 md:bg-primary/30 blur-3xl"
+          className="hidden md:block absolute left-[5%] top-[15%] h-[600px] w-[600px] rounded-full bg-primary/30 blur-3xl"
           animate={{
             x: [0, 40, 0],
             y: [0, 30, 0],
@@ -185,7 +199,7 @@ export function AnimatedBackground() {
           }}
         />
         <motion.div
-          className="absolute right-[8%] top-[25%] h-[350px] w-[350px] md:h-[500px] md:w-[500px] rounded-full bg-accent/15 md:bg-accent/25 blur-3xl"
+          className="hidden md:block absolute right-[8%] top-[25%] h-[500px] w-[500px] rounded-full bg-accent/25 blur-3xl"
           animate={{
             x: [0, -30, 0],
             y: [0, 40, 0],
