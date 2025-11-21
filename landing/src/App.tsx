@@ -1,15 +1,17 @@
+import { lazy, Suspense } from "react"
 import { Header } from "@/components/Header"
 import { Hero } from "@/components/Hero"
-import { MatrixHero } from "@/components/MatrixHero"
-import { Features } from "@/components/Features"
-import { WhyChoose } from "@/components/WhyChoose"
-import { TariffPlans } from "@/components/TariffPlans"
-import { ReferralSystem } from "@/components/ReferralSystem"
-import { Statistics } from "@/components/Statistics"
-import { Leaderboard } from "@/components/Leaderboard"
-import { FAQ } from "@/components/FAQ"
-import { FinalCTA } from "@/components/FinalCTA"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
+
+// Lazy load heavy components for better initial load
+const MatrixHero = lazy(() => import("@/components/MatrixHero").then(m => ({ default: m.MatrixHero })))
+const WhyChoose = lazy(() => import("@/components/WhyChoose").then(m => ({ default: m.WhyChoose })))
+const TariffPlans = lazy(() => import("@/components/TariffPlans").then(m => ({ default: m.TariffPlans })))
+const ReferralSystem = lazy(() => import("@/components/ReferralSystem").then(m => ({ default: m.ReferralSystem })))
+const Statistics = lazy(() => import("@/components/Statistics").then(m => ({ default: m.Statistics })))
+const Leaderboard = lazy(() => import("@/components/Leaderboard").then(m => ({ default: m.Leaderboard })))
+const FAQ = lazy(() => import("@/components/FAQ").then(m => ({ default: m.FAQ })))
+const FinalCTA = lazy(() => import("@/components/FinalCTA").then(m => ({ default: m.FinalCTA })))
 
 function App() {
   return (
@@ -18,19 +20,35 @@ function App() {
       <Header />
       <main>
         <Hero />
-        <MatrixHero />
-        <WhyChoose />
+        <Suspense fallback={<div className="min-h-[400px]" />}>
+          <MatrixHero />
+        </Suspense>
+        <Suspense fallback={<div className="min-h-[200px]" />}>
+          <WhyChoose />
+        </Suspense>
         <div id="tariff-plans">
-          <TariffPlans />
+          <Suspense fallback={<div className="min-h-[600px]" />}>
+            <TariffPlans />
+          </Suspense>
         </div>
-        <ReferralSystem />
-        <Statistics />
-        <Leaderboard />
+        <Suspense fallback={<div className="min-h-[400px]" />}>
+          <ReferralSystem />
+        </Suspense>
+        <Suspense fallback={<div className="min-h-[300px]" />}>
+          <Statistics />
+        </Suspense>
+        <Suspense fallback={<div className="min-h-[400px]" />}>
+          <Leaderboard />
+        </Suspense>
         <div id="faq">
-          <FAQ />
+          <Suspense fallback={<div className="min-h-[400px]" />}>
+            <FAQ />
+          </Suspense>
         </div>
       </main>
-      <FinalCTA />
+      <Suspense fallback={<div className="min-h-[200px]" />}>
+        <FinalCTA />
+      </Suspense>
     </div>
   )
 }

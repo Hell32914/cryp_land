@@ -110,6 +110,8 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
 
     console.log('📥 OxaPay payout response:', JSON.stringify(response.data, null, 2))
 
+    // IMPORTANT: OxaPay may still process payouts even when returning errors
+    // We return trackId if available, regardless of result code
     if (response.data.result === 100) {
       return {
         success: true,
@@ -118,7 +120,19 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
         amount: response.data.amount
       }
     } else {
-      console.error('❌ OxaPay returned error:', response.data)
+      console.error('⚠️ OxaPay returned non-success code but payout may still process:', response.data)
+      
+      // If we have a trackId, the payout is likely being processed
+      if (response.data.trackId) {
+        console.log('✅ TrackId found, payout is likely processing:', response.data.trackId)
+        return {
+          success: true,
+          trackId: response.data.trackId,
+          status: 'PROCESSING',
+          amount: response.data.amount || params.amount
+        }
+      }
+      
       throw new Error(response.data.message || 'Failed to create payout')
     }
   } catch (error: any) {
@@ -128,10 +142,15 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
       status: error.response?.status
     })
 
-    // Handle specific OxaPay errors with user-friendly messages
-    const oxaError = error.response?.data?.error
-    if (oxaError?.key === 'amount_exceeds_balance') {
-      throw new Error('Service temporarily unavailable. Withdrawal will be processed manually by admin.')
+    // If response contains trackId, payout might still be processing
+    if (error.response?.data?.trackId) {
+      console.log('⚠️ Error occurred but trackId found:', error.response.data.trackId)
+      return {
+        success: true,
+        trackId: error.response.data.trackId,
+        status: 'PROCESSING',
+        amount: error.response.data.amount || params.amount
+      }
     }
 
     throw new Error(error.response?.data?.message || error.message || 'Failed to create payout')

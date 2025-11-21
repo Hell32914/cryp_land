@@ -506,61 +506,82 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           stack: error.stack
         })
 
-        // Check if this is OxaPay balance issue - send to admin for manual processing
-        if (error.message.includes('Service temporarily unavailable') || error.message.includes('balance')) {
-          console.log(`⚠️ OxaPay balance issue, sending to admin for manual processing`)
+        // IMPORTANT: OxaPay may process payout even if it returns an error
+        // So we ALWAYS deduct balance and mark as PROCESSING for admin verification
+        console.log(`⚠️ OxaPay request failed, but payout may still be processing. Deducting balance and marking as PROCESSING.`)
 
-          // Deduct balance (reserve funds)
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              balance: { decrement: amount },
-              totalWithdraw: { increment: amount }
+        // Calculate new balance
+        const newBalance = user.balance - amount
+
+        // Deduct balance (funds are likely being processed by OxaPay)
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            balance: { decrement: amount },
+            totalWithdraw: { increment: amount }
+          }
+        })
+
+        // Mark as PROCESSING instead of FAILED
+        await prisma.withdrawal.update({
+          where: { id: withdrawal.id },
+          data: { status: 'PROCESSING' }
+        })
+
+        const { bot, ADMIN_ID } = await import('./index.js')
+        
+        // Notify admin to verify the withdrawal manually
+        await bot.api.sendMessage(
+          ADMIN_ID,
+          `⚠️ *Withdrawal - Requires Verification*\n\n` +
+          `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
+          `💰 Amount: $${amount.toFixed(2)}\n` +
+          `💎 Currency: ${currency}\n` +
+          `🌐 Network: ${network || 'TRC20'}\n` +
+          `📍 Address: \`${address}\`\n\n` +
+          `❗ OxaPay returned error but payout may be processing\n` +
+          `❗ Balance has been deducted\n` +
+          `❗ Please verify on OxaPay dashboard\n\n` +
+          `🆔 Withdrawal ID: ${withdrawal.id}\n` +
+          `⚠️ Error: ${error.message}`,
+          { 
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Confirm Completed', callback_data: `approve_withdrawal_${withdrawal.id}` },
+                  { text: '❌ Failed - Refund', callback_data: `reject_withdrawal_${withdrawal.id}` }
+                ]
+              ]
             }
-          })
+          }
+        )
 
-          const { bot, ADMIN_ID } = await import('./index.js')
-          
+        // Notify user that withdrawal is being processed
+        try {
           await bot.api.sendMessage(
-            ADMIN_ID,
-            `🔔 *Withdrawal Request (Auto-Failed)*\n\n` +
-            `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
+            user.telegramId,
+            `⏳ *Withdrawal Processing*\n\n` +
             `💰 Amount: $${amount.toFixed(2)}\n` +
             `💎 Currency: ${currency}\n` +
             `🌐 Network: ${network || 'TRC20'}\n` +
             `📍 Address: \`${address}\`\n\n` +
-            `⚠️ OxaPay unavailable - requires manual processing\n` +
-            `🆔 Withdrawal ID: ${withdrawal.id}`,
-            { 
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    { text: '✅ Process & Complete', callback_data: `approve_withdrawal_${withdrawal.id}` },
-                    { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
-                  ]
-                ]
-              }
-            }
+            `⚠️ Your withdrawal is being processed.\n` +
+            `⚠️ Balance has been deducted: $${newBalance.toFixed(2)}\n\n` +
+            `Please allow a few minutes for processing.\n` +
+            `You will be notified once completed.`,
+            { parse_mode: 'Markdown' }
           )
-
-          return res.json({
-            success: true,
-            withdrawalId: withdrawal.id,
-            status: 'PENDING',
-            message: 'Withdrawal request sent to admin for manual processing. Your balance has been reserved.'
-          })
+        } catch (err) {
+          console.error('Failed to notify user:', err)
         }
 
-        // Other errors: Mark as FAILED, don't deduct balance
-        await prisma.withdrawal.update({
-          where: { id: withdrawal.id },
-          data: { status: 'FAILED' }
-        })
-
-        return res.status(400).json({ 
-          error: 'Failed to process withdrawal. Please contact support.',
-          details: error.message 
+        return res.json({
+          success: true,
+          withdrawalId: withdrawal.id,
+          status: 'PROCESSING',
+          message: 'Withdrawal is being processed. You will be notified once completed.',
+          newBalance: newBalance
         })
       }
     } else {

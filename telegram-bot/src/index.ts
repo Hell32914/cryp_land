@@ -794,7 +794,11 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   let message = '📤 *Recent Withdrawals* (10 latest):\n\n'
   
   withdrawals.forEach((withdrawal, index) => {
-    const statusEmoji = withdrawal.status === 'COMPLETED' ? '✅' : withdrawal.status === 'PENDING' ? '⏳' : '❌'
+    const statusEmoji = 
+      withdrawal.status === 'COMPLETED' ? '✅' : 
+      withdrawal.status === 'PENDING' ? '⏳' : 
+      withdrawal.status === 'PROCESSING' ? '🔄' : 
+      '❌'
     message += `${index + 1}. @${withdrawal.user.username || 'no_username'}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | ${statusEmoji} ${withdrawal.status}\n`
     message += `   📅 ${withdrawal.createdAt.toLocaleDateString()}\n\n`
@@ -988,8 +992,35 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    if (withdrawal.status !== 'PENDING') {
+    if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'PROCESSING') {
       await ctx.answerCallbackQuery(`❌ Withdrawal already ${withdrawal.status}`)
+      return
+    }
+
+    // If already PROCESSING, just mark as COMPLETED
+    if (withdrawal.status === 'PROCESSING') {
+      await prisma.withdrawal.update({
+        where: { id: withdrawalId },
+        data: { status: 'COMPLETED' }
+      })
+
+      // Notify user
+      await bot.api.sendMessage(
+        withdrawal.user.telegramId,
+        `✅ *Withdrawal Completed*\n\n` +
+        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💎 Currency: ${withdrawal.currency}\n` +
+        `🌐 Network: ${withdrawal.network}\n` +
+        `📍 Address: \`${withdrawal.address}\`\n\n` +
+        `✅ Transaction confirmed by admin.`,
+        { parse_mode: 'Markdown' }
+      )
+
+      await ctx.editMessageText(
+        ctx.callbackQuery.message!.text + '\n\n✅ *CONFIRMED AS COMPLETED*',
+        { parse_mode: 'Markdown' }
+      )
+      await ctx.answerCallbackQuery('✅ Withdrawal marked as completed')
       return
     }
 
@@ -1096,7 +1127,7 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    if (withdrawal.status !== 'PENDING') {
+    if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'PROCESSING') {
       await ctx.answerCallbackQuery(`❌ Withdrawal already ${withdrawal.status}`)
       return
     }

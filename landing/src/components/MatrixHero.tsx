@@ -13,7 +13,11 @@ export function MatrixHero() {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const ctx = canvas.getContext("2d")
+    // Disable canvas animation on mobile for better performance
+    const isMobile = window.innerWidth < 768
+    if (isMobile) return
+
+    const ctx = canvas.getContext("2d", { alpha: false })
     if (!ctx) return
 
     const setCanvasSize = () => {
@@ -32,8 +36,16 @@ export function MatrixHero() {
     }
 
     let animationId: number
+    let frameCount = 0
 
     const animate = () => {
+      // Reduce frame rate to 30fps for better performance
+      frameCount++
+      if (frameCount % 2 !== 0) {
+        animationId = requestAnimationFrame(animate)
+        return
+      }
+
       ctx.fillStyle = "rgba(18, 22, 45, 0.05)"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
