@@ -12,6 +12,34 @@ const prisma = new PrismaClient()
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 
+// Tariff plans configuration
+const TARIFF_PLANS = [
+  { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
+  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
+  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
+  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
+  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
+]
+
+// Calculate tariff plan based on balance
+function calculateTariffPlan(balance: number) {
+  const plan = TARIFF_PLANS.find(p => balance >= p.minDeposit && balance <= p.maxDeposit) || TARIFF_PLANS[0]
+  const nextPlan = TARIFF_PLANS[TARIFF_PLANS.indexOf(plan) + 1]
+  const leftUntilNext = nextPlan ? nextPlan.minDeposit - balance : 0
+  const progress = nextPlan 
+    ? ((balance - plan.minDeposit) / (nextPlan.minDeposit - plan.minDeposit)) * 100
+    : 100
+  
+  return {
+    currentPlan: plan.name,
+    dailyPercent: plan.dailyPercent,
+    nextPlan: nextPlan?.name || null,
+    leftUntilNext: leftUntilNext > 0 ? leftUntilNext : 0,
+    progress: Math.min(Math.max(progress, 0), 100)
+  }
+}
+
 app.use(cors())
 app.use(express.json())
 
@@ -1044,26 +1072,22 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         })
       }
     } else {
-      // Amount > 100, deduct balance and notify admin for manual approval
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          balance: { decrement: amount },
-          totalWithdraw: { increment: amount }
-        }
-      })
-
+      // Amount > 100, keep status as PENDING (DON'T deduct balance yet) and notify admin
       const { bot, ADMIN_ID } = await import('./index.js')
+      
+      const currentBalance = user.balance
       
       await bot.api.sendMessage(
         ADMIN_ID,
-        `🔔 *Withdrawal Request*\n\n` +
+        `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
         `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
         `💰 Amount: $${amount.toFixed(2)}\n` +
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +
         `📍 Address: \`${address}\`\n\n` +
-        `⚠️ Manual approval required (amount > $100)\n` +
+        `💳 User Balance: $${currentBalance.toFixed(2)}\n` +
+        `💳 After Withdrawal: $${(currentBalance - amount).toFixed(2)}\n\n` +
+        `⚠️ Amount > $100 - Requires approval\n` +
         `🆔 Withdrawal ID: ${withdrawal.id}`,
         { 
           parse_mode: 'Markdown',
@@ -1078,11 +1102,30 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         }
       )
 
+      // Notify user that withdrawal is pending approval
+      try {
+        await bot.api.sendMessage(
+          user.telegramId,
+          `⏳ *Withdrawal Pending Approval*\n\n` +
+          `💰 Amount: $${amount.toFixed(2)}\n` +
+          `💎 Currency: ${currency}\n` +
+          `🌐 Network: ${network || 'TRC20'}\n` +
+          `📍 Address: \`${address}\`\n\n` +
+          `📋 Your withdrawal request has been sent to admin for approval.\n` +
+          `⏱ This usually takes a few minutes.\n\n` +
+          `💳 Current balance: $${currentBalance.toFixed(2)}\n` +
+          `ℹ️ Balance will be deducted after approval.`,
+          { parse_mode: 'Markdown' }
+        )
+      } catch (err) {
+        console.error('Failed to notify user:', err)
+      }
+
       return res.json({
         success: true,
         withdrawalId: withdrawal.id,
         status: 'PENDING',
-        message: 'Withdrawal request sent to admin for approval. Balance has been reserved.'
+        message: 'Withdrawal request sent to admin for approval.'
       })
     }
   } catch (error: any) {
@@ -1223,7 +1266,66 @@ app.post('/api/oxapay-callback', async (req, res) => {
       console.log(`✅ Referral activated: ${deposit.user.telegramId} for referrer ${updatedUser.referredBy}`)
     }
     
-    // Send notification to user (optional, import bot if needed)
+    // Calculate plan info for user
+    const planInfo = calculateTariffPlan(updatedUser.balance)
+    const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
+    
+    // Notify user about successful deposit
+    try {
+      const { bot: botInstance } = await import('./index.js')
+      
+      let userMessage = `✅ *Deposit Successful!*\n\n`
+      userMessage += `💰 Amount: $${deposit.amount.toFixed(2)} ${deposit.currency}\n`
+      userMessage += `💳 New Balance: $${updatedUser.balance.toFixed(2)}\n\n`
+      
+      // Add activation message if account was just activated
+      if (deposit.user.status === 'INACTIVE') {
+        userMessage += `🎉 *Account Activated!*\n\n`
+        userMessage += `You can now start earning daily profits!\n\n`
+      }
+      
+      userMessage += `📈 *Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)\n`
+      
+      if (planInfo.nextPlan) {
+        userMessage += `\n🎯 *Progress to ${planInfo.nextPlan}:*\n`
+        userMessage += `${progressBar} ${planInfo.progress.toFixed(0)}%\n`
+        userMessage += `💵 $${planInfo.leftUntilNext.toFixed(2)} left until ${planInfo.nextPlan}`
+      } else {
+        userMessage += `\n🏆 *You have the highest plan!*`
+      }
+      
+      await botInstance.api.sendMessage(
+        deposit.user.telegramId,
+        userMessage,
+        { parse_mode: 'Markdown' }
+      )
+      
+      console.log(`✅ User ${deposit.user.telegramId} notified about deposit`)
+    } catch (err) {
+      console.error('Failed to notify user about deposit:', err)
+    }
+    
+    // Notify admin about deposit
+    try {
+      const { bot: botInstance, ADMIN_ID } = await import('./index.js')
+      
+      await botInstance.api.sendMessage(
+        ADMIN_ID,
+        `💰 *New Deposit Received*\n\n` +
+        `👤 User: @${deposit.user.username || 'no_username'} (ID: ${deposit.user.telegramId})\n` +
+        `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
+        `💎 Currency: ${deposit.currency}\n` +
+        `📊 Total Deposited: $${updatedUser.totalDeposit.toFixed(2)}\n` +
+        `💳 New Balance: $${updatedUser.balance.toFixed(2)}\n` +
+        `📈 Plan: ${planInfo.currentPlan}`,
+        { parse_mode: 'Markdown' }
+      )
+      
+      console.log(`✅ Admin notified about deposit from ${deposit.user.telegramId}`)
+    } catch (err) {
+      console.error('Failed to notify admin about deposit:', err)
+    }
+    
     res.json({ success: true })
   } catch (error) {
     console.error('❌ OxaPay callback error:', error)

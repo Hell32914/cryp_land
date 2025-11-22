@@ -7,6 +7,18 @@ const OXAPAY_API_KEY = process.env.OXAPAY_API_KEY || ''
 const OXAPAY_PAYOUT_API_KEY = process.env.OXAPAY_PAYOUT_API_KEY || ''
 const OXAPAY_BASE_URL = 'https://api.oxapay.com'
 
+// Withdrawal limits: Track recent payouts to prevent duplicates
+interface WithdrawalLimit {
+  address: string
+  amount: number
+  currency: string
+  timestamp: number
+}
+
+const recentWithdrawals: WithdrawalLimit[] = []
+const WITHDRAWAL_COOLDOWN_MS = 60000 // 1 minute cooldown
+const MAX_DAILY_AMOUNT_USD = 10000 // $10k daily limit per address
+
 export interface CreateInvoiceParams {
   amount: number
   currency: string // BTC, ETH, USDT, etc.
@@ -77,13 +89,61 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<Create
   }
 }
 
+// Helper: Check if withdrawal exceeds limits
+function checkWithdrawalLimits(address: string, amount: number, currency: string): string | null {
+  const now = Date.now()
+  
+  // Clean up old entries (older than 24 hours)
+  const dayAgo = now - 24 * 60 * 60 * 1000
+  const activeWithdrawals = recentWithdrawals.filter(w => w.timestamp > dayAgo)
+  recentWithdrawals.length = 0
+  recentWithdrawals.push(...activeWithdrawals)
+
+  // Check for duplicate (same address, amount, currency within cooldown)
+  const duplicate = recentWithdrawals.find(
+    w => w.address === address &&
+         w.amount === amount &&
+         w.currency.toUpperCase() === currency.toUpperCase() &&
+         (now - w.timestamp) < WITHDRAWAL_COOLDOWN_MS
+  )
+  
+  if (duplicate) {
+    const remainingSeconds = Math.ceil((WITHDRAWAL_COOLDOWN_MS - (now - duplicate.timestamp)) / 1000)
+    return `⚠️ Duplicate withdrawal detected. Please wait ${remainingSeconds}s before retrying the same withdrawal.`
+  }
+
+  // Check daily limit for same address (USD equivalent)
+  const dailyTotal = recentWithdrawals
+    .filter(w => w.address === address && (now - w.timestamp) < 24 * 60 * 60 * 1000)
+    .reduce((sum, w) => sum + w.amount, 0)
+  
+  if (dailyTotal + amount > MAX_DAILY_AMOUNT_USD) {
+    return `⚠️ Daily withdrawal limit exceeded for this address. Limit: $${MAX_DAILY_AMOUNT_USD}, current: $${dailyTotal.toFixed(2)}, requested: $${amount.toFixed(2)}`
+  }
+
+  return null // No limit violations
+}
+
 // Create payout (withdrawal)
 export async function createPayout(params: CreatePayoutParams): Promise<CreatePayoutResponse> {
   if (!OXAPAY_PAYOUT_API_KEY || OXAPAY_PAYOUT_API_KEY === 'YOUR_OXAPAY_API_KEY_HERE') {
     throw new Error('OxaPay Payout API key is not configured. Please add OXAPAY_PAYOUT_API_KEY to .env file')
   }
 
+  // Check withdrawal limits BEFORE processing
+  const limitError = checkWithdrawalLimits(params.address, params.amount, params.currency)
+  if (limitError) {
+    throw new Error(limitError)
+  }
+
   try {
+    // Record this withdrawal attempt
+    recentWithdrawals.push({
+      address: params.address,
+      amount: params.amount,
+      currency: params.currency.toUpperCase(),
+      timestamp: Date.now()
+    })
     console.log('📤 Sending payout request:', {
       address: params.address,
       amount: params.amount,

@@ -269,11 +269,14 @@ bot.command('admin', async (ctx) => {
   const usersCount = await prisma.user.count()
   const depositsCount = await prisma.deposit.count()
   const withdrawalsCount = await prisma.withdrawal.count()
+  const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: 'PENDING' } })
 
   const keyboard = new InlineKeyboard()
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
     .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
+    .text(`⏳ Pending (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals')
+    .text('💰 Manage Balance', 'admin_manage_balance').row()
     .text('📸 Generate Card', 'admin_generate_card')
     .text('⚙️ Card Settings', 'admin_card_settings').row()
     .text('👥 Manage Admins', 'admin_manage_admins').row()
@@ -283,7 +286,8 @@ bot.command('admin', async (ctx) => {
     '🔐 *Admin Panel*\n\n' +
     `Total Users: ${usersCount}\n` +
     `Total Deposits: ${depositsCount}\n` +
-    `Total Withdrawals: ${withdrawalsCount}`,
+    `Total Withdrawals: ${withdrawalsCount}\n` +
+    `⏳ Pending Withdrawals: ${pendingWithdrawalsCount}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
 })
@@ -358,20 +362,25 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   const usersCount = await prisma.user.count()
   const depositsCount = await prisma.deposit.count()
   const withdrawalsCount = await prisma.withdrawal.count()
+  const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: 'PENDING' } })
 
   const keyboard = new InlineKeyboard()
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
     .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
+    .text(`⏳ Pending (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals')
+    .text('💰 Manage Balance', 'admin_manage_balance').row()
     .text('📸 Generate Card', 'admin_generate_card')
     .text('⚙️ Card Settings', 'admin_card_settings').row()
+    .text('👥 Manage Admins', 'admin_manage_admins').row()
     .text('🔄 Refresh', 'admin_menu')
 
   await ctx.editMessageText(
     '🔐 *Admin Panel*\n\n' +
     `Total Users: ${usersCount}\n` +
     `Total Deposits: ${depositsCount}\n` +
-    `Total Withdrawals: ${withdrawalsCount}`,
+    `Total Withdrawals: ${withdrawalsCount}\n` +
+    `⏳ Pending Withdrawals: ${pendingWithdrawalsCount}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await ctx.answerCallbackQuery('Refreshed')
@@ -731,6 +740,185 @@ bot.on('message:text', async (ctx) => {
 
     adminState.delete(ADMIN_ID)
   }
+
+  // Handle search user for balance management
+  if (state.awaitingInput === 'search_user_balance') {
+    const searchQuery = ctx.message?.text?.trim()
+    if (!searchQuery) {
+      await ctx.reply('❌ Please provide a username or Telegram ID')
+      return
+    }
+
+    try {
+      // Try to find user by username or telegramId
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: searchQuery },
+            { telegramId: searchQuery }
+          ]
+        }
+      })
+
+      if (!user) {
+        await ctx.reply(`❌ User not found: ${searchQuery}\n\nTry again or send /cancel`)
+        return
+      }
+
+      // Show user info and balance management options
+      const keyboard = new InlineKeyboard()
+        .text('💰 Add Balance', `balance_add_${user.id}`)
+        .text('✏️ Set Balance', `balance_set_${user.id}`).row()
+        .text('📜 View History', `balance_history_${user.id}`).row()
+        .text('◀️ Back', 'admin_manage_balance')
+
+      await ctx.reply(
+        `👤 *User Found*\n\n` +
+        `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+        `Telegram ID: \`${user.telegramId}\`\n` +
+        `Name: ${user.firstName || 'N/A'}\n\n` +
+        `💰 Current Balance: $${user.balance.toFixed(2)}\n` +
+        `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+        `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n` +
+        `📊 Plan: ${user.plan}\n` +
+        `Status: ${user.status}`,
+        { reply_markup: keyboard, parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error searching user:', error)
+      await ctx.reply('❌ Error searching user. Please try again.')
+    }
+    return
+  }
+
+  // Handle add balance amount
+  if (state.awaitingInput === 'balance_add_amount') {
+    const amount = parseFloat(ctx.message?.text || '')
+    const targetUserId = state.targetUserId
+
+    if (isNaN(amount) || !targetUserId) {
+      await ctx.reply('❌ Invalid amount. Please enter a number.')
+      return
+    }
+
+    if (amount === 0) {
+      await ctx.reply('❌ Amount cannot be zero.')
+      return
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { id: targetUserId } })
+      if (!user) {
+        await ctx.reply('❌ User not found')
+        adminState.delete(userId)
+        return
+      }
+
+      const newBalance = user.balance + amount
+      
+      if (newBalance < 0) {
+        await ctx.reply(`❌ Cannot set balance below zero. Current: $${user.balance.toFixed(2)}, Change: $${amount.toFixed(2)}`)
+        return
+      }
+
+      // Update balance
+      await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          balance: { increment: amount },
+          ...(amount > 0 && { totalDeposit: { increment: amount } })
+        }
+      })
+
+      // Create transaction record if positive
+      if (amount > 0) {
+        await prisma.deposit.create({
+          data: {
+            userId: targetUserId,
+            amount,
+            status: 'COMPLETED',
+            currency: 'USDT'
+          }
+        })
+      }
+
+      // Notify user
+      await bot.api.sendMessage(
+        user.telegramId,
+        `💰 *Balance ${amount > 0 ? 'Added' : 'Deducted'}*\n\n` +
+        `${amount > 0 ? '+' : ''}$${amount.toFixed(2)}\n` +
+        `New balance: $${newBalance.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      await ctx.reply(
+        `✅ *Balance Updated*\n\n` +
+        `User: @${user.username || 'no_username'}\n` +
+        `Change: ${amount > 0 ? '+' : ''}$${amount.toFixed(2)}\n` +
+        `New Balance: $${newBalance.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error updating balance:', error)
+      await ctx.reply('❌ Error updating balance. Please try again.')
+    }
+    return
+  }
+
+  // Handle set balance amount
+  if (state.awaitingInput === 'balance_set_amount') {
+    const amount = parseFloat(ctx.message?.text || '')
+    const targetUserId = state.targetUserId
+
+    if (isNaN(amount) || !targetUserId || amount < 0) {
+      await ctx.reply('❌ Invalid amount. Please enter a positive number.')
+      return
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { id: targetUserId } })
+      if (!user) {
+        await ctx.reply('❌ User not found')
+        adminState.delete(userId)
+        return
+      }
+
+      const oldBalance = user.balance
+
+      // Set new balance
+      await prisma.user.update({
+        where: { id: targetUserId },
+        data: { balance: amount }
+      })
+
+      // Notify user
+      await bot.api.sendMessage(
+        user.telegramId,
+        `💰 *Balance Updated*\n\n` +
+        `Old balance: $${oldBalance.toFixed(2)}\n` +
+        `New balance: $${amount.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      await ctx.reply(
+        `✅ *Balance Set*\n\n` +
+        `User: @${user.username || 'no_username'}\n` +
+        `Old Balance: $${oldBalance.toFixed(2)}\n` +
+        `New Balance: $${amount.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error setting balance:', error)
+      await ctx.reply('❌ Error setting balance. Please try again.')
+    }
+    return
+  }
 })
 
 bot.callbackQuery('admin_deposits', async (ctx) => {
@@ -809,6 +997,185 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
 
   await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
   await ctx.answerCallbackQuery()
+})
+
+// Pending withdrawals
+bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const pendingWithdrawals = await prisma.withdrawal.findMany({
+    where: { status: 'PENDING' },
+    include: { user: true },
+    orderBy: { createdAt: 'desc' },
+    take: 20
+  })
+
+  if (pendingWithdrawals.length === 0) {
+    const keyboard = new InlineKeyboard()
+      .text('◀️ Back to Admin', 'admin_menu')
+    await ctx.editMessageText('⏳ No pending withdrawals', { reply_markup: keyboard })
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  let message = '⏳ *Pending Withdrawals* (Requires Approval):\n\n'
+  
+  pendingWithdrawals.forEach((withdrawal, index) => {
+    message += `${index + 1}. @${withdrawal.user.username || 'no_username'}\n`
+    message += `   💵 $${withdrawal.amount.toFixed(2)} | 💎 ${withdrawal.currency}\n`
+    message += `   🌐 ${withdrawal.network || 'TRC20'}\n`
+    message += `   📍 \`${withdrawal.address.substring(0, 20)}...\`\n`
+    message += `   🆔 ID: ${withdrawal.id}\n`
+    message += `   📅 ${withdrawal.createdAt.toLocaleString()}\n\n`
+  })
+
+  const keyboard = new InlineKeyboard()
+  
+  // Add approve/reject buttons for each withdrawal (max 5 to avoid message overflow)
+  const displayCount = Math.min(pendingWithdrawals.length, 5)
+  for (let i = 0; i < displayCount; i++) {
+    const w = pendingWithdrawals[i]
+    keyboard
+      .text(`✅ #${i + 1}`, `approve_withdrawal_${w.id}`)
+      .text(`❌ #${i + 1}`, `reject_withdrawal_${w.id}`)
+      .row()
+  }
+  
+  keyboard.text('◀️ Back to Admin', 'admin_menu')
+
+  await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await ctx.answerCallbackQuery()
+})
+
+// Manage balance - search user
+bot.callbackQuery('admin_manage_balance', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  adminState.set(userId, { awaitingInput: 'search_user_balance' })
+
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Cancel', 'admin_menu')
+
+  await ctx.editMessageText(
+    '💰 *Manage User Balance*\n\n' +
+    'Send me the username or Telegram ID of the user:\n\n' +
+    'Examples:\n' +
+    '• `username` (without @)\n' +
+    '• `123456789` (Telegram ID)\n\n' +
+    '⚠️ Send /cancel to abort',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await ctx.answerCallbackQuery()
+})
+
+// Balance management callbacks
+bot.callbackQuery(/^balance_add_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  adminState.set(adminId, { awaitingInput: 'balance_add_amount', targetUserId: userId })
+
+  await ctx.answerCallbackQuery()
+  await ctx.reply(
+    '💰 *Add Balance*\n\n' +
+    'Enter the amount to add (positive) or subtract (negative):\n\n' +
+    'Examples:\n' +
+    '• `100` (add $100)\n' +
+    '• `-50` (subtract $50)\n\n' +
+    '⚠️ Send /cancel to abort',
+    { parse_mode: 'Markdown' }
+  )
+})
+
+bot.callbackQuery(/^balance_set_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  adminState.set(adminId, { awaitingInput: 'balance_set_amount', targetUserId: userId })
+
+  await ctx.answerCallbackQuery()
+  await ctx.reply(
+    '✏️ *Set Balance*\n\n' +
+    'Enter the new balance amount:\n\n' +
+    'Example: `500`\n\n' +
+    '⚠️ Send /cancel to abort',
+    { parse_mode: 'Markdown' }
+  )
+})
+
+bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await ctx.answerCallbackQuery('Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        deposits: { orderBy: { createdAt: 'desc' }, take: 10 },
+        withdrawals: { orderBy: { createdAt: 'desc' }, take: 10 }
+      }
+    })
+
+    if (!user) {
+      await ctx.answerCallbackQuery('❌ User not found')
+      return
+    }
+
+    let message = `📜 *Transaction History*\n\n`
+    message += `👤 @${user.username || 'no_username'}\n`
+    message += `💰 Balance: $${user.balance.toFixed(2)}\n\n`
+
+    if (user.deposits.length > 0) {
+      message += `*Recent Deposits:*\n`
+      user.deposits.forEach((d, i) => {
+        message += `${i + 1}. $${d.amount.toFixed(2)} | ${d.status}\n`
+        message += `   📅 ${d.createdAt.toLocaleDateString()}\n`
+      })
+      message += `\n`
+    }
+
+    if (user.withdrawals.length > 0) {
+      message += `*Recent Withdrawals:*\n`
+      user.withdrawals.forEach((w, i) => {
+        message += `${i + 1}. $${w.amount.toFixed(2)} | ${w.status}\n`
+        message += `   📅 ${w.createdAt.toLocaleDateString()}\n`
+      })
+    }
+
+    if (user.deposits.length === 0 && user.withdrawals.length === 0) {
+      message += `ℹ️ No transactions yet`
+    }
+
+    const keyboard = new InlineKeyboard()
+      .text('◀️ Back', 'admin_manage_balance')
+
+    await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+    await ctx.answerCallbackQuery()
+  } catch (error) {
+    console.error('Error fetching history:', error)
+    await ctx.answerCallbackQuery('❌ Error loading history')
+  }
 })
 
 // Generate trading card (admin test)
@@ -992,8 +1359,13 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'PROCESSING') {
-      await ctx.answerCallbackQuery(`❌ Withdrawal already ${withdrawal.status}`)
+    if (withdrawal.status === 'COMPLETED') {
+      await ctx.answerCallbackQuery('✅ Already completed')
+      return
+    }
+
+    if (withdrawal.status === 'FAILED') {
+      await ctx.answerCallbackQuery('❌ Already rejected/failed')
       return
     }
 
@@ -1024,81 +1396,118 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    // Try to process via OxaPay
-    try {
-      const { createPayout } = await import('./oxapay.js')
+    // For PENDING status: deduct balance first, then process via OxaPay
+    if (withdrawal.status === 'PENDING') {
+      console.log(`💸 Approving PENDING withdrawal ${withdrawal.id} for user ${withdrawal.user.telegramId}`)
       
-      const payout = await createPayout({
-        address: withdrawal.address,
-        amount: withdrawal.amount,
-        currency: withdrawal.currency,
-        network: withdrawal.network || 'TRC20'
-      })
+      // Calculate new balance
+      const newBalance = withdrawal.user.balance - withdrawal.amount
+      
+      if (newBalance < 0) {
+        await ctx.answerCallbackQuery('❌ Insufficient balance')
+        await ctx.editMessageText(
+          ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED*\nReason: Insufficient balance',
+          { parse_mode: 'Markdown' }
+        )
+        
+        // Mark as failed
+        await prisma.withdrawal.update({
+          where: { id: withdrawalId },
+          data: { status: 'FAILED' }
+        })
+        
+        return
+      }
 
-      // Update withdrawal status
-      await prisma.withdrawal.update({
-        where: { id: withdrawalId },
+      // STEP 1: Deduct balance (lock funds)
+      await prisma.user.update({
+        where: { id: withdrawal.userId },
         data: {
-          status: 'PROCESSING',
-          txHash: payout.trackId
+          balance: { decrement: withdrawal.amount },
+          totalWithdraw: { increment: withdrawal.amount }
         }
       })
 
-      // Note: Balance already deducted when withdrawal was created (amount > $100)
+      console.log(`✅ Balance deducted: $${withdrawal.amount.toFixed(2)}. New balance: $${newBalance.toFixed(2)}`)
 
-      // Notify user
-      await bot.api.sendMessage(
-        withdrawal.user.telegramId,
-        `✅ *Withdrawal Approved*\n\n` +
-        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-        `💎 Currency: ${withdrawal.currency}\n` +
-        `🌐 Network: ${withdrawal.network}\n` +
-        `📍 Address: \`${withdrawal.address}\`\n\n` +
-        `⏳ Processing... Track ID: ${payout.trackId}`,
-        { parse_mode: 'Markdown' }
-      )
+      // STEP 2: Try to process via OxaPay
+      try {
+        const { createPayout } = await import('./oxapay.js')
+        
+        const payout = await createPayout({
+          address: withdrawal.address,
+          amount: withdrawal.amount,
+          currency: withdrawal.currency,
+          network: withdrawal.network || 'TRC20'
+        })
 
-      await ctx.editMessageText(
-        ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & PROCESSED*\n' +
-        `🔗 Track ID: ${payout.trackId}`,
-        { parse_mode: 'Markdown' }
-      )
-      await ctx.answerCallbackQuery('✅ Withdrawal approved and processing')
+        // Update withdrawal status
+        await prisma.withdrawal.update({
+          where: { id: withdrawalId },
+          data: {
+            status: 'PROCESSING',
+            txHash: payout.trackId
+          }
+        })
 
-    } catch (error: any) {
-      // If OxaPay fails, mark as COMPLETED (admin approved manually)
-      console.error('OxaPay payout error:', error.response?.data || error.message)
-      
-      await prisma.withdrawal.update({
-        where: { id: withdrawalId },
-        data: {
-          status: 'COMPLETED',
-          txHash: 'MANUAL_PROCESSING'
-        }
-      })
+        console.log(`✅ OxaPay payout created: Track ID ${payout.trackId}`)
 
-      // Note: Balance already deducted when withdrawal was created (amount > $100)
+        // Notify user
+        await bot.api.sendMessage(
+          withdrawal.user.telegramId,
+          `✅ *Withdrawal Approved*\n\n` +
+          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+          `💎 Currency: ${withdrawal.currency}\n` +
+          `🌐 Network: ${withdrawal.network}\n` +
+          `📍 Address: \`${withdrawal.address}\`\n\n` +
+          `⏳ Processing... Track ID: ${payout.trackId}\n` +
+          `💳 New balance: $${newBalance.toFixed(2)}`,
+          { parse_mode: 'Markdown' }
+        )
 
-      // Notify user
-      await bot.api.sendMessage(
-        withdrawal.user.telegramId,
-        `✅ *Withdrawal Approved*\n\n` +
-        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-        `💎 Currency: ${withdrawal.currency}\n` +
-        `🌐 Network: ${withdrawal.network}\n` +
-        `📍 Address: \`${withdrawal.address}\`\n\n` +
-        `⏳ Your withdrawal is being processed manually by admin.`,
-        { parse_mode: 'Markdown' }
-      )
-      
-      await ctx.answerCallbackQuery('✅ Approved for manual processing')
-      await ctx.editMessageText(
-        ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing)*\n' +
-        `OxaPay Error: ${error.message}\n` +
-        `Status: Marked as COMPLETED.\n` +
-        `Please process the payout manually.`,
-        { parse_mode: 'Markdown' }
-      )
+        await ctx.editMessageText(
+          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & PROCESSED*\n' +
+          `🔗 Track ID: ${payout.trackId}`,
+          { parse_mode: 'Markdown' }
+        )
+        await ctx.answerCallbackQuery('✅ Withdrawal approved and processing')
+
+      } catch (error: any) {
+        // If OxaPay fails, still mark as PROCESSING (balance already deducted)
+        console.error('OxaPay payout error:', error.response?.data || error.message)
+        console.log('⚠️ Marking as PROCESSING despite error - balance already deducted')
+        
+        await prisma.withdrawal.update({
+          where: { id: withdrawalId },
+          data: {
+            status: 'PROCESSING',
+            txHash: 'MANUAL_PROCESSING_REQUIRED'
+          }
+        })
+
+        // Notify user
+        await bot.api.sendMessage(
+          withdrawal.user.telegramId,
+          `✅ *Withdrawal Approved*\n\n` +
+          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+          `💎 Currency: ${withdrawal.currency}\n` +
+          `🌐 Network: ${withdrawal.network}\n` +
+          `📍 Address: \`${withdrawal.address}\`\n\n` +
+          `⏳ Your withdrawal is being processed manually by admin.\n` +
+          `💳 New balance: $${newBalance.toFixed(2)}`,
+          { parse_mode: 'Markdown' }
+        )
+        
+        await ctx.answerCallbackQuery('✅ Approved - Manual processing required')
+        await ctx.editMessageText(
+          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
+          `⚠️ OxaPay Error: ${error.message}\n` +
+          `💳 Balance deducted: $${withdrawal.amount.toFixed(2)}\n` +
+          `⚡ Status: PROCESSING\n\n` +
+          `🔴 ACTION REQUIRED: Process payout manually on OxaPay dashboard`,
+          { parse_mode: 'Markdown' }
+        )
+      }
     }
   } catch (error) {
     console.error('Error approving withdrawal:', error)
@@ -1127,8 +1536,20 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    if (withdrawal.status !== 'PENDING' && withdrawal.status !== 'PROCESSING') {
-      await ctx.answerCallbackQuery(`❌ Withdrawal already ${withdrawal.status}`)
+    if (withdrawal.status === 'COMPLETED') {
+      await ctx.answerCallbackQuery('❌ Cannot reject completed withdrawal')
+      return
+    }
+
+    if (withdrawal.status === 'FAILED') {
+      await ctx.answerCallbackQuery('ℹ️ Already rejected')
+      return
+    }
+
+    // Get current user balance
+    const currentUser = await prisma.user.findUnique({ where: { id: withdrawal.userId } })
+    if (!currentUser) {
+      await ctx.answerCallbackQuery('❌ User not found')
       return
     }
 
@@ -1138,14 +1559,24 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       data: { status: 'FAILED' }
     })
 
-    // Return the amount back to user balance
-    await prisma.user.update({
-      where: { id: withdrawal.userId },
-      data: {
-        balance: { increment: withdrawal.amount },
-        totalWithdraw: { decrement: withdrawal.amount }
-      }
-    })
+    // For PENDING status: balance was NOT deducted yet, so no need to refund
+    // For PROCESSING status: balance WAS deducted, so we need to refund it
+    let refundMessage = ''
+    if (withdrawal.status === 'PROCESSING') {
+      // Refund the balance
+      await prisma.user.update({
+        where: { id: withdrawal.userId },
+        data: {
+          balance: { increment: withdrawal.amount },
+          totalWithdraw: { decrement: withdrawal.amount }
+        }
+      })
+      refundMessage = `💳 Balance refunded: $${(currentUser.balance + withdrawal.amount).toFixed(2)}`
+      console.log(`💰 Refunded $${withdrawal.amount.toFixed(2)} to user ${withdrawal.user.telegramId}`)
+    } else {
+      refundMessage = `💳 Current balance: $${currentUser.balance.toFixed(2)} (unchanged)`
+      console.log(`ℹ️ No refund needed for PENDING withdrawal ${withdrawal.id}`)
+    }
 
     // Notify user
     await bot.api.sendMessage(
@@ -1153,7 +1584,8 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       `❌ *Withdrawal Rejected*\n\n` +
       `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
       `💎 Currency: ${withdrawal.currency}\n\n` +
-      `💳 Your balance has been restored. Please contact support for more information.`,
+      `${refundMessage}\n\n` +
+      `ℹ️ Please contact support if you have questions.`,
       { parse_mode: 'Markdown' }
     )
 
