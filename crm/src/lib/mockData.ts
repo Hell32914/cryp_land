@@ -295,3 +295,109 @@ export const mockKPIs = {
   withdrawalsToday: 6500,
   profitPeriod: 76200,
 }
+
+// API-compatible mock data exports
+export const mockOverview = {
+  kpis: mockKPIs,
+  financialData: mockFinancialData,
+  geoData: mockGeoData,
+  generatedAt: new Date().toISOString(),
+}
+
+export const mockUsersResponse = {
+  users: mockUsers.map(user => ({
+    id: user.id,
+    telegramId: user.userId,
+    username: user.username,
+    fullName: user.fullName,
+    country: user.country,
+    status: user.status,
+    plan: 'Standard',
+    balance: user.balance,
+    profit: user.profitBalance,
+    totalDeposit: user.totalDeposit,
+    totalWithdraw: 0,
+    kycRequired: false,
+    isBlocked: false,
+    createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  })),
+  count: mockUsers.length,
+}
+
+export const mockDepositsResponse = {
+  deposits: mockDeposits.map((dep, idx) => ({
+    id: idx + 1,
+    status: 'completed',
+    amount: dep.amount,
+    currency: 'USDT',
+    network: 'TRC20',
+    txHash: `0x${Math.random().toString(16).slice(2, 66)}`,
+    createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    user: mockUsersResponse.users.find(u => u.telegramId === dep.userId)!,
+  })),
+}
+
+export const mockWithdrawalsResponse = {
+  withdrawals: mockWithdrawals.map((wd, idx) => ({
+    id: idx + 1,
+    status: wd.status.toLowerCase(),
+    amount: wd.amount,
+    currency: 'USDT',
+    network: 'TRC20',
+    address: `T${Math.random().toString(36).slice(2, 35).toUpperCase()}`,
+    txHash: wd.status === 'Successful' ? `0x${Math.random().toString(16).slice(2, 66)}` : null,
+    createdAt: wd.date,
+    user: mockUsersResponse.users.find(u => u.username === wd.user)!,
+  })),
+}
+
+export const mockExpensesResponse = {
+  expenses: mockExpenses.map(exp => ({
+    id: exp.id,
+    category: exp.category,
+    comment: exp.comment,
+    amount: exp.amount,
+    createdAt: new Date(exp.date).toISOString(),
+  })),
+  totalAmount: mockExpenses.reduce((sum, exp) => sum + exp.amount, 0),
+}
+
+export const mockReferralsResponse = {
+  referrals: [
+    {
+      id: 1,
+      level: 1,
+      earnings: 50,
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      referrer: mockUsersResponse.users[0],
+      referredUser: mockUsersResponse.users[1],
+    },
+    {
+      id: 2,
+      level: 1,
+      earnings: 75,
+      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      referrer: mockUsersResponse.users[0],
+      referredUser: mockUsersResponse.users[3],
+    },
+    {
+      id: 3,
+      level: 2,
+      earnings: 25,
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      referrer: mockUsersResponse.users[1],
+      referredUser: mockUsersResponse.users[2],
+    },
+  ],
+}
+
+// Re-export with correct names for API
+export { 
+  mockOverview as mockOverviewData,
+  mockUsersResponse as mockUsers,
+  mockDepositsResponse as mockDeposits,
+  mockWithdrawalsResponse as mockWithdrawals,
+  mockExpensesResponse as mockExpenses,
+  mockReferralsResponse as mockReferrals,
+}

@@ -1,5 +1,6 @@
 const rawApiUrl = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_API_URL
 const API_BASE_URL = (rawApiUrl && rawApiUrl.replace(/\/$/, '')) || 'http://localhost:3001'
+const USE_MOCK = !(import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_API_URL
 
 export class ApiError extends Error {
   status: number
@@ -12,6 +13,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+  // Use mock data if no API URL is configured
+  if (USE_MOCK) {
+    return handleMockRequest<T>(path, options, token)
+  }
+
   const headers = new Headers(options.headers || {})
 
   if (!headers.has('Content-Type') && options.body) {
@@ -36,6 +42,64 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   }
 
   return (data ?? {}) as T
+}
+
+// Mock request handler
+async function handleMockRequest<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 300))
+
+  // Handle login
+  if (path === '/api/admin/login') {
+    const body = options.body ? JSON.parse(options.body as string) : {}
+    if (body.username === 'admin' && body.password === 'admin') {
+      return { token: 'mock-token-12345' } as T
+    }
+    throw new ApiError('Invalid credentials', 401)
+  }
+
+  // Require token for other endpoints
+  if (!token) {
+    throw new ApiError('Unauthorized', 401)
+  }
+
+  // Import mock data
+  const mockData = await import('./mockData')
+
+  // Handle different endpoints
+  if (path === '/api/admin/overview') {
+    return mockData.mockOverview as T
+  }
+  
+  if (path.startsWith('/api/admin/users')) {
+    return mockData.mockUsers as T
+  }
+  
+  if (path === '/api/admin/deposits') {
+    return mockData.mockDeposits as T
+  }
+  
+  if (path === '/api/admin/withdrawals') {
+    return mockData.mockWithdrawals as T
+  }
+  
+  if (path === '/api/admin/expenses') {
+    if (options.method === 'POST') {
+      const body = options.body ? JSON.parse(options.body as string) : {}
+      return {
+        id: Date.now(),
+        ...body,
+        createdAt: new Date().toISOString(),
+      } as T
+    }
+    return mockData.mockExpenses as T
+  }
+  
+  if (path === '/api/admin/referrals') {
+    return mockData.mockReferrals as T
+  }
+
+  throw new ApiError('Not found', 404)
 }
 
 export interface KPIResponse {
