@@ -229,13 +229,13 @@ bot.command('start', async (ctx) => {
     .url('💬 Support', 'https://t.me/SyntrixSupport')
 
   const welcomeMessage = 
-    `*Welcome to SyntrixBot\\!*\n\n` +
-    `*\\[ Profits are no longer random \\]*\n\n` +
+    `*Welcome to SyntrixBot\\!*\n` +
+    `*Profits are no longer random\\!*\n\n` +
     `⮕ Start your crypto trading journey with our automated bot\n` +
     `⮕ Earn up to 17% daily from your investments\n` +
     `⮕ Track your performance in real\\-time\n\n` +
-    `🌐 Learn more: ${LANDING_URL.replace(/[-.]/g, '\\$&')}\n\n` +
-    `Click the button below to open the trading platform: 👇🏽`
+    `🌐 Learn more: https://authentic\\-commitment\\-production\\.up\\.railway\\.app/\n\n` +
+    `Click the button below to open the trading platform:`
 
   try {
     // Path to logo: go up from dist/ to telegram-bot root where logo.jpg is located
@@ -580,7 +580,8 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
     return
   }
 
-  adminState.set(ADMIN_ID, { awaitingInput: 'add_balance', targetUserId: userId })
+  const adminId = ctx.from?.id.toString()!
+  adminState.set(adminId, { awaitingInput: 'add_balance', targetUserId: userId })
 
   const keyboard = new InlineKeyboard()
     .text('Cancel', `manage_${userId}`)
@@ -738,7 +739,7 @@ bot.on('message:text', async (ctx) => {
       { parse_mode: 'Markdown' }
     )
 
-    adminState.delete(ADMIN_ID)
+    adminState.delete(userId)
   }
 
   // Handle search user for balance management
@@ -1246,7 +1247,7 @@ bot.callbackQuery('card_set_count', async (ctx) => {
     { parse_mode: 'Markdown' }
   )
   
-  adminState.set(ADMIN_ID, { awaitingInput: 'card_count' })
+  adminState.set(userId, { awaitingInput: 'card_count' })
 })
 
 // Set time range
@@ -1263,7 +1264,7 @@ bot.callbackQuery('card_set_time', async (ctx) => {
     { parse_mode: 'Markdown' }
   )
   
-  adminState.set(ADMIN_ID, { awaitingInput: 'card_time' })
+  adminState.set(userId, { awaitingInput: 'card_time' })
 })
 
 // Reschedule cards immediately
@@ -1290,9 +1291,10 @@ bot.callbackQuery('card_reschedule', async (ctx) => {
 
 // Handle text input for card settings (add to existing message handler or create new one)
 bot.on('message:text', async (ctx) => {
-  if (ctx.from?.id.toString() !== ADMIN_ID) return
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isAdmin(userId))) return
   
-  const state = adminState.get(ADMIN_ID)
+  const state = adminState.get(userId)
   if (!state?.awaitingInput) return
 
   const input = ctx.message.text
@@ -1316,7 +1318,7 @@ bot.on('message:text', async (ctx) => {
       await updateCardSettings({ minPerDay: min, maxPerDay: max })
       await ctx.reply(`✅ Updated! Cards per day: ${min}-${max}`)
       
-      adminState.delete(ADMIN_ID)
+      adminState.delete(userId)
     } else if (state.awaitingInput === 'card_time') {
       const match = input.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/)
       if (!match) {
@@ -1330,7 +1332,7 @@ bot.on('message:text', async (ctx) => {
       await updateCardSettings({ startTime, endTime })
       await ctx.reply(`✅ Updated! Time range: ${startTime}-${endTime} (Kyiv)`)
       
-      adminState.delete(ADMIN_ID)
+      adminState.delete(userId)
     }
   } catch (error) {
     console.error('Failed to update settings:', error)
