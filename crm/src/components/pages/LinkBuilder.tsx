@@ -34,7 +34,7 @@ export function LinkBuilder() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const [source, setSource] = useState('')
-  const [baseUrl] = useState('https://t.me/syntrix_bot?start=')
+  const [baseUrl] = useState('https://t.me/AiSyntrixTrade_bot?start=')
   const [subIdParams, setSubIdParams] = useState<SubIdParam[]>([
     { id: 1, key: '', value: '' }
   ])
