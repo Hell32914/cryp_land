@@ -12,25 +12,35 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { mockDeposits } from '@/lib/mockData'
+import { useAuth } from '@/lib/auth'
+import { useQuery } from '@tanstack/react-query'
+import { fetchDeposits } from '@/lib/api'
 
 export function Deposits() {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
+  const { token } = useAuth()
+  const { data } = useQuery({
+    queryKey: ['deposits', token],
+    queryFn: () => fetchDeposits(token!),
+    enabled: !!token,
+  })
 
-  const filteredDeposits = mockDeposits.filter(deposit =>
-    deposit.username.toLowerCase().includes(search.toLowerCase()) ||
-    deposit.orderId.toLowerCase().includes(search.toLowerCase())
+  const deposits = data?.deposits || []
+
+  const filteredDeposits = deposits.filter(deposit =>
+    deposit.user.username?.toLowerCase().includes(search.toLowerCase()) ||
+    deposit.id.toString().includes(search)
   )
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Paid':
+    switch (status.toLowerCase()) {
+      case 'completed':
         return 'bg-green-500/10 text-green-500 border-green-500/20'
-      case 'FTD':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-      case 'Withdrawn':
-        return 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+      case 'pending':
+        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+      case 'failed':
+        return 'bg-red-500/10 text-red-500 border-red-500/20'
       default:
         return ''
     }
@@ -71,22 +81,22 @@ export function Deposits() {
               </TableHeader>
               <TableBody>
                 {filteredDeposits.map((deposit) => (
-                  <TableRow key={deposit.orderId} className="hover:bg-muted/30">
-                    <TableCell className="font-mono">{deposit.orderId}</TableCell>
-                    <TableCell className="font-mono text-muted-foreground">{deposit.userId}</TableCell>
-                    <TableCell className="font-medium">{deposit.username}</TableCell>
-                    <TableCell>{deposit.fullName}</TableCell>
+                  <TableRow key={deposit.id} className="hover:bg-muted/30">
+                    <TableCell className="font-mono">#{deposit.id}</TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{deposit.user.telegramId}</TableCell>
+                    <TableCell className="font-medium">{deposit.user.username || 'N/A'}</TableCell>
+                    <TableCell>{deposit.user.fullName}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-green-500">
                       ${deposit.amount.toLocaleString()}
                     </TableCell>
-                    <TableCell>{deposit.country}</TableCell>
+                    <TableCell>{deposit.user.country}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getStatusColor(deposit.leadStatus)}>
-                        {deposit.leadStatus}
+                      <Badge variant="outline" className={getStatusColor(deposit.status)}>
+                        {deposit.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">
-                      {deposit.subId}
+                      {deposit.currency}/{deposit.network}
                     </TableCell>
                   </TableRow>
                 ))}

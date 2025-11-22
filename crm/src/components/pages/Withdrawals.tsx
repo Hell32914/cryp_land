@@ -9,18 +9,30 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { mockWithdrawals } from '@/lib/mockData'
+import { useAuth } from '@/lib/auth'
+import { useQuery } from '@tanstack/react-query'
+import { fetchWithdrawals } from '@/lib/api'
 
 export function Withdrawals() {
   const { t } = useTranslation()
+  const { token } = useAuth()
+  const { data } = useQuery({
+    queryKey: ['withdrawals', token],
+    queryFn: () => fetchWithdrawals(token!),
+    enabled: !!token,
+  })
+
+  const withdrawals = data?.withdrawals || []
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Successful':
+    switch (status.toLowerCase()) {
+      case 'successful':
+      case 'completed':
         return 'bg-green-500/10 text-green-500 border-green-500/20'
-      case 'Pending':
+      case 'pending':
         return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-      case 'Declined':
+      case 'declined':
+      case 'failed':
         return 'bg-red-500/10 text-red-500 border-red-500/20'
       default:
         return ''
@@ -57,20 +69,20 @@ export function Withdrawals() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockWithdrawals.map((withdrawal) => (
-                  <TableRow key={withdrawal.requestId} className="hover:bg-muted/30">
-                    <TableCell className="font-mono">{withdrawal.requestId}</TableCell>
-                    <TableCell className="font-medium">{withdrawal.user}</TableCell>
+                {withdrawals.map((withdrawal) => (
+                  <TableRow key={withdrawal.id} className="hover:bg-muted/30">
+                    <TableCell className="font-mono">#{withdrawal.id}</TableCell>
+                    <TableCell className="font-medium">{withdrawal.user.username || withdrawal.user.fullName}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-orange-500">
                       ${withdrawal.amount.toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={getStatusColor(withdrawal.status)}>
-                        {t(`withdrawals.${withdrawal.status.toLowerCase()}`)}
+                        {withdrawal.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(withdrawal.date)}
+                      {formatDate(withdrawal.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}

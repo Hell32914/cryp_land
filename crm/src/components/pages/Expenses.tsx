@@ -10,10 +10,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { mockExpenses } from '@/lib/mockData'
+import { useAuth } from '@/lib/auth'
+import { useQuery } from '@tanstack/react-query'
+import { fetchExpenses } from '@/lib/api'
 
 export function Expenses() {
   const { t } = useTranslation()
+  const { token } = useAuth()
+  const { data } = useQuery({
+    queryKey: ['expenses', token],
+    queryFn: () => fetchExpenses(token!),
+    enabled: !!token,
+  })
+
+  const expenses = data?.expenses || []
+  const totalExpenses = data?.totalAmount || 0
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -22,8 +33,6 @@ export function Expenses() {
       day: 'numeric',
     })
   }
-
-  const totalExpenses = mockExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   return (
     <div className="space-y-6">
@@ -54,7 +63,7 @@ export function Expenses() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockExpenses.map((expense) => (
+                {expenses.map((expense) => (
                   <TableRow key={expense.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-muted-foreground">{expense.id}</TableCell>
                     <TableCell>
@@ -67,7 +76,7 @@ export function Expenses() {
                       ${expense.amount.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(expense.date)}
+                      {formatDate(expense.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}
