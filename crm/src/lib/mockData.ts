@@ -61,7 +61,7 @@ export interface FinancialData {
   profit: number
 }
 
-export const mockUsers: User[] = [
+const mockUsersData: User[] = [
   {
     id: 1,
     userId: 'TG1234567',
@@ -124,7 +124,7 @@ export const mockUsers: User[] = [
   },
 ]
 
-export const mockDeposits: Deposit[] = [
+const mockDepositsData: Deposit[] = [
   {
     orderId: 'ORD-001234',
     userId: 'TG1234567',
@@ -167,7 +167,7 @@ export const mockDeposits: Deposit[] = [
   },
 ]
 
-export const mockWithdrawals: Withdrawal[] = [
+const mockWithdrawalsData: Withdrawal[] = [
   {
     requestId: 'WD-001',
     user: 'john_trader',
@@ -198,7 +198,7 @@ export const mockWithdrawals: Withdrawal[] = [
   },
 ]
 
-export const mockExpenses: Expense[] = [
+const mockExpensesData: Expense[] = [
   {
     id: 1,
     category: 'Marketing',
@@ -305,7 +305,7 @@ export const mockOverview = {
 }
 
 export const mockUsersResponse = {
-  users: mockUsers.map(user => ({
+  users: mockUsersData.map(user => ({
     id: user.id,
     telegramId: user.userId,
     username: user.username,
@@ -322,11 +322,11 @@ export const mockUsersResponse = {
     createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date().toISOString(),
   })),
-  count: mockUsers.length,
+  count: mockUsersData.length,
 }
 
 export const mockDepositsResponse = {
-  deposits: mockDeposits.map((dep, idx) => ({
+  deposits: mockDepositsData.map((dep, idx) => ({
     id: idx + 1,
     status: 'completed',
     amount: dep.amount,
@@ -339,7 +339,7 @@ export const mockDepositsResponse = {
 }
 
 export const mockWithdrawalsResponse = {
-  withdrawals: mockWithdrawals.map((wd, idx) => ({
+  withdrawals: mockWithdrawalsData.map((wd, idx) => ({
     id: idx + 1,
     status: wd.status.toLowerCase(),
     amount: wd.amount,
@@ -353,14 +353,14 @@ export const mockWithdrawalsResponse = {
 }
 
 export const mockExpensesResponse = {
-  expenses: mockExpenses.map(exp => ({
+  expenses: mockExpensesData.map(exp => ({
     id: exp.id,
     category: exp.category,
     comment: exp.comment,
     amount: exp.amount,
     createdAt: new Date(exp.date).toISOString(),
   })),
-  totalAmount: mockExpenses.reduce((sum, exp) => sum + exp.amount, 0),
+  totalAmount: mockExpensesData.reduce((sum, exp) => sum + exp.amount, 0),
 }
 
 export const mockReferralsResponse = {
@@ -392,12 +392,9 @@ export const mockReferralsResponse = {
   ],
 }
 
-// Re-export with correct names for API
-export { 
-  mockOverview as mockOverviewData,
-  mockUsersResponse as mockUsers,
-  mockDepositsResponse as mockDeposits,
-  mockWithdrawalsResponse as mockWithdrawals,
-  mockExpensesResponse as mockExpenses,
-  mockReferralsResponse as mockReferrals,
-}
+// Named exports for API
+export const mockUsers = mockUsersResponse
+export const mockDeposits = mockDepositsResponse
+export const mockWithdrawals = mockWithdrawalsResponse
+export const mockExpenses = mockExpensesResponse
+export const mockReferrals = mockReferralsResponse
