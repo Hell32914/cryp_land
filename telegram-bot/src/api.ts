@@ -984,98 +984,70 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           stack: error.stack
         })
 
-        // IMPORTANT: OxaPay may process payout even if it returns an error
-        // So we ALWAYS deduct balance and mark as PROCESSING for admin verification
-        console.log(`⚠️ OxaPay request failed, but payout may still be processing. Deducting balance and marking as PROCESSING.`)
+        // For withdrawals ≤ $100: If Oxapay fails, DO NOT deduct balance
+        // Mark withdrawal as FAILED
+        console.log(`❌ OxaPay request failed for withdrawal ${withdrawal.id}. Not deducting balance, marking as FAILED.`)
 
-        // Calculate new balance
-        const newBalance = user.balance - amount
-
-        // Deduct balance (funds are likely being processed by OxaPay)
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            balance: { decrement: amount },
-            totalWithdraw: { increment: amount }
-          }
-        })
-
-        // Mark as PROCESSING instead of FAILED
+        // Mark withdrawal as FAILED
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
-          data: { status: 'PROCESSING' }
+          data: { status: 'FAILED' }
         })
 
-        const { bot, ADMIN_ID, ADMIN_ID_2 } = await import('./index.js')
-        
-        const adminMessage = `⚠️ *Withdrawal - Requires Verification*\n\n` +
-          `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
-          `💰 Amount: $${amount.toFixed(2)}\n` +
-          `💎 Currency: ${currency}\n` +
-          `🌐 Network: ${network || 'TRC20'}\n` +
-          `📍 Address: \`${address}\`\n\n` +
-          `❗ OxaPay returned error but payout may be processing\n` +
-          `❗ Balance has been deducted\n` +
-          `❗ Please verify on OxaPay dashboard\n\n` +
-          `🆔 Withdrawal ID: ${withdrawal.id}\n` +
-          `⚠️ Error: ${error.message}`
-        
-        const keyboard = {
-          inline_keyboard: [
-            [
-              { text: '✅ Confirm Completed', callback_data: `approve_withdrawal_${withdrawal.id}` },
-              { text: '❌ Failed - Refund', callback_data: `reject_withdrawal_${withdrawal.id}` }
-            ]
-          ]
-        }
-        
-        // Notify both admins
-        try {
-          console.log(`📨 Sending processing verification notification to admin ${ADMIN_ID}`)
-          await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-          console.log(`✅ Notification sent to admin ${ADMIN_ID}`)
-          
-          if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
-            console.log(`📨 Sending processing verification notification to admin ${ADMIN_ID_2}`)
-            await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-            console.log(`✅ Notification sent to admin ${ADMIN_ID_2}`)
-          }
-        } catch (error) {
-          console.error('❌ Failed to send admin notification:', error)
-        }
+        console.log(`❌ Withdrawal marked as FAILED. User balance unchanged: $${user.balance.toFixed(2)}`)
 
-        // Notify user that withdrawal is being processed
+        // Notify user about failed withdrawal
         try {
+          const { bot } = await import('./index.js')
           await bot.api.sendMessage(
             user.telegramId,
-            `⏳ *Withdrawal Processing*\n\n` +
+            `❌ *Withdrawal Failed*\n\n` +
             `💰 Amount: $${amount.toFixed(2)}\n` +
             `💎 Currency: ${currency}\n` +
             `🌐 Network: ${network || 'TRC20'}\n` +
             `📍 Address: \`${address}\`\n\n` +
-            `⚠️ Your withdrawal is being processed.\n` +
-            `⚠️ Balance has been deducted: $${newBalance.toFixed(2)}\n\n` +
-            `Please allow a few minutes for processing.\n` +
-            `You will be notified once completed.`,
+            `⚠️ Payment provider error: ${error.message}\n\n` +
+            `💳 Your balance remains unchanged: $${user.balance.toFixed(2)}\n\n` +
+            `Please try again later or contact support.`,
             { parse_mode: 'Markdown' }
           )
         } catch (err) {
           console.error('Failed to notify user:', err)
         }
 
-        return res.json({
-          success: true,
+        return res.status(400).json({
+          success: false,
           withdrawalId: withdrawal.id,
-          status: 'PROCESSING',
-          message: 'Withdrawal is being processed. You will be notified once completed.',
-          newBalance: newBalance
+          status: 'FAILED',
+          error: 'Withdrawal failed. Please try again.',
+          details: error.message
         })
       }
     } else {
-      // Amount > 100, keep status as PENDING (DON'T deduct balance yet) and notify admin
+      // Amount >= 100, deduct balance immediately (reserve funds) and set status to PROCESSING
       const { bot, ADMIN_ID, ADMIN_ID_2 } = await import('./index.js')
       
-      const currentBalance = user.balance
+      console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
+      
+      // Calculate new balance
+      const newBalance = user.balance - amount
+      
+      // STEP 1: Deduct balance immediately (reserve funds)
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          balance: { decrement: amount },
+          totalWithdraw: { increment: amount }
+        }
+      })
+      
+      // STEP 2: Update withdrawal status to PROCESSING
+      await prisma.withdrawal.update({
+        where: { id: withdrawal.id },
+        data: { status: 'PROCESSING' }
+      })
+      
+      console.log(`✅ Funds reserved. New balance: $${newBalance.toFixed(2)}`)
       
       const adminMessage = `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
         `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
@@ -1083,9 +1055,10 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +
         `📍 Address: \`${address}\`\n\n` +
-        `💳 User Balance: $${currentBalance.toFixed(2)}\n` +
-        `💳 After Withdrawal: $${(currentBalance - amount).toFixed(2)}\n\n` +
-        `⚠️ Amount > $100 - Requires approval\n` +
+        `💳 Previous Balance: $${user.balance.toFixed(2)}\n` +
+        `💳 New Balance: $${newBalance.toFixed(2)}\n` +
+        `✅ Funds have been reserved\n\n` +
+        `⚠️ Amount ≥ $100 - Requires approval\n` +
         `🆔 Withdrawal ID: ${withdrawal.id}`
       
       const keyboard = {
@@ -1112,7 +1085,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         console.error('❌ Failed to send admin notification:', error)
       }
 
-      // Notify user that withdrawal is pending approval
+      // Notify user that withdrawal is pending approval (funds already reserved)
       try {
         await bot.api.sendMessage(
           user.telegramId,
@@ -1123,8 +1096,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           `📍 Address: \`${address}\`\n\n` +
           `📋 Your withdrawal request has been sent to admin for approval.\n` +
           `⏱ This usually takes a few minutes.\n\n` +
-          `💳 Current balance: $${currentBalance.toFixed(2)}\n` +
-          `ℹ️ Balance will be deducted after approval.`,
+          `✅ Funds have been reserved from your balance\n` +
+          `💳 New balance: $${newBalance.toFixed(2)}\n\n` +
+          `ℹ️ If rejected, funds will be returned to your account.`,
           { parse_mode: 'Markdown' }
         )
       } catch (err) {
@@ -1134,8 +1108,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.json({
         success: true,
         withdrawalId: withdrawal.id,
-        status: 'PENDING',
-        message: 'Withdrawal request sent to admin for approval.'
+        status: 'PROCESSING',
+        message: 'Withdrawal request sent to admin for approval. Funds have been reserved.',
+        newBalance: newBalance
       })
     }
   } catch (error: any) {

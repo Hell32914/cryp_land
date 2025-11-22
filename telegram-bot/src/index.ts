@@ -1395,41 +1395,12 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    // For PENDING status: deduct balance first, then process via OxaPay
-    if (withdrawal.status === 'PENDING') {
-      console.log(`💸 Approving PENDING withdrawal ${withdrawal.id} for user ${withdrawal.user.telegramId}`)
+    // For PROCESSING status from withdrawals > $100: balance already deducted, just process via OxaPay
+    if (withdrawal.status === 'PROCESSING' && !withdrawal.txHash) {
+      console.log(`💸 Approving PROCESSING withdrawal ${withdrawal.id} for user ${withdrawal.user.telegramId}`)
+      console.log(`ℹ️ Balance already deducted (reserved). Current balance: $${withdrawal.user.balance.toFixed(2)}`)
       
-      // Calculate new balance
-      const newBalance = withdrawal.user.balance - withdrawal.amount
-      
-      if (newBalance < 0) {
-        await ctx.answerCallbackQuery('❌ Insufficient balance')
-        await ctx.editMessageText(
-          ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED*\nReason: Insufficient balance',
-          { parse_mode: 'Markdown' }
-        )
-        
-        // Mark as failed
-        await prisma.withdrawal.update({
-          where: { id: withdrawalId },
-          data: { status: 'FAILED' }
-        })
-        
-        return
-      }
-
-      // STEP 1: Deduct balance (lock funds)
-      await prisma.user.update({
-        where: { id: withdrawal.userId },
-        data: {
-          balance: { decrement: withdrawal.amount },
-          totalWithdraw: { increment: withdrawal.amount }
-        }
-      })
-
-      console.log(`✅ Balance deducted: $${withdrawal.amount.toFixed(2)}. New balance: $${newBalance.toFixed(2)}`)
-
-      // STEP 2: Try to process via OxaPay
+      // Try to process via OxaPay
       try {
         const { createPayout } = await import('./oxapay.js')
         
@@ -1440,11 +1411,10 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           network: withdrawal.network || 'TRC20'
         })
 
-        // Update withdrawal status
+        // Update withdrawal with track ID, keep status as PROCESSING
         await prisma.withdrawal.update({
           where: { id: withdrawalId },
           data: {
-            status: 'PROCESSING',
             txHash: payout.trackId
           }
         })
@@ -1460,26 +1430,25 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           `🌐 Network: ${withdrawal.network}\n` +
           `📍 Address: \`${withdrawal.address}\`\n\n` +
           `⏳ Processing... Track ID: ${payout.trackId}\n` +
-          `💳 New balance: $${newBalance.toFixed(2)}`,
+          `💳 Current balance: $${withdrawal.user.balance.toFixed(2)}`,
           { parse_mode: 'Markdown' }
         )
 
         await ctx.editMessageText(
-          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & PROCESSED*\n' +
+          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO OXAPAY*\n' +
           `🔗 Track ID: ${payout.trackId}`,
           { parse_mode: 'Markdown' }
         )
-        await ctx.answerCallbackQuery('✅ Withdrawal approved and processing')
+        await ctx.answerCallbackQuery('✅ Withdrawal approved and sent to OxaPay')
 
       } catch (error: any) {
-        // If OxaPay fails, still mark as PROCESSING (balance already deducted)
+        // If OxaPay fails, keep status as PROCESSING but mark for manual processing
         console.error('OxaPay payout error:', error.response?.data || error.message)
-        console.log('⚠️ Marking as PROCESSING despite error - balance already deducted')
+        console.log('⚠️ OxaPay failed - balance already deducted, manual processing required')
         
         await prisma.withdrawal.update({
           where: { id: withdrawalId },
           data: {
-            status: 'PROCESSING',
             txHash: 'MANUAL_PROCESSING_REQUIRED'
           }
         })
@@ -1493,7 +1462,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           `🌐 Network: ${withdrawal.network}\n` +
           `📍 Address: \`${withdrawal.address}\`\n\n` +
           `⏳ Your withdrawal is being processed manually by admin.\n` +
-          `💳 New balance: $${newBalance.toFixed(2)}`,
+          `💳 Current balance: $${withdrawal.user.balance.toFixed(2)}`,
           { parse_mode: 'Markdown' }
         )
         
@@ -1501,12 +1470,16 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
         await ctx.editMessageText(
           ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
           `⚠️ OxaPay Error: ${error.message}\n` +
-          `💳 Balance deducted: $${withdrawal.amount.toFixed(2)}\n` +
+          `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
           `⚡ Status: PROCESSING\n\n` +
           `🔴 ACTION REQUIRED: Process payout manually on OxaPay dashboard`,
           { parse_mode: 'Markdown' }
         )
       }
+    } else if (withdrawal.status === 'PENDING') {
+      // This should not happen with new logic, but handle legacy pending withdrawals
+      await ctx.answerCallbackQuery('⚠️ Legacy PENDING withdrawal detected. Please reject and ask user to resubmit.')
+      return
     }
   } catch (error) {
     console.error('Error approving withdrawal:', error)
@@ -1558,8 +1531,8 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       data: { status: 'FAILED' }
     })
 
-    // For PENDING status: balance was NOT deducted yet, so no need to refund
-    // For PROCESSING status: balance WAS deducted, so we need to refund it
+    // For PROCESSING status: balance WAS deducted (reserved), so we need to refund it
+    // For PENDING status (legacy): balance was NOT deducted yet, so no need to refund
     let refundMessage = ''
     if (withdrawal.status === 'PROCESSING') {
       // Refund the balance
@@ -1570,8 +1543,9 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
           totalWithdraw: { decrement: withdrawal.amount }
         }
       })
-      refundMessage = `💳 Balance refunded: $${(currentUser.balance + withdrawal.amount).toFixed(2)}`
-      console.log(`💰 Refunded $${withdrawal.amount.toFixed(2)} to user ${withdrawal.user.telegramId}`)
+      const newBalance = currentUser.balance + withdrawal.amount
+      refundMessage = `✅ Funds returned to your account\n💳 New balance: $${newBalance.toFixed(2)}`
+      console.log(`💰 Refunded $${withdrawal.amount.toFixed(2)} to user ${withdrawal.user.telegramId}. New balance: $${newBalance.toFixed(2)}`)
     } else {
       refundMessage = `💳 Current balance: $${currentUser.balance.toFixed(2)} (unchanged)`
       console.log(`ℹ️ No refund needed for PENDING withdrawal ${withdrawal.id}`)
