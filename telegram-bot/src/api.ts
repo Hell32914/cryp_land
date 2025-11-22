@@ -499,16 +499,6 @@ const buildDateSeries = (days: number) => {
 }
 
 
-// Tariff plans configuration (same as in index.ts)
-const TARIFF_PLANS = [
-  { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
-  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
-  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
-  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
-  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
-  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
-]
-
 // Calculate tariff plan progress
 function calculatePlanProgress(balance: number) {
   const plan = TARIFF_PLANS.find(p => balance >= p.minDeposit && balance <= p.maxDeposit) || TARIFF_PLANS[0]

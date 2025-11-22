@@ -580,7 +580,6 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
     return
   }
 
-  const adminId = ctx.from?.id.toString()!
   adminState.set(adminId, { awaitingInput: 'add_balance', targetUserId: userId })
 
   const keyboard = new InlineKeyboard()
@@ -739,7 +738,8 @@ bot.on('message:text', async (ctx) => {
       { parse_mode: 'Markdown' }
     )
 
-    adminState.delete(userId)
+    const adminId = ctx.from?.id.toString()!
+    adminState.delete(adminId)
   }
 
   // Handle search user for balance management
