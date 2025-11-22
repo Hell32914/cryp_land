@@ -175,7 +175,7 @@ export function Dashboard() {
                     fill="#8884d8"
                     paddingAngle={2}
                     dataKey="userCount"
-                    label={({ country, percentage }) => `${country}: ${percentage}%`
+                    label={({ country, percentage }) => `${country}: ${percentage}%`}
                     labelLine={false}
                   >
                     {geoData.map((_, index) => (
