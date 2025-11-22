@@ -1,9 +1,12 @@
-import express from 'express'
+import express, { type RequestHandler } from 'express'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
 import axios from 'axios'
 import { webhookCallback } from 'grammy'
 import type { Bot } from 'grammy'
+import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto'
+import { z } from 'zod'
 
 const prisma = new PrismaClient()
 const app = express()
@@ -11,6 +14,462 @@ const PORT = process.env.PORT || process.env.API_PORT || 3001
 
 app.use(cors())
 app.use(express.json())
+
+const CRM_ADMIN_USERNAME = process.env.CRM_ADMIN_USERNAME
+const CRM_ADMIN_PASSWORD = process.env.CRM_ADMIN_PASSWORD
+const CRM_JWT_SECRET = process.env.CRM_JWT_SECRET
+const ADMIN_TOKEN_EXPIRATION = '12h'
+
+if (!CRM_ADMIN_USERNAME || !CRM_ADMIN_PASSWORD || !CRM_JWT_SECRET) {
+  console.warn('⚠️ CRM admin credentials are not configured. Admin API endpoints will be disabled until CRM_ADMIN_* env vars are set.')
+}
+
+const isAdminAuthConfigured = () => Boolean(CRM_ADMIN_USERNAME && CRM_ADMIN_PASSWORD && CRM_JWT_SECRET)
+
+const safeCompare = (first?: string, second?: string) => {
+  if (typeof first !== 'string' || typeof second !== 'string') {
+    return false
+  }
+
+  const firstBuffer = Buffer.from(first)
+  const secondBuffer = Buffer.from(second)
+
+  if (firstBuffer.length !== secondBuffer.length) {
+    return false
+  }
+
+  return crypto.timingSafeEqual(firstBuffer, secondBuffer)
+}
+
+const requireAdminAuth: RequestHandler = (req, res, next) => {
+  if (!isAdminAuthConfigured()) {
+    return res.status(503).json({ error: 'Admin auth is not configured' })
+  }
+
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  try {
+    const token = authHeader.slice(7)
+    jwt.verify(token, CRM_JWT_SECRET!)
+    next()
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+}
+
+const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+})
+
+app.post('/api/admin/login', (req, res) => {
+  if (!isAdminAuthConfigured()) {
+    return res.status(503).json({ error: 'Admin auth is not configured' })
+  }
+
+  const parseResult = loginSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({ error: 'Username and password are required' })
+  }
+
+  const { username, password } = parseResult.data
+
+  const isValidUser = safeCompare(username, CRM_ADMIN_USERNAME)
+  const isValidPassword = safeCompare(password, CRM_ADMIN_PASSWORD)
+
+  if (!isValidUser || !isValidPassword) {
+    return res.status(401).json({ error: 'Invalid credentials' })
+  }
+
+  const token = jwt.sign(
+    {
+      username,
+      role: 'admin',
+    },
+    CRM_JWT_SECRET!,
+    { expiresIn: ADMIN_TOKEN_EXPIRATION }
+  )
+
+  return res.json({ token })
+})
+
+app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
+  try {
+    const now = new Date()
+    const startOfToday = new Date(now)
+    startOfToday.setHours(0, 0, 0, 0)
+
+    const chartDays = 7
+    const chartStart = new Date(startOfToday)
+    chartStart.setDate(startOfToday.getDate() - (chartDays - 1))
+
+    const [
+      totalUsers,
+      balanceAgg,
+      depositsTodayAgg,
+      withdrawalsTodayAgg,
+      profitAgg,
+      recentDeposits,
+      recentWithdrawals,
+      recentProfits,
+      geoGroups,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.aggregate({ _sum: { balance: true } }),
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'COMPLETED',
+          createdAt: { gte: startOfToday },
+        },
+      }),
+      prisma.withdrawal.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'COMPLETED',
+          createdAt: { gte: startOfToday },
+        },
+      }),
+      prisma.dailyProfitUpdate.aggregate({
+        _sum: { amount: true },
+        where: {
+          timestamp: { gte: chartStart },
+        },
+      }),
+      prisma.deposit.findMany({
+        where: {
+          status: 'COMPLETED',
+          createdAt: { gte: chartStart },
+        },
+        select: { amount: true, createdAt: true },
+      }),
+      prisma.withdrawal.findMany({
+        where: {
+          status: 'COMPLETED',
+          createdAt: { gte: chartStart },
+        },
+        select: { amount: true, createdAt: true },
+      }),
+      prisma.dailyProfitUpdate.findMany({
+        where: {
+          timestamp: { gte: chartStart },
+        },
+        select: { amount: true, timestamp: true },
+      }),
+      prisma.user.groupBy({
+        by: ['country'],
+        _count: { country: true },
+      }),
+    ])
+
+    const seriesMap = buildDateSeries(chartDays)
+
+    recentDeposits.forEach((deposit) => {
+      const key = getDateKey(deposit.createdAt)
+      const entry = seriesMap.get(key)
+      if (entry) {
+        entry.deposits += deposit.amount
+      }
+    })
+
+    recentWithdrawals.forEach((withdrawal) => {
+      const key = getDateKey(withdrawal.createdAt)
+      const entry = seriesMap.get(key)
+      if (entry) {
+        entry.withdrawals += withdrawal.amount
+      }
+    })
+
+    recentProfits.forEach((profit) => {
+      const key = getDateKey(profit.timestamp)
+      const entry = seriesMap.get(key)
+      if (entry) {
+        entry.profit += profit.amount
+      }
+    })
+
+    const totalGeoUsers = geoGroups.reduce((sum, group) => sum + group._count.country, 0)
+    const sortedGeo = geoGroups
+      .map((group) => ({
+        country: group.country ?? 'Unknown',
+        userCount: group._count.country,
+      }))
+      .sort((a, b) => b.userCount - a.userCount)
+
+    const geoLimit = 6
+    const limitedGeo = sortedGeo.slice(0, geoLimit)
+    const includedCount = limitedGeo.reduce((sum, entry) => sum + entry.userCount, 0)
+    const remaining = totalGeoUsers - includedCount
+
+    if (remaining > 0) {
+      limitedGeo.push({ country: 'Others', userCount: remaining })
+    }
+
+    const geoData = limitedGeo.map((entry) => ({
+      country: entry.country,
+      userCount: entry.userCount,
+      percentage:
+        totalGeoUsers === 0
+          ? 0
+          : Number(((entry.userCount / totalGeoUsers) * 100).toFixed(1)),
+    }))
+
+    return res.json({
+      kpis: {
+        totalUsers,
+        totalBalance: Number(balanceAgg._sum.balance ?? 0),
+        depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
+        withdrawalsToday: Number(withdrawalsTodayAgg._sum.amount ?? 0),
+        profitPeriod: Number(profitAgg._sum.amount ?? 0),
+      },
+      financialData: Array.from(seriesMap.values()),
+      geoData,
+      generatedAt: now.toISOString(),
+    })
+  } catch (error) {
+    console.error('Admin overview error:', error)
+    return res.status(500).json({ error: 'Failed to load dashboard data' })
+  }
+})
+
+const mapUserSummary = (user: any) => ({
+  id: user.id,
+  telegramId: user.telegramId,
+  username: user.username,
+  fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
+  country: user.country || 'Unknown',
+  status: user.status,
+  plan: user.plan,
+  balance: user.balance,
+  profit: user.profit,
+  totalDeposit: user.totalDeposit,
+  totalWithdraw: user.totalWithdraw,
+  kycRequired: user.kycRequired,
+  isBlocked: user.isBlocked,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+})
+
+app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
+  try {
+    const { search = '', limit = '100' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 100, 500)
+
+    const searchValue = String(search).trim()
+
+    const where = searchValue
+      ? {
+          OR: [
+            { telegramId: { contains: searchValue } },
+            { username: { contains: searchValue } },
+            { firstName: { contains: searchValue } },
+            { lastName: { contains: searchValue } },
+          ],
+        }
+      : undefined
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+
+    return res.json({
+      users: users.map(mapUserSummary),
+      count: users.length,
+    })
+  } catch (error) {
+    console.error('Admin users error:', error)
+    return res.status(500).json({ error: 'Failed to load users' })
+  }
+})
+
+app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
+  try {
+    const { status, limit = '100' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 100, 500)
+
+    const deposits = await prisma.deposit.findMany({
+      where: status
+        ? {
+            status: String(status).toUpperCase(),
+          }
+        : undefined,
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+
+    const payload = deposits.map((deposit) => ({
+      id: deposit.id,
+      status: deposit.status,
+      amount: deposit.amount,
+      currency: deposit.currency,
+      network: deposit.network,
+      txHash: deposit.txHash,
+      createdAt: deposit.createdAt,
+      user: mapUserSummary(deposit.user),
+    }))
+
+    return res.json({ deposits: payload })
+  } catch (error) {
+    console.error('Admin deposits error:', error)
+    return res.status(500).json({ error: 'Failed to load deposits' })
+  }
+})
+
+app.get('/api/admin/withdrawals', requireAdminAuth, async (req, res) => {
+  try {
+    const { status, limit = '100' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 100, 500)
+
+    const withdrawals = await prisma.withdrawal.findMany({
+      where: status
+        ? {
+            status: String(status).toUpperCase(),
+          }
+        : undefined,
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+
+    const payload = withdrawals.map((withdrawal) => ({
+      id: withdrawal.id,
+      status: withdrawal.status,
+      amount: withdrawal.amount,
+      currency: withdrawal.currency,
+      network: withdrawal.network,
+      address: withdrawal.address,
+      txHash: withdrawal.txHash,
+      createdAt: withdrawal.createdAt,
+      user: mapUserSummary(withdrawal.user),
+    }))
+
+    return res.json({ withdrawals: payload })
+  } catch (error) {
+    console.error('Admin withdrawals error:', error)
+    return res.status(500).json({ error: 'Failed to load withdrawals' })
+  }
+})
+
+app.get('/api/admin/expenses', requireAdminAuth, async (_req, res) => {
+  try {
+    const [expenses, totalAgg] = await Promise.all([
+      prisma.expense.findMany({ orderBy: { createdAt: 'desc' } }),
+      prisma.expense.aggregate({ _sum: { amount: true } }),
+    ])
+
+    return res.json({
+      expenses,
+      totalAmount: Number(totalAgg._sum.amount ?? 0),
+    })
+  } catch (error) {
+    console.error('Admin expenses error:', error)
+    return res.status(500).json({ error: 'Failed to load expenses' })
+  }
+})
+
+const expenseSchema = z.object({
+  category: z.string().min(1),
+  comment: z.string().min(1),
+  amount: z.number().positive(),
+})
+
+app.post('/api/admin/expenses', requireAdminAuth, async (req, res) => {
+  try {
+    const parsed = expenseSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid expense payload' })
+    }
+
+    const expense = await prisma.expense.create({ data: parsed.data })
+
+    return res.status(201).json(expense)
+  } catch (error) {
+    console.error('Create expense error:', error)
+    return res.status(500).json({ error: 'Failed to create expense' })
+  }
+})
+
+app.get('/api/admin/referrals', requireAdminAuth, async (_req, res) => {
+  try {
+    const referrals = await prisma.referral.findMany({
+      include: {
+        user: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    const referredIds = Array.from(new Set(referrals.map((ref) => ref.referredUserId)))
+
+    const referredUsers = referredIds.length
+      ? await prisma.user.findMany({ where: { id: { in: referredIds } } })
+      : []
+
+    const referredMap = new Map<number, ReturnType<typeof mapUserSummary>>()
+    referredUsers.forEach((user) => {
+      referredMap.set(user.id, mapUserSummary(user))
+    })
+
+    const payload = referrals.map((ref) => ({
+      id: ref.id,
+      level: ref.level,
+      earnings: ref.earnings,
+      createdAt: ref.createdAt,
+      referrer: mapUserSummary(ref.user),
+      referredUser: referredMap.get(ref.referredUserId) || {
+        id: ref.referredUserId,
+        telegramId: ref.referredUsername || String(ref.referredUserId),
+        username: ref.referredUsername,
+        fullName: ref.referredUsername || 'Unknown',
+        country: 'Unknown',
+        status: 'UNKNOWN',
+        plan: 'Bronze',
+        balance: 0,
+        profit: 0,
+        totalDeposit: 0,
+        totalWithdraw: 0,
+        kycRequired: false,
+        isBlocked: false,
+        createdAt: ref.createdAt,
+        updatedAt: ref.createdAt,
+      },
+    }))
+
+    return res.json({ referrals: payload })
+  } catch (error) {
+    console.error('Admin referrals error:', error)
+    return res.status(500).json({ error: 'Failed to load referrals' })
+  }
+})
+
+const getDateKey = (date: Date) => date.toISOString().split('T')[0]
+
+const buildDateSeries = (days: number) => {
+  const map = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number }>()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const key = getDateKey(d)
+    map.set(key, {
+      date: key,
+      deposits: 0,
+      withdrawals: 0,
+      profit: 0,
+    })
+  }
+
+  return map
+}
+
 
 // Tariff plans configuration (same as in index.ts)
 const TARIFF_PLANS = [

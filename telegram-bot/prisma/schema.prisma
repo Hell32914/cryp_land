@@ -112,3 +112,11 @@ model TradingPost {
   lastPrice   Float
   postedAt    DateTime @default(now())
 }
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  category  String
+  comment   String
+  amount    Float
+  createdAt DateTime @default(now())
+}
