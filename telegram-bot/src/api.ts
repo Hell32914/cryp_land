@@ -1343,7 +1343,9 @@ let server: any
 export function startApiServer(bot?: Bot) {
   // Add webhook endpoint if bot is provided
   if (bot) {
-    app.post('/webhook', webhookCallback(bot, 'express'))
+    app.post('/webhook', webhookCallback(bot, 'express', {
+      timeoutMilliseconds: 60000 // 60 seconds timeout
+    }))
     console.log('✅ Webhook handler registered at /webhook')
   }
   
