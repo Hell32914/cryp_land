@@ -51,7 +51,10 @@ export function formatTradingPair(symbol: string): string {
 export async function generateTradingData() {
   const pair = getRandomTradingPair()
   const isLong = Math.random() < 0.67 // 67% Long, 33% Short
-  const profit = Math.floor(Math.random() * (567 - 13 + 1)) + 13
+  // Generate profit with decimal part (e.g., 407.23%)
+  const profitInteger = Math.floor(Math.random() * (567 - 13 + 1)) + 13
+  const profitDecimal = Math.floor(Math.random() * 100) // 0-99
+  const profit = parseFloat(`${profitInteger}.${profitDecimal.toString().padStart(2, '0')}`)
   const leverage = Math.floor(Math.random() * (84 - 5 + 1)) + 5
   
   // Try to get real price from Binance
