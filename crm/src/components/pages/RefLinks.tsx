@@ -9,18 +9,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { mockRefLinks } from '@/lib/mockData'
 
 export function RefLinks() {
   const { t } = useTranslation()
 
-  const calculateConversionRate = (registrations: number, clicks: number) => {
-    return ((registrations / clicks) * 100).toFixed(1)
-  }
-
-  const calculateDepositRate = (deposits: number, registrations: number) => {
-    return ((deposits / registrations) * 100).toFixed(1)
-  }
+  // Note: This feature requires additional API endpoint for referral link tracking
+  // Current bot tracks referrals per user, not per marketing source
+  // This would need custom implementation for marketing campaign tracking
 
   return (
     <div className="space-y-6">
@@ -30,46 +25,16 @@ export function RefLinks() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="rounded-md border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead>{t('refLinks.id')}</TableHead>
-                  <TableHead>{t('refLinks.source')}</TableHead>
-                  <TableHead>{t('refLinks.subId')}</TableHead>
-                  <TableHead className="text-right">{t('refLinks.clicks')}</TableHead>
-                  <TableHead className="text-right">{t('refLinks.registrations')}</TableHead>
-                  <TableHead className="text-right">Conv. Rate</TableHead>
-                  <TableHead className="text-right">{t('refLinks.deposits')}</TableHead>
-                  <TableHead className="text-right">Dep. Rate</TableHead>
-                  <TableHead className="text-right">{t('refLinks.revenue')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockRefLinks.map((link) => (
-                  <TableRow key={link.id} className="hover:bg-muted/30">
-                    <TableCell className="font-mono text-muted-foreground">{link.id}</TableCell>
-                    <TableCell className="font-medium">{link.source}</TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">{link.subId}</TableCell>
-                    <TableCell className="text-right font-mono">{link.clicks.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono">{link.registrations.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono text-blue-500">
-                      {calculateConversionRate(link.registrations, link.clicks)}%
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{link.deposits.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-mono text-green-500">
-                      {calculateDepositRate(link.deposits, link.registrations)}%
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-accent">
-                      <div className="flex items-center justify-end gap-1">
-                        <TrendUp size={16} weight="bold" />
-                        ${link.revenue.toLocaleString()}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="flex flex-col items-center justify-center py-16 space-y-4">
+            <div className="text-6xl">🔗</div>
+            <h3 className="text-2xl font-semibold">Coming Soon</h3>
+            <p className="text-muted-foreground text-center max-w-md">
+              Referral link tracking by marketing source is currently not implemented.
+              This feature requires additional API endpoints for campaign tracking.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              For now, you can view individual user referrals in the <strong>Referrals</strong> section.
+            </p>
           </div>
         </CardContent>
       </Card>
