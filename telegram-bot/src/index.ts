@@ -651,9 +651,6 @@ bot.on('message:text', async (ctx) => {
     return
   }
 
-  // Only super admin can do other operations
-  if (userId !== ADMIN_ID && userId !== ADMIN_ID_2) return
-
   if (state.awaitingInput === 'add_balance') {
     const amount = parseFloat(ctx.message?.text || '')
     const userId = state.targetUserId
