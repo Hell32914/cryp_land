@@ -146,12 +146,16 @@ export function Users() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <div className="text-sm text-muted-foreground">ID</div>
+                  <div className="font-mono font-medium">{selectedUser.id}</div>
+                </div>
+                <div>
                   <div className="text-sm text-muted-foreground">{t('users.userId')}</div>
-                  <div className="font-mono font-medium">{selectedUser.userId}</div>
+                  <div className="font-mono font-medium">{selectedUser.telegramId}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{t('users.username')}</div>
-                  <div className="font-medium">{selectedUser.username}</div>
+                  <div className="font-medium">{selectedUser.username || '—'}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{t('users.fullName')}</div>
@@ -160,6 +164,10 @@ export function Users() {
                 <div>
                   <div className="text-sm text-muted-foreground">{t('users.country')}</div>
                   <div>{selectedUser.country}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">{t('users.plan')}</div>
+                  <div className="font-medium">{selectedUser.plan}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{t('users.status')}</div>
@@ -172,17 +180,33 @@ export function Users() {
                   <div className="font-mono font-medium">${selectedUser.balance.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.profitBalance')}</div>
-                  <div className="font-mono font-medium">${selectedUser.profitBalance.toLocaleString()}</div>
+                  <div className="text-sm text-muted-foreground">Profit</div>
+                  <div className="font-mono font-medium">${selectedUser.profit.toLocaleString()}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">{t('users.totalDeposit')}</div>
                   <div className="font-mono font-medium">${selectedUser.totalDeposit.toLocaleString()}</div>
                 </div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground mb-1">{t('users.comments')}</div>
-                <div className="p-3 bg-muted rounded-md">{selectedUser.comments}</div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Total Withdraw</div>
+                  <div className="font-mono font-medium">${selectedUser.totalWithdraw.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">KYC Required</div>
+                  <Badge variant="outline" className={selectedUser.kycRequired ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}>
+                    {selectedUser.kycRequired ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Blocked</div>
+                  <Badge variant="outline" className={selectedUser.isBlocked ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}>
+                    {selectedUser.isBlocked ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Created At</div>
+                  <div className="text-sm">{new Date(selectedUser.createdAt).toLocaleString()}</div>
+                </div>
               </div>
             </div>
           )}
