@@ -338,23 +338,28 @@ function formatPercent(value: number) {
 function formatPrice(value: number) {
   // Determine how many decimal places we need based on the value
   let decimals: number
+  let minDecimals: number
   
   if (value >= 1) {
-    // For prices >= 1, use up to 2 decimals
-    decimals = 2
+    // For prices >= 1, always show at least 2 decimals
+    decimals = 4
+    minDecimals = 2
   } else if (value >= 0.01) {
     // For prices 0.01-0.99, use up to 4 decimals
     decimals = 4
+    minDecimals = 4
   } else if (value >= 0.0001) {
     // For prices 0.0001-0.0099, use up to 6 decimals
     decimals = 6
+    minDecimals = 4
   } else {
     // For very small prices (like SHIB), use up to 8 decimals
     decimals = 8
+    minDecimals = 6
   }
   
   const formatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: minDecimals,
     maximumFractionDigits: decimals
   })
   

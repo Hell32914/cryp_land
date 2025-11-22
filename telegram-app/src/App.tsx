@@ -227,9 +227,9 @@ function App() {
         
         // Show different messages based on withdrawal status
         if (data.status === 'PENDING') {
-          toast.success('⏳ Withdrawal pending admin approval. You will be notified soon.')
+          toast.success('⏳ Your withdrawal request has been submitted and is awaiting approval. We will notify you shortly!')
         } else if (data.status === 'PROCESSING') {
-          toast.success('⏳ Withdrawal is being processed. You will be notified once completed.')
+          toast.success('⏳ Your withdrawal is currently being processed. You will receive a notification once it is complete.')
         } else if (data.status === 'COMPLETED') {
           toast.success('✅ Withdrawal completed successfully!')
         } else {

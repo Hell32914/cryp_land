@@ -914,8 +914,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       }
     })
 
-    // If amount <= 100, process automatically via OxaPay
-    if (amount <= 100) {
+    // If amount < 100, process automatically via OxaPay
+    // If amount >= 100, require admin approval
+    if (amount < 100) {
       try {
         console.log(`💸 Processing withdrawal ${withdrawal.id} for user ${user.telegramId}`)
         const { createPayout } = await import('./oxapay.js')
@@ -1029,9 +1030,18 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         }
         
         // Notify both admins
-        await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-        if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
-          await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+        try {
+          console.log(`📨 Sending processing verification notification to admin ${ADMIN_ID}`)
+          await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+          console.log(`✅ Notification sent to admin ${ADMIN_ID}`)
+          
+          if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
+            console.log(`📨 Sending processing verification notification to admin ${ADMIN_ID_2}`)
+            await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+            console.log(`✅ Notification sent to admin ${ADMIN_ID_2}`)
+          }
+        } catch (error) {
+          console.error('❌ Failed to send admin notification:', error)
         }
 
         // Notify user that withdrawal is being processed
@@ -1088,9 +1098,18 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       }
       
       // Notify both admins
-      await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-      if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
-        await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+      try {
+        console.log(`📨 Sending withdrawal notification to admin ${ADMIN_ID}`)
+        await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+        console.log(`✅ Notification sent to admin ${ADMIN_ID}`)
+        
+        if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
+          console.log(`📨 Sending withdrawal notification to admin ${ADMIN_ID_2}`)
+          await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+          console.log(`✅ Notification sent to admin ${ADMIN_ID_2}`)
+        }
+      } catch (error) {
+        console.error('❌ Failed to send admin notification:', error)
       }
 
       // Notify user that withdrawal is pending approval
