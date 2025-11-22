@@ -1005,12 +1005,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           data: { status: 'PROCESSING' }
         })
 
-        const { bot, ADMIN_ID } = await import('./index.js')
+        const { bot, ADMIN_ID, ADMIN_ID_2 } = await import('./index.js')
         
-        // Notify admin to verify the withdrawal manually
-        await bot.api.sendMessage(
-          ADMIN_ID,
-          `⚠️ *Withdrawal - Requires Verification*\n\n` +
+        const adminMessage = `⚠️ *Withdrawal - Requires Verification*\n\n` +
           `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
           `💰 Amount: $${amount.toFixed(2)}\n` +
           `💎 Currency: ${currency}\n` +
@@ -1020,19 +1017,22 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           `❗ Balance has been deducted\n` +
           `❗ Please verify on OxaPay dashboard\n\n` +
           `🆔 Withdrawal ID: ${withdrawal.id}\n` +
-          `⚠️ Error: ${error.message}`,
-          { 
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '✅ Confirm Completed', callback_data: `approve_withdrawal_${withdrawal.id}` },
-                  { text: '❌ Failed - Refund', callback_data: `reject_withdrawal_${withdrawal.id}` }
-                ]
-              ]
-            }
-          }
-        )
+          `⚠️ Error: ${error.message}`
+        
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: '✅ Confirm Completed', callback_data: `approve_withdrawal_${withdrawal.id}` },
+              { text: '❌ Failed - Refund', callback_data: `reject_withdrawal_${withdrawal.id}` }
+            ]
+          ]
+        }
+        
+        // Notify both admins
+        await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+        if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
+          await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+        }
 
         // Notify user that withdrawal is being processed
         try {
@@ -1063,13 +1063,11 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       }
     } else {
       // Amount > 100, keep status as PENDING (DON'T deduct balance yet) and notify admin
-      const { bot, ADMIN_ID } = await import('./index.js')
+      const { bot, ADMIN_ID, ADMIN_ID_2 } = await import('./index.js')
       
       const currentBalance = user.balance
       
-      await bot.api.sendMessage(
-        ADMIN_ID,
-        `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
+      const adminMessage = `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
         `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
         `💰 Amount: $${amount.toFixed(2)}\n` +
         `💎 Currency: ${currency}\n` +
@@ -1078,19 +1076,22 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         `💳 User Balance: $${currentBalance.toFixed(2)}\n` +
         `💳 After Withdrawal: $${(currentBalance - amount).toFixed(2)}\n\n` +
         `⚠️ Amount > $100 - Requires approval\n` +
-        `🆔 Withdrawal ID: ${withdrawal.id}`,
-        { 
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '✅ Approve & Process', callback_data: `approve_withdrawal_${withdrawal.id}` },
-                { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
-              ]
-            ]
-          }
-        }
-      )
+        `🆔 Withdrawal ID: ${withdrawal.id}`
+      
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '✅ Approve & Process', callback_data: `approve_withdrawal_${withdrawal.id}` },
+            { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
+          ]
+        ]
+      }
+      
+      // Notify both admins
+      await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+      if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
+        await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+      }
 
       // Notify user that withdrawal is pending approval
       try {

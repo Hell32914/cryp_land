@@ -108,12 +108,13 @@ function generateFallbackPrice(symbol: string): number {
 
 /**
  * Get appropriate decimal places for price display
+ * Always returns minimum 2 decimals to show variety in prices (0-99 in last digits)
  */
 function getPriceDecimals(price: number): number {
-  if (price >= 1000) return 0
-  if (price >= 100) return 1
-  if (price >= 10) return 2
-  if (price >= 1) return 3
+  if (price >= 1000) return 2  // e.g., 50000.37 instead of 50000
+  if (price >= 100) return 2    // e.g., 482.15
+  if (price >= 10) return 3     // e.g., 45.827
+  if (price >= 1) return 4      // e.g., 5.4213
   if (price >= 0.1) return 4
   if (price >= 0.01) return 5
   if (price >= 0.001) return 6

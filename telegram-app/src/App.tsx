@@ -224,7 +224,18 @@ function App() {
 
       if (response.ok) {
         const data = await response.json()
-        toast.success(data.message || 'Withdrawal request created!')
+        
+        // Show different messages based on withdrawal status
+        if (data.status === 'PENDING') {
+          toast.success('⏳ Withdrawal pending admin approval. You will be notified soon.')
+        } else if (data.status === 'PROCESSING') {
+          toast.success('⏳ Withdrawal is being processed. You will be notified once completed.')
+        } else if (data.status === 'COMPLETED') {
+          toast.success('✅ Withdrawal completed successfully!')
+        } else {
+          toast.success(data.message || 'Withdrawal request created!')
+        }
+        
         setWithdrawOpen(false)
         setWithdrawWalletAddress('')
         setWithdrawAmount('')

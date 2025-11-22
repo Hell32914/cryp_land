@@ -19,7 +19,7 @@ dotenv.config()
 const prisma = new PrismaClient()
 export const bot = new Bot(process.env.BOT_TOKEN!)
 export const ADMIN_ID = process.env.ADMIN_ID!
-const ADMIN_ID_2 = process.env.ADMIN_ID_2!
+export const ADMIN_ID_2 = process.env.ADMIN_ID_2!
 const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://authentic-commitment-production.up.railway.app/'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
