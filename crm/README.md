@@ -1,23 +1,61 @@
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+# CRM - Telegram Bot Management Platform
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+Admin panel for managing telegram bot users, deposits, withdrawals, and analytics.
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+## 🚀 Deployment
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+### Railway Deployment
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+This CRM is configured for easy deployment on Railway:
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+1. Connect your GitHub repository to Railway
+2. Set **Root Directory** to `crm`
+3. Deploy! No additional configuration needed.
 
-📄 License For Spark Template Resources 
+### Environment Variables
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+The app works in two modes:
+
+**Standalone Mode (Default)**
+- Uses mock data for demonstration
+- No backend required
+- Default credentials: `admin` / `admin`
+
+**Connected Mode**
+- Set `VITE_API_URL` to your backend API URL
+- Connects to real backend for data
+
+Example `.env`:
+```bash
+# Leave empty for mock mode
+VITE_API_URL=
+
+# Or set your backend URL
+# VITE_API_URL=https://your-api.com
+```
+
+## 🛠️ Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+Default login: `admin` / `admin`
+
+## 📦 Build
+
+```bash
+npm run build
+```
+
+Built files will be in the `dist/` directory.
+
+## 🔧 Tech Stack
+
+- React 19 + TypeScript
+- Vite
+- TailwindCSS
+- Radix UI Components
+- React Query
+- i18next
