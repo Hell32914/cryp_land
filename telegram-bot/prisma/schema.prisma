@@ -19,6 +19,8 @@ model User {
   languageCode      String?
   ipAddress         String?
   country           String?
+  marketingSource   String?
+  utmParams         String?
   status            String        @default("INACTIVE")
   balance           Float         @default(0)
   profit            Float         @default(0)
@@ -119,4 +121,17 @@ model Expense {
   comment   String
   amount    Float
   createdAt DateTime @default(now())
+}
+
+model MarketingLink {
+  id          Int      @id @default(autoincrement())
+  linkId      String   @unique
+  source      String
+  utmParams   String?
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
+  revenue     Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

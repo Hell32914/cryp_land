@@ -178,3 +178,49 @@ export const createExpense = (token: string, data: { category: string; comment: 
 
 export const fetchReferrals = (token: string) =>
   request<ReferralsResponse>('/api/admin/referrals', {}, token)
+
+// Marketing Links
+export interface MarketingLink {
+  linkId: string
+  source: string
+  clicks: number
+  conversions: number
+  conversionRate: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface MarketingSource {
+  source: string
+  users: number
+  deposits: number
+  revenue: number
+}
+
+export interface MarketingStatsResponse {
+  sources: MarketingSource[]
+  links: MarketingLink[]
+}
+
+export const createMarketingLink = (token: string, data: { source: string; utmParams?: Record<string, string> }) =>
+  request<MarketingLink>('/api/admin/marketing-links', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, token)
+
+export const fetchMarketingLinks = (token: string) =>
+  request<{ links: MarketingLink[] }>('/api/admin/marketing-links', {}, token)
+
+export const fetchMarketingStats = (token: string) =>
+  request<MarketingStatsResponse>('/api/admin/marketing-stats', {}, token)
+
+export const toggleMarketingLink = (token: string, linkId: string, isActive: boolean) =>
+  request<MarketingLink>(`/api/admin/marketing-links/${linkId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  }, token)
+
+export const deleteMarketingLink = (token: string, linkId: string) =>
+  request<{ success: boolean }>(`/api/admin/marketing-links/${linkId}`, {
+    method: 'DELETE',
+  }, token)

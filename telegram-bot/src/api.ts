@@ -536,9 +536,26 @@ async function getCountryFromIP(ip: string): Promise<string | null> {
 
 // Get client IP from request
 function getClientIP(req: express.Request): string {
-  const forwarded = req.headers['x-forwarded-for']
-  const ip = forwarded ? (typeof forwarded === 'string' ? forwarded.split(',')[0] : forwarded[0]) : req.socket.remoteAddress
-  return ip || 'unknown'
+  // Try multiple headers (Railway, Cloudflare, etc.)
+  const xForwardedFor = req.headers['x-forwarded-for']
+  const xRealIp = req.headers['x-real-ip']
+  const cfConnectingIp = req.headers['cf-connecting-ip']
+  
+  // Priority: CF-Connecting-IP > X-Real-IP > X-Forwarded-For > socket
+  if (cfConnectingIp && typeof cfConnectingIp === 'string') {
+    return cfConnectingIp
+  }
+  
+  if (xRealIp && typeof xRealIp === 'string') {
+    return xRealIp
+  }
+  
+  if (xForwardedFor) {
+    const ip = typeof xForwardedFor === 'string' ? xForwardedFor.split(',')[0].trim() : xForwardedFor[0]
+    return ip || 'unknown'
+  }
+  
+  return req.socket.remoteAddress || 'unknown'
 }
 
 app.get('/api/user/:telegramId', async (req, res) => {
@@ -566,7 +583,9 @@ app.get('/api/user/:telegramId', async (req, res) => {
     // Update IP address and country on each request
     const clientIP = getClientIP(req)
     if (clientIP && clientIP !== 'unknown' && clientIP !== user.ipAddress) {
+      console.log(`[GEO] User ${telegramId}: IP=${clientIP}, updating country...`)
       const country = await getCountryFromIP(clientIP)
+      console.log(`[GEO] User ${telegramId}: Country=${country || 'null'}`)
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -1315,6 +1334,148 @@ app.post('/api/oxapay-callback', async (req, res) => {
   } catch (error) {
     console.error('❌ OxaPay callback error:', error)
     res.status(500).json({ success: false, error: 'Internal error' })
+  }
+})
+
+// ============= MARKETING LINKS ENDPOINTS =============
+
+// Create marketing link
+app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
+  try {
+    const { source, utmParams } = req.body
+    
+    if (!source) {
+      return res.status(400).json({ error: 'Source is required' })
+    }
+    
+    // Generate unique linkId
+    const linkId = `mk_${source}_${Date.now().toString(36)}`
+    
+    const link = await prisma.marketingLink.create({
+      data: {
+        linkId,
+        source,
+        utmParams: utmParams ? JSON.stringify(utmParams) : null
+      }
+    })
+    
+    return res.json(link)
+  } catch (error) {
+    console.error('Create marketing link error:', error)
+    return res.status(500).json({ error: 'Failed to create marketing link' })
+  }
+})
+
+// Get all marketing links
+app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
+  try {
+    const links = await prisma.marketingLink.findMany({
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    return res.json({ links })
+  } catch (error) {
+    console.error('Get marketing links error:', error)
+    return res.status(500).json({ error: 'Failed to load marketing links' })
+  }
+})
+
+// Get marketing stats by source
+app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
+  try {
+    // Get all users with marketing source
+    const users = await prisma.user.findMany({
+      where: {
+        marketingSource: { not: null }
+      },
+      include: {
+        deposits: true
+      }
+    })
+    
+    // Group by source
+    const statsBySource = new Map<string, {
+      source: string
+      users: number
+      deposits: number
+      revenue: number
+    }>()
+    
+    users.forEach(user => {
+      const source = user.marketingSource || 'unknown'
+      
+      if (!statsBySource.has(source)) {
+        statsBySource.set(source, {
+          source,
+          users: 0,
+          deposits: 0,
+          revenue: 0
+        })
+      }
+      
+      const stats = statsBySource.get(source)!
+      stats.users++
+      
+      user.deposits.forEach(deposit => {
+        if (deposit.status === 'COMPLETED') {
+          stats.deposits++
+          stats.revenue += deposit.amount
+        }
+      })
+    })
+    
+    // Get marketing links stats
+    const links = await prisma.marketingLink.findMany()
+    
+    return res.json({
+      sources: Array.from(statsBySource.values()),
+      links: links.map(link => ({
+        linkId: link.linkId,
+        source: link.source,
+        clicks: link.clicks,
+        conversions: link.conversions,
+        conversionRate: link.clicks > 0 ? ((link.conversions / link.clicks) * 100).toFixed(2) : '0.00',
+        isActive: link.isActive,
+        createdAt: link.createdAt
+      }))
+    })
+  } catch (error) {
+    console.error('Get marketing stats error:', error)
+    return res.status(500).json({ error: 'Failed to load marketing stats' })
+  }
+})
+
+// Toggle marketing link active status
+app.patch('/api/admin/marketing-links/:linkId', requireAdminAuth, async (req, res) => {
+  try {
+    const { linkId } = req.params
+    const { isActive } = req.body
+    
+    const link = await prisma.marketingLink.update({
+      where: { linkId },
+      data: { isActive }
+    })
+    
+    return res.json(link)
+  } catch (error) {
+    console.error('Update marketing link error:', error)
+    return res.status(500).json({ error: 'Failed to update marketing link' })
+  }
+})
+
+// Delete marketing link
+app.delete('/api/admin/marketing-links/:linkId', requireAdminAuth, async (req, res) => {
+  try {
+    const { linkId } = req.params
+    
+    await prisma.marketingLink.delete({
+      where: { linkId }
+    })
+    
+    return res.json({ success: true })
+  } catch (error) {
+    console.error('Delete marketing link error:', error)
+    return res.status(500).json({ error: 'Failed to delete marketing link' })
   }
 })
 

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Copy, Check } from '@phosphor-icons/react'
+import { Plus, Copy, Check, Trash } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { toast } from 'sonner'
+import { useAuth } from '@/lib/auth'
+import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, type MarketingLink } from '@/lib/api'
 
 interface SubIdParam {
   id: number
@@ -22,21 +32,44 @@ interface SubIdParam {
 
 export function LinkBuilder() {
   const { t } = useTranslation()
+  const { token } = useAuth()
   const [source, setSource] = useState('')
   const [baseUrl] = useState('https://t.me/syntrix_bot?start=')
   const [subIdParams, setSubIdParams] = useState<SubIdParam[]>([
     { id: 1, key: '', value: '' }
   ])
   const [generatedLink, setGeneratedLink] = useState('')
+  const [generatedLinkId, setGeneratedLinkId] = useState('')
   const [copied, setCopied] = useState(false)
+  const [links, setLinks] = useState<MarketingLink[]>([])
+  const [loading, setLoading] = useState(false)
 
   const sources = [
-    { value: 'telegram', label: 'Telegram Bot' },
+    { value: 'telegram', label: 'Telegram' },
     { value: 'instagram', label: 'Instagram' },
     { value: 'facebook', label: 'Facebook' },
     { value: 'youtube', label: 'YouTube' },
     { value: 'twitter', label: 'Twitter/X' },
+    { value: 'tiktok', label: 'TikTok' },
+    { value: 'reddit', label: 'Reddit' },
+    { value: 'email', label: 'Email Campaign' },
+    { value: 'other', label: 'Other' },
   ]
+
+  useEffect(() => {
+    loadLinks()
+  }, [])
+
+  const loadLinks = async () => {
+    if (!token) return
+    
+    try {
+      const data = await fetchMarketingLinks(token)
+      setLinks(data.links)
+    } catch (error) {
+      console.error('Failed to load links:', error)
+    }
+  }
 
   const addSubIdParam = () => {
     if (subIdParams.length < 5) {
@@ -58,24 +91,47 @@ export function LinkBuilder() {
     }
   }
 
-  const generateLink = () => {
+  const generateLink = async () => {
     if (!source) {
       toast.error('Please select a source')
       return
     }
 
-    const params = new URLSearchParams()
-    params.append('source', source)
-    
-    subIdParams.forEach((param, index) => {
-      if (param.key && param.value) {
-        params.append(param.key, param.value)
-      }
-    })
+    if (!token) {
+      toast.error('Not authenticated')
+      return
+    }
 
-    const link = `${baseUrl}${params.toString()}`
-    setGeneratedLink(link)
-    toast.success(t('common.success'))
+    setLoading(true)
+    
+    try {
+      // Prepare UTM params
+      const utmParams: Record<string, string> = {}
+      subIdParams.forEach(param => {
+        if (param.key && param.value) {
+          utmParams[param.key] = param.value
+        }
+      })
+
+      // Create marketing link in database
+      const linkData = await createMarketingLink(token, {
+        source,
+        utmParams: Object.keys(utmParams).length > 0 ? utmParams : undefined
+      })
+
+      const link = `${baseUrl}${linkData.linkId}`
+      setGeneratedLink(link)
+      setGeneratedLinkId(linkData.linkId)
+      
+      // Reload links list
+      await loadLinks()
+      
+      toast.success('Link created successfully!')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create link')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const copyToClipboard = async () => {
@@ -86,6 +142,31 @@ export function LinkBuilder() {
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       toast.error('Failed to copy')
+    }
+  }
+
+  const handleToggleActive = async (linkId: string, isActive: boolean) => {
+    if (!token) return
+    
+    try {
+      await toggleMarketingLink(token, linkId, !isActive)
+      await loadLinks()
+      toast.success(`Link ${!isActive ? 'activated' : 'deactivated'}`)
+    } catch (error) {
+      toast.error('Failed to update link')
+    }
+  }
+
+  const handleDelete = async (linkId: string) => {
+    if (!token) return
+    if (!confirm('Are you sure you want to delete this link?')) return
+    
+    try {
+      await deleteMarketingLink(token, linkId)
+      await loadLinks()
+      toast.success('Link deleted')
+    } catch (error) {
+      toast.error('Failed to delete link')
     }
   }
 
@@ -161,8 +242,8 @@ export function LinkBuilder() {
               ))}
             </div>
 
-            <Button onClick={generateLink} className="w-full">
-              {t('linkBuilder.generate')}
+            <Button onClick={generateLink} className="w-full" disabled={loading}>
+              {loading ? 'Creating...' : t('linkBuilder.generate')}
             </Button>
           </CardContent>
         </Card>
@@ -199,6 +280,69 @@ export function LinkBuilder() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Links Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Marketing Links</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {links.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No marketing links created yet
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Link ID</TableHead>
+                  <TableHead className="text-right">Clicks</TableHead>
+                  <TableHead className="text-right">Conversions</TableHead>
+                  <TableHead className="text-right">Conv. Rate</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {links.map((link) => (
+                  <TableRow key={link.linkId}>
+                    <TableCell className="font-medium capitalize">{link.source}</TableCell>
+                    <TableCell className="font-mono text-sm">{link.linkId}</TableCell>
+                    <TableCell className="text-right">{link.clicks}</TableCell>
+                    <TableCell className="text-right">{link.conversions}</TableCell>
+                    <TableCell className="text-right">{link.conversionRate}%</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${link.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                        {link.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleActive(link.linkId, link.isActive)}
+                        >
+                          {link.isActive ? 'Disable' : 'Enable'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(link.linkId)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash size={16} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

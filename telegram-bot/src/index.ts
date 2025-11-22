@@ -195,12 +195,56 @@ bot.command('start', async (ctx) => {
   })
 
   if (!user) {
-    // Parse referral code from start parameter
+    // Parse referral code or marketing params from start parameter
     const startPayload = ctx.match as string
     let referrerId: string | null = null
+    let marketingSource: string | null = null
+    let utmParams: string | null = null
+    let linkId: string | null = null
     
-    if (startPayload && startPayload.startsWith('ref5')) {
-      referrerId = startPayload.slice(4) // Remove 'ref5' prefix
+    if (startPayload) {
+      if (startPayload.startsWith('ref5')) {
+        // Referral link: ref5<userId>
+        referrerId = startPayload.slice(4)
+      } else if (startPayload.startsWith('mk_')) {
+        // Marketing link: mk_<linkId>
+        linkId = startPayload
+        
+        // Track click in marketing link
+        const marketingLink = await prisma.marketingLink.findUnique({
+          where: { linkId }
+        })
+        
+        if (marketingLink) {
+          await prisma.marketingLink.update({
+            where: { linkId },
+            data: { clicks: { increment: 1 } }
+          })
+          
+          marketingSource = marketingLink.source
+          utmParams = marketingLink.utmParams
+        }
+      } else {
+        // Try to parse URL params: source=<name>&param1=value1&param2=value2
+        try {
+          const params = new URLSearchParams(startPayload)
+          marketingSource = params.get('source')
+          
+          // Store all params as JSON
+          const paramsObj: Record<string, string> = {}
+          params.forEach((value, key) => {
+            if (key !== 'source') {
+              paramsObj[key] = value
+            }
+          })
+          
+          if (Object.keys(paramsObj).length > 0) {
+            utmParams = JSON.stringify(paramsObj)
+          }
+        } catch (e) {
+          console.log('Could not parse start payload as URL params:', startPayload)
+        }
+      }
     }
 
     user = await prisma.user.create({
@@ -210,15 +254,26 @@ bot.command('start', async (ctx) => {
         firstName: ctx.from?.first_name,
         lastName: ctx.from?.last_name,
         languageCode: ctx.from?.language_code,
-        referredBy: referrerId
+        referredBy: referrerId,
+        marketingSource,
+        utmParams
       }
     })
 
+    // Track conversion for marketing link
+    if (linkId) {
+      await prisma.marketingLink.update({
+        where: { linkId },
+        data: { conversions: { increment: 1 } }
+      }).catch(() => {}) // Ignore if link doesn't exist
+    }
+
     // Notify admin about new user
-    await bot.api.sendMessage(
-      ADMIN_ID,
-      `🆕 New user registered:\n@${ctx.from?.username || 'no_username'}\nID: ${telegramId}${referrerId ? `\n👥 Referred by: ${referrerId}` : ''}`
-    )
+    let notifyMessage = `🆕 New user registered:\n@${ctx.from?.username || 'no_username'}\nID: ${telegramId}`
+    if (referrerId) notifyMessage += `\n👥 Referred by: ${referrerId}`
+    if (marketingSource) notifyMessage += `\n📢 Source: ${marketingSource}`
+    
+    await bot.api.sendMessage(ADMIN_ID, notifyMessage)
 
     // Referral will be activated when user reaches $1000 deposit
   }
