@@ -59,14 +59,12 @@ cp .env.example telegram-bot/.env
 - API keys
 - Domain URLs
 
-## 📚 Full Documentation
+## 📚 Documentation
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for:
-- Nginx configuration
-- SSL setup
-- Systemd service
-- Production deployment
-- Troubleshooting
+- **[QUICKSTART.md](./QUICKSTART.md)** - 🚀 Быстрый старт на сервере (начни здесь!)
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - 📖 Полная документация деплоя
+- **[COMMANDS.md](./COMMANDS.md)** - ⌨️ Все полезные команды
+- **[CHECKLIST.md](./CHECKLIST.md)** - ✅ Чеклист для деплоя
 
 ## 🛠️ Development
 
