@@ -81,6 +81,7 @@ export interface UserRecord {
   totalWithdraw: number
   kycRequired: boolean
   isBlocked: boolean
+  role: string
   createdAt: string
   updatedAt: string
 }
@@ -223,4 +224,10 @@ export const toggleMarketingLink = (token: string, linkId: string, isActive: boo
 export const deleteMarketingLink = (token: string, linkId: string) =>
   request<{ success: boolean }>(`/api/admin/marketing-links/${linkId}`, {
     method: 'DELETE',
+  }, token)
+
+export const updateUserRole = (token: string, telegramId: string, role: string) =>
+  request<UserRecord>(`/api/admin/users/${telegramId}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
   }, token)

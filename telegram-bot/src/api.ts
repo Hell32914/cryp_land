@@ -989,10 +989,10 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           console.error('Failed to notify user:', err)
         }
 
-        // Notify all admins about withdrawal
+        // Notify support team about withdrawal
         try {
-          const { notifyAdmins } = await import('./index.js')
-          await notifyAdmins(
+          const { notifySupport } = await import('./index.js')
+          await notifySupport(
             `💸 *Withdrawal Completed*\n\n` +
             `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
             `💰 Amount: $${amount.toFixed(2)}\n` +
@@ -1003,9 +1003,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
             `💳 User New Balance: $${newBalance.toFixed(2)}`,
             { parse_mode: 'Markdown' }
           )
-          console.log(`✅ Admins notified about withdrawal from ${user.telegramId}`)
+          console.log(`✅ Support team notified about withdrawal from ${user.telegramId}`)
         } catch (err) {
-          console.error('Failed to notify admins about withdrawal:', err)
+          console.error('Failed to notify support team about withdrawal:', err)
         }
 
         return res.json({
@@ -1108,19 +1108,39 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         ]
       }
       
-      // Notify both admins
+      // Notify support team about withdrawal requiring approval
       try {
-        console.log(`📨 Sending withdrawal notification to admin ${ADMIN_ID}`)
-        await bot.api.sendMessage(ADMIN_ID, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-        console.log(`✅ Notification sent to admin ${ADMIN_ID}`)
+        const { notifySupport } = await import('./index.js')
+        console.log(`📨 Sending withdrawal notification to support team`)
         
-        if (ADMIN_ID_2 && ADMIN_ID_2 !== ADMIN_ID) {
-          console.log(`📨 Sending withdrawal notification to admin ${ADMIN_ID_2}`)
-          await bot.api.sendMessage(ADMIN_ID_2, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-          console.log(`✅ Notification sent to admin ${ADMIN_ID_2}`)
+        // Get all support users
+        const { ADMIN_IDS } = await import('./index.js')
+        for (const adminId of ADMIN_IDS) {
+          try {
+            await bot.api.sendMessage(adminId, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+            console.log(`✅ Notification sent to admin/support ${adminId}`)
+          } catch (err) {
+            console.error(`❌ Failed to notify ${adminId}:`, err)
+          }
+        }
+        
+        // Also notify support users from database
+        const supportUsers = await prisma.user.findMany({
+          where: { role: { in: ['admin', 'support'] } }
+        })
+        
+        for (const supportUser of supportUsers) {
+          if (ADMIN_IDS.includes(supportUser.telegramId)) continue // Already notified
+          
+          try {
+            await bot.api.sendMessage(supportUser.telegramId, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+            console.log(`✅ Notification sent to support ${supportUser.telegramId}`)
+          } catch (err) {
+            console.error(`❌ Failed to notify support ${supportUser.telegramId}:`, err)
+          }
         }
       } catch (error) {
-        console.error('❌ Failed to send admin notification:', error)
+        console.error('❌ Failed to send support team notifications:', error)
       }
 
       // Notify user that withdrawal is pending approval (funds already reserved)
@@ -1328,11 +1348,11 @@ app.post('/api/oxapay-callback', async (req, res) => {
       console.error('Failed to notify user about deposit:', err)
     }
     
-    // Notify all admins about deposit
+    // Notify support team about deposit
     try {
-      const { notifyAdmins } = await import('./index.js')
+      const { notifySupport } = await import('./index.js')
       
-      await notifyAdmins(
+      await notifySupport(
         `💰 *New Deposit Received*\n\n` +
         `👤 User: @${deposit.user.username || 'no_username'} (ID: ${deposit.user.telegramId})\n` +
         `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
@@ -1343,9 +1363,9 @@ app.post('/api/oxapay-callback', async (req, res) => {
         { parse_mode: 'Markdown' }
       )
       
-      console.log(`✅ Admins notified about deposit from ${deposit.user.telegramId}`)
+      console.log(`✅ Support team notified about deposit from ${deposit.user.telegramId}`)
     } catch (err) {
-      console.error('Failed to notify admins about deposit:', err)
+      console.error('Failed to notify support team about deposit:', err)
     }
     
     res.json({ success: true })
@@ -1494,6 +1514,31 @@ app.delete('/api/admin/marketing-links/:linkId', requireAdminAuth, async (req, r
   } catch (error) {
     console.error('Delete marketing link error:', error)
     return res.status(500).json({ error: 'Failed to delete marketing link' })
+  }
+})
+
+// Update user role
+app.patch('/api/admin/users/:telegramId/role', requireAdminAuth, async (req, res) => {
+  try {
+    const { telegramId } = req.params
+    const { role } = req.body
+    
+    if (!['user', 'support', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' })
+    }
+    
+    const user = await prisma.user.update({
+      where: { telegramId },
+      data: { 
+        role,
+        isAdmin: role === 'admin' // Update isAdmin flag for backwards compatibility
+      }
+    })
+    
+    return res.json(user)
+  } catch (error) {
+    console.error('Update user role error:', error)
+    return res.status(500).json({ error: 'Failed to update user role' })
   }
 })
 

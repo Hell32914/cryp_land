@@ -54,7 +54,66 @@ async function isAdmin(userId: string): Promise<boolean> {
     where: { telegramId: userId }
   })
   
-  return user?.isAdmin || false
+  return user?.isAdmin || user?.role === 'admin' || false
+}
+
+// Check if user is support or higher
+async function isSupport(userId: string): Promise<boolean> {
+  if (ADMIN_IDS.includes(userId)) return true
+  
+  const user = await prisma.user.findUnique({
+    where: { telegramId: userId }
+  })
+  
+  return user?.isAdmin || user?.role === 'admin' || user?.role === 'support' || false
+}
+
+// Get user role
+async function getUserRole(userId: string): Promise<string> {
+  if (ADMIN_IDS.includes(userId)) return 'admin'
+  
+  const user = await prisma.user.findUnique({
+    where: { telegramId: userId }
+  })
+  
+  return user?.role || 'user'
+}
+
+// Send notification to support team (admins + supports)
+export async function notifySupport(message: string, options?: any) {
+  const results = []
+  
+  // Notify all env admins
+  for (const adminId of ADMIN_IDS) {
+    try {
+      await bot.api.sendMessage(adminId, message, options)
+      results.push({ userId: adminId, success: true })
+    } catch (error) {
+      console.error(`Failed to notify admin ${adminId}:`, error)
+      results.push({ userId: adminId, success: false })
+    }
+  }
+  
+  // Find and notify all support users in database
+  const supportUsers = await prisma.user.findMany({
+    where: {
+      role: { in: ['admin', 'support'] }
+    }
+  })
+  
+  for (const user of supportUsers) {
+    if (ADMIN_IDS.includes(user.telegramId)) continue // Already notified
+    
+    try {
+      await bot.api.sendMessage(user.telegramId, message, options)
+      results.push({ userId: user.telegramId, success: true })
+    } catch (error) {
+      console.error(`Failed to notify support ${user.telegramId}:`, error)
+      results.push({ userId: user.telegramId, success: false })
+    }
+  }
+  
+  return results
 }
 
 // Tariff plans configuration
@@ -353,7 +412,7 @@ bot.command('admin', async (ctx) => {
     .text('💰 Manage Balance', 'admin_manage_balance').row()
     .text('📸 Generate Card', 'admin_generate_card')
     .text('⚙️ Card Settings', 'admin_card_settings').row()
-    .text('👥 Manage Admins', 'admin_manage_admins').row()
+    .text('👥 Manage Roles', 'admin_manage_admins').row()
     .text('🔄 Refresh', 'admin_menu')
 
   await ctx.reply(
@@ -366,35 +425,52 @@ bot.command('admin', async (ctx) => {
   )
 })
 
-// Manage Admins
+// Manage Roles (Admins & Support)
 bot.callbackQuery('admin_manage_admins', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !ADMIN_IDS.includes(userId)) {
-    await ctx.answerCallbackQuery('Only super admin can manage admins')
+    await ctx.answerCallbackQuery('Only super admin can manage roles')
     return
   }
 
   const admins = await prisma.user.findMany({
-    where: { isAdmin: true },
-    select: { telegramId: true, username: true, firstName: true }
+    where: { role: { in: ['admin', 'support'] } },
+    select: { telegramId: true, username: true, firstName: true, role: true }
   })
 
-  let message = '👥 *Admin Management*\n\n'
-  message += '*Current Admins:*\n'
+  let message = '👥 *Role Management*\n\n'
+  
   if (admins.length === 0) {
-    message += 'No additional admins\n'
+    message += 'No staff members yet\n'
   } else {
-    admins.forEach((admin, i) => {
-      message += `${i + 1}\\. @${admin.username || admin.firstName || admin.telegramId}\n`
-    })
+    const adminsList = admins.filter(u => u.role === 'admin')
+    const supportList = admins.filter(u => u.role === 'support')
+    
+    if (adminsList.length > 0) {
+      message += '*Admins:*\n'
+      adminsList.forEach((admin, i) => {
+        message += `${i + 1}\\. @${admin.username || admin.firstName || admin.telegramId}\n`
+      })
+      message += '\n'
+    }
+    
+    if (supportList.length > 0) {
+      message += '*Support:*\n'
+      supportList.forEach((support, i) => {
+        message += `${i + 1}\\. @${support.username || support.firstName || support.telegramId}\n`
+      })
+      message += '\n'
+    }
   }
+  
   message += '\nℹ️ Use buttons below to manage'
 
   const keyboard = new InlineKeyboard()
-    .text('➕ Add Admin', 'admin_add_admin').row()
+    .text('➕ Add Admin', 'admin_add_admin')
+    .text('➕ Add Support', 'admin_add_support').row()
 
   if (admins.length > 0) {
-    keyboard.text('➖ Remove Admin', 'admin_remove_admin').row()
+    keyboard.text('➖ Remove Staff', 'admin_remove_staff').row()
   }
 
   keyboard.text('🔙 Back', 'admin_menu')
@@ -426,6 +502,45 @@ bot.callbackQuery('admin_add_admin', async (ctx) => {
   await ctx.answerCallbackQuery()
 })
 
+// Add Support
+bot.callbackQuery('admin_add_support', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !ADMIN_IDS.includes(userId)) {
+    await ctx.answerCallbackQuery('Only super admin can add support')
+    return
+  }
+
+  adminState.set(userId, { awaitingInput: 'add_support' })
+
+  await ctx.editMessageText(
+    '🆔 *Add New Support*\n\n' +
+    'Send me the Telegram ID of the user you want to make support\\.\n' +
+    'You can find their ID by forwarding their message to @userinfobot\n\n' +
+    '⚠️ Send /cancel to abort',
+    { parse_mode: 'MarkdownV2' }
+  )
+  await ctx.answerCallbackQuery()
+})
+
+// Remove Staff
+bot.callbackQuery('admin_remove_staff', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !ADMIN_IDS.includes(userId)) {
+    await ctx.answerCallbackQuery('Only super admin can remove staff')
+    return
+  }
+
+  adminState.set(userId, { awaitingInput: 'remove_staff' })
+
+  await ctx.editMessageText(
+    '🆔 *Remove Staff Member*\n\n' +
+    'Send me the Telegram ID of the user you want to remove from staff\\.\n\n' +
+    '⚠️ Send /cancel to abort',
+    { parse_mode: 'MarkdownV2' }
+  )
+  await ctx.answerCallbackQuery()
+})
+
 bot.callbackQuery('admin_menu', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isAdmin(userId))) {
@@ -446,7 +561,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     .text('💰 Manage Balance', 'admin_manage_balance').row()
     .text('📸 Generate Card', 'admin_generate_card')
     .text('⚙️ Card Settings', 'admin_card_settings').row()
-    .text('👥 Manage Admins', 'admin_manage_admins').row()
+    .text('👥 Manage Roles', 'admin_manage_admins').row()
     .text('🔄 Refresh', 'admin_menu')
 
   await ctx.editMessageText(
@@ -709,7 +824,10 @@ bot.on('message:text', async (ctx) => {
       // Make user admin
       await prisma.user.update({
         where: { telegramId: targetId },
-        data: { isAdmin: true }
+        data: { 
+          isAdmin: true,
+          role: 'admin'
+        }
       })
 
       await ctx.reply(
@@ -721,6 +839,132 @@ bot.on('message:text', async (ctx) => {
     } catch (error) {
       console.error('Error adding admin:', error)
       await ctx.reply('❌ Failed to add admin. Please try again.')
+    }
+    return
+  }
+
+  // Handle add support
+  if (state.awaitingInput === 'add_support') {
+    if (!ADMIN_IDS.includes(userId)) {
+      await ctx.reply('⛔️ Only super admin can add support')
+      return
+    }
+
+    const targetId = ctx.message?.text?.trim()
+    if (!targetId) {
+      await ctx.reply('❌ Invalid Telegram ID')
+      return
+    }
+
+    try {
+      let user = await prisma.user.findUnique({
+        where: { telegramId: targetId }
+      })
+
+      if (!user) {
+        await ctx.reply(`❌ User with ID ${targetId} not found in database`)
+        return
+      }
+
+      if (user.role === 'support' || user.role === 'admin') {
+        await ctx.reply(`⚠️ User @${user.username || targetId} already has staff role: ${user.role}`)
+        adminState.delete(userId)
+        return
+      }
+
+      await prisma.user.update({
+        where: { telegramId: targetId },
+        data: { role: 'support' }
+      })
+
+      await ctx.reply(
+        `✅ Successfully added @${user.username || targetId} as support\n\n` +
+        `They now have access to:\n` +
+        `• View users database\n` +
+        `• Manage trading cards\n` +
+        `• Approve/reject withdrawals ≥ $100\n` +
+        `• Receive deposit/withdrawal notifications`
+      )
+
+      // Notify the user
+      try {
+        await bot.api.sendMessage(
+          targetId,
+          `🎉 *You've been promoted to Support!*\n\n` +
+          `You now have access to support commands.\n` +
+          `Use /admin to access the support panel.`,
+          { parse_mode: 'Markdown' }
+        )
+      } catch (err) {
+        console.log('Could not notify user about support role')
+      }
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error adding support:', error)
+      await ctx.reply('❌ Failed to add support. Please try again.')
+    }
+    return
+  }
+
+  // Handle remove staff
+  if (state.awaitingInput === 'remove_staff') {
+    if (!ADMIN_IDS.includes(userId)) {
+      await ctx.reply('⛔️ Only super admin can remove staff')
+      return
+    }
+
+    const targetId = ctx.message?.text?.trim()
+    if (!targetId) {
+      await ctx.reply('❌ Invalid Telegram ID')
+      return
+    }
+
+    try {
+      let user = await prisma.user.findUnique({
+        where: { telegramId: targetId }
+      })
+
+      if (!user) {
+        await ctx.reply(`❌ User with ID ${targetId} not found in database`)
+        return
+      }
+
+      if (user.role !== 'admin' && user.role !== 'support' && !user.isAdmin) {
+        await ctx.reply(`⚠️ User @${user.username || targetId} is not a staff member`)
+        adminState.delete(userId)
+        return
+      }
+
+      await prisma.user.update({
+        where: { telegramId: targetId },
+        data: { 
+          role: 'user',
+          isAdmin: false
+        }
+      })
+
+      await ctx.reply(
+        `✅ Successfully removed @${user.username || targetId} from staff\n\n` +
+        `They now have regular user access.`
+      )
+
+      // Notify the user
+      try {
+        await bot.api.sendMessage(
+          targetId,
+          `ℹ️ *Your staff role has been removed*\n\n` +
+          `You now have regular user access.`,
+          { parse_mode: 'Markdown' }
+        )
+      } catch (err) {
+        console.log('Could not notify user about role removal')
+      }
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error removing staff:', error)
+      await ctx.reply('❌ Failed to remove staff. Please try again.')
     }
     return
   }
@@ -1281,7 +1525,7 @@ bot.callbackQuery('admin_generate_card', async (ctx) => {
 // Card settings menu
 bot.callbackQuery('admin_card_settings', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1307,7 +1551,7 @@ bot.callbackQuery('admin_card_settings', async (ctx) => {
 // Set card count
 bot.callbackQuery('card_set_count', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1324,7 +1568,7 @@ bot.callbackQuery('card_set_count', async (ctx) => {
 // Set time range
 bot.callbackQuery('card_set_time', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1341,7 +1585,7 @@ bot.callbackQuery('card_set_time', async (ctx) => {
 // Reschedule cards immediately
 bot.callbackQuery('card_reschedule', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1414,7 +1658,7 @@ bot.on('message:text', async (ctx) => {
 // Approve withdrawal
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1564,7 +1808,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
 // Reject withdrawal
 bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }

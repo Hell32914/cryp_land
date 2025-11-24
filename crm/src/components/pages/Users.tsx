@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel } from '@phosphor-icons/react'
 import { useApiQuery } from '@/hooks/use-api-query'
-import { fetchUsers, type UserRecord } from '@/lib/api'
+import { fetchUsers, updateUserRole, type UserRecord } from '@/lib/api'
 import { useDebounce } from '@/hooks/use-debounce'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -22,11 +22,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useAuth } from '@/lib/auth'
+import { toast } from 'sonner'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export function Users() {
   const { t } = useTranslation()
   const { token } = useAuth()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null)
@@ -36,6 +46,25 @@ export function Users() {
   })
 
   const users = data?.users ?? []
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ telegramId, role }: { telegramId: string; role: string }) =>
+      updateUserRole(token!, telegramId, role),
+    onSuccess: () => {
+      toast.success('Role updated successfully')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setSelectedUser(null)
+    },
+    onError: () => {
+      toast.error('Failed to update role')
+    },
+  })
+
+  const handleRoleChange = (role: string) => {
+    if (selectedUser) {
+      updateRoleMutation.mutate({ telegramId: selectedUser.telegramId, role })
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -94,6 +123,7 @@ export function Users() {
                     <TableHead>{t('users.username')}</TableHead>
                     <TableHead>{t('users.fullName')}</TableHead>
                     <TableHead>{t('users.country')}</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>{t('users.status')}</TableHead>
                     <TableHead className="text-right">{t('users.balance')}</TableHead>
                     <TableHead className="text-right">{t('users.totalDeposit')}</TableHead>
@@ -108,6 +138,15 @@ export function Users() {
                       <TableCell className="font-medium">{user.username || '—'}</TableCell>
                       <TableCell>{user.fullName}</TableCell>
                       <TableCell>{user.country}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          user.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                          user.role === 'support' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                        }>
+                          {user.role || 'user'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(user.status)}>
                           {user.status}
@@ -206,6 +245,27 @@ export function Users() {
                 <div>
                   <div className="text-sm text-muted-foreground">Created At</div>
                   <div className="text-sm">{new Date(selectedUser.createdAt).toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-border">
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">User Role</div>
+                  <Select value={selectedUser.role || 'user'} onValueChange={handleRoleChange} disabled={updateRoleMutation.isPending}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="support">Support</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Support: Can view users, manage cards, approve/reject withdrawals ≥ $100
+                    <br />
+                    Admin: Full access to all features
+                  </p>
                 </div>
               </div>
             </div>

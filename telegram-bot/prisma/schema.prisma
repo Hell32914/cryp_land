@@ -30,6 +30,7 @@ model User {
   kycRequired       Boolean       @default(false)
   isBlocked         Boolean       @default(false)
   isAdmin           Boolean       @default(false)
+  role              String        @default("user")
   lastProfitUpdate  DateTime?
   referredBy        String?
   referralEarnings  Float         @default(0)
