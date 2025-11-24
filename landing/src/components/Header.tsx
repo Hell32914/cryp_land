@@ -11,7 +11,7 @@ export function Header() {
   const { t } = useLanguage()
 
   const navItems = [
-    { label: t.header.telegramChannel, href: "https://t.me/syntrix_official", external: true }
+    { label: t.header.telegramChannel, href: "https://t.me/SyntrixAI", external: true }
   ]
 
   return (
