@@ -2364,9 +2364,9 @@ bot.catch((err) => {
   const error = err.error
   
   // Ignore these common non-critical errors
-  if (error.message.includes('query is too old') || 
+  if (error instanceof Error && (error.message.includes('query is too old') || 
       error.message.includes('message is not modified') ||
-      error.message.includes('query ID is invalid')) {
+      error.message.includes('query ID is invalid'))) {
     // Silently ignore - these are expected when users interact with old buttons
     return
   }
