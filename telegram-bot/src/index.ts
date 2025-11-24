@@ -25,7 +25,7 @@ export const ADMIN_IDS = ADMIN_IDS_STRING.split(',').map(id => id.trim()).filter
 export const ADMIN_ID = ADMIN_IDS[0] || '' // Legacy support
 
 const WEBAPP_URL = process.env.WEBAPP_URL!
-const LANDING_URL = 'https://authentic-commitment-production.up.railway.app/'
+const LANDING_URL = 'https://syntrix.cc'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
