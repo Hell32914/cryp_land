@@ -1,7 +1,7 @@
 {
   "name": "syntrix-telegram-bot",
-  "version": "1.0.0",
-  "description": "Syntrix Trading Bot with Admin Panel",
+  "version": "1.0.1",
+  "description": "Syntrix Trading Bot with Admin Panel and Support Roles",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
