@@ -392,6 +392,19 @@ bot.command('start', async (ctx) => {
 
 // ============= ADMIN COMMANDS =============
 
+bot.command('cancel', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId) return
+
+  const state = adminState.get(userId)
+  if (state?.awaitingInput) {
+    adminState.delete(userId)
+    await ctx.reply('❌ Operation cancelled')
+  } else {
+    await ctx.reply('ℹ️ No active operation to cancel')
+  }
+})
+
 bot.command('admin', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
@@ -839,7 +852,7 @@ bot.on('message:text', async (ctx) => {
     }
 
     const targetId = ctx.message?.text?.trim()
-    if (!targetId) {
+    if (!targetId || targetId.startsWith('/')) {
       await ctx.reply('❌ Invalid Telegram ID')
       return
     }
@@ -891,7 +904,7 @@ bot.on('message:text', async (ctx) => {
     }
 
     const targetId = ctx.message?.text?.trim()
-    if (!targetId) {
+    if (!targetId || targetId.startsWith('/')) {
       await ctx.reply('❌ Invalid Telegram ID')
       return
     }
@@ -955,7 +968,7 @@ bot.on('message:text', async (ctx) => {
     }
 
     const targetId = ctx.message?.text?.trim()
-    if (!targetId) {
+    if (!targetId || targetId.startsWith('/')) {
       await ctx.reply('❌ Invalid Telegram ID')
       return
     }
@@ -1148,7 +1161,7 @@ bot.on('message:text', async (ctx) => {
   // Handle search user for balance management
   if (state.awaitingInput === 'search_user_balance') {
     const searchQuery = ctx.message?.text?.trim()
-    if (!searchQuery) {
+    if (!searchQuery || searchQuery.startsWith('/')) {
       await ctx.reply('❌ Please provide a username or Telegram ID')
       return
     }
