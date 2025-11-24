@@ -2,6 +2,8 @@
 
 Unified trading platform with Telegram Bot, CRM, Landing Page, and Mini App.
 
+## 🎯 [👉 START HERE - Полная инструкция деплоя](./START_HERE.md)
+
 ## 🚀 Quick Deploy
 
 **Choose your deployment method:**
