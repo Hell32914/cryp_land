@@ -1097,6 +1097,54 @@ bot.on('message:text', async (ctx) => {
     adminState.delete(adminId)
   }
 
+  // Handle card settings
+  if (state.awaitingInput === 'card_count') {
+    const match = ctx.message?.text?.match(/^(\d+)-(\d+)$/)
+    if (!match) {
+      await ctx.reply('❌ Invalid format. Use: min-max (e.g., 4-16)')
+      return
+    }
+
+    const min = parseInt(match[1])
+    const max = parseInt(match[2])
+
+    if (min < 1 || max > 50 || min >= max) {
+      await ctx.reply('❌ Invalid range. Min should be 1-50 and less than max.')
+      return
+    }
+
+    try {
+      await updateCardSettings({ minPerDay: min, maxPerDay: max })
+      await ctx.reply(`✅ Updated! Cards per day: ${min}-${max}`)
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Failed to update settings:', error)
+      await ctx.reply('❌ Failed to update settings. Check console.')
+    }
+    return
+  }
+
+  if (state.awaitingInput === 'card_time') {
+    const match = ctx.message?.text?.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/)
+    if (!match) {
+      await ctx.reply('❌ Invalid format. Use: HH:MM-HH:MM (e.g., 07:49-22:30)')
+      return
+    }
+
+    const startTime = `${match[1]}:${match[2]}`
+    const endTime = `${match[3]}:${match[4]}`
+
+    try {
+      await updateCardSettings({ startTime, endTime })
+      await ctx.reply(`✅ Updated! Time range: ${startTime}-${endTime} (Kyiv)`)
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Failed to update settings:', error)
+      await ctx.reply('❌ Failed to update settings. Check console.')
+    }
+    return
+  }
+
   // Handle search user for balance management
   if (state.awaitingInput === 'search_user_balance') {
     const searchQuery = ctx.message?.text?.trim()
@@ -1645,55 +1693,7 @@ bot.callbackQuery('card_reschedule', async (ctx) => {
 })
 
 // Handle text input for card settings (add to existing message handler or create new one)
-bot.on('message:text', async (ctx) => {
-  const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) return
-  
-  const state = adminState.get(userId)
-  if (!state?.awaitingInput) return
-
-  const input = ctx.message.text
-
-  try {
-    if (state.awaitingInput === 'card_count') {
-      const match = input.match(/^(\d+)-(\d+)$/)
-      if (!match) {
-        await ctx.reply('❌ Invalid format. Use: min-max (e.g., 4-16)')
-        return
-      }
-
-      const min = parseInt(match[1])
-      const max = parseInt(match[2])
-
-      if (min < 1 || max > 50 || min >= max) {
-        await ctx.reply('❌ Invalid range. Min should be 1-50 and less than max.')
-        return
-      }
-
-      await updateCardSettings({ minPerDay: min, maxPerDay: max })
-      await ctx.reply(`✅ Updated! Cards per day: ${min}-${max}`)
-      
-      adminState.delete(userId)
-    } else if (state.awaitingInput === 'card_time') {
-      const match = input.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/)
-      if (!match) {
-        await ctx.reply('❌ Invalid format. Use: HH:MM-HH:MM (e.g., 07:49-22:30)')
-        return
-      }
-
-      const startTime = `${match[1]}:${match[2]}`
-      const endTime = `${match[3]}:${match[4]}`
-
-      await updateCardSettings({ startTime, endTime })
-      await ctx.reply(`✅ Updated! Time range: ${startTime}-${endTime} (Kyiv)`)
-      
-      adminState.delete(userId)
-    }
-  } catch (error) {
-    console.error('Failed to update settings:', error)
-    await ctx.reply('❌ Failed to update settings. Check console.')
-  }
-})
+// Card settings handlers moved to first bot.on('message:text')
 
 // Approve withdrawal
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {

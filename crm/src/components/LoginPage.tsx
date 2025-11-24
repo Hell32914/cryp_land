@@ -81,10 +81,6 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
               {isLoading ? t('common.loading') : t('auth.login')}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-border text-center text-xs text-muted-foreground">
-            Demo credentials: admin / admin
-          </div>
         </div>
       </div>
     </div>

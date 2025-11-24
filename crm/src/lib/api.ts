@@ -1,5 +1,4 @@
-const rawApiUrl = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_API_URL
-const API_BASE_URL = (rawApiUrl && rawApiUrl.replace(/\/$/, '')) || 'http://localhost:3001'
+const API_BASE_URL = 'https://api.syntrix.cc'
 
 export class ApiError extends Error {
   status: number
