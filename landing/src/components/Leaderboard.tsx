@@ -10,23 +10,23 @@ interface LeaderboardEntry {
 }
 
 const topInvestors: LeaderboardEntry[] = [
-  { rank: 1, id: "Agent_XR21", value1: "$127,430", value2: "$41,980" },
-  { rank: 2, id: "Matrix_Alpha", value1: "$92,750", value2: "$29,830" },
-  { rank: 3, id: "Neo_Trader", value1: "$68,210", value2: "$20,540" },
-  { rank: 4, id: "Agent_442", value1: "$54,890", value2: "$16,100" },
-  { rank: 5, id: "TrinityBot", value1: "$37,320", value2: "$10,870" },
-  { rank: 6, id: "CipherNet", value1: "$29,480", value2: "$8,410" },
-  { rank: 7, id: "MorpheusX", value1: "$21,930", value2: "$6,120" },
+  { rank: 1, id: "Crypto_Whale", value1: "$127,430", value2: "$41,980" },
+  { rank: 2, id: "Diamond_Hands", value1: "$92,750", value2: "$29,830" },
+  { rank: 3, id: "Bull_Runner", value1: "$68,210", value2: "$20,540" },
+  { rank: 4, id: "Moon_Chaser", value1: "$54,890", value2: "$16,100" },
+  { rank: 5, id: "Hodl_Master", value1: "$37,320", value2: "$10,870" },
+  { rank: 6, id: "Profit_Seeker", value1: "$29,480", value2: "$8,410" },
+  { rank: 7, id: "Trade_Genius", value1: "$21,930", value2: "$6,120" },
 ]
 
 const topReferrers: LeaderboardEntry[] = [
-  { rank: 1, id: "Recruiter_99", value1: "184", value2: "$265,400" },
-  { rank: 2, id: "Agent_Green", value1: "141", value2: "$198,750" },
-  { rank: 3, id: "Matrix_Legacy", value1: "97", value2: "$139,220" },
-  { rank: 4, id: "OracleNet", value1: "63", value2: "$92,180" },
-  { rank: 5, id: "Neo_Recruit", value1: "46", value2: "$67,540" },
-  { rank: 6, id: "Trinity_Link", value1: "38", value2: "$55,260" },
-  { rank: 7, id: "CodeMaster", value1: "27", value2: "$39,410" },
+  { rank: 1, id: "Network_King", value1: "184", value2: "$265,400" },
+  { rank: 2, id: "Referral_Pro", value1: "141", value2: "$198,750" },
+  { rank: 3, id: "Team_Builder", value1: "97", value2: "$139,220" },
+  { rank: 4, id: "Growth_Leader", value1: "63", value2: "$92,180" },
+  { rank: 5, id: "Community_Star", value1: "46", value2: "$67,540" },
+  { rank: 6, id: "Link_Master", value1: "38", value2: "$55,260" },
+  { rank: 7, id: "Social_Trader", value1: "27", value2: "$39,410" },
 ]
 
 function LeaderboardTable({ 
