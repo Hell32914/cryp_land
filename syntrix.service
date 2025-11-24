@@ -1,0 +1,38 @@
+[Unit]
+Description=Syntrix Trading Platform
+Documentation=https://github.com/Hell32914/cryp_land
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/cryp_land
+
+# Start command
+ExecStart=/usr/bin/npm start
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PATH=/usr/bin:/usr/local/bin:/bin
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=syntrix
+
+# Security
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

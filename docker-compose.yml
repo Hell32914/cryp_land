@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  syntrix-platform:
+    build: .
+    container_name: syntrix
+    restart: unless-stopped
+    ports:
+      - "3001:3001"  # Bot API
+      - "3002:3002"  # CRM
+      - "3003:3003"  # Landing
+      - "3004:3004"  # Telegram App
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./telegram-bot/.env:/app/telegram-bot/.env
+      - ./telegram-bot/dev.db:/app/telegram-bot/dev.db
+      - ./logs:/app/logs
+    networks:
+      - syntrix-network
+
+networks:
+  syntrix-network:
+    driver: bridge

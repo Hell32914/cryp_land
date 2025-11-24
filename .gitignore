@@ -1,34 +1,71 @@
-# Logs
-logs
-*.log
+# Dependencies
+node_modules/
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*-dist
+# Build outputs
+dist/
+dist-ssr/
+*-dist/
+build/
+*.tsbuildinfo
 *.local
 
-# Editor directories and files
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# PM2
+.pm2/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.sublime-project
+*.sublime-workspace
 
-.env
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+
+# Other
 **/agent-eval-report*
 packages
 pids
 .file-manifest
 .devcontainer/
-
 .spark-workbench-id

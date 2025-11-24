@@ -1,0 +1,34 @@
+{
+  "name": "syntrix-platform",
+  "version": "1.0.0",
+  "description": "Syntrix Trading Platform - Unified deployment",
+  "type": "module",
+  "scripts": {
+    "install:all": "npm install && cd telegram-bot && npm install && cd ../crm && npm install && cd ../landing && npm install && cd ../telegram-app && npm install && cd ..",
+    "build:bot": "cd telegram-bot && npm run build && cd ..",
+    "build:crm": "cd crm && npm run build && cd ..",
+    "build:landing": "cd landing && npm run build && cd ..",
+    "build:telegram-app": "cd telegram-app && npm run build && cd ..",
+    "build": "npm run build:bot && npm run build:crm && npm run build:landing && npm run build:telegram-app",
+    "start:bot": "cd telegram-bot && npm start",
+    "start:crm": "cd crm && npm run preview -- --port 3002 --host 0.0.0.0",
+    "start:landing": "cd landing && npm run preview -- --port 3003 --host 0.0.0.0",
+    "start:telegram-app": "cd telegram-app && npm run preview -- --port 3004 --host 0.0.0.0",
+    "start": "concurrently \"npm run start:bot\" \"npm run start:crm\" \"npm run start:landing\" \"npm run start:telegram-app\"",
+    "deploy": "npm run install:all && npm run build && npm start",
+    "dev": "concurrently \"cd telegram-bot && npm run dev\" \"cd crm && npm run dev\" \"cd landing && npm run dev\" \"cd telegram-app && npm run dev\""
+  },
+  "dependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "syntrix",
+    "trading",
+    "telegram",
+    "bot",
+    "crm"
+  ],
+  "author": "",
+  "license": "MIT"
+}

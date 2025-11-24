@@ -1,0 +1,76 @@
+{
+  "apps": [
+    {
+      "name": "syntrix-bot",
+      "cwd": "./telegram-bot",
+      "script": "npm",
+      "args": "start",
+      "instances": 1,
+      "exec_mode": "fork",
+      "autorestart": true,
+      "watch": false,
+      "max_memory_restart": "500M",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "error_file": "./logs/bot-error.log",
+      "out_file": "./logs/bot-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss Z",
+      "merge_logs": true
+    },
+    {
+      "name": "syntrix-crm",
+      "cwd": "./crm",
+      "script": "npm",
+      "args": "run preview -- --port 3002 --host 0.0.0.0",
+      "instances": 1,
+      "exec_mode": "fork",
+      "autorestart": true,
+      "watch": false,
+      "max_memory_restart": "300M",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "error_file": "./logs/crm-error.log",
+      "out_file": "./logs/crm-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss Z",
+      "merge_logs": true
+    },
+    {
+      "name": "syntrix-landing",
+      "cwd": "./landing",
+      "script": "npm",
+      "args": "run preview -- --port 3003 --host 0.0.0.0",
+      "instances": 1,
+      "exec_mode": "fork",
+      "autorestart": true,
+      "watch": false,
+      "max_memory_restart": "300M",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "error_file": "./logs/landing-error.log",
+      "out_file": "./logs/landing-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss Z",
+      "merge_logs": true
+    },
+    {
+      "name": "syntrix-telegram-app",
+      "cwd": "./telegram-app",
+      "script": "npm",
+      "args": "run preview -- --port 3004 --host 0.0.0.0",
+      "instances": 1,
+      "exec_mode": "fork",
+      "autorestart": true,
+      "watch": false,
+      "max_memory_restart": "300M",
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "error_file": "./logs/telegram-app-error.log",
+      "out_file": "./logs/telegram-app-out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss Z",
+      "merge_logs": true
+    }
+  ]
+}
