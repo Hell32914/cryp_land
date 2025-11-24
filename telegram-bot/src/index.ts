@@ -394,10 +394,13 @@ bot.command('start', async (ctx) => {
 
 bot.command('admin', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.reply('⛔️ Access denied')
     return
   }
+
+  const isAdminUser = await isAdmin(userId)
+  const isSuperAdmin = ADMIN_IDS.includes(userId)
 
   const usersCount = await prisma.user.count()
   const depositsCount = await prisma.deposit.count()
@@ -409,14 +412,31 @@ bot.command('admin', async (ctx) => {
     .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
     .text(`⏳ Pending (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals')
-    .text('💰 Manage Balance', 'admin_manage_balance').row()
-    .text('📸 Generate Card', 'admin_generate_card')
-    .text('⚙️ Card Settings', 'admin_card_settings').row()
-    .text('👥 Manage Roles', 'admin_manage_admins').row()
-    .text('🔄 Refresh', 'admin_menu')
+
+  // Only admins can manage balance
+  if (isAdminUser) {
+    keyboard.text('💰 Manage Balance', 'admin_manage_balance').row()
+  }
+
+  // Only admins can generate cards
+  if (isAdminUser) {
+    keyboard.text('📸 Generate Card', 'admin_generate_card')
+  }
+  
+  // Support can manage card settings
+  keyboard.text('⚙️ Card Settings', 'admin_card_settings').row()
+
+  // Only super admin can manage roles
+  if (isSuperAdmin) {
+    keyboard.text('👥 Manage Roles', 'admin_manage_admins').row()
+  }
+
+  keyboard.text('🔄 Refresh', 'admin_menu')
+
+  const roleText = isSuperAdmin ? 'Super Admin' : isAdminUser ? 'Admin' : 'Support'
 
   await ctx.reply(
-    '🔐 *Admin Panel*\n\n' +
+    `🔐 *${roleText} Panel*\n\n` +
     `Total Users: ${usersCount}\n` +
     `Total Deposits: ${depositsCount}\n` +
     `Total Withdrawals: ${withdrawalsCount}\n` +
@@ -543,10 +563,13 @@ bot.callbackQuery('admin_remove_staff', async (ctx) => {
 
 bot.callbackQuery('admin_menu', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
+
+  const isAdminUser = await isAdmin(userId)
+  const isSuperAdmin = ADMIN_IDS.includes(userId)
 
   const usersCount = await prisma.user.count()
   const depositsCount = await prisma.deposit.count()
@@ -558,14 +581,31 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
     .text(`⏳ Pending (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals')
-    .text('💰 Manage Balance', 'admin_manage_balance').row()
-    .text('📸 Generate Card', 'admin_generate_card')
-    .text('⚙️ Card Settings', 'admin_card_settings').row()
-    .text('👥 Manage Roles', 'admin_manage_admins').row()
-    .text('🔄 Refresh', 'admin_menu')
+
+  // Only admins can manage balance
+  if (isAdminUser) {
+    keyboard.text('💰 Manage Balance', 'admin_manage_balance').row()
+  }
+
+  // Only admins can generate cards
+  if (isAdminUser) {
+    keyboard.text('📸 Generate Card', 'admin_generate_card')
+  }
+  
+  // Support can manage card settings
+  keyboard.text('⚙️ Card Settings', 'admin_card_settings').row()
+
+  // Only super admin can manage roles
+  if (isSuperAdmin) {
+    keyboard.text('👥 Manage Roles', 'admin_manage_admins').row()
+  }
+
+  keyboard.text('🔄 Refresh', 'admin_menu')
+
+  const roleText = isSuperAdmin ? 'Super Admin' : isAdminUser ? 'Admin' : 'Support'
 
   await ctx.editMessageText(
-    '🔐 *Admin Panel*\n\n' +
+    `🔐 *${roleText} Panel*\n\n` +
     `Total Users: ${usersCount}\n` +
     `Total Deposits: ${depositsCount}\n` +
     `Total Withdrawals: ${withdrawalsCount}\n` +
@@ -577,7 +617,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
 
 bot.callbackQuery('admin_users', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1239,7 +1279,7 @@ bot.on('message:text', async (ctx) => {
 
 bot.callbackQuery('admin_deposits', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1276,7 +1316,7 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
 
 bot.callbackQuery('admin_withdrawals', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
@@ -1318,7 +1358,7 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
 // Pending withdrawals
 bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || !(await isAdmin(userId))) {
+  if (!userId || !(await isSupport(userId))) {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
