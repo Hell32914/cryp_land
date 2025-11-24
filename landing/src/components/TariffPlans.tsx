@@ -121,6 +121,52 @@ export function TariffPlans() {
                     </div>
                   </motion.div>
                 </div>
+
+                <motion.div
+                  key={`${depositValue[0]}-${timeValue[0]}`}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                  className="rounded-xl bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 p-6 space-y-4 border-2 border-primary/20"
+                >
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-2">{t.tariffPlans.estimatedProfit}</p>
+                    <p className="text-4xl font-bold text-primary font-mono">
+                      ${(() => {
+                        const plan = tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))
+                        const rate = plan ? parseFloat(plan.percentage) / 100 : 0
+                        return (depositValue[0] * rate * timeValue[0]).toFixed(2)
+                      })()}
+                    </p>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-border/30 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t.tariffPlans.selectedPlan}:</span>
+                      <span className="font-mono text-foreground font-medium">
+                        {tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))?.name || "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t.tariffPlans.dailyProfit}:</span>
+                      <span className="font-mono text-primary font-semibold">
+                        {tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))?.percentage || "0%"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t border-border/20">
+                      <span className="text-muted-foreground">ROI:</span>
+                      <span className="font-mono text-accent font-semibold">
+                        {(() => {
+                          const plan = tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))
+                          const rate = plan ? parseFloat(plan.percentage) / 100 : 0
+                          const profit = depositValue[0] * rate * timeValue[0]
+                          const roi = (profit / depositValue[0]) * 100
+                          return roi.toFixed(1)
+                        })()}%
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
               </CardContent>
             </Card>
           </motion.div>
@@ -178,40 +224,7 @@ export function TariffPlans() {
                   ))}
                 </div>
 
-                <motion.div
-                  className="mt-8 p-6 rounded-lg bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 border border-border/50"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">{t.tariffPlans.selectedPlan}</span>
-                      <span className="font-mono text-foreground font-medium">
-                        {tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))?.name || "N/A"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">{t.tariffPlans.dailyProfit}</span>
-                      <span className="font-mono text-primary font-semibold">
-                        {tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))?.percentage || "0%"}
-                      </span>
-                    </div>
-                    <div className="pt-3 border-t border-border/30">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">{t.tariffPlans.estimatedProfit}</span>
-                        <span className="font-mono text-xl text-foreground font-bold">
-                          ${(() => {
-                            const plan = tariffPlans.find(p => depositValue[0] >= p.min && (p.max === Infinity || depositValue[0] <= p.max))
-                            const rate = plan ? parseFloat(plan.percentage) / 100 : 0
-                            return (depositValue[0] * rate * timeValue[0]).toFixed(2)
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
+
               </CardContent>
             </Card>
           </motion.div>
