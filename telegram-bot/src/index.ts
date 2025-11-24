@@ -1664,22 +1664,16 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   // Normalize percentages
   const normalizedPercentages = percentages.map(p => p / sum)
   
-  // Generate random timestamps throughout the CURRENT day (00:00 to 23:59)
-  // This ensures updates are spread evenly across 24 hours
+  // Generate random timestamps starting from NOW and spreading across next 20 hours
+  // This ensures notifications are distributed throughout the day, not clustered
   const now = new Date()
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
-  
-  // If we're past 22:00, generate for next day instead
-  if (now.getHours() >= 22) {
-    startOfDay.setDate(startOfDay.getDate() + 1)
-    endOfDay.setDate(endOfDay.getDate() + 1)
-  }
+  const startTime = now.getTime()
+  const twentyHoursInMs = 20 * 60 * 60 * 1000 // 20 hours in milliseconds
   
   for (let i = 0; i < numUpdates; i++) {
-    // Generate timestamps spread throughout the day
-    const randomTime = startOfDay.getTime() + Math.random() * (endOfDay.getTime() - startOfDay.getTime())
-    const timestamp = new Date(randomTime)
+    // Generate timestamps spread across the next 20 hours from now
+    const randomOffset = Math.random() * twentyHoursInMs
+    const timestamp = new Date(startTime + randomOffset)
     const amount = totalProfit * normalizedPercentages[i]
     
     updates.push({ amount, timestamp })
@@ -1857,9 +1851,12 @@ async function sendScheduledNotifications() {
       },
       orderBy: {
         timestamp: 'asc'
-      }
+      },
+      take: 5 // Send max 5 notifications at a time to avoid spam
     })
 
+    let successCount = 0
+    
     for (const update of pendingUpdates) {
       try {
         const planInfo = calculateTariffPlan(update.user.balance)
@@ -1880,13 +1877,20 @@ async function sendScheduledNotifications() {
           where: { id: update.id },
           data: { notified: true }
         })
+        
+        successCount++
+        
+        // Add small delay between messages to avoid rate limits
+        if (successCount < pendingUpdates.length) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
       } catch (err) {
         console.error(`Failed to send notification to user ${update.user.telegramId}:`, err)
       }
     }
     
-    if (pendingUpdates.length > 0) {
-      console.log(`✅ Sent ${pendingUpdates.length} scheduled profit notifications`)
+    if (successCount > 0) {
+      console.log(`✅ Sent ${successCount} scheduled profit notifications`)
     }
   } catch (error) {
     console.error('❌ Error sending scheduled notifications:', error)
@@ -2069,6 +2073,22 @@ async function initDatabase() {
     throw error
   }
 }
+
+// Add error handler for Grammy errors
+bot.catch((err) => {
+  const ctx = err.ctx
+  const error = err.error
+  
+  // Ignore these common non-critical errors
+  if (error.message.includes('query is too old') || 
+      error.message.includes('message is not modified') ||
+      error.message.includes('query ID is invalid')) {
+    // Silently ignore - these are expected when users interact with old buttons
+    return
+  }
+  
+  console.error(`Error handling update ${ctx.update.update_id}:`, error)
+})
 
 // Start bot and API server
 async function startBot() {
