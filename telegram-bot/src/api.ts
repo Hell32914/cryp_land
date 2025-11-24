@@ -989,6 +989,25 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           console.error('Failed to notify user:', err)
         }
 
+        // Notify all admins about withdrawal
+        try {
+          const { notifyAdmins } = await import('./index.js')
+          await notifyAdmins(
+            `💸 *Withdrawal Completed*\n\n` +
+            `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
+            `💰 Amount: $${amount.toFixed(2)}\n` +
+            `💎 Currency: ${currency}\n` +
+            `🌐 Network: ${network || 'TRC20'}\n` +
+            `📍 Address: \`${address}\`\n` +
+            `🔗 Track ID: ${payout.trackId}\n` +
+            `💳 User New Balance: $${newBalance.toFixed(2)}`,
+            { parse_mode: 'Markdown' }
+          )
+          console.log(`✅ Admins notified about withdrawal from ${user.telegramId}`)
+        } catch (err) {
+          console.error('Failed to notify admins about withdrawal:', err)
+        }
+
         return res.json({
           success: true,
           withdrawalId: withdrawal.id,
@@ -1309,12 +1328,11 @@ app.post('/api/oxapay-callback', async (req, res) => {
       console.error('Failed to notify user about deposit:', err)
     }
     
-    // Notify admin about deposit
+    // Notify all admins about deposit
     try {
-      const { bot: botInstance, ADMIN_ID } = await import('./index.js')
+      const { notifyAdmins } = await import('./index.js')
       
-      await botInstance.api.sendMessage(
-        ADMIN_ID,
+      await notifyAdmins(
         `💰 *New Deposit Received*\n\n` +
         `👤 User: @${deposit.user.username || 'no_username'} (ID: ${deposit.user.telegramId})\n` +
         `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
@@ -1325,9 +1343,9 @@ app.post('/api/oxapay-callback', async (req, res) => {
         { parse_mode: 'Markdown' }
       )
       
-      console.log(`✅ Admin notified about deposit from ${deposit.user.telegramId}`)
+      console.log(`✅ Admins notified about deposit from ${deposit.user.telegramId}`)
     } catch (err) {
-      console.error('Failed to notify admin about deposit:', err)
+      console.error('Failed to notify admins about deposit:', err)
     }
     
     res.json({ success: true })

@@ -20,6 +20,7 @@ export function Withdrawals() {
     queryKey: ['withdrawals', token],
     queryFn: () => fetchWithdrawals(token!),
     enabled: !!token,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   })
 
   const withdrawals = data?.withdrawals || []

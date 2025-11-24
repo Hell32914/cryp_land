@@ -24,6 +24,7 @@ export function Deposits() {
     queryKey: ['deposits', token],
     queryFn: () => fetchDeposits(token!),
     enabled: !!token,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   })
 
   const deposits = data?.deposits || []

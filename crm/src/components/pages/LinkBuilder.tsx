@@ -322,6 +322,20 @@ export function LinkBuilder() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(`${baseUrl}${link.linkId}`)
+                              toast.success('Link copied!')
+                            } catch {
+                              toast.error('Failed to copy')
+                            }
+                          }}
+                        >
+                          <Copy size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleToggleActive(link.linkId, link.isActive)}
                         >
                           {link.isActive ? 'Disable' : 'Enable'}

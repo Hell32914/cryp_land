@@ -18,8 +18,12 @@ dotenv.config()
 
 const prisma = new PrismaClient()
 export const bot = new Bot(process.env.BOT_TOKEN!)
-export const ADMIN_ID = process.env.ADMIN_ID!
-export const ADMIN_ID_2 = process.env.ADMIN_ID_2!
+
+// Parse admin IDs from comma-separated list in .env
+const ADMIN_IDS_STRING = process.env.ADMIN_IDS || process.env.ADMIN_ID || ''
+export const ADMIN_IDS = ADMIN_IDS_STRING.split(',').map(id => id.trim()).filter(id => id.length > 0)
+export const ADMIN_ID = ADMIN_IDS[0] || '' // Legacy support
+
 const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://authentic-commitment-production.up.railway.app/'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
@@ -27,9 +31,24 @@ const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0
 // Admin state management
 const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number }>()
 
+// Send message to all admins
+export async function notifyAdmins(message: string, options?: any) {
+  const results = []
+  for (const adminId of ADMIN_IDS) {
+    try {
+      await bot.api.sendMessage(adminId, message, options)
+      results.push({ adminId, success: true })
+    } catch (error) {
+      console.error(`Failed to notify admin ${adminId}:`, error)
+      results.push({ adminId, success: false })
+    }
+  }
+  return results
+}
+
 // Check if user is admin (super admin or database admin)
 async function isAdmin(userId: string): Promise<boolean> {
-  if (userId === ADMIN_ID || userId === ADMIN_ID_2) return true
+  if (ADMIN_IDS.includes(userId)) return true
   
   const user = await prisma.user.findUnique({
     where: { telegramId: userId }
@@ -350,7 +369,7 @@ bot.command('admin', async (ctx) => {
 // Manage Admins
 bot.callbackQuery('admin_manage_admins', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || (userId !== ADMIN_ID && userId !== ADMIN_ID_2)) {
+  if (!userId || !ADMIN_IDS.includes(userId)) {
     await ctx.answerCallbackQuery('Only super admin can manage admins')
     return
   }
@@ -390,7 +409,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
 // Add Admin
 bot.callbackQuery('admin_add_admin', async (ctx) => {
   const userId = ctx.from?.id.toString()
-  if (!userId || (userId !== ADMIN_ID && userId !== ADMIN_ID_2)) {
+  if (!userId || !ADMIN_IDS.includes(userId)) {
     await ctx.answerCallbackQuery('Only super admin can add admins')
     return
   }
@@ -659,7 +678,7 @@ bot.on('message:text', async (ctx) => {
 
   // Handle add admin
   if (state.awaitingInput === 'add_admin') {
-    if (userId !== ADMIN_ID && userId !== ADMIN_ID_2) {
+    if (!ADMIN_IDS.includes(userId)) {
       await ctx.reply('⛔️ Only super admin can add admins')
       return
     }
