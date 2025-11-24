@@ -10,23 +10,23 @@ interface LeaderboardEntry {
 }
 
 const topInvestors: LeaderboardEntry[] = [
-  { rank: 1, id: "alex_martinez", value1: "$127,430", value2: "$41,980" },
-  { rank: 2, id: "sarah_chen", value1: "$92,750", value2: "$29,830" },
-  { rank: 3, id: "mike_johnson", value1: "$68,210", value2: "$20,540" },
-  { rank: 4, id: "emma_rodriguez", value1: "$54,890", value2: "$16,100" },
-  { rank: 5, id: "david_kim", value1: "$37,320", value2: "$10,870" },
-  { rank: 6, id: "lisa_weber", value1: "$29,480", value2: "$8,410" },
-  { rank: 7, id: "james_taylor", value1: "$21,930", value2: "$6,120" },
+  { rank: 1, id: "CryptoNova", value1: "$127,430", value2: "$41,980" },
+  { rank: 2, id: "BitPilot_7", value1: "$92,750", value2: "$29,830" },
+  { rank: 3, id: "ChainX", value1: "$68,210", value2: "$20,540" },
+  { rank: 4, id: "SatoshiWave_101", value1: "$54,890", value2: "$16,100" },
+  { rank: 5, id: "DeFiGhost", value1: "$37,320", value2: "$10,870" },
+  { rank: 6, id: "Block_Zero", value1: "$29,480", value2: "$8,410" },
+  { rank: 7, id: "MoonRise24", value1: "$21,930", value2: "$6,120" },
 ]
 
 const topReferrers: LeaderboardEntry[] = [
-  { rank: 1, id: "robert_fischer", value1: "184", value2: "$265,400" },
-  { rank: 2, id: "maria_santos", value1: "141", value2: "$198,750" },
-  { rank: 3, id: "thomas_meyer", value1: "97", value2: "$139,220" },
-  { rank: 4, id: "anna_kowalski", value1: "63", value2: "$92,180" },
-  { rank: 5, id: "john_anderson", value1: "46", value2: "$67,540" },
-  { rank: 6, id: "sophie_dubois", value1: "38", value2: "$55,260" },
-  { rank: 7, id: "carlos_silva", value1: "27", value2: "$39,410" },
+  { rank: 1, id: "HashRider", value1: "184", value2: "$265,400" },
+  { rank: 2, id: "Web3Flux_", value1: "141", value2: "$198,750" },
+  { rank: 3, id: "TokenHunt_9", value1: "97", value2: "$139,220" },
+  { rank: 4, id: "LedgerWolf", value1: "63", value2: "$92,180" },
+  { rank: 5, id: "NeonByte_3X", value1: "46", value2: "$67,540" },
+  { rank: 6, id: "RugBreaker", value1: "38", value2: "$55,260" },
+  { rank: 7, id: "Vault_88", value1: "27", value2: "$39,410" },
 ]
 
 function LeaderboardTable({ 

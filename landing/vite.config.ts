@@ -29,20 +29,26 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom'],
           'vendor-motion': ['framer-motion'],
-          'vendor-ui': ['@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-avatar', '@radix-ui/react-dialog'],
+          'vendor-icons': ['@phosphor-icons/react'],
         }
       }
     },
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
     // Enable minification
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.logs in production
-        drop_debugger: true
-      }
-    }
+    minify: 'esbuild',
+    // Target modern browsers for smaller bundle
+    target: 'esnext',
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    // Optimize assets
+    assetsInlineLimit: 4096,
+    reportCompressedSize: false,
+  },
+  // Enable optimizations
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'framer-motion', '@phosphor-icons/react'],
+    exclude: []
   },
   // Optimize dev server
   server: {
