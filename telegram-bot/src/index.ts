@@ -774,7 +774,12 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
       break
   }
 
-  await bot.api.sendMessage(user.telegramId, statusMessage)
+  try {
+    await bot.api.sendMessage(user.telegramId, statusMessage)
+  } catch (error) {
+    console.error(`Failed to notify user ${user.telegramId} about status change:`, error)
+  }
+  
   await prisma.notification.create({
     data: {
       userId: user.id,
