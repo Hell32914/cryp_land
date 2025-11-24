@@ -18,5 +18,17 @@ export default defineConfig({
     port: 5173,
     host: true
   },
+  preview: {
+    host: '0.0.0.0',
+    allowedHosts: [
+      'syntrix.cc',
+      'www.syntrix.cc',
+      'api.syntrix.cc',
+      'admin.syntrix.cc',
+      'app.syntrix.cc',
+      '45.147.248.134',
+      'localhost'
+    ]
+  },
   base: '/'
 })
