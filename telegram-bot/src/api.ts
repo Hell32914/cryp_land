@@ -1063,7 +1063,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       }
     } else {
       // Amount >= 100, deduct balance immediately (reserve funds) and set status to PROCESSING
-      const { bot, ADMIN_ID, ADMIN_ID_2 } = await import('./index.js')
+      const { bot, notifySupport } = await import('./index.js')
       
       console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
       
