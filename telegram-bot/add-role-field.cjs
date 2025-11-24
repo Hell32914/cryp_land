@@ -2,10 +2,24 @@ const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🔄 Adding role field to users...')
+  console.log('🔄 Checking and adding role field to users...')
   
   try {
-    // Update all existing users to have 'user' role by default
+    // Check if role column exists
+    const tableInfo = await prisma.$queryRaw`PRAGMA table_info(User)`
+    const hasRoleColumn = tableInfo.some(col => col.name === 'role')
+    
+    if (!hasRoleColumn) {
+      console.log('⚠️  Role column does not exist, adding it...')
+      
+      // Add role column with default value
+      await prisma.$executeRaw`ALTER TABLE User ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`
+      console.log('✅ Role column added successfully')
+    } else {
+      console.log('✅ Role column already exists')
+    }
+    
+    // Update all existing users to have 'user' role by default (if role is empty)
     const result = await prisma.$executeRaw`
       UPDATE User SET role = 'user' WHERE role IS NULL OR role = ''
     `
@@ -20,6 +34,7 @@ async function main() {
     console.log('✅ Role field migration completed')
   } catch (error) {
     console.error('❌ Migration failed:', error)
+    console.error('Error details:', error.message)
     throw error
   }
 }
