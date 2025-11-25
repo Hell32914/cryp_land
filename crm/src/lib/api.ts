@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://api.syntrix.cc'
+const API_BASE_URL = 'https://api.syntrix.website';
 
 export class ApiError extends Error {
   status: number

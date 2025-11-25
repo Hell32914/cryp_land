@@ -59,7 +59,7 @@ function App() {
 
     setLoadingReferrals(true)
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referrals`)
       
       if (response.ok) {
@@ -78,7 +78,7 @@ function App() {
     if (!userData || userData.referralEarnings <= 0) return
 
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referral-reinvest`, {
         method: 'POST',
         headers: {
@@ -106,7 +106,7 @@ function App() {
 
     setLoadingDailyUpdates(true)
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/daily-updates`)
       
       if (response.ok) {
@@ -133,7 +133,7 @@ function App() {
 
     setLoadingTransactions(true)
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/transactions`)
       
       if (response.ok) {
@@ -161,7 +161,7 @@ function App() {
     }
 
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/create-deposit`, {
         method: 'POST',
         headers: {
@@ -208,7 +208,7 @@ function App() {
     }
 
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/create-withdrawal`, {
         method: 'POST',
         headers: {
@@ -272,7 +272,7 @@ function App() {
     if (!userData || userData.profit <= 0) return
 
     try {
-      const API_URL = 'https://api.syntrix.cc'
+      const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/reinvest`, {
         method: 'POST',
         headers: {

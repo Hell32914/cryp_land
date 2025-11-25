@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const API_URL = 'https://api.syntrix.cc'
+const API_URL = 'https://api.syntrix.website';
 
 export interface Referral {
   id: number
