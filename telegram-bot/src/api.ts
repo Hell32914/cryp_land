@@ -992,9 +992,10 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         // Notify support team about withdrawal
         try {
           const { notifySupport } = await import('./index.js')
+          const username = (user.username || 'no_username').replace(/_/g, '\\_')
           await notifySupport(
             `💸 *Withdrawal Completed*\n\n` +
-            `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
+            `👤 User: @${username} (ID: ${user.telegramId})\n` +
             `💰 Amount: $${amount.toFixed(2)}\n` +
             `💎 Currency: ${currency}\n` +
             `🌐 Network: ${network || 'TRC20'}\n` +
@@ -1087,8 +1088,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       
       console.log(`✅ Funds reserved. New balance: $${newBalance.toFixed(2)}`)
       
+      const username = (user.username || 'no_username').replace(/_/g, '\\_')
       const adminMessage = `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
-        `👤 User: @${user.username || 'no_username'} (ID: ${user.telegramId})\n` +
+        `👤 User: @${username} (ID: ${user.telegramId})\n` +
         `💰 Amount: $${amount.toFixed(2)}\n` +
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +

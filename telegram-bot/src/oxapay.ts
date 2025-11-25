@@ -170,31 +170,39 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
 
     console.log('📥 OxaPay payout response:', JSON.stringify(response.data, null, 2))
 
-    // IMPORTANT: OxaPay may still process payouts even when returning errors
-    // We return trackId if available, regardless of result code
-    if (response.data.result === 100) {
+    // Handle both response formats: {result: 100, trackId} and {status: 200, data: {track_id}}
+    const trackId = response.data.trackId || response.data.data?.track_id || response.data.track_id
+    const status = response.data.status || response.data.data?.status
+    const amount = response.data.amount || response.data.data?.amount || params.amount
+
+    // Check if response indicates success (status 200 or result 100)
+    const isSuccess = response.data.status === 200 || response.data.result === 100
+
+    if (isSuccess && trackId) {
+      console.log(`✅ Payout successful with trackId: ${trackId}`)
       return {
         success: true,
-        trackId: response.data.trackId,
-        status: response.data.status,
-        amount: response.data.amount
+        trackId: trackId,
+        status: status || 'processing',
+        amount: amount
       }
-    } else {
-      console.error('⚠️ OxaPay returned non-success code but payout may still process:', response.data)
-      
-      // If we have a trackId, the payout is likely being processed
-      if (response.data.trackId) {
-        console.log('✅ TrackId found, payout is likely processing:', response.data.trackId)
+    }
+    
+    // If no trackId but status 200, still might be processing
+    if (response.data.status === 200 || response.data.result === 100) {
+      console.warn('⚠️ Success status but no trackId found:', response.data)
+      if (trackId) {
         return {
           success: true,
-          trackId: response.data.trackId,
-          status: 'PROCESSING',
-          amount: response.data.amount || params.amount
+          trackId: trackId,
+          status: 'processing',
+          amount: amount
         }
       }
-      
-      throw new Error(response.data.message || 'Failed to create payout')
     }
+    
+    console.error('❌ OxaPay returned unexpected response:', response.data)
+    throw new Error(response.data.message || response.data.error || 'Failed to create payout')
   } catch (error: any) {
     console.error('❌ OxaPay createPayout error:', {
       message: error.message,
