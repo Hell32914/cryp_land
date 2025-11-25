@@ -622,6 +622,9 @@ bot.callbackQuery('admin_menu', async (ctx) => {
 
   const roleText = isSuperAdmin ? 'Super Admin' : isAdminUser ? 'Admin' : 'Support'
 
+  // Clear any pending input state when returning to main menu
+  adminState.delete(userId)
+
   await ctx.editMessageText(
     `🔐 *${roleText} Panel*\n\n` +
     `Total Users: ${usersCount}\n` +
@@ -639,6 +642,9 @@ bot.callbackQuery('admin_users', async (ctx) => {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
+
+  // Clear any pending input state
+  adminState.delete(userId)
 
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
@@ -1514,6 +1520,9 @@ bot.callbackQuery('admin_manage_balance', async (ctx) => {
     return
   }
 
+  // Clear any pending input state
+  adminState.delete(userId)
+
   adminState.set(userId, { awaitingInput: 'search_user_balance' })
 
   const keyboard = new InlineKeyboard()
@@ -1668,6 +1677,9 @@ bot.callbackQuery('admin_card_settings', async (ctx) => {
     await ctx.answerCallbackQuery('Access denied')
     return
   }
+
+  // Clear any pending input state
+  adminState.delete(userId)
 
   const settings = await getCardSettings()
 
