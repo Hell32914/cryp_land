@@ -372,7 +372,7 @@ bot.command('start', async (ctx) => {
     `⮕ Start your crypto trading journey with our automated bot\n` +
     `⮕ Earn up to 17% daily from your investments\n` +
     `⮕ Track your performance in real\\-time\n\n` +
-    `🌐 Learn more: https://authentic\\-commitment\\-production\\.up\\.railway\\.app/\n\n` +
+    `🌐 Learn more: https://syntrix\\.website/\n\n` +
     `Click the button below to open the trading platform:`
 
   try {
