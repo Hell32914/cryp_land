@@ -29,7 +29,12 @@ const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
-const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number }>()
+const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number }>()
+
+// Helper to handle invalid input and update attempts
+function handleInvalidInput(userId: string, state: any, attempts: number): void {
+  adminState.set(userId, { ...state, attempts, lastAttempt: Date.now() })
+}
 
 // Send message to all admins
 export async function notifyAdmins(message: string, options?: any) {
@@ -846,8 +851,31 @@ bot.on('message:text', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId) return
   
+  const text = ctx.message?.text?.trim()
+  
+  // Check for commands first - they should not be processed as text input
+  if (text?.startsWith('/')) {
+    return // Let command handlers process this
+  }
+  
   const state = adminState.get(userId)
   if (!state?.awaitingInput) return
+
+  // Check for timeout (5 minutes)
+  const now = Date.now()
+  if (state.lastAttempt && (now - state.lastAttempt) > 5 * 60 * 1000) {
+    adminState.delete(userId)
+    await ctx.reply('⏱ Input timeout. Please start again.')
+    return
+  }
+
+  // Update attempts counter
+  const attempts = (state.attempts || 0) + 1
+  if (attempts > 5) {
+    adminState.delete(userId)
+    await ctx.reply('❌ Too many invalid attempts. Operation cancelled.\nUse /admin to start again.')
+    return
+  }
 
   // Handle add admin
   if (state.awaitingInput === 'add_admin') {
@@ -858,7 +886,8 @@ bot.on('message:text', async (ctx) => {
 
     const targetId = ctx.message?.text?.trim()
     if (!targetId || targetId.startsWith('/')) {
-      await ctx.reply('❌ Invalid Telegram ID')
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Invalid Telegram ID\nSend /cancel to abort.')
       return
     }
 
@@ -869,7 +898,8 @@ bot.on('message:text', async (ctx) => {
       })
 
       if (!user) {
-        await ctx.reply(`❌ User with ID ${targetId} not found in database`)
+        handleInvalidInput(userId, state, attempts)
+        await ctx.reply(`❌ User with ID ${targetId} not found in database\nSend /cancel to abort.`)
         return
       }
 
@@ -1119,7 +1149,8 @@ bot.on('message:text', async (ctx) => {
   if (state.awaitingInput === 'card_count') {
     const match = ctx.message?.text?.match(/^(\d+)-(\d+)$/)
     if (!match) {
-      await ctx.reply('❌ Invalid format. Use: min-max (e.g., 4-16)')
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Invalid format. Use: min-max (e.g., 4-16)\nSend /cancel to abort.')
       return
     }
 
@@ -1127,7 +1158,8 @@ bot.on('message:text', async (ctx) => {
     const max = parseInt(match[2])
 
     if (min < 1 || max > 50 || min >= max) {
-      await ctx.reply('❌ Invalid range. Min should be 1-50 and less than max.')
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Invalid range. Min should be 1-50 and less than max.\nSend /cancel to abort.')
       return
     }
 
@@ -1145,7 +1177,8 @@ bot.on('message:text', async (ctx) => {
   if (state.awaitingInput === 'card_time') {
     const match = ctx.message?.text?.match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/)
     if (!match) {
-      await ctx.reply('❌ Invalid format. Use: HH:MM-HH:MM (e.g., 07:49-22:30)')
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Invalid format. Use: HH:MM-HH:MM (e.g., 07:49-22:30)\nSend /cancel to abort.')
       return
     }
 
