@@ -859,7 +859,7 @@ app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
     // Get callback URL from environment or use Railway URL
     const callbackUrl = process.env.WEBHOOK_URL 
       ? `${process.env.WEBHOOK_URL.startsWith('http') ? process.env.WEBHOOK_URL : `https://${process.env.WEBHOOK_URL}`}/api/oxapay-callback`
-      : 'https://api.syntrix.cc/api/oxapay-callback'
+      : 'https://api.syntrix.website/api/oxapay-callback'
     
     const invoice = await createInvoice({
       amount,

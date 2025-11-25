@@ -2152,7 +2152,7 @@ function App() {
                   </Button>
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
-                    onClick={() => window.open('https://syntrix.cc', '_blank')}
+                    onClick={() => window.open('https://syntrix.website', '_blank')}
                   >
                     {t.website}
                   </Button>
