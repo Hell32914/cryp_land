@@ -688,7 +688,8 @@ bot.callbackQuery('admin_users', async (ctx) => {
   let message = '👥 Users List (10 latest):\n\n'
   
   users.forEach((user, index) => {
-    message += `${index + 1}. @${user.username || 'no_username'}\n`
+    const username = (user.username || 'no_username').replace(/_/g, '\\_')
+    message += `${index + 1}. @${username}\n`
     message += `   ID: ${user.telegramId}\n`
     message += `   💰 $${user.balance.toFixed(2)} | ${user.status}\n\n`
   })
@@ -1435,7 +1436,8 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
   
   deposits.forEach((deposit, index) => {
     const statusEmoji = deposit.status === 'COMPLETED' ? '✅' : deposit.status === 'PENDING' ? '⏳' : '❌'
-    message += `${index + 1}. @${deposit.user.username || 'no_username'}\n`
+    const username = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
+    message += `${index + 1}. @${username}\n`
     message += `   💵 $${deposit.amount.toFixed(2)} | ${statusEmoji} ${deposit.status}\n`
     message += `   📅 ${deposit.createdAt.toLocaleDateString()}\n\n`
   })
@@ -1476,7 +1478,8 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
       withdrawal.status === 'PENDING' ? '⏳' : 
       withdrawal.status === 'PROCESSING' ? '🔄' : 
       '❌'
-    message += `${index + 1}. @${withdrawal.user.username || 'no_username'}\n`
+    const username = (withdrawal.user.username || 'no_username').replace(/_/g, '\\_')
+    message += `${index + 1}. @${username}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | ${statusEmoji} ${withdrawal.status}\n`
     message += `   📅 ${withdrawal.createdAt.toLocaleDateString()}\n\n`
   })
@@ -1514,7 +1517,8 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   let message = '⏳ *Pending Withdrawals* (Requires Approval):\n\n'
   
   pendingWithdrawals.forEach((withdrawal, index) => {
-    message += `${index + 1}. @${withdrawal.user.username || 'no_username'}\n`
+    const username = (withdrawal.user.username || 'no_username').replace(/_/g, '\\_')
+    message += `${index + 1}. @${username}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | 💎 ${withdrawal.currency}\n`
     message += `   🌐 ${withdrawal.network || 'TRC20'}\n`
     message += `   📍 \`${withdrawal.address.substring(0, 20)}...\`\n`
@@ -1635,7 +1639,8 @@ bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
     }
 
     let message = `📜 *Transaction History*\n\n`
-    message += `👤 @${user.username || 'no_username'}\n`
+    const username = (user.username || 'no_username').replace(/_/g, '\\_')
+    message += `👤 @${username}\n`
     message += `💰 Balance: $${user.balance.toFixed(2)}\n\n`
 
     if (user.deposits.length > 0) {
