@@ -21,11 +21,11 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     allowedHosts: [
-      'syntrix.cc',
-      'www.syntrix.cc',
-      'api.syntrix.cc',
-      'admin.syntrix.cc',
-      'app.syntrix.cc',
+      'syntrix.website',
+      'www.syntrix.website',
+      'api.syntrix.website',
+      'admin.syntrix.website',
+      'app.syntrix.website',
       '45.147.248.134',
       'localhost'
     ]
