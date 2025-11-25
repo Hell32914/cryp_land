@@ -36,6 +36,34 @@ function handleInvalidInput(userId: string, state: any, attempts: number): void 
   adminState.set(userId, { ...state, attempts, lastAttempt: Date.now() })
 }
 
+// Helper to safely edit message text (handles "message is not modified" errors)
+async function safeEditMessage(ctx: Context, text: string, options?: any): Promise<boolean> {
+  try {
+    await safeEditMessage(ctx, text, options)
+    return true
+  } catch (error: any) {
+    // Ignore "message is not modified" errors (expected when content is identical)
+    if (!error.message?.includes('message is not modified')) {
+      console.error('Error editing message:', error)
+    }
+    return false
+  }
+}
+
+// Helper to safely answer callback query (handles "query is too old" errors)
+async function safeAnswerCallback(ctx: Context, text?: string): Promise<boolean> {
+  try {
+    await safeAnswerCallback(ctx, text)
+    return true
+  } catch (error: any) {
+    // Ignore "query is too old" errors (expected when query expires)
+    if (!error.message?.includes('query is too old')) {
+      console.error('Error answering callback:', error)
+    }
+    return false
+  }
+}
+
 // Send message to all admins
 export async function notifyAdmins(message: string, options?: any) {
   const results = []
@@ -467,7 +495,7 @@ bot.command('admin', async (ctx) => {
 bot.callbackQuery('admin_manage_admins', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !ADMIN_IDS.includes(userId)) {
-    await ctx.answerCallbackQuery('Only super admin can manage roles')
+    await safeAnswerCallback(ctx, 'Only super admin can manage roles')
     return
   }
 
@@ -513,76 +541,76 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
 
   keyboard.text('🔙 Back', 'admin_menu')
 
-  await ctx.editMessageText(message, {
+  await safeEditMessage(ctx, message, {
     reply_markup: keyboard,
     parse_mode: 'MarkdownV2'
   })
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 // Add Admin
 bot.callbackQuery('admin_add_admin', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !ADMIN_IDS.includes(userId)) {
-    await ctx.answerCallbackQuery('Only super admin can add admins')
+    await safeAnswerCallback(ctx, 'Only super admin can add admins')
     return
   }
 
   adminState.set(userId, { awaitingInput: 'add_admin' })
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx,
     '🆔 *Add New Admin*\n\n' +
     'Send me the Telegram ID of the user you want to make admin\\.\n' +
     'You can find their ID by forwarding their message to @userinfobot\n\n' +
     '⚠️ Send /cancel to abort',
     { parse_mode: 'MarkdownV2' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 // Add Support
 bot.callbackQuery('admin_add_support', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !ADMIN_IDS.includes(userId)) {
-    await ctx.answerCallbackQuery('Only super admin can add support')
+    await safeAnswerCallback(ctx, 'Only super admin can add support')
     return
   }
 
   adminState.set(userId, { awaitingInput: 'add_support' })
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx,
     '🆔 *Add New Support*\n\n' +
     'Send me the Telegram ID of the user you want to make support\\.\n' +
     'You can find their ID by forwarding their message to @userinfobot\n\n' +
     '⚠️ Send /cancel to abort',
     { parse_mode: 'MarkdownV2' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 // Remove Staff
 bot.callbackQuery('admin_remove_staff', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !ADMIN_IDS.includes(userId)) {
-    await ctx.answerCallbackQuery('Only super admin can remove staff')
+    await safeAnswerCallback(ctx, 'Only super admin can remove staff')
     return
   }
 
   adminState.set(userId, { awaitingInput: 'remove_staff' })
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx,
     '🆔 *Remove Staff Member*\n\n' +
     'Send me the Telegram ID of the user you want to remove from staff\\.\n\n' +
     '⚠️ Send /cancel to abort',
     { parse_mode: 'MarkdownV2' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 bot.callbackQuery('admin_menu', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -625,7 +653,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   // Clear any pending input state when returning to main menu
   adminState.delete(userId)
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx,
     `🔐 *${roleText} Panel*\n\n` +
     `Total Users: ${usersCount}\n` +
     `Total Deposits: ${depositsCount}\n` +
@@ -633,13 +661,13 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     `⏳ Pending Withdrawals: ${pendingWithdrawalsCount}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
-  await ctx.answerCallbackQuery('Refreshed')
+  await safeAnswerCallback(ctx, 'Refreshed')
 })
 
 bot.callbackQuery('admin_users', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -652,8 +680,8 @@ bot.callbackQuery('admin_users', async (ctx) => {
   })
 
   if (users.length === 0) {
-    await ctx.editMessageText('👥 No users yet')
-    await ctx.answerCallbackQuery()
+    await safeEditMessage(ctx, '👥 No users yet')
+    await safeAnswerCallback(ctx)
     return
   }
 
@@ -676,14 +704,14 @@ bot.callbackQuery('admin_users', async (ctx) => {
   if (users.length % 2 === 1) keyboard.row()
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
-  await ctx.editMessageText(message, { reply_markup: keyboard })
-  await ctx.answerCallbackQuery()
+  await safeEditMessage(ctx, message, { reply_markup: keyboard })
+  await safeAnswerCallback(ctx)
 })
 
 bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isAdmin(adminId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -697,7 +725,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   })
 
   if (!user) {
-    await ctx.answerCallbackQuery('User not found')
+    await safeAnswerCallback(ctx, 'User not found')
     return
   }
 
@@ -727,7 +755,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     return countryFlags[langCode] || '🌍'
   }
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
     `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
@@ -741,13 +769,13 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isAdmin(adminId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -799,7 +827,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     }
   })
 
-  await ctx.answerCallbackQuery(`✓ Status changed to ${newStatus}`)
+  await safeAnswerCallback(ctx, `✓ Status changed to ${newStatus}`)
   
   // Return to user management with updated info
   const keyboard = new InlineKeyboard()
@@ -810,7 +838,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     .text('💰 Add Balance', `add_balance_${userId}`).row()
     .text('◀️ Back to Users', 'admin_users')
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
     `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
@@ -826,7 +854,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
 bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isAdmin(adminId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -834,7 +862,7 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   
   if (!user) {
-    await ctx.answerCallbackQuery('User not found')
+    await safeAnswerCallback(ctx, 'User not found')
     return
   }
 
@@ -843,14 +871,14 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
   const keyboard = new InlineKeyboard()
     .text('Cancel', `manage_${userId}`)
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx, 
     `💰 *Add Balance*\n\n` +
     `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `Current Balance: $${user.balance.toFixed(2)}\n\n` +
     `Please reply with the amount to add (e.g., 100):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 bot.on('message:text', async (ctx) => {
@@ -1385,7 +1413,7 @@ bot.on('message:text', async (ctx) => {
 bot.callbackQuery('admin_deposits', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1398,8 +1426,8 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
   if (deposits.length === 0) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
-    await ctx.editMessageText('📥 No deposits yet', { reply_markup: keyboard })
-    await ctx.answerCallbackQuery()
+    await safeEditMessage(ctx, '📥 No deposits yet', { reply_markup: keyboard })
+    await safeAnswerCallback(ctx)
     return
   }
 
@@ -1415,14 +1443,14 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
   const keyboard = new InlineKeyboard()
     .text('◀️ Back to Admin', 'admin_menu')
 
-  await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
-  await ctx.answerCallbackQuery()
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
 })
 
 bot.callbackQuery('admin_withdrawals', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1435,8 +1463,8 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   if (withdrawals.length === 0) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
-    await ctx.editMessageText('📤 No withdrawals yet', { reply_markup: keyboard })
-    await ctx.answerCallbackQuery()
+    await safeEditMessage(ctx, '📤 No withdrawals yet', { reply_markup: keyboard })
+    await safeAnswerCallback(ctx)
     return
   }
 
@@ -1456,15 +1484,15 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   const keyboard = new InlineKeyboard()
     .text('◀️ Back to Admin', 'admin_menu')
 
-  await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
-  await ctx.answerCallbackQuery()
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
 })
 
 // Pending withdrawals
 bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1478,8 +1506,8 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   if (pendingWithdrawals.length === 0) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
-    await ctx.editMessageText('⏳ No pending withdrawals', { reply_markup: keyboard })
-    await ctx.answerCallbackQuery()
+    await safeEditMessage(ctx, '⏳ No pending withdrawals', { reply_markup: keyboard })
+    await safeAnswerCallback(ctx)
     return
   }
 
@@ -1508,15 +1536,15 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
-  await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
-  await ctx.answerCallbackQuery()
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
 })
 
 // Manage balance - search user
 bot.callbackQuery('admin_manage_balance', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isAdmin(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1528,7 +1556,7 @@ bot.callbackQuery('admin_manage_balance', async (ctx) => {
   const keyboard = new InlineKeyboard()
     .text('◀️ Cancel', 'admin_menu')
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx, 
     '💰 *Manage User Balance*\n\n' +
     'Send me the username or Telegram ID of the user:\n\n' +
     'Examples:\n' +
@@ -1537,21 +1565,21 @@ bot.callbackQuery('admin_manage_balance', async (ctx) => {
     '⚠️ Send /cancel to abort',
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 // Balance management callbacks
 bot.callbackQuery(/^balance_add_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isAdmin(adminId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
   const userId = parseInt(ctx.match![1])
   adminState.set(adminId, { awaitingInput: 'balance_add_amount', targetUserId: userId })
 
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
   await ctx.reply(
     '💰 *Add Balance*\n\n' +
     'Enter the amount to add (positive) or subtract (negative):\n\n' +
@@ -1566,14 +1594,14 @@ bot.callbackQuery(/^balance_add_(\d+)$/, async (ctx) => {
 bot.callbackQuery(/^balance_set_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isAdmin(adminId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
   const userId = parseInt(ctx.match![1])
   adminState.set(adminId, { awaitingInput: 'balance_set_amount', targetUserId: userId })
 
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
   await ctx.reply(
     '✏️ *Set Balance*\n\n' +
     'Enter the new balance amount:\n\n' +
@@ -1586,7 +1614,7 @@ bot.callbackQuery(/^balance_set_(\d+)$/, async (ctx) => {
 bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isAdmin(adminId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1602,7 +1630,7 @@ bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
     })
 
     if (!user) {
-      await ctx.answerCallbackQuery('❌ User not found')
+      await safeAnswerCallback(ctx, '❌ User not found')
       return
     }
 
@@ -1634,11 +1662,11 @@ bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back', 'admin_manage_balance')
 
-    await ctx.editMessageText(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
-    await ctx.answerCallbackQuery()
+    await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+    await safeAnswerCallback(ctx)
   } catch (error) {
     console.error('Error fetching history:', error)
-    await ctx.answerCallbackQuery('❌ Error loading history')
+    await safeAnswerCallback(ctx, '❌ Error loading history')
   }
 })
 
@@ -1646,11 +1674,11 @@ bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
 bot.callbackQuery('admin_generate_card', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isAdmin(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
-  await ctx.answerCallbackQuery('Generating card...')
+  await safeAnswerCallback(ctx, 'Generating card...')
   
   try {
     // Generate card image
@@ -1674,7 +1702,7 @@ bot.callbackQuery('admin_generate_card', async (ctx) => {
 bot.callbackQuery('admin_card_settings', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1689,25 +1717,25 @@ bot.callbackQuery('admin_card_settings', async (ctx) => {
     .text('🔄 Reschedule Now', 'card_reschedule').row()
     .text('◀️ Back to Admin', 'admin_menu')
 
-  await ctx.editMessageText(
+  await safeEditMessage(ctx, 
     '⚙️ *Trading Card Settings*\n\n' +
     `📊 Posts per day: ${settings.minPerDay}-${settings.maxPerDay}\n` +
     `🕐 Time range: ${settings.startTime}-${settings.endTime} (Kyiv)\n\n` +
     'Tap to modify settings',
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
-  await ctx.answerCallbackQuery()
+  await safeAnswerCallback(ctx)
 })
 
 // Set card count
 bot.callbackQuery('card_set_count', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
-  await ctx.answerCallbackQuery('Send new values')
+  await safeAnswerCallback(ctx, 'Send new values')
   await ctx.reply(
     'Send new card count range in format:\n`min-max`\n\nExample: `4-16`',
     { parse_mode: 'Markdown' }
@@ -1720,11 +1748,11 @@ bot.callbackQuery('card_set_count', async (ctx) => {
 bot.callbackQuery('card_set_time', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
-  await ctx.answerCallbackQuery('Send new time range')
+  await safeAnswerCallback(ctx, 'Send new time range')
   await ctx.reply(
     'Send new time range in format:\n`HH:MM-HH:MM`\n\nExample: `07:49-22:30` (Kyiv time)',
     { parse_mode: 'Markdown' }
@@ -1737,15 +1765,15 @@ bot.callbackQuery('card_set_time', async (ctx) => {
 bot.callbackQuery('card_reschedule', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
-  await ctx.answerCallbackQuery('Rescheduling...')
+  await safeAnswerCallback(ctx, 'Rescheduling...')
   
   try {
     await rescheduleCards(bot, CHANNEL_ID)
-    await ctx.editMessageText(
+    await safeEditMessage(ctx, 
       '✅ Cards rescheduled successfully!\n\nCheck console for new schedule.',
       { reply_markup: new InlineKeyboard().text('◀️ Back to Settings', 'admin_card_settings') }
     )
@@ -1762,7 +1790,7 @@ bot.callbackQuery('card_reschedule', async (ctx) => {
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1775,17 +1803,17 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
     })
 
     if (!withdrawal) {
-      await ctx.answerCallbackQuery('❌ Withdrawal not found')
+      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
       return
     }
 
     if (withdrawal.status === 'COMPLETED') {
-      await ctx.answerCallbackQuery('✅ Already completed')
+      await safeAnswerCallback(ctx, '✅ Already completed')
       return
     }
 
     if (withdrawal.status === 'FAILED') {
-      await ctx.answerCallbackQuery('❌ Already rejected/failed')
+      await safeAnswerCallback(ctx, '❌ Already rejected/failed')
       return
     }
 
@@ -1808,11 +1836,11 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
         { parse_mode: 'Markdown' }
       )
 
-      await ctx.editMessageText(
+      await safeEditMessage(ctx, 
         ctx.callbackQuery.message!.text + '\n\n✅ *CONFIRMED AS COMPLETED*',
         { parse_mode: 'Markdown' }
       )
-      await ctx.answerCallbackQuery('✅ Withdrawal marked as completed')
+      await safeAnswerCallback(ctx, '✅ Withdrawal marked as completed')
       return
     }
 
@@ -1855,12 +1883,12 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           { parse_mode: 'Markdown' }
         )
 
-        await ctx.editMessageText(
+        await safeEditMessage(ctx, 
           ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO OXAPAY*\n' +
           `🔗 Track ID: ${payout.trackId}`,
           { parse_mode: 'Markdown' }
         )
-        await ctx.answerCallbackQuery('✅ Withdrawal approved and sent to OxaPay')
+        await safeAnswerCallback(ctx, '✅ Withdrawal approved and sent to OxaPay')
 
       } catch (error: any) {
         // If OxaPay fails, keep status as PROCESSING but mark for manual processing
@@ -1887,8 +1915,8 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           { parse_mode: 'Markdown' }
         )
         
-        await ctx.answerCallbackQuery('✅ Approved - Manual processing required')
-        await ctx.editMessageText(
+        await safeAnswerCallback(ctx, '✅ Approved - Manual processing required')
+        await safeEditMessage(ctx, 
           ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
           `⚠️ OxaPay Error: ${error.message}\n` +
           `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
@@ -1899,12 +1927,12 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       }
     } else if (withdrawal.status === 'PENDING') {
       // This should not happen with new logic, but handle legacy pending withdrawals
-      await ctx.answerCallbackQuery('⚠️ Legacy PENDING withdrawal detected. Please reject and ask user to resubmit.')
+      await safeAnswerCallback(ctx, '⚠️ Legacy PENDING withdrawal detected. Please reject and ask user to resubmit.')
       return
     }
   } catch (error) {
     console.error('Error approving withdrawal:', error)
-    await ctx.answerCallbackQuery('❌ Error processing withdrawal')
+    await safeAnswerCallback(ctx, '❌ Error processing withdrawal')
   }
 })
 
@@ -1912,7 +1940,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
 bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await ctx.answerCallbackQuery('Access denied')
+    await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
@@ -1925,24 +1953,24 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
     })
 
     if (!withdrawal) {
-      await ctx.answerCallbackQuery('❌ Withdrawal not found')
+      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
       return
     }
 
     if (withdrawal.status === 'COMPLETED') {
-      await ctx.answerCallbackQuery('❌ Cannot reject completed withdrawal')
+      await safeAnswerCallback(ctx, '❌ Cannot reject completed withdrawal')
       return
     }
 
     if (withdrawal.status === 'FAILED') {
-      await ctx.answerCallbackQuery('ℹ️ Already rejected')
+      await safeAnswerCallback(ctx, 'ℹ️ Already rejected')
       return
     }
 
     // Get current user balance
     const currentUser = await prisma.user.findUnique({ where: { id: withdrawal.userId } })
     if (!currentUser) {
-      await ctx.answerCallbackQuery('❌ User not found')
+      await safeAnswerCallback(ctx, '❌ User not found')
       return
     }
 
@@ -1983,14 +2011,14 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       { parse_mode: 'Markdown' }
     )
 
-    await ctx.editMessageText(
+    await safeEditMessage(ctx, 
       ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED* (Balance restored)',
       { parse_mode: 'Markdown' }
     )
-    await ctx.answerCallbackQuery('❌ Withdrawal rejected, balance restored')
+    await safeAnswerCallback(ctx, '❌ Withdrawal rejected, balance restored')
   } catch (error) {
     console.error('Error rejecting withdrawal:', error)
-    await ctx.answerCallbackQuery('❌ Error rejecting withdrawal')
+    await safeAnswerCallback(ctx, '❌ Error rejecting withdrawal')
   }
 })
 
