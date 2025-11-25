@@ -39,7 +39,7 @@ function handleInvalidInput(userId: string, state: any, attempts: number): void 
 // Helper to safely edit message text (handles "message is not modified" errors)
 async function safeEditMessage(ctx: Context, text: string, options?: any): Promise<boolean> {
   try {
-    await safeEditMessage(ctx, text, options)
+    await ctx.editMessageText(text, options)
     return true
   } catch (error: any) {
     // Ignore "message is not modified" errors (expected when content is identical)
@@ -53,7 +53,7 @@ async function safeEditMessage(ctx: Context, text: string, options?: any): Promi
 // Helper to safely answer callback query (handles "query is too old" errors)
 async function safeAnswerCallback(ctx: Context, text?: string): Promise<boolean> {
   try {
-    await safeAnswerCallback(ctx, text)
+    await ctx.answerCallbackQuery(text)
     return true
   } catch (error: any) {
     // Ignore "query is too old" errors (expected when query expires)
