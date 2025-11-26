@@ -33,53 +33,16 @@
     </script>
 
     <style>
-        .tgme_background_wrap {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: -1;
-        }
-        
-        .tgme_background {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #17212b;
-        }
-        
-        .tgme_background_pattern {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: url('REF_FON.webp');
-            background-repeat: repeat;
-            background-size: 256px;
-            opacity: 1;
-        }
-        
         body.no_transition * {
             transition: none !important;
-        }
-        
-        /* Force dark theme */
-        html.theme_dark {
-            --bg-color: #17212b;
-            --card-bg-color: #232e3c;
-            --text-color: #ffffff;
         }
     </style>
 </head>
 
 <body class="no_transition">
     <div class="tgme_background_wrap">
-        <canvas id="tgme_background" class="tgme_background" width="50" height="50"></canvas>
-        <div class="tgme_background_pattern"></div>
+        <canvas id="tgme_background" class="tgme_background default" width="50" height="50" data-colors="dbddbb,6ba587,d5d88d,88b884"></canvas>
+        <div class="tgme_background_pattern default"></div>
     </div>
     
     <div class="tgme_page_wrap">
@@ -114,7 +77,7 @@
                     @AiSyntrixTrade_bot
                 </div>
                 <div class="tgme_page_description">
-                    Welcome to the Syntrix. Profits are no longer random ✅
+                    Welcome to the Syntrix. Profits are no longer random ✅ <br/><br/>News: <a href="https://t.me/SyntrixAI">@SyntrixAI</a><br/><br/>Support: <a href="https://t.me/SyntrixSupport">@SyntrixSupport</a>
                 </div>
                 <div class="tgme_page_action">
                     <a id="startBtn" class="tgme_action_button_new shine" href="tg://resolve?domain=AiSyntrixTrade_bot">Start Bot</a>
@@ -147,6 +110,16 @@
         
         // Remove no_transition class after load
         document.body.classList.remove('no_transition');
+    </script>
+    
+    <script src="//telegram.org/js/tgwallpaper.min.js?3"></script>
+    <script type="text/javascript">
+        var tme_bg = document.getElementById('tgme_background');
+        if (tme_bg) {
+            TWallpaper.init(tme_bg);
+            TWallpaper.animate(true);
+            window.onfocus = function(){ TWallpaper.update(); };
+        }
     </script>
 </body>
 </html>
