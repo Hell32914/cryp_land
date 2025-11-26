@@ -206,12 +206,12 @@
     <!-- центр с карточкой бота -->
     <div class="bg-wrap">
         <div class="card">
-            <img id="avatar" class="avatar" src="" alt="Bot Avatar" />
+            <img id="avatar" class="avatar" src="SYNTRIX_REF_LOGO.png" alt="Bot Avatar" />
 
             <div id="botName" class="bot-name">Syntrix Bot</div>
             <div id="botUsername" class="bot-username">@AiSyntrixTrade_bot</div>
 
-            <div id="botDescription" class="description">Loading…</div>
+            <div id="botDescription" class="description">Welcome to the Syntrix. Profits are no longer random 🤖</div>
 
             <!-- мгновенный переход в Telegram -->
             <a
@@ -244,29 +244,6 @@
                 });
             }
         }
-
-        // Подтягиваем данные с t.me через PHP
-        fetch('bot-info.php')
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-
-                if (data.avatar) {
-                    document.getElementById('avatar').src = data.avatar;
-                }
-                if (data.name) {
-                    document.getElementById('botName').textContent = data.name;
-                }
-                if (data.username) {
-                    document.getElementById('botUsername').textContent = data.username;
-                }
-                if (data.description) {
-                    document.getElementById('botDescription').textContent = data.description;
-                }
-            })
-            .catch(err => {
-                console.log('PHP error:', err);
-            });
     </script>
 
 </body>
