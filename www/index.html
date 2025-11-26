@@ -33,9 +33,7 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             min-height: 100vh;
-            background-color: #0e0e0e;
-            background-image: url("https://telegram.org/img/bg_tile_1.png");
-            background-repeat: repeat;
+            background: #17212b url("https://telegram.org/img/bg_tile_1.png") repeat;
             background-attachment: fixed;
             color: #fff;
             display: flex;
@@ -103,29 +101,29 @@
         .bg-wrap {
             flex: 1;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 40px 15px;
+            padding: 60px 15px 40px;
         }
 
         .card {
-            background: #1f1f1f;
-            border-radius: 26px;
-            max-width: 420px;
+            background: rgba(31, 31, 31, 0.95);
+            border-radius: 28px;
+            max-width: 440px;
             width: 100%;
-            padding: 42px 32px 34px;
+            padding: 48px 40px 38px;
             text-align: center;
-            box-shadow: 0 0 50px rgba(0,0,0,0.9);
+            box-shadow: 0 8px 60px rgba(0,0,0,0.7);
         }
 
         .avatar-wrapper {
             position: relative;
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 20px;
-            padding: 3px;
+            width: 128px;
+            height: 128px;
+            margin: 0 auto 24px;
+            padding: 3.5px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #5b9def 0%, #3d7fdb 50%, #2563c9 100%);
+            background: linear-gradient(135deg, #64b5f6 0%, #42a5f5 25%, #2196f3 50%, #1e88e5 75%, #1976d2 100%);
         }
 
         .avatar {
@@ -133,49 +131,50 @@
             height: 100%;
             border-radius: 50%;
             object-fit: cover;
-            background: #1f1f1f;
+            background: rgba(31, 31, 31, 0.95);
             display: block;
         }
 
         .bot-name {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 600;
-            margin-bottom: 6px;
-            letter-spacing: -0.3px;
+            margin-bottom: 8px;
+            letter-spacing: -0.4px;
+            color: #fff;
         }
 
         .bot-username {
             font-size: 15px;
-            color: #888;
-            margin-bottom: 22px;
+            color: #aaa;
+            margin-bottom: 24px;
         }
 
         .description {
             font-size: 15px;
-            line-height: 1.45;
-            color: #e8e8e8;
-            margin-bottom: 28px;
+            line-height: 1.5;
+            color: #fff;
+            margin-bottom: 32px;
             white-space: pre-line;
         }
 
         .start-btn {
-            padding: 13px 44px;
-            border-radius: 24px;
-            background: #3390ec;
+            padding: 14px 48px;
+            border-radius: 26px;
+            background: #2a9df4;
             color: #fff;
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             text-decoration: none;
             display: inline-block;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.5px;
             transition: all 0.2s;
         }
 
         .start-btn:hover {
-            background: #2b7fd4;
+            background: #2490e8;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(51, 144, 236, 0.3);
+            box-shadow: 0 6px 20px rgba(42, 157, 244, 0.4);
         }
 
         .start-btn:active {
@@ -234,7 +233,7 @@
                 class="start-btn"
                 href="tg://resolve?domain=AiSyntrixTrade_bot"
             >
-                Start Bot
+                START BOT
             </a>
         </div>
     </div>
