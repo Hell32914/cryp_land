@@ -27,6 +27,10 @@
     <link href="//telegram.org/css/font-roboto.css?1" rel="stylesheet" type="text/css">
     <link href="//telegram.org/css/bootstrap.min.css?3" rel="stylesheet">
     <link href="//telegram.org/css/telegram.css?247" rel="stylesheet" media="screen">
+    
+    <script>
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement && document.documentElement.classList && document.documentElement.classList.add('theme_dark');
+    </script>
 
     <style>
         .tgme_background_wrap {
@@ -44,7 +48,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: #0e0e0e;
+            background: #17212b;
         }
         
         .tgme_background_pattern {
@@ -61,6 +65,13 @@
         
         body.no_transition * {
             transition: none !important;
+        }
+        
+        /* Force dark theme */
+        html.theme_dark {
+            --bg-color: #17212b;
+            --card-bg-color: #232e3c;
+            --text-color: #ffffff;
         }
     </style>
 </head>
@@ -130,6 +141,9 @@
                 });
             }
         }
+        
+        // Force dark theme
+        document.documentElement.classList.add('theme_dark');
         
         // Remove no_transition class after load
         document.body.classList.remove('no_transition');
