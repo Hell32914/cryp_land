@@ -6,20 +6,26 @@ async function clearDatabase() {
     console.log('🗑️  Clearing database...');
     
     // Delete all data in correct order (respecting foreign keys)
-    await prisma.dailyUpdate.deleteMany({});
-    console.log('✅ Cleared DailyUpdate');
+    await prisma.notification.deleteMany({});
+    console.log('✅ Cleared Notification');
+    
+    await prisma.dailyProfitUpdate.deleteMany({});
+    console.log('✅ Cleared DailyProfitUpdate');
     
     await prisma.referral.deleteMany({});
     console.log('✅ Cleared Referral');
     
+    await prisma.deposit.deleteMany({});
+    console.log('✅ Cleared Deposit');
+    
     await prisma.withdrawal.deleteMany({});
     console.log('✅ Cleared Withdrawal');
     
-    await prisma.marketingLink.deleteMany({});
-    console.log('✅ Cleared MarketingLink');
-    
     await prisma.user.deleteMany({});
     console.log('✅ Cleared User');
+    
+    await prisma.marketingLink.deleteMany({});
+    console.log('✅ Cleared MarketingLink');
     
     console.log('');
     console.log('✅ Database cleared successfully!');
