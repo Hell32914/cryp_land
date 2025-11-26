@@ -34,10 +34,14 @@ export function LinkBuilder() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const [source, setSource] = useState('')
-  const [baseUrl] = useState('https://t.me/AiSyntrixTrade_bot?start=')
+  const [baseUrl] = useState('https://www.syntrix.website/?ref=')
   const [subIdParams, setSubIdParams] = useState<SubIdParam[]>([
     { id: 1, key: '', value: '' }
   ])
+  const [trafficerName, setTrafficerName] = useState('')
+  const [stream, setStream] = useState('')
+  const [geo, setGeo] = useState('')
+  const [creative, setCreative] = useState('')
   const [generatedLink, setGeneratedLink] = useState('')
   const [generatedLinkId, setGeneratedLinkId] = useState('')
   const [copied, setCopied] = useState(false)
@@ -116,7 +120,11 @@ export function LinkBuilder() {
       // Create marketing link in database
       const linkData = await createMarketingLink(token, {
         source,
-        utmParams: Object.keys(utmParams).length > 0 ? utmParams : undefined
+        utmParams: Object.keys(utmParams).length > 0 ? utmParams : undefined,
+        trafficerName: trafficerName || undefined,
+        stream: stream || undefined,
+        geo: geo || undefined,
+        creative: creative || undefined
       })
 
       const link = `${baseUrl}${linkData.linkId}`
@@ -196,6 +204,47 @@ export function LinkBuilder() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Metadata Fields */}
+            <div className="space-y-3 border-t pt-4">
+              <Label className="text-base">Link Metadata</Label>
+              
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Ник Трафера</Label>
+                <Input
+                  placeholder="Enter trafficker name..."
+                  value={trafficerName}
+                  onChange={(e) => setTrafficerName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Поток</Label>
+                <Input
+                  placeholder="Enter stream name..."
+                  value={stream}
+                  onChange={(e) => setStream(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Гео</Label>
+                <Input
+                  placeholder="Enter geo (e.g., RU, UA, KZ)..."
+                  value={geo}
+                  onChange={(e) => setGeo(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Креатив</Label>
+                <Input
+                  placeholder="Enter creative name..."
+                  value={creative}
+                  onChange={(e) => setCreative(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -292,68 +341,92 @@ export function LinkBuilder() {
               No marketing links created yet
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Link ID</TableHead>
-                  <TableHead className="text-right">Clicks</TableHead>
-                  <TableHead className="text-right">Conversions</TableHead>
-                  <TableHead className="text-right">Conv. Rate</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {links.map((link) => (
-                  <TableRow key={link.linkId}>
-                    <TableCell className="font-medium capitalize">{link.source}</TableCell>
-                    <TableCell className="font-mono text-sm">{link.linkId}</TableCell>
-                    <TableCell className="text-right">{link.clicks}</TableCell>
-                    <TableCell className="text-right">{link.conversions}</TableCell>
-                    <TableCell className="text-right">{link.conversionRate}%</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${link.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                        {link.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(`${baseUrl}${link.linkId}`)
-                              toast.success('Link copied!')
-                            } catch {
-                              toast.error('Failed to copy')
-                            }
-                          }}
-                        >
-                          <Copy size={16} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleActive(link.linkId, link.isActive)}
-                        >
-                          {link.isActive ? 'Disable' : 'Enable'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(link.linkId)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash size={16} />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Link ID</TableHead>
+                    <TableHead>Trafficker</TableHead>
+                    <TableHead>Stream</TableHead>
+                    <TableHead>Geo</TableHead>
+                    <TableHead>Creative</TableHead>
+                    <TableHead className="text-right">Clicks</TableHead>
+                    <TableHead className="text-right">Conv.</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {links.map((link) => (
+                    <TableRow key={link.linkId}>
+                      <TableCell className="font-medium capitalize">{link.source}</TableCell>
+                      <TableCell className="font-mono text-xs">{link.linkId}</TableCell>
+                      <TableCell>
+                        <span className="text-sm text-blue-400">
+                          {link.trafficerName || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-purple-400">
+                          {link.stream || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-green-400">
+                          {link.geo || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-orange-400">
+                          {link.creative || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">{link.clicks}</TableCell>
+                      <TableCell className="text-right">{link.conversions}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${link.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                          {link.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(`${baseUrl}${link.linkId}`)
+                                toast.success('Link copied!')
+                              } catch {
+                                toast.error('Failed to copy')
+                              }
+                            }}
+                          >
+                            <Copy size={16} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleActive(link.linkId, link.isActive)}
+                          >
+                            {link.isActive ? 'Disable' : 'Enable'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(link.linkId)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash size={16} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

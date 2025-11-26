@@ -42,8 +42,15 @@ export function GeoData() {
   const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1']
 
   const exportCSV = () => {
-    const headers = ['Country', 'User Count', 'Percentage']
-    const rows = geoData.map(d => [d.country, d.userCount, d.percentage])
+    const headers = ['Country', 'User Count', 'Percentage', 'FTD Count', 'Conversion Rate (%)', 'Total Deposits']
+    const rows = geoData.map(d => [
+      d.country, 
+      d.userCount, 
+      d.percentage,
+      d.ftdCount || 0,
+      d.conversionRate || 0,
+      d.totalDeposits || 0
+    ])
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
     
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -130,8 +137,11 @@ export function GeoData() {
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead>{t('geo.country')}</TableHead>
-                    <TableHead className="text-right">{t('geo.userCount')}</TableHead>
-                    <TableHead className="text-right">{t('geo.percentage')}</TableHead>
+                    <TableHead className="text-right">Users</TableHead>
+                    <TableHead className="text-right">%</TableHead>
+                    <TableHead className="text-right">FTD</TableHead>
+                    <TableHead className="text-right">CR</TableHead>
+                    <TableHead className="text-right">Total Deposits</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -146,11 +156,20 @@ export function GeoData() {
                           <span className="font-medium">{geo.country}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono text-sm">
                         {geo.userCount.toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono text-sm">
                         {geo.percentage}%
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-yellow-400">
+                        {geo.ftdCount || 0}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-green-400">
+                        {geo.conversionRate || 0}%
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-cyan-400">
+                        ${(geo.totalDeposits || 0).toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -159,6 +178,63 @@ export function GeoData() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Top Depositors by Country */}
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold tracking-tight">Top Depositors by Country</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {geoData.filter(geo => geo.topDepositors && geo.topDepositors.length > 0).map((geo, geoIndex) => (
+            <Card key={geo.country}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: COLORS[geoIndex % COLORS.length] }}
+                  />
+                  {geo.country}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Total Deposits: <span className="text-cyan-400 font-mono">${geo.totalDeposits.toLocaleString()}</span>
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {geo.topDepositors.map((user, index) => (
+                    <div
+                      key={user.telegramId}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+                          index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+                          index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                          index === 2 ? 'bg-orange-600/20 text-orange-600' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm">
+                            {user.username ? `@${user.username}` : user.fullName}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            ID: {user.telegramId}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-400 text-sm">
+                          ${user.totalDeposit.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   )

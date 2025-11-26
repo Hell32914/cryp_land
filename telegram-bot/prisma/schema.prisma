@@ -31,6 +31,7 @@ model User {
   isBlocked         Boolean       @default(false)
   isAdmin           Boolean       @default(false)
   role              String        @default("user")
+  comment           String?
   lastProfitUpdate  DateTime?
   referredBy        String?
   referralEarnings  Float         @default(0)
@@ -125,14 +126,19 @@ model Expense {
 }
 
 model MarketingLink {
-  id          Int      @id @default(autoincrement())
-  linkId      String   @unique
-  source      String
-  utmParams   String?
-  clicks      Int      @default(0)
-  conversions Int      @default(0)
-  revenue     Float    @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  linkId        String   @unique
+  source        String
+  utmParams     String?
+  clicks        Int      @default(0)
+  conversions   Int      @default(0)
+  revenue       Float    @default(0)
+  isActive      Boolean  @default(true)
+  trafficCost   Float    @default(0)
+  trafficerName String?
+  stream        String?
+  geo           String?
+  creative      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

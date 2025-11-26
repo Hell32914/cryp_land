@@ -200,6 +200,170 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Users Block */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Users by Balance</CardTitle>
+            <p className="text-sm text-muted-foreground">Highest balance holders</p>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-16 w-full animate-pulse rounded-md bg-muted/50" />
+                ))}
+              </div>
+            ) : data?.topUsers && data.topUsers.length > 0 ? (
+              <div className="space-y-3">
+                {data.topUsers.map((user, index) => (
+                  <div
+                    key={user.telegramId}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+                        index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+                        index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                        index === 2 ? 'bg-orange-600/20 text-orange-600' :
+                        'bg-muted text-muted-foreground'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium">
+                          {user.username ? `@${user.username}` : user.fullName}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ID: {user.telegramId}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-green-500">
+                        {formatCurrency(user.balance)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Total: {formatCurrency(user.totalDeposit)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No users yet
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Transaction Statistics Block */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Transaction Statistics</CardTitle>
+            <p className="text-sm text-muted-foreground">Deposits, Reinvest & Withdrawals</p>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
+            ) : data?.transactionStats ? (
+              <div className="space-y-6">
+                {/* Deposits */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <span className="font-medium">Deposits</span>
+                    </div>
+                    <span className="font-bold text-green-500">
+                      {formatCurrency(data.transactionStats.totalDeposits)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted/50 rounded-full h-2">
+                    <div 
+                      className="bg-green-500 h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${(data.transactionStats.totalDeposits / (data.transactionStats.totalDeposits + data.transactionStats.totalWithdrawals + data.transactionStats.totalReinvest)) * 100}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {data.transactionStats.depositsCount} transactions
+                  </div>
+                </div>
+
+                {/* Reinvest */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span className="font-medium">Reinvest</span>
+                    </div>
+                    <span className="font-bold text-blue-500">
+                      {formatCurrency(data.transactionStats.totalReinvest)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted/50 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${(data.transactionStats.totalReinvest / (data.transactionStats.totalDeposits + data.transactionStats.totalWithdrawals + data.transactionStats.totalReinvest)) * 100}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {data.transactionStats.reinvestCount} transactions
+                  </div>
+                </div>
+
+                {/* Withdrawals */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                      <span className="font-medium">Withdrawals</span>
+                    </div>
+                    <span className="font-bold text-orange-500">
+                      {formatCurrency(data.transactionStats.totalWithdrawals)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted/50 rounded-full h-2">
+                    <div 
+                      className="bg-orange-500 h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${(data.transactionStats.totalWithdrawals / (data.transactionStats.totalDeposits + data.transactionStats.totalWithdrawals + data.transactionStats.totalReinvest)) * 100}%` 
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {data.transactionStats.withdrawalsCount} transactions
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="pt-4 border-t border-border">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Net Flow</span>
+                    <span className={`font-bold ${
+                      (data.transactionStats.totalDeposits + data.transactionStats.totalReinvest - data.transactionStats.totalWithdrawals) >= 0 
+                        ? 'text-green-500' 
+                        : 'text-red-500'
+                    }`}>
+                      {formatCurrency(data.transactionStats.totalDeposits + data.transactionStats.totalReinvest - data.transactionStats.totalWithdrawals)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No transaction data
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

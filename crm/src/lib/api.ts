@@ -57,6 +57,15 @@ export interface GeoEntry {
   country: string
   userCount: number
   percentage: number
+  ftdCount: number
+  conversionRate: number
+  totalDeposits: number
+  topDepositors: Array<{
+    telegramId: string
+    username: string | null
+    fullName: string
+    totalDeposit: number
+  }>
 }
 
 export interface OverviewResponse {
@@ -64,6 +73,21 @@ export interface OverviewResponse {
   financialData: FinancialPoint[]
   geoData: GeoEntry[]
   generatedAt: string
+  topUsers: Array<{
+    telegramId: number
+    username: string | null
+    fullName: string
+    balance: number
+    totalDeposit: number
+  }>
+  transactionStats: {
+    totalDeposits: number
+    depositsCount: number
+    totalWithdrawals: number
+    withdrawalsCount: number
+    totalReinvest: number
+    reinvestCount: number
+  }
 }
 
 export interface UserRecord {
@@ -83,6 +107,18 @@ export interface UserRecord {
   role: string
   createdAt: string
   updatedAt: string
+  // New fields
+  comment: string | null
+  currentProfit: number
+  totalProfit: number
+  remainingBalance: number
+  referralCount: number
+  referredBy: string | null
+  withdrawalStatus: 'allowed' | 'blocked' | 'verification'
+  firstDepositAmount: number
+  languageCode: string | null
+  marketingSource: string | null
+  utmParams: string | null
 }
 
 export interface UsersResponse {
@@ -99,6 +135,10 @@ export interface DepositRecord {
   txHash?: string | null
   createdAt: string
   user: UserRecord
+  depStatus: 'processing' | 'paid'
+  leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active'
+  trafficSource: string | null
+  referralLink: string | null
 }
 
 export interface WithdrawalRecord {
@@ -148,10 +188,16 @@ export const adminLogin = async (username: string, password: string) =>
 export const fetchOverview = (token: string) =>
   request<OverviewResponse>('/api/admin/overview', {}, token)
 
-export const fetchUsers = (token: string, search?: string) => {
+export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc') => {
   const params = new URLSearchParams()
   if (search) {
     params.set('search', search)
+  }
+  if (sortBy) {
+    params.set('sortBy', sortBy)
+  }
+  if (sortOrder) {
+    params.set('sortOrder', sortOrder)
   }
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)
@@ -188,6 +234,23 @@ export interface MarketingLink {
   conversionRate: string
   isActive: boolean
   createdAt: string
+  // Extended metrics
+  ownerName?: string
+  linkName?: string
+  trafficerName?: string
+  stream?: string
+  geo?: string
+  creative?: string
+  leadsToday: number
+  leadsWeek: number
+  totalLeads: number
+  ftdCount: number
+  depositConversionRate: number
+  totalDeposits: number
+  totalDepositAmount: number
+  trafficCost: number
+  cfpd: number // Cost per First Deposit
+  roi: number // Return on Investment %
 }
 
 export interface MarketingSource {
@@ -202,7 +265,14 @@ export interface MarketingStatsResponse {
   links: MarketingLink[]
 }
 
-export const createMarketingLink = (token: string, data: { source: string; utmParams?: Record<string, string> }) =>
+export const createMarketingLink = (token: string, data: { 
+  source: string
+  utmParams?: Record<string, string>
+  trafficerName?: string
+  stream?: string
+  geo?: string
+  creative?: string
+}) =>
   request<MarketingLink>('/api/admin/marketing-links', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -223,6 +293,12 @@ export const toggleMarketingLink = (token: string, linkId: string, isActive: boo
 export const deleteMarketingLink = (token: string, linkId: string) =>
   request<{ success: boolean }>(`/api/admin/marketing-links/${linkId}`, {
     method: 'DELETE',
+  }, token)
+
+export const updateLinkTrafficCost = (token: string, linkId: string, trafficCost: number) =>
+  request<{ success: boolean; link: MarketingLink }>(`/api/admin/marketing-links/${linkId}/traffic-cost`, {
+    method: 'PATCH',
+    body: JSON.stringify({ trafficCost }),
   }, token)
 
 export const updateUserRole = (token: string, telegramId: string, role: string) =>

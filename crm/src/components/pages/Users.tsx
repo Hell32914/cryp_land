@@ -40,12 +40,27 @@ export function Users() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null)
+  const [sortBy, setSortBy] = useState('createdAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const { data, isLoading, isError } = useApiQuery(['users', debouncedSearch], (authToken) => fetchUsers(authToken, debouncedSearch), {
-    enabled: Boolean(token),
-  })
+  const { data, isLoading, isError } = useApiQuery(
+    ['users', debouncedSearch, sortBy, sortOrder], 
+    (authToken) => fetchUsers(authToken, debouncedSearch, sortBy, sortOrder), 
+    {
+      enabled: Boolean(token),
+    }
+  )
 
   const users = data?.users ?? []
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortOrder('desc')
+    }
+  }
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ telegramId, role }: { telegramId: string; role: string }) =>
@@ -118,33 +133,93 @@ export function Users() {
                   <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead>{t('users.id')}</TableHead>
-                    <TableHead>{t('users.userId')}</TableHead>
-                    <TableHead>{t('users.username')}</TableHead>
-                    <TableHead>{t('users.fullName')}</TableHead>
-                    <TableHead>{t('users.country')}</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>{t('users.status')}</TableHead>
-                    <TableHead className="text-right">{t('users.balance')}</TableHead>
-                    <TableHead className="text-right">{t('users.totalDeposit')}</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70"
+                      onClick={() => handleSort('id')}
+                    >
+                      ID {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead>User ID</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70"
+                      onClick={() => handleSort('username')}
+                    >
+                      Username {sortBy === 'username' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70"
+                      onClick={() => handleSort('country')}
+                    >
+                      Country {sortBy === 'country' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70 text-right"
+                      onClick={() => handleSort('balance')}
+                    >
+                      Balance {sortBy === 'balance' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70 text-right"
+                      onClick={() => handleSort('profit')}
+                    >
+                      Current Profit {sortBy === 'profit' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead className="text-right">Total Profit</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70 text-right"
+                      onClick={() => handleSort('totalDeposit')}
+                    >
+                      FTD {sortBy === 'totalDeposit' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70 text-right"
+                      onClick={() => handleSort('totalWithdraw')}
+                    >
+                      Withdrawals {sortBy === 'totalWithdraw' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead className="text-center">Referrals</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70"
+                      onClick={() => handleSort('status')}
+                    >
+                      Status {sortBy === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none hover:bg-muted/70"
+                      onClick={() => handleSort('createdAt')}
+                    >
+                      Registered {sortBy === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id} className="hover:bg-muted/30">
-                      <TableCell className="font-mono text-muted-foreground">{user.id}</TableCell>
-                      <TableCell className="font-mono">{user.telegramId}</TableCell>
-                      <TableCell className="font-medium">{user.username || '—'}</TableCell>
-                      <TableCell>{user.fullName}</TableCell>
-                      <TableCell>{user.country}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          user.role === 'admin' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                          user.role === 'support' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                          'bg-gray-500/10 text-gray-400 border-gray-500/20'
-                        }>
-                          {user.role || 'user'}
+                      <TableCell className="font-mono text-xs text-muted-foreground">{user.id}</TableCell>
+                      <TableCell className="font-mono text-xs">{user.telegramId}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        {user.username ? `@${user.username}` : user.fullName}
+                      </TableCell>
+                      <TableCell className="text-sm">{user.country}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        ${user.balance.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-cyan-400">
+                        ${user.currentProfit.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-green-400">
+                        ${user.totalProfit.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        ${user.firstDepositAmount > 0 ? user.firstDepositAmount.toFixed(2) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        ${user.totalWithdraw.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                          {user.referralCount}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -152,11 +227,8 @@ export function Users() {
                           {user.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
-                        ${user.balance.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        ${user.totalDeposit.toLocaleString()}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(user.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -164,7 +236,7 @@ export function Users() {
                           size="sm"
                           onClick={() => setSelectedUser(user)}
                         >
-                          {t('users.viewDetails')}
+                          View
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -182,69 +254,154 @@ export function Users() {
             <DialogTitle>{t('users.userDetails')}</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Comment Section */}
+              {selectedUser.comment && (
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <div className="text-xs text-blue-400 font-medium mb-1">Comment</div>
+                  <div className="text-sm text-blue-300">{selectedUser.comment}</div>
+                </div>
+              )}
+
+              {/* Main Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-muted-foreground">ID</div>
                   <div className="font-mono font-medium">{selectedUser.id}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.userId')}</div>
+                  <div className="text-sm text-muted-foreground">Telegram ID</div>
                   <div className="font-mono font-medium">{selectedUser.telegramId}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.username')}</div>
+                  <div className="text-sm text-muted-foreground">Username</div>
                   <div className="font-medium">{selectedUser.username || '—'}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.fullName')}</div>
+                  <div className="text-sm text-muted-foreground">Full Name</div>
                   <div className="font-medium">{selectedUser.fullName}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.country')}</div>
+                  <div className="text-sm text-muted-foreground">Country</div>
                   <div>{selectedUser.country}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.plan')}</div>
-                  <div className="font-medium">{selectedUser.plan}</div>
+                  <div className="text-sm text-muted-foreground">Language</div>
+                  <div>{selectedUser.languageCode?.toUpperCase() || '—'}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.status')}</div>
+                  <div className="text-sm text-muted-foreground">Status</div>
                   <Badge variant="outline" className={getStatusColor(selectedUser.status)}>
                     {selectedUser.status}
                   </Badge>
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">{t('users.balance')}</div>
-                  <div className="font-mono font-medium">${selectedUser.balance.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Profit</div>
-                  <div className="font-mono font-medium">${selectedUser.profit.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">{t('users.totalDeposit')}</div>
-                  <div className="font-mono font-medium">${selectedUser.totalDeposit.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Total Withdraw</div>
-                  <div className="font-mono font-medium">${selectedUser.totalWithdraw.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">KYC Required</div>
-                  <Badge variant="outline" className={selectedUser.kycRequired ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}>
-                    {selectedUser.kycRequired ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Blocked</div>
-                  <Badge variant="outline" className={selectedUser.isBlocked ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}>
-                    {selectedUser.isBlocked ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Created At</div>
+                  <div className="text-sm text-muted-foreground">Registration Date</div>
                   <div className="text-sm">{new Date(selectedUser.createdAt).toLocaleString()}</div>
+                </div>
+              </div>
+
+              {/* Financial Info */}
+              <div className="pt-4 border-t border-border">
+                <div className="text-sm font-medium mb-3">Financial Data</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Balance</div>
+                    <div className="font-mono font-medium text-lg">${selectedUser.balance.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Current Profit</div>
+                    <div className="font-mono font-medium text-lg text-cyan-400">${selectedUser.currentProfit.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Total Profit (Lifetime)</div>
+                    <div className="font-mono font-medium text-green-400">${selectedUser.totalProfit.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Remaining Balance</div>
+                    <div className="font-mono font-medium">${selectedUser.remainingBalance.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Total Deposits</div>
+                    <div className="font-mono font-medium">${selectedUser.totalDeposit.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">First Deposit (FTD)</div>
+                    <div className="font-mono font-medium text-yellow-400">
+                      ${selectedUser.firstDepositAmount > 0 ? selectedUser.firstDepositAmount.toFixed(2) : '0.00'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Total Withdrawals</div>
+                    <div className="font-mono font-medium">${selectedUser.totalWithdraw.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Withdrawal Status</div>
+                    <Badge variant="outline" className={
+                      selectedUser.withdrawalStatus === 'allowed' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                      selectedUser.withdrawalStatus === 'blocked' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                      'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                    }>
+                      {selectedUser.withdrawalStatus === 'allowed' ? '✓ Allowed' :
+                       selectedUser.withdrawalStatus === 'blocked' ? '✗ Blocked' :
+                       '⏳ Verification'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Referral Info */}
+              <div className="pt-4 border-t border-border">
+                <div className="text-sm font-medium mb-3">Referral Information</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Referrals Count</div>
+                    <div className="font-medium text-purple-400">{selectedUser.referralCount} users</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Referred By</div>
+                    <div className="font-medium">{selectedUser.referredBy || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Marketing Info */}
+              {(selectedUser.marketingSource || selectedUser.utmParams) && (
+                <div className="pt-4 border-t border-border">
+                  <div className="text-sm font-medium mb-3">Marketing Data</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedUser.marketingSource && (
+                      <div>
+                        <div className="text-sm text-muted-foreground">Traffic Source</div>
+                        <div className="font-medium">{selectedUser.marketingSource}</div>
+                      </div>
+                    )}
+                    {selectedUser.utmParams && (
+                      <div className="col-span-2">
+                        <div className="text-sm text-muted-foreground">UTM Parameters</div>
+                        <div className="text-xs font-mono bg-muted/30 p-2 rounded mt-1">{selectedUser.utmParams}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Security Info */}
+              <div className="pt-4 border-t border-border">
+                <div className="text-sm font-medium mb-3">Security & Access</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Blocked in Bot</div>
+                    <Badge variant="outline" className={selectedUser.isBlocked ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}>
+                      {selectedUser.isBlocked ? '✗ Yes' : '✓ No'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">KYC Required</div>
+                    <Badge variant="outline" className={selectedUser.kycRequired ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}>
+                      {selectedUser.kycRequired ? 'Yes' : 'No'}
+                    </Badge>
+                  </div>
                 </div>
               </div>
 

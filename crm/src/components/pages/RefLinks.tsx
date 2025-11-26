@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TrendUp, Users, Wallet, ChartLine } from '@phosphor-icons/react'
+import { PencilSimple, CheckCircle, XCircle } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -10,35 +10,58 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
-import { fetchMarketingStats, type MarketingSource } from '@/lib/api'
+import { fetchMarketingLinks, updateLinkTrafficCost, type MarketingLink } from '@/lib/api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export function RefLinks() {
   const { t } = useTranslation()
   const { token } = useAuth()
-  const [sources, setSources] = useState<MarketingSource[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null)
+  const [editCost, setEditCost] = useState('')
 
-  useEffect(() => {
-    loadStats()
-  }, [])
+  const { data, isLoading } = useQuery({
+    queryKey: ['marketing-links', token],
+    queryFn: () => fetchMarketingLinks(token!),
+    enabled: !!token,
+  })
 
-  const loadStats = async () => {
-    if (!token) return
-    
-    try {
-      const data = await fetchMarketingStats(token)
-      setSources(data.sources)
-    } catch (error) {
-      console.error('Failed to load marketing stats:', error)
-    } finally {
-      setLoading(false)
+  const updateCostMutation = useMutation({
+    mutationFn: ({ linkId, cost }: { linkId: string; cost: number }) =>
+      updateLinkTrafficCost(token!, linkId, cost),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['marketing-links'] })
+      setEditingLinkId(null)
+      setEditCost('')
+    },
+  })
+
+  const handleEditCost = (link: MarketingLink) => {
+    setEditingLinkId(link.linkId)
+    setEditCost(link.trafficCost.toString())
+  }
+
+  const handleSaveCost = (linkId: string) => {
+    const cost = parseFloat(editCost)
+    if (!isNaN(cost) && cost >= 0) {
+      updateCostMutation.mutate({ linkId, cost })
     }
   }
 
-  const totalUsers = sources.reduce((sum, s) => sum + s.users, 0)
-  const totalDeposits = sources.reduce((sum, s) => sum + s.deposits, 0)
-  const totalRevenue = sources.reduce((sum, s) => sum + s.revenue, 0)
+  const handleCancelEdit = () => {
+    setEditingLinkId(null)
+    setEditCost('')
+  }
+
+  const links = data?.links || []
+
+  const formatPercent = (val: number) => `${val.toFixed(2)}%`
+  const formatMoney = (val: number) => `$${val.toFixed(2)}`
+  const formatDate = (date: Date) => new Date(date).toLocaleDateString('en-GB')
 
   return (
     <div className="space-y-6">
@@ -46,79 +69,145 @@ export function RefLinks() {
         <h1 className="text-3xl font-semibold tracking-tight">{t('refLinks.title')}</h1>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers}</div>
-            <p className="text-xs text-muted-foreground">From marketing campaigns</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Deposits</CardTitle>
-            <ChartLine className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalDeposits}</div>
-            <p className="text-xs text-muted-foreground">Completed deposits</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">From marketing sources</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Sources Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Marketing Sources Performance</CardTitle>
+          <CardTitle>Referral Links Performance</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          ) : sources.length === 0 ? (
+          ) : links.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No marketing data yet. Create links in <strong>Link Builder</strong>.
+              No referral links yet. Create links in <strong>Link Builder</strong>.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="text-right">Users</TableHead>
-                  <TableHead className="text-right">Deposits</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="text-right">Avg per User</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sources.map((source) => (
-                  <TableRow key={source.source}>
-                    <TableCell className="font-medium capitalize">{source.source}</TableCell>
-                    <TableCell className="text-right">{source.users}</TableCell>
-                    <TableCell className="text-right">{source.deposits}</TableCell>
-                    <TableCell className="text-right">${source.revenue.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">
-                      ${(source.revenue / source.users).toFixed(2)}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Trafficker</TableHead>
+                    <TableHead>Link ID</TableHead>
+                    <TableHead>Stream</TableHead>
+                    <TableHead>Geo</TableHead>
+                    <TableHead>Creative</TableHead>
+                    <TableHead className="text-right">Today</TableHead>
+                    <TableHead className="text-right">Week</TableHead>
+                    <TableHead className="text-right">Total Leads</TableHead>
+                    <TableHead className="text-right">FTD</TableHead>
+                    <TableHead className="text-right">CR %</TableHead>
+                    <TableHead className="text-right">Deps</TableHead>
+                    <TableHead className="text-right">Dep Amount</TableHead>
+                    <TableHead className="text-right">Traffic Cost</TableHead>
+                    <TableHead className="text-right">CFPD</TableHead>
+                    <TableHead className="text-right">ROI %</TableHead>
+                    <TableHead>Created</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {links.map((link) => (
+                    <TableRow key={link.linkId}>
+                      <TableCell className="font-medium text-blue-400">
+                        {link.trafficerName || 'Unknown'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {link.linkId}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-purple-400">
+                        {link.stream || '-'}
+                      </TableCell>
+                      <TableCell className="text-green-400">
+                        {link.geo || '-'}
+                      </TableCell>
+                      <TableCell className="text-orange-400">
+                        {link.creative || '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-blue-400">{link.leadsToday}</TableCell>
+                      <TableCell className="text-right text-cyan-400">{link.leadsWeek}</TableCell>
+                      <TableCell className="text-right font-semibold">{link.totalLeads}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
+                          {link.ftdCount}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="secondary" className="bg-green-500/20 text-green-400">
+                          {formatPercent(link.depositConversionRate)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{link.totalDeposits}</TableCell>
+                      <TableCell className="text-right text-cyan-400 font-semibold">
+                        {formatMoney(link.totalDepositAmount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {editingLinkId === link.linkId ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              value={editCost}
+                              onChange={(e) => setEditCost(e.target.value)}
+                              className="w-20 h-7 text-xs"
+                              step="0.01"
+                              min="0"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={() => handleSaveCost(link.linkId)}
+                            >
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={handleCancelEdit}
+                            >
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-orange-400">{formatMoney(link.trafficCost)}</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleEditCost(link)}
+                            >
+                              <PencilSimple className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-purple-400">
+                        {link.cfpd > 0 ? formatMoney(link.cfpd) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant="secondary"
+                          className={
+                            link.roi > 0
+                              ? 'bg-green-500/20 text-green-400'
+                              : link.roi < 0
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'bg-gray-500/20 text-gray-400'
+                          }
+                        >
+                          {link.roi > 0 ? '+' : ''}
+                          {formatPercent(link.roi)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDate(link.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

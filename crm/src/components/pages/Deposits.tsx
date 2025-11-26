@@ -70,34 +70,53 @@ export function Deposits() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead>{t('deposits.orderId')}</TableHead>
-                  <TableHead>{t('deposits.userId')}</TableHead>
-                  <TableHead>{t('deposits.username')}</TableHead>
-                  <TableHead>{t('deposits.fullName')}</TableHead>
-                  <TableHead className="text-right">{t('deposits.amount')}</TableHead>
-                  <TableHead>{t('deposits.country')}</TableHead>
-                  <TableHead>{t('deposits.leadStatus')}</TableHead>
-                  <TableHead>{t('deposits.subId')}</TableHead>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>User ID</TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Full Name</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Country</TableHead>
+                  <TableHead>Dep Status</TableHead>
+                  <TableHead>Lead Status</TableHead>
+                  <TableHead>Traffic Source</TableHead>
+                  <TableHead>Referral Link</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredDeposits.map((deposit) => (
                   <TableRow key={deposit.id} className="hover:bg-muted/30">
-                    <TableCell className="font-mono">#{deposit.id}</TableCell>
-                    <TableCell className="font-mono text-muted-foreground">{deposit.user.telegramId}</TableCell>
-                    <TableCell className="font-medium">{deposit.user.username || 'N/A'}</TableCell>
-                    <TableCell>{deposit.user.fullName}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-green-500">
-                      ${deposit.amount.toLocaleString()}
+                    <TableCell className="font-mono text-sm">#{deposit.id}</TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">{deposit.user.telegramId}</TableCell>
+                    <TableCell className="font-medium text-sm">{deposit.user.username || 'N/A'}</TableCell>
+                    <TableCell className="text-sm">{deposit.user.fullName}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
+                      ${deposit.amount.toFixed(2)}
                     </TableCell>
-                    <TableCell>{deposit.user.country}</TableCell>
+                    <TableCell className="text-sm">{deposit.user.country}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getStatusColor(deposit.status)}>
-                        {deposit.status}
+                      <Badge variant="outline" className={
+                        deposit.depStatus === 'paid' 
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                          : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                      }>
+                        {deposit.depStatus}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {deposit.currency}/{deposit.network}
+                    <TableCell>
+                      <Badge variant="outline" className={
+                        deposit.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                        deposit.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                        deposit.leadStatus === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                        'bg-green-500/10 text-green-400 border-green-500/20'
+                      }>
+                        {deposit.leadStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {deposit.trafficSource || '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono max-w-[200px] truncate" title={deposit.referralLink || ''}>
+                      {deposit.referralLink || '—'}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -236,14 +236,140 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       limitedGeo.push({ country: 'Others', userCount: remaining })
     }
 
-    const geoData = limitedGeo.map((entry) => ({
-      country: entry.country,
-      userCount: entry.userCount,
-      percentage:
-        totalGeoUsers === 0
-          ? 0
-          : Number(((entry.userCount / totalGeoUsers) * 100).toFixed(1)),
+    // Calculate extended geo metrics
+    const geoDataPromises = limitedGeo.map(async (entry) => {
+      if (entry.country === 'Others') {
+        return {
+          country: entry.country,
+          userCount: entry.userCount,
+          percentage: totalGeoUsers === 0 ? 0 : Number(((entry.userCount / totalGeoUsers) * 100).toFixed(1)),
+          ftdCount: 0,
+          conversionRate: 0,
+          totalDeposits: 0,
+          topDepositors: [],
+        }
+      }
+
+      // Get users from this country with completed deposits (FTD)
+      const usersWithDeposits = await prisma.user.findMany({
+        where: {
+          country: entry.country,
+          deposits: {
+            some: {
+              status: 'COMPLETED',
+            },
+          },
+        },
+        select: {
+          id: true,
+          telegramId: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+          totalDeposit: true,
+        },
+        orderBy: {
+          totalDeposit: 'desc',
+        },
+        take: 5,
+      })
+
+      const ftdCount = usersWithDeposits.length
+      const conversionRate = entry.userCount > 0 ? Number(((ftdCount / entry.userCount) * 100).toFixed(1)) : 0
+
+      // Get total deposits for this country
+      const depositsAgg = await prisma.deposit.aggregate({
+        where: {
+          status: 'COMPLETED',
+          user: {
+            country: entry.country,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      })
+
+      const topDepositors = usersWithDeposits.map(user => ({
+        telegramId: user.telegramId,
+        username: user.username,
+        fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
+        totalDeposit: user.totalDeposit,
+      }))
+
+      return {
+        country: entry.country,
+        userCount: entry.userCount,
+        percentage: totalGeoUsers === 0 ? 0 : Number(((entry.userCount / totalGeoUsers) * 100).toFixed(1)),
+        ftdCount,
+        conversionRate,
+        totalDeposits: Number(depositsAgg._sum.amount ?? 0),
+        topDepositors,
+      }
+    })
+
+    const geoData = await Promise.all(geoDataPromises)
+
+    // Get top 5 users by balance
+    const topUsersByBalance = await prisma.user.findMany({
+      orderBy: { balance: 'desc' },
+      take: 5,
+      select: {
+        telegramId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        balance: true,
+        totalDeposit: true,
+      },
+    })
+
+    const topUsers = topUsersByBalance.map(user => ({
+      telegramId: Number(user.telegramId),
+      username: user.username,
+      fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
+      balance: user.balance,
+      totalDeposit: user.totalDeposit,
     }))
+
+    // Transaction statistics
+    const [
+      allDepositsAgg,
+      allWithdrawalsAgg,
+      depositsCount,
+      withdrawalsCount,
+      allProfitsAgg,
+      profitsCount,
+    ] = await Promise.all([
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: { status: 'COMPLETED' },
+      }),
+      prisma.withdrawal.aggregate({
+        _sum: { amount: true },
+        where: { status: 'COMPLETED' },
+      }),
+      prisma.deposit.count({
+        where: { status: 'COMPLETED' },
+      }),
+      prisma.withdrawal.count({
+        where: { status: 'COMPLETED' },
+      }),
+      prisma.dailyProfitUpdate.aggregate({
+        _sum: { amount: true },
+      }),
+      prisma.dailyProfitUpdate.count(),
+    ])
+
+    // Reinvest is calculated as total profit generated
+    const transactionStats = {
+      totalDeposits: Number(allDepositsAgg._sum.amount ?? 0),
+      depositsCount,
+      totalWithdrawals: Number(allWithdrawalsAgg._sum.amount ?? 0),
+      withdrawalsCount,
+      totalReinvest: Number(allProfitsAgg._sum.amount ?? 0),
+      reinvestCount: profitsCount,
+    }
 
     return res.json({
       kpis: {
@@ -255,6 +381,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       },
       financialData: Array.from(seriesMap.values()),
       geoData,
+      topUsers,
+      transactionStats,
       generatedAt: now.toISOString(),
     })
   } catch (error) {
@@ -277,13 +405,26 @@ const mapUserSummary = (user: any) => ({
   totalWithdraw: user.totalWithdraw,
   kycRequired: user.kycRequired,
   isBlocked: user.isBlocked,
+  role: user.role || 'user',
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
+  // New fields
+  comment: user.comment || null,
+  currentProfit: user.profit, // Current profit balance
+  totalProfit: user.totalProfit || 0, // Lifetime profit
+  remainingBalance: user.balance - user.totalWithdraw,
+  referralCount: user.referralCount || 0,
+  referredBy: user.referredBy || null,
+  withdrawalStatus: user.kycRequired ? 'verification' : (user.isBlocked ? 'blocked' : 'allowed'),
+  firstDepositAmount: user.firstDepositAmount || 0,
+  languageCode: user.languageCode || null,
+  marketingSource: user.marketingSource || null,
+  utmParams: user.utmParams || null,
 })
 
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   try {
-    const { search = '', limit = '100' } = req.query
+    const { search = '', limit = '100', sortBy = 'createdAt', sortOrder = 'desc' } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 100, 500)
 
     const searchValue = String(search).trim()
@@ -299,15 +440,43 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         }
       : undefined
 
+    // Get users with referral counts and first deposit amounts
     const users = await prisma.user.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { [String(sortBy)]: sortOrder === 'asc' ? 'asc' : 'desc' },
       take,
+      include: {
+        referrals: {
+          select: { id: true },
+        },
+        deposits: {
+          where: { status: 'COMPLETED' },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+          select: { amount: true },
+        },
+        dailyUpdates: {
+          select: { amount: true },
+        },
+      },
+    })
+
+    // Calculate additional fields
+    const enrichedUsers = users.map(user => {
+      const firstDeposit = user.deposits[0]
+      const totalProfit = user.dailyUpdates.reduce((sum, update) => sum + update.amount, 0)
+      
+      return {
+        ...user,
+        referralCount: user.referrals.length,
+        firstDepositAmount: firstDeposit?.amount || 0,
+        totalProfit,
+      }
     })
 
     return res.json({
-      users: users.map(mapUserSummary),
-      count: users.length,
+      users: enrichedUsers.map(mapUserSummary),
+      count: enrichedUsers.length,
     })
   } catch (error) {
     console.error('Admin users error:', error)
@@ -326,21 +495,57 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
             status: String(status).toUpperCase(),
           }
         : undefined,
-      include: { user: true },
+      include: { 
+        user: {
+          include: {
+            withdrawals: {
+              where: { status: 'COMPLETED' },
+              select: { id: true },
+            },
+            dailyUpdates: {
+              select: { id: true },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take,
     })
 
-    const payload = deposits.map((deposit) => ({
-      id: deposit.id,
-      status: deposit.status,
-      amount: deposit.amount,
-      currency: deposit.currency,
-      network: deposit.network,
-      txHash: deposit.txHash,
-      createdAt: deposit.createdAt,
-      user: mapUserSummary(deposit.user),
-    }))
+    const payload = deposits.map((deposit) => {
+      // Determine depStatus based on deposit status
+      const depStatus = deposit.status === 'COMPLETED' ? 'paid' : 'processing'
+      
+      // Determine leadStatus
+      let leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active' = 'active'
+      
+      // Check if this is first deposit
+      const userDeposits = deposits.filter(d => d.user.telegramId === deposit.user.telegramId && d.status === 'COMPLETED')
+      const isFirstDeposit = userDeposits.length > 0 && userDeposits[0].id === deposit.id
+      
+      if (isFirstDeposit) {
+        leadStatus = 'FTD'
+      } else if (deposit.user.withdrawals.length > 0) {
+        leadStatus = 'withdraw'
+      } else if (deposit.user.dailyUpdates.length > 0) {
+        leadStatus = 'reinvest'
+      }
+
+      return {
+        id: deposit.id,
+        status: deposit.status,
+        amount: deposit.amount,
+        currency: deposit.currency,
+        network: deposit.network,
+        txHash: deposit.txHash,
+        createdAt: deposit.createdAt,
+        user: mapUserSummary(deposit.user),
+        depStatus,
+        leadStatus,
+        trafficSource: deposit.user.marketingSource,
+        referralLink: deposit.user.utmParams,
+      }
+    })
 
     return res.json({ deposits: payload })
   } catch (error) {
@@ -1382,7 +1587,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
 // Create marketing link
 app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
   try {
-    const { source, utmParams } = req.body
+    const { source, utmParams, trafficerName, stream, geo, creative } = req.body
     
     if (!source) {
       return res.status(400).json({ error: 'Source is required' })
@@ -1395,7 +1600,11 @@ app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
       data: {
         linkId,
         source,
-        utmParams: utmParams ? JSON.stringify(utmParams) : null
+        utmParams: utmParams ? JSON.stringify(utmParams) : null,
+        trafficerName: trafficerName || null,
+        stream: stream || null,
+        geo: geo || null,
+        creative: creative || null
       }
     })
     
@@ -1413,7 +1622,86 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       orderBy: { createdAt: 'desc' }
     })
     
-    return res.json({ links })
+    const now = new Date()
+    const startOfToday = new Date(now)
+    startOfToday.setHours(0, 0, 0, 0)
+    
+    const startOfWeek = new Date(now)
+    startOfWeek.setDate(now.getDate() - 7)
+    startOfWeek.setHours(0, 0, 0, 0)
+    
+    // Calculate metrics for each link
+    const enrichedLinks = await Promise.all(links.map(async (link) => {
+      // Get users from this link (by source or utmParams)
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            { marketingSource: link.source },
+            { utmParams: { contains: link.linkId } }
+          ]
+        },
+        include: {
+          deposits: {
+            where: { status: 'COMPLETED' }
+          }
+        }
+      })
+      
+      // Total leads
+      const totalLeads = users.length
+      
+      // Leads today
+      const leadsToday = users.filter(u => u.createdAt >= startOfToday).length
+      
+      // Leads this week
+      const leadsWeek = users.filter(u => u.createdAt >= startOfWeek).length
+      
+      // Users with first deposit (FTD)
+      const usersWithDeposits = users.filter(u => u.deposits.length > 0)
+      const ftdCount = usersWithDeposits.length
+      
+      // Total deposits count and amount
+      const allDeposits = users.flatMap(u => u.deposits)
+      const totalDeposits = allDeposits.length
+      const totalDepositAmount = allDeposits.reduce((sum, d) => sum + d.amount, 0)
+      
+      // Deposit conversion rate (FTD / Total Leads * 100)
+      const depositConversionRate = totalLeads > 0 ? Number(((ftdCount / totalLeads) * 100).toFixed(2)) : 0
+      
+      // CFPD (Cost per First Deposit)
+      const cfpd = ftdCount > 0 ? Number((link.trafficCost / ftdCount).toFixed(2)) : 0
+      
+      // ROI (Return on Investment)
+      const roi = link.trafficCost > 0 ? Number((((totalDepositAmount - link.trafficCost) / link.trafficCost) * 100).toFixed(2)) : 0
+      
+      return {
+        linkId: link.linkId,
+        source: link.source,
+        clicks: link.clicks,
+        conversions: link.conversions,
+        conversionRate: link.clicks > 0 ? ((link.conversions / link.clicks) * 100).toFixed(2) : '0.00',
+        isActive: link.isActive,
+        createdAt: link.createdAt.toISOString(),
+        ownerName: link.trafficerName || 'Unknown',
+        linkName: link.source,
+        trafficerName: link.trafficerName,
+        stream: link.stream,
+        geo: link.geo,
+        creative: link.creative,
+        leadsToday,
+        leadsWeek,
+        totalLeads,
+        ftdCount,
+        depositConversionRate,
+        totalDeposits,
+        totalDepositAmount,
+        trafficCost: link.trafficCost,
+        cfpd,
+        roi
+      }
+    }))
+    
+    return res.json({ links: enrichedLinks })
   } catch (error) {
     console.error('Get marketing links error:', error)
     return res.status(500).json({ error: 'Failed to load marketing links' })
@@ -1432,56 +1720,31 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
         deposits: true
       }
     })
-    
-    // Group by source
-    const statsBySource = new Map<string, {
-      source: string
-      users: number
-      deposits: number
-      revenue: number
-    }>()
-    
-    users.forEach(user => {
-      const source = user.marketingSource || 'unknown'
-      
-      if (!statsBySource.has(source)) {
-        statsBySource.set(source, {
-          source,
-          users: 0,
-          deposits: 0,
-          revenue: 0
-        })
-      }
-      
-      const stats = statsBySource.get(source)!
-      stats.users++
-      
-      user.deposits.forEach(deposit => {
-        if (deposit.status === 'COMPLETED') {
-          stats.deposits++
-          stats.revenue += deposit.amount
-        }
-      })
-    })
-    
-    // Get marketing links stats
-    const links = await prisma.marketingLink.findMany()
-    
-    return res.json({
-      sources: Array.from(statsBySource.values()),
-      links: links.map(link => ({
-        linkId: link.linkId,
-        source: link.source,
-        clicks: link.clicks,
-        conversions: link.conversions,
-        conversionRate: link.clicks > 0 ? ((link.conversions / link.clicks) * 100).toFixed(2) : '0.00',
-        isActive: link.isActive,
-        createdAt: link.createdAt
-      }))
-    })
   } catch (error) {
     console.error('Get marketing stats error:', error)
     return res.status(500).json({ error: 'Failed to load marketing stats' })
+  }
+})
+
+// Update marketing link traffic cost
+app.patch('/api/admin/marketing-links/:linkId/traffic-cost', async (req, res) => {
+  try {
+    const { linkId } = req.params
+    const { trafficCost } = req.body
+
+    if (typeof trafficCost !== 'number' || trafficCost < 0) {
+      return res.status(400).json({ error: 'Invalid traffic cost value' })
+    }
+
+    const link = await prisma.marketingLink.update({
+      where: { linkId },
+      data: { trafficCost }
+    })
+
+    return res.json({ success: true, link })
+  } catch (error) {
+    console.error('Update traffic cost error:', error)
+    return res.status(500).json({ error: 'Failed to update traffic cost' })
   }
 })
 
