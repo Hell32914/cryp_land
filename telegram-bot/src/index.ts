@@ -46,7 +46,8 @@ bot.use(async (ctx, next) => {
   if (user?.isBlocked) {
     // Only respond to /start command with block message, ignore everything else
     if (ctx.message?.text === '/start') {
-      await ctx.reply('⛔️ Your account has been blocked. Please contact support if you believe this is a mistake.')\n    }
+      await ctx.reply('⛔️ Your account has been blocked. Please contact support if you believe this is a mistake.')
+    }
     return // Don't process any further
   }
   
