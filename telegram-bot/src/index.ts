@@ -953,7 +953,7 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
   await safeEditMessage(ctx, 
     `💰 *Add Balance*\n\n` +
     `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
-    `Current Balance: $${user.balance.toFixed(2)}\n\n` +
+    `Current Deposit: $${user.totalDeposit.toFixed(2)}\n\n` +
     `Please reply with the amount to add (e.g., 100):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
@@ -984,7 +984,7 @@ bot.callbackQuery(/^withdraw_balance_(\d+)$/, async (ctx) => {
   await safeEditMessage(ctx, 
     `💸 *Withdraw Balance*\n\n` +
     `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
-    `Current Balance: $${user.balance.toFixed(2)}\n\n` +
+    `Current Deposit: $${user.totalDeposit.toFixed(2)}\n\n` +
     `Please reply with the amount to withdraw (e.g., 50):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
