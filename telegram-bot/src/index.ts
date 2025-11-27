@@ -524,7 +524,7 @@ bot.command('admin', async (ctx) => {
   const usersCount = await prisma.user.count()
   const depositsCount = await prisma.deposit.count()
   const withdrawalsCount = await prisma.withdrawal.count()
-  const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: 'PENDING' } })
+  const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } })
 
   const keyboard = new InlineKeyboard()
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
@@ -696,7 +696,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   const usersCount = await prisma.user.count()
   const depositsCount = await prisma.deposit.count()
   const withdrawalsCount = await prisma.withdrawal.count()
-  const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: 'PENDING' } })
+  const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } })
 
   const keyboard = new InlineKeyboard()
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
@@ -1651,7 +1651,7 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
-// Pending withdrawals
+// Pending withdrawals (includes PENDING and PROCESSING)
 bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
@@ -1660,7 +1660,7 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   }
 
   const pendingWithdrawals = await prisma.withdrawal.findMany({
-    where: { status: 'PENDING' },
+    where: { status: { in: ['PENDING', 'PROCESSING'] } },
     include: { user: true },
     orderBy: { createdAt: 'desc' },
     take: 20
@@ -1678,11 +1678,12 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   
   pendingWithdrawals.forEach((withdrawal, index) => {
     const username = (withdrawal.user.username || 'no_username').replace(/_/g, '\\_')
-    message += `${index + 1}. @${username}\n`
+    const statusEmoji = withdrawal.status === 'PROCESSING' ? '🔄' : '⏳'
+    message += `${index + 1}. @${username} ${statusEmoji}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | 💎 ${withdrawal.currency}\n`
     message += `   🌐 ${withdrawal.network || 'TRC20'}\n`
     message += `   📍 \`${withdrawal.address.substring(0, 20)}...\`\n`
-    message += `   🆔 ID: ${withdrawal.id}\n`
+    message += `   🆔 ID: ${withdrawal.id} | Status: ${withdrawal.status}\n`
     message += `   📅 ${withdrawal.createdAt.toLocaleString()}\n\n`
   })
 
