@@ -282,11 +282,12 @@ export async function getPayoutBalance(): Promise<any> {
 
   try {
     const response = await axios.post(
-      'https://api.oxapay.com/v1/payout/balance',
-      {},
+      'https://api.oxapay.com/api/balance',
+      {
+        key: OXAPAY_PAYOUT_API_KEY
+      },
       {
         headers: {
-          'payout_api_key': OXAPAY_PAYOUT_API_KEY,
           'Content-Type': 'application/json'
         }
       }
