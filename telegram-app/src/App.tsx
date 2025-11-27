@@ -471,27 +471,14 @@ function App() {
   }
 
   // Show blocked state
-  if (userData?.isBlocked) {
+  if (userProfile.isBlocked) {
     return (
       <>
         <AnimatedBackground />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
           <div className="text-center space-y-4 max-w-md">
             <div className="text-destructive text-6xl">⛔️</div>
-            <h2 className="text-2xl font-bold text-foreground">Account Blocked</h2>
-            <p className="text-foreground/70">
-              Your account has been blocked. If you believe this is a mistake, please contact our support team.
-            </p>
-            <a 
-              href="https://t.me/SyntrixSupport" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-block"
-            >
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-                Contact Support
-              </Button>
-            </a>
+            <h2 className="text-2xl font-bold text-foreground">You are blocked</h2>
           </div>
         </div>
       </>
