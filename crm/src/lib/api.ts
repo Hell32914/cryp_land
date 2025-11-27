@@ -267,6 +267,8 @@ export interface MarketingLink {
   depositConversionRate: number
   totalDeposits: number
   totalDepositAmount: number
+  totalWithdrawalAmount: number
+  totalProfit: number
   trafficCost: number
   cfpd: number // Cost per First Deposit
   roi: number // Return on Investment %

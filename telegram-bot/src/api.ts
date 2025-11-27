@@ -1812,6 +1812,9 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         include: {
           deposits: {
             where: { status: 'COMPLETED' }
+          },
+          withdrawals: {
+            where: { status: 'COMPLETED' }
           }
         }
       })
@@ -1834,14 +1837,22 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       const totalDeposits = allDeposits.length
       const totalDepositAmount = allDeposits.reduce((sum, d) => sum + d.amount, 0)
       
+      // Total withdrawals amount
+      const allWithdrawals = users.flatMap(u => u.withdrawals)
+      const totalWithdrawalAmount = allWithdrawals.reduce((sum, w) => sum + w.amount, 0)
+      
+      // Total profit (sum of user profits)
+      const totalProfit = users.reduce((sum, u) => sum + u.profit, 0)
+      
       // Deposit conversion rate (FTD / Total Leads * 100)
       const depositConversionRate = totalLeads > 0 ? Number(((ftdCount / totalLeads) * 100).toFixed(2)) : 0
       
       // CFPD (Cost per First Deposit)
       const cfpd = ftdCount > 0 ? Number((link.trafficCost / ftdCount).toFixed(2)) : 0
       
-      // ROI (Return on Investment)
-      const roi = link.trafficCost > 0 ? Number((((totalDepositAmount - link.trafficCost) / link.trafficCost) * 100).toFixed(2)) : 0
+      // ROI based on Profit vs Traffic Cost: (Profit - Cost) / Cost * 100
+      // If no traffic cost, show 0
+      const roi = link.trafficCost > 0 ? Number((((totalProfit - link.trafficCost) / link.trafficCost) * 100).toFixed(2)) : 0
       
       return {
         linkId: link.linkId,
@@ -1864,6 +1875,8 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         depositConversionRate,
         totalDeposits,
         totalDepositAmount,
+        totalWithdrawalAmount,
+        totalProfit,
         trafficCost: link.trafficCost,
         cfpd,
         roi

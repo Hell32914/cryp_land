@@ -97,6 +97,8 @@ export function RefLinks() {
                     <TableHead className="text-right">CR %</TableHead>
                     <TableHead className="text-right">Deps</TableHead>
                     <TableHead className="text-right">Dep Amount</TableHead>
+                    <TableHead className="text-right">Withdrawals</TableHead>
+                    <TableHead className="text-right">Profit</TableHead>
                     <TableHead className="text-right">Traffic Cost</TableHead>
                     <TableHead className="text-right">CFPD</TableHead>
                     <TableHead className="text-right">ROI %</TableHead>
@@ -140,6 +142,12 @@ export function RefLinks() {
                       <TableCell className="text-right text-cyan-400 font-semibold">
                         {formatMoney(link.totalDepositAmount)}
                       </TableCell>
+                      <TableCell className="text-right text-orange-400 font-semibold">
+                        {formatMoney(link.totalWithdrawalAmount || 0)}
+                      </TableCell>
+                      <TableCell className="text-right text-purple-400 font-semibold">
+                        {formatMoney(link.totalProfit || 0)}
+                      </TableCell>
                       <TableCell className="text-right">
                         {editingLinkId === link.linkId ? (
                           <div className="flex items-center gap-1">
@@ -170,7 +178,7 @@ export function RefLinks() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-2">
-                            <span className="text-orange-400">{formatMoney(link.trafficCost)}</span>
+                            <span className="text-red-400">{formatMoney(link.trafficCost)}</span>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -182,7 +190,7 @@ export function RefLinks() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-right text-purple-400">
+                      <TableCell className="text-right text-yellow-400">
                         {link.cfpd > 0 ? formatMoney(link.cfpd) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
