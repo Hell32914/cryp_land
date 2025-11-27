@@ -867,8 +867,8 @@ app.get('/api/user/:telegramId', async (req, res) => {
       if (country) user.country = country
     }
 
-    // Calculate plan progress
-    const planProgress = calculatePlanProgress(user.balance)
+    // Calculate plan progress based on totalDeposit (working balance)
+    const planProgress = calculatePlanProgress(user.totalDeposit)
 
     res.json({
       id: user.telegramId,
@@ -962,7 +962,7 @@ app.post('/api/user/:telegramId/reinvest', async (req, res) => {
         balance: user.balance + profitAmount,
         totalDeposit: user.totalDeposit + profitAmount,
         profit: 0,
-        plan: calculatePlanProgress(user.balance + profitAmount).currentPlan
+        plan: calculatePlanProgress(user.totalDeposit + profitAmount).currentPlan
       }
     })
 
@@ -1075,7 +1075,7 @@ app.post('/api/user/:telegramId/referral-reinvest', async (req, res) => {
         balance: user.balance + referralAmount,
         totalDeposit: user.totalDeposit + referralAmount,
         referralEarnings: 0,
-        plan: calculatePlanProgress(user.balance + referralAmount).currentPlan
+        plan: calculatePlanProgress(user.totalDeposit + referralAmount).currentPlan
       }
     })
 

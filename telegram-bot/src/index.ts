@@ -294,12 +294,12 @@ async function createReferralChain(user: any) {
   }
 }
 
-// Update user plan based on balance
+// Update user plan based on totalDeposit (working balance)
 async function updateUserPlan(userId: number) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) return
 
-  const planInfo = calculateTariffPlan(user.balance)
+  const planInfo = calculateTariffPlan(user.totalDeposit)
   
   if (user.plan !== planInfo.currentPlan) {
     await prisma.user.update({
@@ -2173,13 +2173,13 @@ async function accrueDailyProfit() {
     const users = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
-        balance: { gt: 0 }
+        totalDeposit: { gt: 0 }
       }
     })
 
     for (const user of users) {
-      const planInfo = calculateTariffPlan(user.balance)
-      const dailyProfit = (user.balance * planInfo.dailyPercent) / 100
+      const planInfo = calculateTariffPlan(user.totalDeposit)
+      const dailyProfit = (user.totalDeposit * planInfo.dailyPercent) / 100
 
       await prisma.user.update({
         where: { id: user.id },
@@ -2341,7 +2341,7 @@ async function sendScheduledNotifications() {
     
     for (const update of pendingUpdates) {
       try {
-        const planInfo = calculateTariffPlan(update.user.balance)
+        const planInfo = calculateTariffPlan(update.user.totalDeposit)
         
         await bot.api.sendMessage(
           update.user.telegramId,
