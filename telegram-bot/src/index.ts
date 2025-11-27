@@ -1255,12 +1255,11 @@ bot.on('message:text', async (ctx) => {
 
       const newBalance = currentUser.balance - amount
 
-      // Update balance and totalDeposit
+      // Update balance only (не трогаем totalDeposit - это только сумма пополнений)
       const user = await prisma.user.update({
         where: { id: targetUserId },
         data: {
-          balance: { decrement: amount },
-          totalDeposit: { decrement: amount }
+          balance: { decrement: amount }
         }
       })
 
@@ -1970,15 +1969,16 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           network: withdrawal.network || 'TRC20'
         })
 
-        // Update withdrawal with track ID, keep status as PROCESSING
+        // Update withdrawal with track ID and set status to COMPLETED
         await prisma.withdrawal.update({
           where: { id: withdrawalId },
           data: {
-            txHash: payout.trackId
+            txHash: payout.trackId,
+            status: 'COMPLETED'
           }
         })
 
-        console.log(`✅ OxaPay payout created: Track ID ${payout.trackId}`)
+        console.log(`✅ OxaPay payout created: Track ID ${payout.trackId}, status set to COMPLETED`)
 
         // Notify user
         await bot.api.sendMessage(
