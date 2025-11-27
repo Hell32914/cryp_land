@@ -579,7 +579,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
     select: { telegramId: true, username: true, firstName: true, role: true }
   })
 
-  let message = '👥 *Role Management*\n\n'
+  let message = '👥 Role Management\n\n'
   
   if (admins.length === 0) {
     message += 'No staff members yet\n'
@@ -588,7 +588,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
     const supportList = admins.filter(u => u.role === 'support')
     
     if (adminsList.length > 0) {
-      message += '*Admins:*\n'
+      message += '🔐 Admins:\n'
       adminsList.forEach((admin, i) => {
         const name = admin.username ? `@${admin.username}` : (admin.firstName || admin.telegramId)
         message += `${i + 1}. ${name}\n`
@@ -597,7 +597,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
     }
     
     if (supportList.length > 0) {
-      message += '*Support:*\n'
+      message += '🛡 Support:\n'
       supportList.forEach((support, i) => {
         const name = support.username ? `@${support.username}` : (support.firstName || support.telegramId)
         message += `${i + 1}. ${name}\n`
@@ -606,7 +606,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
     }
   }
   
-  message += '\nℹ️ Use buttons below to manage'
+  message += 'ℹ️ Use buttons below to manage'
 
   const keyboard = new InlineKeyboard()
     .text('➕ Add Admin', 'admin_add_admin')
@@ -619,8 +619,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
   keyboard.text('🔙 Back', 'admin_menu')
 
   await safeEditMessage(ctx, message, {
-    reply_markup: keyboard,
-    parse_mode: 'Markdown'
+    reply_markup: keyboard
   })
   await safeAnswerCallback(ctx)
 })
