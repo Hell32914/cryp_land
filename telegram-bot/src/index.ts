@@ -847,7 +847,9 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
     `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`` : ''}\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
+    `💰 Balance: $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+    `📊 Profit: $${user.profit.toFixed(2)}\n` +
     `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -933,7 +935,9 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
+    `💰 Balance: $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+    `📊 Profit: $${user.profit.toFixed(2)}\n` +
     `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `✅ Status updated successfully!`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
