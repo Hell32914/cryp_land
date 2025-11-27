@@ -31,6 +31,28 @@ const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0
 // Admin state management
 const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number }>()
 
+// Middleware to check if user is blocked (blocks all bot interactions)
+bot.use(async (ctx, next) => {
+  const telegramId = ctx.from?.id.toString()
+  if (!telegramId) return next()
+  
+  // Skip check for admins
+  if (ADMIN_IDS.includes(telegramId)) return next()
+  
+  const user = await prisma.user.findUnique({
+    where: { telegramId }
+  })
+  
+  if (user?.isBlocked) {
+    // Only respond to /start command with block message, ignore everything else
+    if (ctx.message?.text === '/start') {
+      await ctx.reply('⛔️ Your account has been blocked. Please contact support if you believe this is a mistake.')\n    }
+    return // Don't process any further
+  }
+  
+  return next()
+})
+
 // Helper to handle invalid input and update attempts
 function handleInvalidInput(userId: string, state: any, attempts: number): void {
   adminState.set(userId, { ...state, attempts, lastAttempt: Date.now() })
@@ -316,6 +338,16 @@ async function updateUserPlan(userId: number) {
 bot.command('start', async (ctx) => {
   const telegramId = ctx.from?.id.toString()
   if (!telegramId) return
+
+  // Check if user is blocked
+  const existingUser = await prisma.user.findUnique({
+    where: { telegramId }
+  })
+  
+  if (existingUser?.isBlocked) {
+    await ctx.reply('⛔️ Your account has been blocked. Please contact support if you believe this is a mistake.')
+    return
+  }
 
   let user = await prisma.user.findUnique({
     where: { telegramId }
@@ -2196,7 +2228,10 @@ async function accrueDailyProfit() {
     const users = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
-        totalDeposit: { gt: 0 }
+        totalDeposit: { gt: 0 },
+        // Exclude users with KYC required or blocked
+        kycRequired: false,
+        isBlocked: false
       }
     })
 
