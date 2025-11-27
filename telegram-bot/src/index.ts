@@ -590,7 +590,8 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
     if (adminsList.length > 0) {
       message += '*Admins:*\n'
       adminsList.forEach((admin, i) => {
-        message += `${i + 1}\\. @${admin.username || admin.firstName || admin.telegramId}\n`
+        const name = admin.username ? `@${admin.username}` : (admin.firstName || admin.telegramId)
+        message += `${i + 1}. ${name}\n`
       })
       message += '\n'
     }
@@ -598,7 +599,8 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
     if (supportList.length > 0) {
       message += '*Support:*\n'
       supportList.forEach((support, i) => {
-        message += `${i + 1}\\. @${support.username || support.firstName || support.telegramId}\n`
+        const name = support.username ? `@${support.username}` : (support.firstName || support.telegramId)
+        message += `${i + 1}. ${name}\n`
       })
       message += '\n'
     }
@@ -618,7 +620,7 @@ bot.callbackQuery('admin_manage_admins', async (ctx) => {
 
   await safeEditMessage(ctx, message, {
     reply_markup: keyboard,
-    parse_mode: 'MarkdownV2'
+    parse_mode: 'Markdown'
   })
   await safeAnswerCallback(ctx)
 })
