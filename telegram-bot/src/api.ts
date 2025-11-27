@@ -1730,10 +1730,11 @@ app.post('/api/oxapay-callback', async (req, res) => {
     // Notify support team about deposit
     try {
       const { notifySupport } = await import('./index.js')
+      const escapedUsername = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
       
       await notifySupport(
         `💰 *New Deposit Received*\n\n` +
-        `👤 User: @${deposit.user.username || 'no_username'} (ID: ${deposit.user.telegramId})\n` +
+        `👤 User: @${escapedUsername} (ID: ${deposit.user.telegramId})\n` +
         `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
         `💎 Currency: ${deposit.currency}\n` +
         `📊 Total Deposited: $${updatedUser.totalDeposit.toFixed(2)}\n` +
