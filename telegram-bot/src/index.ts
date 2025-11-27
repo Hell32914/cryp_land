@@ -786,12 +786,13 @@ bot.callbackQuery('admin_users', async (ctx) => {
 })
 
 bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
-  const adminId = ctx.from?.id.toString()
-  if (!adminId || !(await isAdmin(adminId))) {
+  const visitorId = ctx.from?.id.toString()
+  if (!visitorId || !(await isSupport(visitorId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
+  const isAdminUser = await isAdmin(visitorId)
   const userId = parseInt(ctx.match![1])
   const user = await prisma.user.findUnique({ 
     where: { id: userId },
@@ -817,9 +818,14 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     .text('⏸ Deactivate', `status_${userId}_INACTIVE`).row()
     .text('📋 KYC Required', `status_${userId}_KYC_REQUIRED`)
     .text('🚫 Block', `status_${userId}_BLOCKED`).row()
-    .text('💰 Add Balance', `add_balance_${userId}`)
-    .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
-    .text('◀️ Back to Users', 'admin_users')
+  
+  // Only show balance buttons to admins
+  if (isAdminUser) {
+    keyboard.text('💰 Add Balance', `add_balance_${userId}`)
+      .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
+  }
+  
+  keyboard.text('◀️ Back to Users', 'admin_users')
 
   // Get country flag from language code
   const getCountryFlag = (langCode: string | null) => {
@@ -850,12 +856,13 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
 })
 
 bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
-  const adminId = ctx.from?.id.toString()
-  if (!adminId || !(await isAdmin(adminId))) {
+  const visitorId = ctx.from?.id.toString()
+  if (!visitorId || !(await isSupport(visitorId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
+  const isAdminUser = await isAdmin(visitorId)
   const userId = parseInt(ctx.match![1])
   const newStatus = ctx.match![2] as UserStatus
 
@@ -912,9 +919,14 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     .text('⏸ Deactivate', `status_${userId}_INACTIVE`).row()
     .text('📋 KYC Required', `status_${userId}_KYC_REQUIRED`)
     .text('🚫 Block', `status_${userId}_BLOCKED`).row()
-    .text('💰 Add Balance', `add_balance_${userId}`)
-    .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
-    .text('◀️ Back to Users', 'admin_users')
+  
+  // Only show balance buttons to admins
+  if (isAdminUser) {
+    keyboard.text('💰 Add Balance', `add_balance_${userId}`)
+      .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
+  }
+  
+  keyboard.text('◀️ Back to Users', 'admin_users')
 
   await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
