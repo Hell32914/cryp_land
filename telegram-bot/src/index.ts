@@ -1263,23 +1263,6 @@ bot.on('message:text', async (ctx) => {
       // Update tariff plan based on new balance
       await updateUserPlan(user.id)
 
-      // Notify user
-      const userMessage = `💸 *Balance Withdrawn by Admin*\n\n-$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}`
-      
-      try {
-        await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
-      } catch (err) {
-        console.error('Failed to notify user about withdrawal:', err)
-      }
-      
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          type: 'WITHDRAWAL',
-          message: userMessage
-        }
-      })
-
       // Confirm to admin
       await ctx.reply(
         `✅ *Balance Withdrawn Successfully*\n\n` +
