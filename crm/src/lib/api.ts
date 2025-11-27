@@ -44,6 +44,8 @@ export interface KPIResponse {
   depositsToday: number
   withdrawalsToday: number
   profitPeriod: number
+  depositsPeriod: number
+  withdrawalsPeriod: number
 }
 
 export interface FinancialPoint {
@@ -88,6 +90,10 @@ export interface OverviewResponse {
     totalReinvest: number
     reinvestCount: number
   }
+  period: {
+    from: string
+    to: string
+  } | null
 }
 
 export interface UserRecord {
@@ -191,8 +197,13 @@ export const adminLogin = async (username: string, password: string) =>
     body: JSON.stringify({ username, password }),
   })
 
-export const fetchOverview = (token: string) =>
-  request<OverviewResponse>('/api/admin/overview', {}, token)
+export const fetchOverview = (token: string, from?: string, to?: string) => {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  const query = params.toString()
+  return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
+}
 
 export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc') => {
   const params = new URLSearchParams()

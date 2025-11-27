@@ -130,12 +130,31 @@ app.post('/api/admin/login', (req, res) => {
 app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
   try {
     const now = new Date()
+    
+    // Parse period parameters
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
+    
+    // Default: start of today for "today" stats
     const startOfToday = new Date(now)
     startOfToday.setHours(0, 0, 0, 0)
-
+    
+    // Period for filtering (defaults to all time if not specified)
+    const periodStart = fromParam ? new Date(fromParam) : null
+    const periodEnd = toParam ? new Date(toParam) : now
+    
+    // Chart always shows based on period or last 7 days
     const chartDays = 7
-    const chartStart = new Date(startOfToday)
-    chartStart.setDate(startOfToday.getDate() - (chartDays - 1))
+    const chartStart = periodStart || new Date(startOfToday)
+    if (!periodStart) {
+      chartStart.setDate(startOfToday.getDate() - (chartDays - 1))
+    }
+
+    // Build where conditions based on period
+    const periodWhere = periodStart ? {
+      gte: periodStart,
+      lte: periodEnd
+    } : undefined
 
     const [
       totalUsers,
@@ -143,6 +162,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       depositsTodayAgg,
       withdrawalsTodayAgg,
       profitAgg,
+      // Period deposits/withdrawals for KPI cards
+      depositsInPeriodAgg,
+      withdrawalsInPeriodAgg,
       recentDeposits,
       recentWithdrawals,
       recentProfits,
@@ -166,27 +188,43 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.dailyProfitUpdate.aggregate({
         _sum: { amount: true },
-        where: {
-          timestamp: { gte: chartStart },
-        },
+        where: periodWhere ? {
+          timestamp: periodWhere,
+        } : undefined,
+      }),
+      // Deposits in selected period (for KPI)
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: periodWhere ? {
+          status: 'COMPLETED',
+          createdAt: periodWhere,
+        } : { status: 'COMPLETED' },
+      }),
+      // Withdrawals in selected period (for KPI)
+      prisma.withdrawal.aggregate({
+        _sum: { amount: true },
+        where: periodWhere ? {
+          status: 'COMPLETED',
+          createdAt: periodWhere,
+        } : { status: 'COMPLETED' },
       }),
       prisma.deposit.findMany({
         where: {
           status: 'COMPLETED',
-          createdAt: { gte: chartStart },
+          createdAt: periodWhere || { gte: chartStart },
         },
         select: { amount: true, createdAt: true },
       }),
       prisma.withdrawal.findMany({
         where: {
           status: 'COMPLETED',
-          createdAt: { gte: chartStart },
+          createdAt: periodWhere || { gte: chartStart },
         },
         select: { amount: true, createdAt: true },
       }),
       prisma.dailyProfitUpdate.findMany({
         where: {
-          timestamp: { gte: chartStart },
+          timestamp: periodWhere || { gte: chartStart },
         },
         select: { amount: true, timestamp: true },
       }),
@@ -196,7 +234,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
     ])
 
-    const seriesMap = buildDateSeries(chartDays)
+    // Build date series dynamically based on period
+    const effectiveStart = periodStart || chartStart
+    const effectiveEnd = periodEnd
+    const daysDiff = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
     recentDeposits.forEach((deposit) => {
       const key = getDateKey(deposit.createdAt)
@@ -381,12 +423,19 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
         withdrawalsToday: Number(withdrawalsTodayAgg._sum.amount ?? 0),
         profitPeriod: Number(profitAgg._sum.amount ?? 0),
+        // Period-based KPIs (all time if no period specified)
+        depositsPeriod: Number(depositsInPeriodAgg._sum.amount ?? 0),
+        withdrawalsPeriod: Number(withdrawalsInPeriodAgg._sum.amount ?? 0),
       },
       financialData: Array.from(seriesMap.values()),
       geoData,
       topUsers,
       transactionStats,
       generatedAt: now.toISOString(),
+      period: periodStart ? {
+        from: periodStart.toISOString(),
+        to: periodEnd.toISOString(),
+      } : null,
     })
   } catch (error) {
     console.error('Admin overview error:', error)
@@ -748,14 +797,14 @@ app.get('/api/admin/referrals', requireAdminAuth, async (_req, res) => {
 
 const getDateKey = (date: Date) => date.toISOString().split('T')[0]
 
-const buildDateSeries = (days: number) => {
+const buildDateSeries = (days: number, startDate?: Date) => {
   const map = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number }>()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const baseDate = startDate ? new Date(startDate) : new Date()
+  baseDate.setHours(0, 0, 0, 0)
 
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(today.getDate() - i)
+  for (let i = 0; i < days; i++) {
+    const d = new Date(baseDate)
+    d.setDate(baseDate.getDate() + i)
     const key = getDateKey(d)
     map.set(key, {
       date: key,

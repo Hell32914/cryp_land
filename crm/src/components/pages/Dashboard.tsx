@@ -1,18 +1,63 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp } from '@phosphor-icons/react'
+import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
+type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
+
 export function Dashboard() {
   const { t } = useTranslation()
-  const { data, isLoading, isError, error } = useApiQuery<OverviewResponse>(['overview'], fetchOverview, {
-    staleTime: 60_000,
-  })
+  const [period, setPeriod] = useState<PeriodType>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  
+  // Calculate date range based on period
+  const getDateRange = () => {
+    const now = new Date()
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+    
+    switch (period) {
+      case 'today': {
+        return { from: today.toISOString(), to: now.toISOString() }
+      }
+      case 'week': {
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return { from: weekAgo.toISOString(), to: now.toISOString() }
+      }
+      case 'month': {
+        const monthAgo = new Date(today)
+        monthAgo.setMonth(monthAgo.getMonth() - 1)
+        return { from: monthAgo.toISOString(), to: now.toISOString() }
+      }
+      case 'custom': {
+        if (customFrom && customTo) {
+          return { from: new Date(customFrom).toISOString(), to: new Date(customTo + 'T23:59:59').toISOString() }
+        }
+        return { from: undefined, to: undefined }
+      }
+      default:
+        return { from: undefined, to: undefined }
+    }
+  }
+  
+  const dateRange = getDateRange()
+  
+  const { data, isLoading, isError, error } = useApiQuery<OverviewResponse>(
+    ['overview', period, customFrom, customTo], 
+    (token) => fetchOverview(token, dateRange.from, dateRange.to), 
+    { staleTime: 60_000 }
+  )
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
+
+  // Use period-based values when period is selected, otherwise "today" values
+  const showPeriodData = period !== 'all'
 
   const kpiCards = [
     {
@@ -28,14 +73,14 @@ export function Dashboard() {
       gradient: 'from-purple-500 to-purple-600',
     },
     {
-      title: t('dashboard.depositsToday'),
-      value: data ? formatCurrency(data.kpis.depositsToday) : '—',
+      title: showPeriodData ? 'Deposits (Period)' : t('dashboard.depositsToday'),
+      value: data ? formatCurrency(showPeriodData ? data.kpis.depositsPeriod : data.kpis.depositsToday) : '—',
       icon: ArrowCircleDown,
       gradient: 'from-green-500 to-green-600',
     },
     {
-      title: t('dashboard.withdrawalsToday'),
-      value: data ? formatCurrency(data.kpis.withdrawalsToday) : '—',
+      title: showPeriodData ? 'Withdrawals (Period)' : t('dashboard.withdrawalsToday'),
+      value: data ? formatCurrency(showPeriodData ? data.kpis.withdrawalsPeriod : data.kpis.withdrawalsToday) : '—',
       icon: ArrowCircleUp,
       gradient: 'from-orange-500 to-orange-600',
     },
@@ -47,6 +92,14 @@ export function Dashboard() {
     },
   ]
 
+  const periodButtons: { key: PeriodType; label: string }[] = [
+    { key: 'all', label: 'All Time' },
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: '7 Days' },
+    { key: 'month', label: '30 Days' },
+    { key: 'custom', label: 'Custom' },
+  ]
+
   const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1']
 
   const financialData = data?.financialData ?? []
@@ -54,9 +107,47 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-3xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
+        
+        {/* Period Selector */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Calendar size={20} className="text-muted-foreground" />
+          {periodButtons.map((btn) => (
+            <button
+              key={btn.key}
+              onClick={() => setPeriod(btn.key)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                period === btn.key
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+              }`}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
       </div>
+      
+      {/* Custom Date Range */}
+      {period === 'custom' && (
+        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30">
+          <label className="text-sm text-muted-foreground">From:</label>
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+          />
+          <label className="text-sm text-muted-foreground">To:</label>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {kpiCards.map((kpi) => {
@@ -92,7 +183,13 @@ export function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>{t('dashboard.financialDynamics')}</CardTitle>
-            <p className="text-sm text-muted-foreground">{t('dashboard.last7Days')}</p>
+            <p className="text-sm text-muted-foreground">
+              {period === 'all' ? t('dashboard.last7Days') : 
+               period === 'today' ? 'Today' :
+               period === 'week' ? 'Last 7 Days' :
+               period === 'month' ? 'Last 30 Days' :
+               customFrom && customTo ? `${customFrom} - ${customTo}` : 'Select dates'}
+            </p>
           </CardHeader>
           <CardContent>
             {isLoading ? (
