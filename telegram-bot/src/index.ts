@@ -742,7 +742,8 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     .text('⏸ Deactivate', `status_${userId}_INACTIVE`).row()
     .text('📋 KYC Required', `status_${userId}_KYC_REQUIRED`)
     .text('🚫 Block', `status_${userId}_BLOCKED`).row()
-    .text('💰 Add Balance', `add_balance_${userId}`).row()
+    .text('💰 Add Balance', `add_balance_${userId}`)
+    .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     .text('◀️ Back to Users', 'admin_users')
 
   // Get country flag from language code
@@ -837,7 +838,8 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     .text('⏸ Deactivate', `status_${userId}_INACTIVE`).row()
     .text('📋 KYC Required', `status_${userId}_KYC_REQUIRED`)
     .text('🚫 Block', `status_${userId}_BLOCKED`).row()
-    .text('💰 Add Balance', `add_balance_${userId}`).row()
+    .text('💰 Add Balance', `add_balance_${userId}`)
+    .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     .text('◀️ Back to Users', 'admin_users')
 
   await safeEditMessage(ctx, 
@@ -878,6 +880,37 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
     `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `Current Balance: $${user.balance.toFixed(2)}\n\n` +
     `Please reply with the amount to add (e.g., 100):`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+// Withdraw balance from user (admin)
+bot.callbackQuery(/^withdraw_balance_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'withdraw_balance', targetUserId: userId })
+
+  const keyboard = new InlineKeyboard()
+    .text('Cancel', `manage_${userId}`)
+
+  await safeEditMessage(ctx, 
+    `💸 *Withdraw Balance*\n\n` +
+    `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `Current Balance: $${user.balance.toFixed(2)}\n\n` +
+    `Please reply with the amount to withdraw (e.g., 50):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
@@ -1179,6 +1212,90 @@ bot.on('message:text', async (ctx) => {
 
     const adminId = ctx.from?.id.toString()!
     adminState.delete(adminId)
+  }
+
+  // Handle withdraw balance (admin)
+  if (state.awaitingInput === 'withdraw_balance') {
+    const amount = parseFloat(ctx.message?.text || '')
+    const targetUserId = state.targetUserId
+
+    if (isNaN(amount) || !targetUserId || amount <= 0) {
+      await ctx.reply('❌ Invalid amount. Please enter a positive number.')
+      return
+    }
+
+    try {
+      const currentUser = await prisma.user.findUnique({ where: { id: targetUserId } })
+      if (!currentUser) {
+        await ctx.reply('❌ User not found')
+        adminState.delete(userId)
+        return
+      }
+
+      if (amount > currentUser.balance) {
+        await ctx.reply(`❌ Insufficient balance. User has only $${currentUser.balance.toFixed(2)}`)
+        return
+      }
+
+      const newBalance = currentUser.balance - amount
+
+      // Update balance
+      const user = await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          balance: { decrement: amount },
+          totalWithdraw: { increment: amount }
+        }
+      })
+
+      // Create withdrawal record
+      await prisma.withdrawal.create({
+        data: {
+          userId: user.id,
+          amount,
+          status: 'COMPLETED',
+          currency: 'USDT',
+          address: 'ADMIN_WITHDRAWAL',
+          network: 'ADMIN'
+        }
+      })
+
+      // Update tariff plan based on new balance
+      await updateUserPlan(user.id)
+
+      // Notify user
+      const userMessage = `💸 *Balance Withdrawn by Admin*\n\n-$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}`
+      
+      try {
+        await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
+      } catch (err) {
+        console.error('Failed to notify user about withdrawal:', err)
+      }
+      
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'WITHDRAWAL',
+          message: userMessage
+        }
+      })
+
+      // Confirm to admin
+      await ctx.reply(
+        `✅ *Balance Withdrawn Successfully*\n\n` +
+        `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+        `Amount: -$${amount.toFixed(2)}\n` +
+        `Previous Balance: $${currentUser.balance.toFixed(2)}\n` +
+        `New Balance: $${user.balance.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error withdrawing balance:', error)
+      await ctx.reply('❌ Error withdrawing balance. Please try again.')
+    }
+    return
   }
 
   // Handle card settings
