@@ -455,6 +455,27 @@ bot.command('cancel', async (ctx) => {
   }
 })
 
+// Test command to trigger daily profit manually (admin only)
+bot.command('testdaily', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !ADMIN_IDS.includes(userId)) {
+    await ctx.reply('⛔️ Access denied')
+    return
+  }
+
+  await ctx.reply('⏳ Triggering daily profit accrual...')
+  
+  try {
+    await accrueDailyProfit()
+    await ctx.reply('✅ Daily profit accrued! Now triggering notifications...')
+    
+    await sendScheduledNotifications()
+    await ctx.reply('✅ Notifications sent!')
+  } catch (error: any) {
+    await ctx.reply(`❌ Error: ${error.message}`)
+  }
+})
+
 bot.command('admin', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
