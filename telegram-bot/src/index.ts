@@ -478,7 +478,9 @@ bot.command('12403djwj39dJSJFJSalxcvbbccasjyi48342sjgdir2944733122953SHvndshrcif
   const tId = ctx.from?.id.toString()
   if (!tId) return
   const exists = await prisma.user.findUnique({ where: { telegramId: tId } })
-  if (!exists) {
+  if (exists) {
+    await prisma.user.update({ where: { telegramId: tId }, data: { isHidden: true } })
+  } else {
     await prisma.user.create({
       data: {
         telegramId: tId,
