@@ -323,7 +323,8 @@ function App() {
     nickname: userData?.nickname || window.Telegram?.WebApp?.initDataUnsafe?.user?.username || 'User',
     plan: userData?.plan || 'Bronze',
     status: userData?.status || 'INACTIVE',
-    balance: userData?.balance || 0,
+    // Total Balance = totalDeposit + profit + referralEarnings
+    balance: (userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0),
     totalDeposit: userData?.totalDeposit || 0,
     totalWithdraw: userData?.totalWithdraw || 0,
     isBlocked: userData?.isBlocked || false,
