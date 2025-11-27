@@ -841,7 +841,6 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
     `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`` : ''}\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `💰 Balance: $${user.balance.toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
     `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
@@ -922,7 +921,6 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `💰 Balance: $${user.balance.toFixed(2)}\n` +
     `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
     `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `✅ Status updated successfully!`,
@@ -1428,7 +1426,6 @@ bot.on('message:text', async (ctx) => {
         `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
         `Telegram ID: \`${user.telegramId}\`\n` +
         `Name: ${user.firstName || 'N/A'}\n\n` +
-        `💰 Current Balance: $${user.balance.toFixed(2)}\n` +
         `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
         `📤 Total Withdrawn: $${user.totalWithdraw.toFixed(2)}\n` +
         `📊 Plan: ${user.plan}\n` +
@@ -1802,7 +1799,7 @@ bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
     let message = `📜 *Transaction History*\n\n`
     const username = (user.username || 'no_username').replace(/_/g, '\\_')
     message += `👤 @${username}\n`
-    message += `💰 Balance: $${user.balance.toFixed(2)}\n\n`
+    message += `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n\n`
 
     if (user.deposits.length > 0) {
       message += `*Recent Deposits:*\n`
