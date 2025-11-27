@@ -62,6 +62,8 @@ export interface GeoEntry {
   ftdCount: number
   conversionRate: number
   totalDeposits: number
+  totalWithdrawals: number
+  totalProfit: number
   topDepositors: Array<{
     telegramId: string
     username: string | null

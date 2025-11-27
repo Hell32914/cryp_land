@@ -291,6 +291,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           ftdCount: 0,
           conversionRate: 0,
           totalDeposits: 0,
+          totalWithdrawals: 0,
+          totalProfit: 0,
           topDepositors: [],
         }
       }
@@ -335,6 +337,29 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         },
       })
 
+      // Get total withdrawals for this country
+      const withdrawalsAgg = await prisma.withdrawal.aggregate({
+        where: {
+          status: 'COMPLETED',
+          user: {
+            country: entry.country,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      })
+
+      // Get total profit for this country
+      const profitAgg = await prisma.user.aggregate({
+        where: {
+          country: entry.country,
+        },
+        _sum: {
+          profit: true,
+        },
+      })
+
       const topDepositors = usersWithDeposits.map(user => ({
         telegramId: user.telegramId,
         username: user.username,
@@ -349,6 +374,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         ftdCount,
         conversionRate,
         totalDeposits: Number(depositsAgg._sum.amount ?? 0),
+        totalWithdrawals: Number(withdrawalsAgg._sum.amount ?? 0),
+        totalProfit: Number(profitAgg._sum.profit ?? 0),
         topDepositors,
       }
     })

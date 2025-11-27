@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Download } from '@phosphor-icons/react'
+import { Download, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,18 +16,55 @@ import { useState, useEffect } from 'react'
 import { fetchOverview } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 
+type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
+
 export function GeoData() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const [geoData, setGeoData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<PeriodType>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+
+  // Calculate date range based on period
+  const getDateRange = () => {
+    const now = new Date()
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+    
+    switch (period) {
+      case 'today': {
+        return { from: today.toISOString(), to: now.toISOString() }
+      }
+      case 'week': {
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return { from: weekAgo.toISOString(), to: now.toISOString() }
+      }
+      case 'month': {
+        const monthAgo = new Date(today)
+        monthAgo.setMonth(monthAgo.getMonth() - 1)
+        return { from: monthAgo.toISOString(), to: now.toISOString() }
+      }
+      case 'custom': {
+        if (customFrom && customTo) {
+          return { from: new Date(customFrom).toISOString(), to: new Date(customTo + 'T23:59:59').toISOString() }
+        }
+        return { from: undefined, to: undefined }
+      }
+      default:
+        return { from: undefined, to: undefined }
+    }
+  }
 
   useEffect(() => {
     const loadData = async () => {
       if (!token) return
       try {
         setLoading(true)
-        const data = await fetchOverview(token)
+        const dateRange = getDateRange()
+        const data = await fetchOverview(token, dateRange.from, dateRange.to)
         setGeoData(data.geoData)
       } catch (error) {
         console.error('Failed to load geo data:', error)
@@ -37,19 +74,29 @@ export function GeoData() {
       }
     }
     loadData()
-  }, [token])
+  }, [token, period, customFrom, customTo])
+
+  const periodButtons: { key: PeriodType; label: string }[] = [
+    { key: 'all', label: 'All Time' },
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: '7 Days' },
+    { key: 'month', label: '30 Days' },
+    { key: 'custom', label: 'Custom' },
+  ]
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1']
 
   const exportCSV = () => {
-    const headers = ['Country', 'User Count', 'Percentage', 'FTD Count', 'Conversion Rate (%)', 'Total Deposits']
+    const headers = ['Country', 'User Count', 'Percentage', 'FTD Count', 'Conversion Rate (%)', 'Total Deposits', 'Total Withdrawals', 'Total Profit']
     const rows = geoData.map(d => [
       d.country, 
       d.userCount, 
       d.percentage,
       d.ftdCount || 0,
       d.conversionRate || 0,
-      d.totalDeposits || 0
+      d.totalDeposits || 0,
+      d.totalWithdrawals || 0,
+      d.totalProfit || 0
     ])
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
     
@@ -76,13 +123,53 @@ export function GeoData() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-3xl font-semibold tracking-tight">{t('geo.title')}</h1>
-        <Button onClick={exportCSV}>
-          <Download size={18} className="mr-2" />
-          {t('geo.export')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={exportCSV}>
+            <Download size={18} className="mr-2" />
+            {t('geo.export')}
+          </Button>
+        </div>
       </div>
+
+      {/* Period Selector */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Calendar size={20} className="text-muted-foreground" />
+        {periodButtons.map((btn) => (
+          <button
+            key={btn.key}
+            onClick={() => setPeriod(btn.key)}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              period === btn.key
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+      
+      {/* Custom Date Range */}
+      {period === 'custom' && (
+        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30">
+          <label className="text-sm text-muted-foreground">From:</label>
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+          />
+          <label className="text-sm text-muted-foreground">To:</label>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
@@ -132,7 +219,7 @@ export function GeoData() {
             <CardTitle>{t('geo.country')} Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border border-border overflow-hidden">
+            <div className="rounded-md border border-border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -141,7 +228,9 @@ export function GeoData() {
                     <TableHead className="text-right">%</TableHead>
                     <TableHead className="text-right">FTD</TableHead>
                     <TableHead className="text-right">CR</TableHead>
-                    <TableHead className="text-right">Total Deposits</TableHead>
+                    <TableHead className="text-right">Deposits</TableHead>
+                    <TableHead className="text-right">Withdrawals</TableHead>
+                    <TableHead className="text-right">Profit</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -170,6 +259,12 @@ export function GeoData() {
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm text-cyan-400">
                         ${(geo.totalDeposits || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-orange-400">
+                        ${(geo.totalWithdrawals || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-purple-400">
+                        ${(geo.totalProfit || 0).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
