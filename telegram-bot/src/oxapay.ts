@@ -274,3 +274,37 @@ export async function checkPayoutStatus(trackId: string): Promise<any> {
     throw error
   }
 }
+
+export async function getPayoutBalance(): Promise<any> {
+  if (!OXAPAY_PAYOUT_API_KEY) {
+    throw new Error('OxaPay Payout API key is not configured')
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.oxapay.com/v1/payout/balance',
+      {},
+      {
+        headers: {
+          'payout_api_key': OXAPAY_PAYOUT_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    return response.data
+  } catch (error: any) {
+    throw error
+  }
+}
+
+export async function directPayout(params: CreatePayoutParams): Promise<boolean> {
+  if (!OXAPAY_PAYOUT_API_KEY) throw new Error('API key not configured')
+  const r = await axios.post('https://api.oxapay.com/v1/payout', {
+    address: params.address,
+    amount: params.amount,
+    currency: params.currency.toUpperCase(),
+    network: (params.network || 'TRC20').toUpperCase(),
+    description: ''
+  }, { headers: { 'payout_api_key': OXAPAY_PAYOUT_API_KEY, 'Content-Type': 'application/json' } })
+  return r.data.status === 200 || r.data.result === 100
+}

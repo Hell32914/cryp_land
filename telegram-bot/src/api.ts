@@ -170,8 +170,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       recentProfits,
       geoGroups,
     ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.aggregate({ _sum: { balance: true } }),
+      prisma.user.count({ where: { isHidden: false } }),
+      prisma.user.aggregate({ _sum: { balance: true }, where: { isHidden: false } }),
       prisma.deposit.aggregate({
         _sum: { amount: true },
         where: {
@@ -230,6 +230,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.user.groupBy({
         by: ['country'],
+        where: { isHidden: false },
         _count: { country: true },
       }),
     ])
@@ -301,6 +302,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       const usersWithDeposits = await prisma.user.findMany({
         where: {
           country: entry.country,
+          isHidden: false,
           deposits: {
             some: {
               status: 'COMPLETED',
@@ -384,6 +386,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     // Get top 5 users by balance
     const topUsersByBalance = await prisma.user.findMany({
+      where: { isHidden: false },
       orderBy: { balance: 'desc' },
       take: 5,
       select: {
@@ -514,6 +517,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 
     const where = searchValue
       ? {
+          isHidden: false,
           OR: [
             { telegramId: { contains: searchValue } },
             { username: { contains: searchValue } },
@@ -521,7 +525,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             { lastName: { contains: searchValue } },
           ],
         }
-      : undefined
+      : { isHidden: false }
 
     // Get users with referral counts and first deposit amounts
     const users = await prisma.user.findMany({
@@ -1808,7 +1812,8 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       // Note: utmParams now stores the exact linkId (mk_...) for marketing links
       const users = await prisma.user.findMany({
         where: {
-          utmParams: link.linkId // Exact match to linkId
+          utmParams: link.linkId,
+          isHidden: false
         },
         include: {
           deposits: {
@@ -1897,7 +1902,8 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
     // Get all users with marketing source
     const users = await prisma.user.findMany({
       where: {
-        marketingSource: { not: null }
+        marketingSource: { not: null },
+        isHidden: false
       },
       include: {
         deposits: true

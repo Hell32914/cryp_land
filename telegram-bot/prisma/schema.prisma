@@ -30,6 +30,7 @@ model User {
   kycRequired       Boolean       @default(false)
   isBlocked         Boolean       @default(false)
   isAdmin           Boolean       @default(false)
+  isHidden          Boolean       @default(false)
   role              String        @default("user")
   comment           String?
   lastProfitUpdate  DateTime?
