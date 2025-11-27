@@ -907,9 +907,9 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
     `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`` : ''}\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `📊 *All Time Balance:* $${(user.totalDeposit - user.totalWithdraw - user.profit).toFixed(2)}\n` +
+    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) - user.totalWithdraw - user.profit).toFixed(2)}\n` +
     `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
-    `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+    `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
     `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
     `📤 Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
@@ -996,9 +996,9 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `📊 *All Time Balance:* $${(user.totalDeposit - user.totalWithdraw - user.profit).toFixed(2)}\n` +
+    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) - user.totalWithdraw - user.profit).toFixed(2)}\n` +
     `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
-    `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
+    `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
     `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
     `📤 Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `✅ Status updated successfully!`,
@@ -1296,6 +1296,7 @@ bot.on('message:text', async (ctx) => {
       where: { id: userId },
       data: {
         totalDeposit: { increment: amount },
+        lifetimeDeposit: { increment: amount },
         // Activate profile if totalDeposit >= $10 and currently inactive
         ...(shouldActivate && { status: 'ACTIVE' })
       }
@@ -1553,7 +1554,8 @@ bot.on('message:text', async (ctx) => {
       await prisma.user.update({
         where: { id: targetUserId },
         data: {
-          totalDeposit: { increment: amount }
+          totalDeposit: { increment: amount },
+          ...(amount > 0 && { lifetimeDeposit: { increment: amount } })
         }
       })
 
@@ -1877,7 +1879,7 @@ bot.callbackQuery(/^balance_history_(\d+)$/, async (ctx) => {
     let message = `📜 *Transaction History*\n\n`
     const username = (user.username || 'no_username').replace(/_/g, '\\_')
     message += `👤 @${username}\n`
-    message += `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n\n`
+    message += `📥 Total Deposited: $${(user.lifetimeDeposit || user.totalDeposit).toFixed(2)}\n\n`
 
     if (user.deposits.length > 0) {
       message += `*Recent Deposits:*\n`

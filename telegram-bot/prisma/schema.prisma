@@ -26,6 +26,7 @@ model User {
   profit            Float         @default(0)
   totalDeposit      Float         @default(0)
   totalWithdraw     Float         @default(0)
+  lifetimeDeposit   Float         @default(0)
   plan              String        @default("Bronze")
   kycRequired       Boolean       @default(false)
   isBlocked         Boolean       @default(false)

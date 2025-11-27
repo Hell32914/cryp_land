@@ -1665,6 +1665,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
       where: { id: deposit.userId },
       data: {
         totalDeposit: { increment: deposit.amount },
+        lifetimeDeposit: { increment: deposit.amount },
         status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
       }
     })
@@ -1741,7 +1742,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
         `👤 User: @${escapedUsername} (ID: ${deposit.user.telegramId})\n` +
         `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
         `💎 Currency: ${deposit.currency}\n` +
-        `📊 Total Deposited: $${updatedUser.totalDeposit.toFixed(2)}\n` +
+        `📊 Total Deposited: $${(updatedUser.lifetimeDeposit || updatedUser.totalDeposit).toFixed(2)}\n` +
         `📈 Plan: ${planInfo.currentPlan}`,
         { parse_mode: 'Markdown' }
       )
