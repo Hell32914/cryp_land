@@ -1200,7 +1200,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.status(400).json({ error: 'Minimum withdrawal amount is $10' })
     }
 
-    if (amount > user.balance) {
+    if (amount > user.totalDeposit) {
       pendingWithdrawalRequests.delete(requestKey)
       return res.status(400).json({ error: 'Insufficient balance' })
     }
@@ -1238,14 +1238,14 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
 
         console.log(`✅ OxaPay payout successful:`, payout)
 
-        // Calculate new balance before deduction
-        const newBalance = user.balance - amount
+        // Calculate new deposit before deduction
+        const newDeposit = user.totalDeposit - amount
 
-        // SUCCESS: Deduct balance and update withdrawal
+        // SUCCESS: Deduct totalDeposit and update withdrawal
         const updatedUser = await prisma.user.update({
           where: { id: user.id },
           data: {
-            balance: { decrement: amount },
+            totalDeposit: { decrement: amount },
             totalWithdraw: { increment: amount }
           }
         })
@@ -1258,7 +1258,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           }
         })
 
-        console.log(`✅ Balance deducted, withdrawal marked as COMPLETED. New balance: $${newBalance.toFixed(2)}`)
+        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. New deposit: $${newDeposit.toFixed(2)}`)
 
         // Notify user about successful withdrawal
         try {
@@ -1271,7 +1271,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
             `🌐 Network: ${network || 'TRC20'}\n` +
             `📍 Address: \`${address}\`\n\n` +
             `🔗 Track ID: ${payout.trackId}\n\n` +
-            `💳 New balance: $${newBalance.toFixed(2)}`,
+            `💳 New deposit: $${newDeposit.toFixed(2)}`,
             { parse_mode: 'Markdown' }
           )
         } catch (err) {
@@ -1290,7 +1290,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
             `🌐 Network: ${network || 'TRC20'}\n` +
             `📍 Address: \`${address}\`\n` +
             `🔗 Track ID: ${payout.trackId}\n` +
-            `💳 User New Balance: $${newBalance.toFixed(2)}`,
+            `💳 User New Deposit: $${newDeposit.toFixed(2)}`,
             { parse_mode: 'Markdown' }
           )
           console.log(`✅ Support team notified about withdrawal from ${user.telegramId}`)
@@ -1307,7 +1307,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           trackId: payout.trackId,
           status: 'COMPLETED',
           message: 'Withdrawal completed successfully',
-          newBalance: newBalance
+          newBalance: newDeposit
         })
       } catch (error: any) {
         console.error(`❌ Withdrawal ${withdrawal.id} failed:`, {
@@ -1363,14 +1363,14 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       
       console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
       
-      // Calculate new balance
-      const newBalance = user.balance - amount
+      // Calculate new deposit
+      const newDeposit = user.totalDeposit - amount
       
-      // STEP 1: Deduct balance immediately (reserve funds)
+      // STEP 1: Deduct totalDeposit immediately (reserve funds)
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          balance: { decrement: amount },
+          totalDeposit: { decrement: amount },
           totalWithdraw: { increment: amount }
         }
       })
@@ -1381,7 +1381,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         data: { status: 'PROCESSING' }
       })
       
-      console.log(`✅ Funds reserved. New balance: $${newBalance.toFixed(2)}`)
+      console.log(`✅ Funds reserved. New deposit: $${newDeposit.toFixed(2)}`)
       
       const username = (user.username || 'no_username').replace(/_/g, '\\_')
       const adminMessage = `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
@@ -1390,8 +1390,8 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +
         `📍 Address: \`${address}\`\n\n` +
-        `💳 Previous Balance: $${user.balance.toFixed(2)}\n` +
-        `💳 New Balance: $${newBalance.toFixed(2)}\n` +
+        `💳 Previous Deposit: $${user.totalDeposit.toFixed(2)}\n` +
+        `💳 New Deposit: $${newDeposit.toFixed(2)}\n` +
         `✅ Funds have been reserved\n\n` +
         `⚠️ Amount ≥ $100 - Requires approval\n` +
         `🆔 Withdrawal ID: ${withdrawal.id}`
@@ -1451,8 +1451,8 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           `📍 Address: \`${address}\`\n\n` +
           `📋 Your withdrawal request has been sent to admin for approval.\n` +
           `⏱ This usually takes a few minutes.\n\n` +
-          `✅ Funds have been reserved from your balance\n` +
-          `💳 New balance: $${newBalance.toFixed(2)}\n\n` +
+          `✅ Funds have been reserved from your deposit\n` +
+          `💳 New deposit: $${newDeposit.toFixed(2)}\n\n` +
           `ℹ️ If rejected, funds will be returned to your account.`,
           { parse_mode: 'Markdown' }
         )
@@ -1468,7 +1468,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         withdrawalId: withdrawal.id,
         status: 'PROCESSING',
         message: 'Withdrawal request sent to admin for approval. Funds have been reserved.',
-        newBalance: newBalance
+        newBalance: newDeposit
       })
     }
   } catch (error: any) {
@@ -1580,11 +1580,10 @@ app.post('/api/oxapay-callback', async (req, res) => {
       data: { status: 'COMPLETED' }
     })
 
-    // Add amount to user balance and activate account if needed
+    // Add amount to user totalDeposit and activate account if needed
     const updatedUser = await prisma.user.update({
       where: { id: deposit.userId },
       data: {
-        balance: { increment: deposit.amount },
         totalDeposit: { increment: deposit.amount },
         status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
       }
@@ -1613,8 +1612,8 @@ app.post('/api/oxapay-callback', async (req, res) => {
       console.log(`✅ Referral activated: ${deposit.user.telegramId} for referrer ${updatedUser.referredBy}`)
     }
     
-    // Calculate plan info for user
-    const planInfo = calculateTariffPlan(updatedUser.balance)
+    // Calculate plan info for user based on totalDeposit
+    const planInfo = calculateTariffPlan(updatedUser.totalDeposit)
     const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
     
     // Notify user about successful deposit
@@ -1623,7 +1622,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
       
       let userMessage = `✅ *Deposit Successful!*\n\n`
       userMessage += `💰 Amount: $${deposit.amount.toFixed(2)} ${deposit.currency}\n`
-      userMessage += `💳 New Balance: $${updatedUser.balance.toFixed(2)}\n\n`
+      userMessage += `💳 New Deposit: $${updatedUser.totalDeposit.toFixed(2)}\n\n`
       
       // Add activation message if account was just activated
       if (deposit.user.status === 'INACTIVE') {
@@ -1662,7 +1661,6 @@ app.post('/api/oxapay-callback', async (req, res) => {
         `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
         `💎 Currency: ${deposit.currency}\n` +
         `📊 Total Deposited: $${updatedUser.totalDeposit.toFixed(2)}\n` +
-        `💳 New Balance: $${updatedUser.balance.toFixed(2)}\n` +
         `📈 Plan: ${planInfo.currentPlan}`,
         { parse_mode: 'Markdown' }
       )

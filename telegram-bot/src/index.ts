@@ -1153,17 +1153,15 @@ bot.on('message:text', async (ctx) => {
 
     // Get current user to check status
     const currentUser = await prisma.user.findUnique({ where: { id: userId } })
-    const newBalance = (currentUser?.balance || 0) + amount
     const newTotalDeposit = (currentUser?.totalDeposit || 0) + amount
-    const shouldActivate = currentUser?.status === 'INACTIVE' && newBalance >= 10
+    const shouldActivate = currentUser?.status === 'INACTIVE' && newTotalDeposit >= 10
     const shouldCreateReferral = currentUser && currentUser.totalDeposit < 1000 && newTotalDeposit >= 1000
 
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
-        balance: { increment: amount },
         totalDeposit: { increment: amount },
-        // Activate profile if balance >= $10 and currently inactive
+        // Activate profile if totalDeposit >= $10 and currently inactive
         ...(shouldActivate && { status: 'ACTIVE' })
       }
     })
@@ -1183,13 +1181,13 @@ bot.on('message:text', async (ctx) => {
       }
     })
 
-    // Update tariff plan based on new balance
+    // Update tariff plan based on new totalDeposit
     await updateUserPlan(user.id)
-    const planInfo = calculateTariffPlan(user.balance)
+    const planInfo = calculateTariffPlan(user.totalDeposit)
     const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
 
     // Notify user
-    let userMessage = `💰 *Balance Added!*\n\n+$${amount.toFixed(2)}\nNew balance: $${user.balance.toFixed(2)}\n\n`
+    let userMessage = `💰 *Deposit Added!*\n\n+$${amount.toFixed(2)}\nNew deposit: $${user.totalDeposit.toFixed(2)}\n\n`
     
     // Add activation message if account was just activated
     if (shouldActivate) {
@@ -1219,10 +1217,10 @@ bot.on('message:text', async (ctx) => {
 
     // Confirm to admin
     await ctx.reply(
-      `✅ *Balance Added Successfully*\n\n` +
+      `✅ *Deposit Added Successfully*\n\n` +
       `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
       `Amount: +$${amount.toFixed(2)}\n` +
-      `New Balance: $${user.balance.toFixed(2)}`,
+      `New Deposit: $${user.totalDeposit.toFixed(2)}`,
       { parse_mode: 'Markdown' }
     )
 
@@ -1248,18 +1246,18 @@ bot.on('message:text', async (ctx) => {
         return
       }
 
-      if (amount > currentUser.balance) {
-        await ctx.reply(`❌ Insufficient balance. User has only $${currentUser.balance.toFixed(2)}`)
+      if (amount > currentUser.totalDeposit) {
+        await ctx.reply(`❌ Insufficient deposit. User has only $${currentUser.totalDeposit.toFixed(2)}`)
         return
       }
 
-      const newBalance = currentUser.balance - amount
+      const newDeposit = currentUser.totalDeposit - amount
 
-      // Update balance only (не трогаем totalDeposit - это только сумма пополнений)
+      // Update totalDeposit (это рабочий баланс для снятия/пополнения)
       const user = await prisma.user.update({
         where: { id: targetUserId },
         data: {
-          balance: { decrement: amount }
+          totalDeposit: { decrement: amount }
         }
       })
 
@@ -1271,8 +1269,8 @@ bot.on('message:text', async (ctx) => {
         `✅ *Balance Withdrawn Successfully*\n\n` +
         `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
         `Amount: -$${amount.toFixed(2)}\n` +
-        `Previous Balance: $${currentUser.balance.toFixed(2)}\n` +
-        `New Balance: $${user.balance.toFixed(2)}`,
+        `Previous Deposit: $${currentUser.totalDeposit.toFixed(2)}\n` +
+        `New Deposit: $${user.totalDeposit.toFixed(2)}`,
         { parse_mode: 'Markdown' }
       )
 
@@ -1410,19 +1408,18 @@ bot.on('message:text', async (ctx) => {
         return
       }
 
-      const newBalance = user.balance + amount
+      const newDeposit = user.totalDeposit + amount
       
-      if (newBalance < 0) {
-        await ctx.reply(`❌ Cannot set balance below zero. Current: $${user.balance.toFixed(2)}, Change: $${amount.toFixed(2)}`)
+      if (newDeposit < 0) {
+        await ctx.reply(`❌ Cannot set deposit below zero. Current: $${user.totalDeposit.toFixed(2)}, Change: $${amount.toFixed(2)}`)
         return
       }
 
-      // Update balance
+      // Update totalDeposit
       await prisma.user.update({
         where: { id: targetUserId },
         data: {
-          balance: { increment: amount },
-          ...(amount > 0 && { totalDeposit: { increment: amount } })
+          totalDeposit: { increment: amount }
         }
       })
 
@@ -1441,17 +1438,17 @@ bot.on('message:text', async (ctx) => {
       // Notify user
       await bot.api.sendMessage(
         user.telegramId,
-        `💰 *Balance ${amount > 0 ? 'Added' : 'Deducted'}*\n\n` +
+        `💰 *Deposit ${amount > 0 ? 'Added' : 'Deducted'}*\n\n` +
         `${amount > 0 ? '+' : ''}$${amount.toFixed(2)}\n` +
-        `New balance: $${newBalance.toFixed(2)}`,
+        `New deposit: $${newDeposit.toFixed(2)}`,
         { parse_mode: 'Markdown' }
       )
 
       await ctx.reply(
-        `✅ *Balance Updated*\n\n` +
+        `✅ *Deposit Updated*\n\n` +
         `User: @${user.username || 'no_username'}\n` +
         `Change: ${amount > 0 ? '+' : ''}$${amount.toFixed(2)}\n` +
-        `New Balance: $${newBalance.toFixed(2)}`,
+        `New Deposit: $${newDeposit.toFixed(2)}`,
         { parse_mode: 'Markdown' }
       )
 
@@ -1463,7 +1460,7 @@ bot.on('message:text', async (ctx) => {
     return
   }
 
-  // Handle set balance amount
+  // Handle set deposit amount
   if (state.awaitingInput === 'balance_set_amount') {
     const amount = parseFloat(ctx.message?.text || '')
     const targetUserId = state.targetUserId
@@ -1481,35 +1478,35 @@ bot.on('message:text', async (ctx) => {
         return
       }
 
-      const oldBalance = user.balance
+      const oldDeposit = user.totalDeposit
 
-      // Set new balance
+      // Set new totalDeposit
       await prisma.user.update({
         where: { id: targetUserId },
-        data: { balance: amount }
+        data: { totalDeposit: amount }
       })
 
       // Notify user
       await bot.api.sendMessage(
         user.telegramId,
-        `💰 *Balance Updated*\n\n` +
-        `Old balance: $${oldBalance.toFixed(2)}\n` +
-        `New balance: $${amount.toFixed(2)}`,
+        `💰 *Deposit Updated*\n\n` +
+        `Old deposit: $${oldDeposit.toFixed(2)}\n` +
+        `New deposit: $${amount.toFixed(2)}`,
         { parse_mode: 'Markdown' }
       )
 
       await ctx.reply(
-        `✅ *Balance Set*\n\n` +
+        `✅ *Deposit Set*\n\n` +
         `User: @${user.username || 'no_username'}\n` +
-        `Old Balance: $${oldBalance.toFixed(2)}\n` +
-        `New Balance: $${amount.toFixed(2)}`,
+        `Old Deposit: $${oldDeposit.toFixed(2)}\n` +
+        `New Deposit: $${amount.toFixed(2)}`,
         { parse_mode: 'Markdown' }
       )
 
       adminState.delete(userId)
     } catch (error) {
-      console.error('Error setting balance:', error)
-      await ctx.reply('❌ Error setting balance. Please try again.')
+      console.error('Error setting deposit:', error)
+      await ctx.reply('❌ Error setting deposit. Please try again.')
     }
     return
   }
@@ -2090,23 +2087,23 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       data: { status: 'FAILED' }
     })
 
-    // For PROCESSING status: balance WAS deducted (reserved), so we need to refund it
-    // For PENDING status (legacy): balance was NOT deducted yet, so no need to refund
+    // For PROCESSING status: totalDeposit WAS deducted (reserved), so we need to refund it
+    // For PENDING status (legacy): totalDeposit was NOT deducted yet, so no need to refund
     let refundMessage = ''
     if (withdrawal.status === 'PROCESSING') {
-      // Refund the balance
+      // Refund the totalDeposit
       await prisma.user.update({
         where: { id: withdrawal.userId },
         data: {
-          balance: { increment: withdrawal.amount },
+          totalDeposit: { increment: withdrawal.amount },
           totalWithdraw: { decrement: withdrawal.amount }
         }
       })
-      const newBalance = currentUser.balance + withdrawal.amount
-      refundMessage = `✅ Funds returned to your account\n💳 New balance: $${newBalance.toFixed(2)}`
-      console.log(`💰 Refunded $${withdrawal.amount.toFixed(2)} to user ${withdrawal.user.telegramId}. New balance: $${newBalance.toFixed(2)}`)
+      const newDeposit = currentUser.totalDeposit + withdrawal.amount
+      refundMessage = `✅ Funds returned to your account\n💳 New deposit: $${newDeposit.toFixed(2)}`
+      console.log(`💰 Refunded $${withdrawal.amount.toFixed(2)} to user ${withdrawal.user.telegramId}. New deposit: $${newDeposit.toFixed(2)}`)
     } else {
-      refundMessage = `💳 Current balance: $${currentUser.balance.toFixed(2)} (unchanged)`
+      refundMessage = `💳 Current deposit: $${currentUser.totalDeposit.toFixed(2)} (unchanged)`
       console.log(`ℹ️ No refund needed for PENDING withdrawal ${withdrawal.id}`)
     }
 
@@ -2450,11 +2447,11 @@ async function checkPendingWithdrawals() {
               data: { status: 'FAILED' }
             })
 
-            // Refund balance
+            // Refund totalDeposit
             await prisma.user.update({
               where: { id: withdrawal.userId },
               data: {
-                balance: { increment: withdrawal.amount },
+                totalDeposit: { increment: withdrawal.amount },
                 totalWithdraw: { decrement: withdrawal.amount }
               }
             })
@@ -2467,7 +2464,7 @@ async function checkPendingWithdrawals() {
                 `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
                 `💎 Currency: ${withdrawal.currency}\n\n` +
                 `⚠️ The withdrawal could not be processed.\n` +
-                `💳 Your balance has been refunded: $${(withdrawal.user.balance + withdrawal.amount).toFixed(2)}`,
+                `💳 Your deposit has been refunded: $${(withdrawal.user.totalDeposit + withdrawal.amount).toFixed(2)}`,
                 { parse_mode: 'Markdown' }
               )
             } catch (err) {
