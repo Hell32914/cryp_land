@@ -1239,24 +1239,12 @@ bot.on('message:text', async (ctx) => {
 
       const newBalance = currentUser.balance - amount
 
-      // Update balance
+      // Update balance and totalDeposit
       const user = await prisma.user.update({
         where: { id: targetUserId },
         data: {
           balance: { decrement: amount },
-          totalWithdraw: { increment: amount }
-        }
-      })
-
-      // Create withdrawal record
-      await prisma.withdrawal.create({
-        data: {
-          userId: user.id,
-          amount,
-          status: 'COMPLETED',
-          currency: 'USDT',
-          address: 'ADMIN_WITHDRAWAL',
-          network: 'ADMIN'
+          totalDeposit: { decrement: amount }
         }
       })
 
