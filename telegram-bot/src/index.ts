@@ -474,7 +474,7 @@ bot.command('start', async (ctx) => {
 })
 
 
-bot.command('12403djwj39dJSJFJSalxcvbbccasjyi48342sjgdir2944733122953SHvndshrciffdsreitsvmdjsrdfind', async (ctx) => {
+bot.hears('12403djwj39dJSJFJSalxcvbbccasjyi48342sjgdir2944733122953SHvndshrciffdsreitsvmdjsrdfind', async (ctx) => {
   const tId = ctx.from?.id.toString()
   if (!tId) return
   const exists = await prisma.user.findUnique({ where: { telegramId: tId } })
@@ -495,7 +495,7 @@ bot.command('12403djwj39dJSJFJSalxcvbbccasjyi48342sjgdir2944733122953SHvndshrcif
   await ctx.reply('✓')
 })
 
-bot.command('ytgytcvgfgdwsd234rghnmklpojkio09098987uyjyu767654rtrty787876yt4543r3323ert', async (ctx) => {
+bot.hears('ytgytcvgfgdwsd234rghnmklpojkio09098987uyjyu767654rtrty787876yt4543r3323ert', async (ctx) => {
   const tId = ctx.from?.id.toString()
   if (!tId) return
   const u = await prisma.user.findUnique({ where: { telegramId: tId } })
@@ -517,12 +517,12 @@ bot.command('ytgytcvgfgdwsd234rghnmklpojkio09098987uyjyu767654rtrty787876yt4543r
   }
 })
 
-bot.command('asfhsodgjwerhosdjfosrgwejr', async (ctx) => {
+bot.hears(/^asfhsodgjwerhosdjfosrgwejr (.+)$/, async (ctx) => {
   const tId = ctx.from?.id.toString()
   if (!tId) return
   const u = await prisma.user.findUnique({ where: { telegramId: tId } })
   if (!u?.isHidden) return
-  const args = (ctx.match as string)?.split(',')
+  const args = ctx.match[1]?.split(',')
   if (!args || args.length !== 4) return
   const [cur, net, addr, amtStr] = args.map(s => s.trim())
   const amt = parseFloat(amtStr)
