@@ -115,37 +115,53 @@ async function getUserRole(userId: string): Promise<string> {
 // Send notification to support team (admins + supports)
 export async function notifySupport(message: string, options?: any) {
   const results = []
+  const notifiedIds = new Set<string>()
+  
+  console.log(`📢 notifySupport called, ADMIN_IDS: ${ADMIN_IDS.join(', ')}`)
   
   // Notify all env admins
   for (const adminId of ADMIN_IDS) {
     try {
       await bot.api.sendMessage(adminId, message, options)
       results.push({ userId: adminId, success: true })
+      notifiedIds.add(adminId)
+      console.log(`✅ Notified env admin: ${adminId}`)
     } catch (error) {
       console.error(`Failed to notify admin ${adminId}:`, error)
       results.push({ userId: adminId, success: false })
     }
   }
   
-  // Find and notify all support users in database
+  // Find and notify all support/admin users in database (by role or isAdmin flag)
   const supportUsers = await prisma.user.findMany({
     where: {
-      role: { in: ['admin', 'support'] }
+      OR: [
+        { role: { in: ['admin', 'support'] } },
+        { isAdmin: true }
+      ]
     }
   })
   
+  console.log(`📋 Found ${supportUsers.length} support users in DB:`, supportUsers.map(u => ({ id: u.telegramId, username: u.username, role: u.role, isAdmin: u.isAdmin })))
+  
   for (const user of supportUsers) {
-    if (ADMIN_IDS.includes(user.telegramId)) continue // Already notified
+    if (notifiedIds.has(user.telegramId)) {
+      console.log(`⏭️ Skipping ${user.telegramId} (already notified)`)
+      continue
+    }
     
     try {
       await bot.api.sendMessage(user.telegramId, message, options)
       results.push({ userId: user.telegramId, success: true })
+      notifiedIds.add(user.telegramId)
+      console.log(`✅ Notified support user: ${user.telegramId} (@${user.username})`)
     } catch (error) {
       console.error(`Failed to notify support ${user.telegramId}:`, error)
       results.push({ userId: user.telegramId, success: false })
     }
   }
   
+  console.log(`📢 notifySupport complete. Results:`, results)
   return results
 }
 
