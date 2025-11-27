@@ -24,6 +24,8 @@ const ADMIN_IDS_STRING = process.env.ADMIN_IDS || process.env.ADMIN_ID || ''
 export const ADMIN_IDS = ADMIN_IDS_STRING.split(',').map(id => id.trim()).filter(id => id.length > 0)
 export const ADMIN_ID = ADMIN_IDS[0] || '' // Legacy support
 
+console.log(`🔐 ADMIN_IDS loaded: [${ADMIN_IDS.join(', ')}]`)
+
 const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
@@ -565,6 +567,8 @@ bot.command('admin', async (ctx) => {
 // Manage Roles (Admins & Support)
 bot.callbackQuery('admin_manage_admins', async (ctx) => {
   const userId = ctx.from?.id.toString()
+  console.log(`📋 admin_manage_admins called by userId: ${userId}, ADMIN_IDS: [${ADMIN_IDS.join(', ')}], includes: ${ADMIN_IDS.includes(userId || '')}`)
+  
   if (!userId || !ADMIN_IDS.includes(userId)) {
     await safeAnswerCallback(ctx, 'Only super admin can manage roles')
     return
@@ -2379,11 +2383,16 @@ async function sendScheduledNotifications() {
   try {
     const now = new Date()
     
-    // Find all updates that should be sent now (timestamp passed, not yet notified)
+    // Only send notifications for updates created in the last 2 hours
+    // This prevents sending all old notifications after server restart
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+    
+    // Find all updates that should be sent now (timestamp passed, not yet notified, created recently)
     const pendingUpdates = await prisma.dailyProfitUpdate.findMany({
       where: {
         timestamp: {
-          lte: now
+          lte: now,
+          gte: twoHoursAgo // Only notify for recent updates
         },
         notified: false
       },
