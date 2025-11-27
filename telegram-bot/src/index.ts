@@ -2167,16 +2167,15 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   // Normalize percentages
   const normalizedPercentages = percentages.map(p => p / sum)
   
-  // Generate random timestamps starting from NOW and spreading across next 20 hours
-  // This ensures notifications are distributed throughout the day, not clustered
+  // Generate random timestamps in the PAST (last 20 hours) so they show immediately
   const now = new Date()
   const startTime = now.getTime()
   const twentyHoursInMs = 20 * 60 * 60 * 1000 // 20 hours in milliseconds
   
   for (let i = 0; i < numUpdates; i++) {
-    // Generate timestamps spread across the next 20 hours from now
+    // Generate timestamps spread across the PAST 20 hours (negative offset)
     const randomOffset = Math.random() * twentyHoursInMs
-    const timestamp = new Date(startTime + randomOffset)
+    const timestamp = new Date(startTime - randomOffset)
     let amount = totalProfit * normalizedPercentages[i]
     
     // Minimum $0.01 per update
@@ -2185,7 +2184,7 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
     updates.push({ amount, timestamp })
   }
   
-  // Sort by timestamp
+  // Sort by timestamp (oldest first)
   updates.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
   
   return updates
@@ -2358,7 +2357,7 @@ async function sendScheduledNotifications() {
       orderBy: {
         timestamp: 'asc'
       },
-      take: 5 // Send max 5 notifications at a time to avoid spam
+      take: 50 // Send max 50 notifications at a time
     })
 
     let successCount = 0
