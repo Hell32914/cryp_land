@@ -767,7 +767,7 @@ bot.callbackQuery('admin_users', async (ctx) => {
     const username = (user.username || 'no_username').replace(/_/g, '\\_')
     message += `${index + 1}. @${username}\n`
     message += `   ID: ${user.telegramId}\n`
-    message += `   💰 $${user.balance.toFixed(2)} | ${user.status}\n\n`
+    message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
   })
 
   const keyboard = new InlineKeyboard()
