@@ -64,6 +64,23 @@ export function LinkBuilder() {
     loadLinks()
   }, [])
 
+  // Auto-generate SubID from metadata fields
+  useEffect(() => {
+    const parts = [trafficerName, stream, geo, creative].filter(Boolean)
+    if (parts.length > 0) {
+      const autoSubId = parts.join('_')
+      setSubIdParams(params => {
+        // Update first parameter with auto-generated SubID
+        if (params.length === 0) {
+          return [{ id: 1, key: 'subid', value: autoSubId }]
+        }
+        return params.map((param, index) => 
+          index === 0 ? { ...param, key: 'subid', value: autoSubId } : param
+        )
+      })
+    }
+  }, [trafficerName, stream, geo, creative])
+
   const loadLinks = async () => {
     if (!token) return
     

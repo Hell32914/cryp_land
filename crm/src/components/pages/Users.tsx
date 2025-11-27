@@ -160,23 +160,20 @@ export function Users() {
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70 text-right"
-                      onClick={() => handleSort('profit')}
-                    >
-                      Current Profit {sortBy === 'profit' && (sortOrder === 'asc' ? '↑' : '↓')}
-                    </TableHead>
-                    <TableHead className="text-right">Total Profit</TableHead>
-                    <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/70 text-right"
                       onClick={() => handleSort('totalDeposit')}
                     >
-                      FTD {sortBy === 'totalDeposit' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      Total Deps {sortBy === 'totalDeposit' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70 text-right"
                       onClick={() => handleSort('totalWithdraw')}
                     >
-                      Withdrawals {sortBy === 'totalWithdraw' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      Total Withdraw {sortBy === 'totalWithdraw' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
+                    <TableHead className="text-right">Net (D-W)</TableHead>
+                    <TableHead>Trafficker</TableHead>
+                    <TableHead>Link Name</TableHead>
+                    <TableHead>Blocked</TableHead>
                     <TableHead className="text-center">Referrals</TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70"
@@ -205,17 +202,27 @@ export function Users() {
                       <TableCell className="text-right font-mono text-sm">
                         ${user.balance.toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-cyan-400">
-                        ${user.currentProfit.toFixed(2)}
-                      </TableCell>
                       <TableCell className="text-right font-mono text-sm text-green-400">
-                        ${user.totalProfit.toFixed(2)}
+                        ${user.totalDeposit.toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        ${user.firstDepositAmount > 0 ? user.firstDepositAmount.toFixed(2) : '—'}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell className="text-right font-mono text-sm text-orange-400">
                         ${user.totalWithdraw.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        <span className={(user.totalDeposit - user.totalWithdraw) >= 0 ? 'text-cyan-400' : 'text-red-400'}>
+                          ${(user.totalDeposit - user.totalWithdraw).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-blue-400">
+                        {user.trafficerName || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-purple-400 max-w-[120px] truncate" title={user.linkName || ''}>
+                        {user.linkName || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={user.isBlocked ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}>
+                          {user.isBlocked ? 'Yes' : 'No'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20">

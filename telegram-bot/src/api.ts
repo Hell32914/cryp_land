@@ -12,6 +12,9 @@ const prisma = new PrismaClient()
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 
+// Track pending withdrawal requests to prevent double-clicking race condition
+const pendingWithdrawalRequests = new Set<string>()
+
 // Tariff plans configuration
 const TARIFF_PLANS = [
   { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
@@ -391,7 +394,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
   }
 })
 
-const mapUserSummary = (user: any) => ({
+const mapUserSummary = (user: any, marketingLink?: any) => ({
   id: user.id,
   telegramId: user.telegramId,
   username: user.username,
@@ -420,6 +423,10 @@ const mapUserSummary = (user: any) => ({
   languageCode: user.languageCode || null,
   marketingSource: user.marketingSource || null,
   utmParams: user.utmParams || null,
+  // Marketing link info (from joined data or stored linkId)
+  trafficerName: marketingLink?.trafficerName || user.trafficerName || null,
+  linkName: marketingLink?.linkName || user.linkName || null,
+  linkId: marketingLink?.linkId || user.linkId || null,
 })
 
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
@@ -461,21 +468,54 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       },
     })
 
-    // Calculate additional fields
-    const enrichedUsers = users.map(user => {
+    // Get all marketing links to match with users
+    const marketingLinks = await prisma.marketingLink.findMany()
+    const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
+
+    // Calculate additional fields and get marketing link info
+    const enrichedUsers = await Promise.all(users.map(async (user) => {
       const firstDeposit = user.deposits[0]
       const totalProfit = user.dailyUpdates.reduce((sum, update) => sum + update.amount, 0)
+      
+      // Find marketing link for this user by linkId stored in utmParams
+      let marketingLink = null
+      if (user.utmParams) {
+        // Check if utmParams contains a linkId (mk_...)
+        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        if (linkIdMatch) {
+          marketingLink = linksByLinkId.get(linkIdMatch[0])
+        }
+      }
+      // Also check if user has linkId directly stored
+      if (!marketingLink && (user as any).linkId) {
+        marketingLink = linksByLinkId.get((user as any).linkId)
+      }
+      
+      // Build linkName from marketing link metadata
+      let linkName = null
+      if (marketingLink) {
+        const parts = [
+          marketingLink.trafficerName,
+          marketingLink.stream,
+          marketingLink.geo,
+          marketingLink.creative
+        ].filter(Boolean)
+        linkName = parts.length > 0 ? parts.join('_') : marketingLink.linkId
+      }
       
       return {
         ...user,
         referralCount: user.referrals.length,
         firstDepositAmount: firstDeposit?.amount || 0,
         totalProfit,
+        trafficerName: marketingLink?.trafficerName || null,
+        linkName: linkName,
+        linkId: marketingLink?.linkId || null,
       }
-    })
+    }))
 
     return res.json({
-      users: enrichedUsers.map(mapUserSummary),
+      users: enrichedUsers.map(u => mapUserSummary(u)),
       count: enrichedUsers.length,
     })
   } catch (error) {
@@ -512,6 +552,10 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       take,
     })
 
+    // Get all marketing links to match with users
+    const marketingLinks = await prisma.marketingLink.findMany()
+    const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
+
     const payload = deposits.map((deposit) => {
       // Determine depStatus based on deposit status
       const depStatus = deposit.status === 'COMPLETED' ? 'paid' : 'processing'
@@ -531,6 +575,25 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
         leadStatus = 'reinvest'
       }
 
+      // Find marketing link for this user
+      let marketingLink = null
+      let linkName = null
+      if (deposit.user.utmParams) {
+        const linkIdMatch = deposit.user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        if (linkIdMatch) {
+          marketingLink = linksByLinkId.get(linkIdMatch[0])
+          if (marketingLink) {
+            const parts = [
+              marketingLink.trafficerName,
+              marketingLink.stream,
+              marketingLink.geo,
+              marketingLink.creative
+            ].filter(Boolean)
+            linkName = parts.length > 0 ? parts.join('_') : marketingLink.linkId
+          }
+        }
+      }
+
       return {
         id: deposit.id,
         status: deposit.status,
@@ -544,6 +607,8 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
         leadStatus,
         trafficSource: deposit.user.marketingSource,
         referralLink: deposit.user.utmParams,
+        trafficerName: marketingLink?.trafficerName || null,
+        linkName: linkName,
       }
     })
 
@@ -1106,23 +1171,42 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
     const { telegramId } = req.params
     const { amount, currency, address, network } = req.body
 
+    // Check for duplicate request (race condition protection)
+    const requestKey = `${telegramId}_${amount}_${address}`
+    if (pendingWithdrawalRequests.has(requestKey)) {
+      console.log(`⚠️ Duplicate withdrawal request blocked for ${telegramId}: $${amount}`)
+      return res.status(429).json({ error: 'Withdrawal request already in progress. Please wait.' })
+    }
+    
+    // Add to pending requests
+    pendingWithdrawalRequests.add(requestKey)
+    
+    // Auto-remove from pending after 30 seconds (cleanup)
+    setTimeout(() => {
+      pendingWithdrawalRequests.delete(requestKey)
+    }, 30000)
+
     const user = await prisma.user.findUnique({
       where: { telegramId }
     })
 
     if (!user) {
+      pendingWithdrawalRequests.delete(requestKey)
       return res.status(404).json({ error: 'User not found' })
     }
 
     if (!amount || amount < 10) {
+      pendingWithdrawalRequests.delete(requestKey)
       return res.status(400).json({ error: 'Minimum withdrawal amount is $10' })
     }
 
     if (amount > user.balance) {
+      pendingWithdrawalRequests.delete(requestKey)
       return res.status(400).json({ error: 'Insufficient balance' })
     }
 
     if (!address || !currency) {
+      pendingWithdrawalRequests.delete(requestKey)
       return res.status(400).json({ error: 'Address and currency are required' })
     }
 
@@ -1214,6 +1298,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           console.error('Failed to notify support team about withdrawal:', err)
         }
 
+        // Clear pending request key
+        pendingWithdrawalRequests.delete(requestKey)
+        
         return res.json({
           success: true,
           withdrawalId: withdrawal.id,
@@ -1259,6 +1346,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           console.error('Failed to notify user:', err)
         }
 
+        // Clear pending request key
+        pendingWithdrawalRequests.delete(requestKey)
+        
         return res.status(400).json({
           success: false,
           withdrawalId: withdrawal.id,
@@ -1370,6 +1460,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         console.error('Failed to notify user:', err)
       }
 
+      // Clear pending request key
+      pendingWithdrawalRequests.delete(requestKey)
+      
       return res.json({
         success: true,
         withdrawalId: withdrawal.id,
@@ -1380,6 +1473,10 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
     }
   } catch (error: any) {
     console.error('❌ Withdrawal API Error:', error)
+    
+    // Clear pending request key on error
+    const requestKey = `${req.params.telegramId}_${req.body.amount}_${req.body.address}`
+    pendingWithdrawalRequests.delete(requestKey)
     
     // If response already sent, don't try to send again
     if (res.headersSent) {
@@ -1632,13 +1729,11 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     
     // Calculate metrics for each link
     const enrichedLinks = await Promise.all(links.map(async (link) => {
-      // Get users from this link (by source or utmParams)
+      // Get users from this link (by exact linkId stored in utmParams)
+      // Note: utmParams now stores the exact linkId (mk_...) for marketing links
       const users = await prisma.user.findMany({
         where: {
-          OR: [
-            { marketingSource: link.source },
-            { utmParams: { contains: link.linkId } }
-          ]
+          utmParams: link.linkId // Exact match to linkId
         },
         include: {
           deposits: {

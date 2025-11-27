@@ -333,7 +333,8 @@ bot.command('start', async (ctx) => {
           })
           
           marketingSource = marketingLink.source
-          utmParams = marketingLink.utmParams
+          // Store the linkId in utmParams so we can match it later
+          utmParams = linkId
         }
       } else {
         // Try to parse URL params: source=<name>&param1=value1&param2=value2
@@ -1822,8 +1823,8 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    // If already PROCESSING, just mark as COMPLETED
-    if (withdrawal.status === 'PROCESSING') {
+    // If PROCESSING and already has txHash, just mark as COMPLETED (already sent to OxaPay)
+    if (withdrawal.status === 'PROCESSING' && withdrawal.txHash && withdrawal.txHash !== 'MANUAL_PROCESSING_REQUIRED') {
       await prisma.withdrawal.update({
         where: { id: withdrawalId },
         data: { status: 'COMPLETED' }
@@ -1849,8 +1850,8 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    // For PROCESSING status from withdrawals > $100: balance already deducted, just process via OxaPay
-    if (withdrawal.status === 'PROCESSING' && !withdrawal.txHash) {
+    // For PROCESSING status without txHash: balance already deducted, need to process via OxaPay
+    if (withdrawal.status === 'PROCESSING' && (!withdrawal.txHash || withdrawal.txHash === 'MANUAL_PROCESSING_REQUIRED')) {
       console.log(`💸 Approving PROCESSING withdrawal ${withdrawal.id} for user ${withdrawal.user.telegramId}`)
       console.log(`ℹ️ Balance already deducted (reserved). Current balance: $${withdrawal.user.balance.toFixed(2)}`)
       

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -34,6 +34,15 @@ export function Deposits() {
     deposit.id.toString().includes(search)
   )
 
+  // Calculate totals
+  const totals = useMemo(() => {
+    const completedDeposits = filteredDeposits.filter(d => d.status === 'COMPLETED')
+    return {
+      totalAmount: completedDeposits.reduce((sum, d) => sum + d.amount, 0),
+      totalCount: completedDeposits.length
+    }
+  }, [filteredDeposits])
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
@@ -51,6 +60,16 @@ export function Deposits() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('deposits.title')}</h1>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Total Deposits</p>
+            <p className="text-2xl font-bold text-green-500">${totals.totalAmount.toFixed(2)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Count</p>
+            <p className="text-2xl font-bold">{totals.totalCount}</p>
+          </div>
+        </div>
       </div>
 
       <Card>
@@ -78,8 +97,8 @@ export function Deposits() {
                   <TableHead>Country</TableHead>
                   <TableHead>Dep Status</TableHead>
                   <TableHead>Lead Status</TableHead>
-                  <TableHead>Traffic Source</TableHead>
-                  <TableHead>Referral Link</TableHead>
+                  <TableHead>Trafficker</TableHead>
+                  <TableHead>Link Name</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -112,11 +131,11 @@ export function Deposits() {
                         {deposit.leadStatus}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {deposit.trafficSource || '—'}
+                    <TableCell className="text-sm text-blue-400">
+                      {deposit.trafficerName || '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono max-w-[200px] truncate" title={deposit.referralLink || ''}>
-                      {deposit.referralLink || '—'}
+                    <TableCell className="text-sm text-purple-400 max-w-[150px] truncate" title={deposit.linkName || ''}>
+                      {deposit.linkName || '—'}
                     </TableCell>
                   </TableRow>
                 ))}

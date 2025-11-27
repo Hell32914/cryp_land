@@ -119,6 +119,10 @@ export interface UserRecord {
   languageCode: string | null
   marketingSource: string | null
   utmParams: string | null
+  // Marketing link info
+  trafficerName: string | null
+  linkName: string | null
+  linkId: string | null
 }
 
 export interface UsersResponse {
@@ -139,6 +143,8 @@ export interface DepositRecord {
   leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active'
   trafficSource: string | null
   referralLink: string | null
+  trafficerName: string | null
+  linkName: string | null
 }
 
 export interface WithdrawalRecord {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,18 @@ export function Withdrawals() {
 
   const withdrawals = data?.withdrawals || []
 
+  // Calculate totals
+  const totals = useMemo(() => {
+    const completedWithdrawals = withdrawals.filter(w => w.status === 'COMPLETED')
+    const processingWithdrawals = withdrawals.filter(w => w.status === 'PROCESSING')
+    return {
+      totalAmount: completedWithdrawals.reduce((sum, w) => sum + w.amount, 0),
+      totalCount: completedWithdrawals.length,
+      processingAmount: processingWithdrawals.reduce((sum, w) => sum + w.amount, 0),
+      processingCount: processingWithdrawals.length
+    }
+  }, [withdrawals])
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'successful':
@@ -32,6 +45,8 @@ export function Withdrawals() {
         return 'bg-green-500/10 text-green-500 border-green-500/20'
       case 'pending':
         return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+      case 'processing':
+        return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
       case 'declined':
       case 'failed':
         return 'bg-red-500/10 text-red-500 border-red-500/20'
@@ -54,6 +69,20 @@ export function Withdrawals() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('withdrawals.title')}</h1>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Processing</p>
+            <p className="text-xl font-bold text-blue-500">${totals.processingAmount.toFixed(2)} ({totals.processingCount})</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Total Withdrawn</p>
+            <p className="text-2xl font-bold text-orange-500">${totals.totalAmount.toFixed(2)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Count</p>
+            <p className="text-2xl font-bold">{totals.totalCount}</p>
+          </div>
+        </div>
       </div>
 
       <Card>
