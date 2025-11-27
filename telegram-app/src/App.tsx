@@ -202,7 +202,7 @@ function App() {
       return
     }
 
-    if (!userData || amount > userData.balance) {
+    if (!userData || amount > userData.totalDeposit) {
       toast.error('Insufficient balance')
       return
     }
@@ -492,7 +492,7 @@ function App() {
             </h2>
 
             <p className="text-foreground text-sm sm:text-base">
-              {t.availableBalance} <span className="font-bold text-primary">${userProfile.balance.toFixed(2)}</span>
+              {t.availableBalance} <span className="font-bold text-primary">${userProfile.totalDeposit.toFixed(2)}</span>
             </p>
 
             <div className="space-y-2">
@@ -1462,7 +1462,7 @@ function App() {
                   <div className="flex items-start justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.totalBalance}</p>
-                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {(userProfile.totalDeposit + (userData?.profit || 0) + (userData?.referralEarnings || 0)).toFixed(2)}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {((userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0)).toFixed(2)}</p>
                     </div>
                     <Badge 
                       variant="outline" 
@@ -1489,7 +1489,7 @@ function App() {
                   <div className="flex items-center justify-between pb-3">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.deposit}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">${userProfile.totalDeposit.toFixed(2)}</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">${(userData?.totalDeposit || 0).toFixed(2)}</p>
                     </div>
                     <Button 
                       className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
@@ -1662,7 +1662,7 @@ function App() {
                   </h2>
 
                   <div className="space-y-4">
-                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">${userProfile.balance.toFixed(2)}</span></p>
+                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">${userProfile.totalDeposit.toFixed(2)}</span></p>
                     
                     <Button 
                       className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6 text-base"
