@@ -2156,7 +2156,10 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
     // Generate timestamps spread across the next 20 hours from now
     const randomOffset = Math.random() * twentyHoursInMs
     const timestamp = new Date(startTime + randomOffset)
-    const amount = totalProfit * normalizedPercentages[i]
+    let amount = totalProfit * normalizedPercentages[i]
+    
+    // Minimum $0.01 per update
+    if (amount < 0.01) amount = 0.01
     
     updates.push({ amount, timestamp })
   }
@@ -2347,8 +2350,7 @@ async function sendScheduledNotifications() {
           update.user.telegramId,
           `💰 *Daily Profit Update*\n\n` +
           `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
-          `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)\n` +
-          `💎 Total daily: $${update.dailyTotal.toFixed(2)}`,
+          `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)`,
           { parse_mode: 'Markdown' }
         )
         
