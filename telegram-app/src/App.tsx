@@ -492,7 +492,7 @@ function App() {
             </h2>
 
             <p className="text-foreground text-sm sm:text-base">
-              {t.availableBalance} <span className="font-bold text-primary">${userProfile.totalDeposit.toFixed(2)}</span>
+              {t.availableBalance} <span className="font-bold text-primary">${(userData?.totalDeposit || 0).toFixed(2)}</span>
             </p>
 
             <div className="space-y-2">
@@ -1662,7 +1662,7 @@ function App() {
                   </h2>
 
                   <div className="space-y-4">
-                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">${userProfile.totalDeposit.toFixed(2)}</span></p>
+                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">${(userData?.totalDeposit || 0).toFixed(2)}</span></p>
                     
                     <Button 
                       className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6 text-base"
