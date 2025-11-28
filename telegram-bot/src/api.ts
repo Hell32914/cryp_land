@@ -481,9 +481,9 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   country: user.country || 'Unknown',
   status: user.status,
   plan: user.plan,
-  balance: user.balance,
+  balance: user.totalDeposit, // Current working balance (available for withdrawal)
   profit: user.profit,
-  totalDeposit: user.totalDeposit,
+  totalDeposit: user.lifetimeDeposit || user.totalDeposit, // All-time deposits
   totalWithdraw: user.totalWithdraw,
   kycRequired: user.kycRequired,
   isBlocked: user.isBlocked,
@@ -494,7 +494,7 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   comment: user.comment || null,
   currentProfit: user.profit, // Current profit balance
   totalProfit: user.totalProfit || 0, // Lifetime profit
-  remainingBalance: user.balance - user.totalWithdraw,
+  remainingBalance: user.totalDeposit - user.totalWithdraw, // Working balance - withdrawals
   referralCount: user.referralCount || 0,
   referredBy: user.referredBy || null,
   withdrawalStatus: user.kycRequired ? 'verification' : (user.isBlocked ? 'blocked' : 'allowed'),
