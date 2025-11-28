@@ -1280,7 +1280,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.status(400).json({ error: 'Minimum withdrawal amount is $10' })
     }
 
-    if (amount > user.totalDeposit) {
+    // Available balance = totalDeposit + profit (can withdraw profit directly without reinvest)
+    const availableBalance = user.totalDeposit + (user.profit || 0)
+    if (amount > availableBalance) {
       pendingWithdrawalRequests.delete(requestKey)
       return res.status(400).json({ error: 'Insufficient balance' })
     }
@@ -1318,14 +1320,17 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
 
         console.log(`✅ OxaPay payout successful:`, payout)
 
-        // Calculate new deposit before deduction
-        const newDeposit = user.totalDeposit - amount
+        // Calculate how much to deduct from profit vs totalDeposit
+        const profitToDeduct = Math.min(user.profit || 0, amount)
+        const depositToDeduct = amount - profitToDeduct
+        const newDeposit = user.totalDeposit - depositToDeduct
 
-        // SUCCESS: Deduct totalDeposit and update withdrawal
+        // SUCCESS: Deduct from profit first, then totalDeposit
         const updatedUser = await prisma.user.update({
           where: { id: user.id },
           data: {
-            totalDeposit: { decrement: amount },
+            profit: { decrement: profitToDeduct },
+            totalDeposit: { decrement: depositToDeduct },
             totalWithdraw: { increment: amount }
           }
         })
@@ -1443,14 +1448,17 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       
       console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
       
-      // Calculate new deposit
-      const newDeposit = user.totalDeposit - amount
+      // Calculate how much to deduct from profit vs totalDeposit
+      const profitToDeduct = Math.min(user.profit || 0, amount)
+      const depositToDeduct = amount - profitToDeduct
+      const newDeposit = user.totalDeposit - depositToDeduct
       
-      // STEP 1: Deduct totalDeposit immediately (reserve funds)
+      // STEP 1: Deduct from profit first, then totalDeposit (reserve funds)
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          totalDeposit: { decrement: amount },
+          profit: { decrement: profitToDeduct },
+          totalDeposit: { decrement: depositToDeduct },
           totalWithdraw: { increment: amount }
         }
       })
