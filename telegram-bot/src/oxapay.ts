@@ -221,6 +221,12 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
       }
     }
 
+    // Check for specific OxaPay errors
+    const errorKey = error.response?.data?.error?.key
+    if (errorKey === 'amount_exceeds_balance') {
+      throw new Error('Payment provider has insufficient funds. Please contact support.')
+    }
+
     throw new Error(error.response?.data?.message || error.message || 'Failed to create payout')
   }
 }
