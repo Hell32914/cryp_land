@@ -263,6 +263,9 @@ export interface MarketingLink {
   leadsToday: number
   leadsWeek: number
   totalLeads: number
+  usersToday: number
+  usersWeek: number
+  totalUsers: number
   ftdCount: number
   depositConversionRate: number
   totalDeposits: number

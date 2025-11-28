@@ -1826,17 +1826,28 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         }
       })
       
-      // Total leads
-      const totalLeads = users.length
+      // Leads = users WITHOUT IP (only pressed /start in bot, didn't open mini-app)
+      const leads = users.filter(u => !u.ipAddress)
+      const totalLeads = leads.length
       
-      // Leads today
-      const leadsToday = users.filter(u => u.createdAt >= startOfToday).length
+      // Users = users WITH IP (opened mini-app)
+      const appUsers = users.filter(u => u.ipAddress)
+      const totalUsers = appUsers.length
       
-      // Leads this week
-      const leadsWeek = users.filter(u => u.createdAt >= startOfWeek).length
+      // Leads today (without IP)
+      const leadsToday = leads.filter(u => u.createdAt >= startOfToday).length
       
-      // Users with first deposit (FTD)
-      const usersWithDeposits = users.filter(u => u.deposits.length > 0)
+      // Leads this week (without IP)
+      const leadsWeek = leads.filter(u => u.createdAt >= startOfWeek).length
+      
+      // Users today (with IP)
+      const usersToday = appUsers.filter(u => u.createdAt >= startOfToday).length
+      
+      // Users this week (with IP)
+      const usersWeek = appUsers.filter(u => u.createdAt >= startOfWeek).length
+      
+      // Users with first deposit (FTD) - only count users who opened app
+      const usersWithDeposits = appUsers.filter(u => u.deposits.length > 0)
       const ftdCount = usersWithDeposits.length
       
       // Total deposits count and amount
@@ -1851,8 +1862,8 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       // Total profit (sum of user profits)
       const totalProfit = users.reduce((sum, u) => sum + u.profit, 0)
       
-      // Deposit conversion rate (FTD / Total Leads * 100)
-      const depositConversionRate = totalLeads > 0 ? Number(((ftdCount / totalLeads) * 100).toFixed(2)) : 0
+      // Deposit conversion rate (FTD / Total Users * 100) - based on app users, not leads
+      const depositConversionRate = totalUsers > 0 ? Number(((ftdCount / totalUsers) * 100).toFixed(2)) : 0
       
       // CFPD (Cost per First Deposit)
       const cfpd = ftdCount > 0 ? Number((link.trafficCost / ftdCount).toFixed(2)) : 0
@@ -1878,6 +1889,9 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         leadsToday,
         leadsWeek,
         totalLeads,
+        usersToday,
+        usersWeek,
+        totalUsers,
         ftdCount,
         depositConversionRate,
         totalDeposits,

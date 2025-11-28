@@ -90,15 +90,15 @@ export function RefLinks() {
                     <TableHead>Stream</TableHead>
                     <TableHead>Geo</TableHead>
                     <TableHead>Creative</TableHead>
-                    <TableHead className="text-right">Today</TableHead>
-                    <TableHead className="text-right">Week</TableHead>
+                    <TableHead className="text-right text-yellow-400">LEADS</TableHead>
+                    <TableHead className="text-right text-blue-400">TODAY USERS</TableHead>
+                    <TableHead className="text-right text-cyan-400">WEEK USER</TableHead>
+                    <TableHead className="text-right text-green-400">TOTAL USER</TableHead>
                     <TableHead className="text-right">Total Leads</TableHead>
                     <TableHead className="text-right">FTD</TableHead>
                     <TableHead className="text-right">CR %</TableHead>
                     <TableHead className="text-right">Deps</TableHead>
                     <TableHead className="text-right">Dep Amount</TableHead>
-                    <TableHead className="text-right">Withdrawals</TableHead>
-                    <TableHead className="text-right">Profit</TableHead>
                     <TableHead className="text-right">Traffic Cost</TableHead>
                     <TableHead className="text-right">CFPD</TableHead>
                     <TableHead className="text-right">ROI %</TableHead>
@@ -125,9 +125,11 @@ export function RefLinks() {
                       <TableCell className="text-orange-400">
                         {link.creative || '-'}
                       </TableCell>
-                      <TableCell className="text-right text-blue-400">{link.leadsToday}</TableCell>
-                      <TableCell className="text-right text-cyan-400">{link.leadsWeek}</TableCell>
-                      <TableCell className="text-right font-semibold">{link.totalLeads}</TableCell>
+                      <TableCell className="text-right text-yellow-400 font-semibold">{link.totalLeads}</TableCell>
+                      <TableCell className="text-right text-blue-400">{link.usersToday || 0}</TableCell>
+                      <TableCell className="text-right text-cyan-400">{link.usersWeek || 0}</TableCell>
+                      <TableCell className="text-right text-green-400 font-semibold">{link.totalUsers || 0}</TableCell>
+                      <TableCell className="text-right">{link.leadsToday + (link.usersToday || 0)}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
                           {link.ftdCount}
@@ -141,12 +143,6 @@ export function RefLinks() {
                       <TableCell className="text-right">{link.totalDeposits}</TableCell>
                       <TableCell className="text-right text-cyan-400 font-semibold">
                         {formatMoney(link.totalDepositAmount)}
-                      </TableCell>
-                      <TableCell className="text-right text-orange-400 font-semibold">
-                        {formatMoney(link.totalWithdrawalAmount || 0)}
-                      </TableCell>
-                      <TableCell className="text-right text-purple-400 font-semibold">
-                        {formatMoney(link.totalProfit || 0)}
                       </TableCell>
                       <TableCell className="text-right">
                         {editingLinkId === link.linkId ? (
