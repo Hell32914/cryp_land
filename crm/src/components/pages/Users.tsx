@@ -146,6 +146,7 @@ export function Users() {
                     >
                       Username {sortBy === 'username' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70"
                       onClick={() => handleSort('country')}
@@ -197,6 +198,11 @@ export function Users() {
                       <TableCell className="font-mono text-xs">{user.telegramId}</TableCell>
                       <TableCell className="font-medium text-sm">
                         {user.username ? `@${user.username}` : user.fullName}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={user.country && user.country !== 'Unknown' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}>
+                          {user.country && user.country !== 'Unknown' ? 'User' : 'Lead'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-sm">{user.country}</TableCell>
                       <TableCell className="text-right font-mono text-sm">
