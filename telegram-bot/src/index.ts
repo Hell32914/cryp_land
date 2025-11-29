@@ -814,7 +814,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   await safeAnswerCallback(ctx, 'Refreshed')
 })
 
-bot.callbackQuery('admin_users', async (ctx) => {
+bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
     await safeAnswerCallback(ctx, 'Access denied')
@@ -824,36 +824,56 @@ bot.callbackQuery('admin_users', async (ctx) => {
   // Clear any pending input state
   adminState.delete(userId)
 
+  const page = parseInt(ctx.match?.[1] || '1')
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const totalUsers = await prisma.user.count({ where: { isHidden: false } })
+  const totalPages = Math.ceil(totalUsers / perPage)
+
   const users = await prisma.user.findMany({
     where: { isHidden: false },
     orderBy: { createdAt: 'desc' },
-    take: 10
+    take: perPage,
+    skip
   })
 
-  if (users.length === 0) {
+  if (users.length === 0 && page === 1) {
     await safeEditMessage(ctx, '👥 No users yet')
     await safeAnswerCallback(ctx)
     return
   }
 
-  let message = '👥 Users List (10 latest):\n\n'
+  let message = `👥 Users List (Page ${page}/${totalPages}, Total: ${totalUsers}):\n\n`
   
   users.forEach((user, index) => {
     const username = (user.username || 'no_username').replace(/_/g, '\\_')
-    message += `${index + 1}. @${username}\n`
+    const num = skip + index + 1
+    message += `${num}. @${username}\n`
     message += `   ID: ${user.telegramId}\n`
     message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
   })
 
   const keyboard = new InlineKeyboard()
   users.forEach((user, index) => {
+    const num = skip + index + 1
     if (index % 2 === 0) {
-      keyboard.text(`${index + 1}`, `manage_${user.id}`)
+      keyboard.text(`${num}`, `manage_${user.id}`)
     } else {
-      keyboard.text(`${index + 1}`, `manage_${user.id}`).row()
+      keyboard.text(`${num}`, `manage_${user.id}`).row()
     }
   })
   if (users.length % 2 === 1) keyboard.row()
+  
+  // Pagination buttons
+  if (page > 1) {
+    keyboard.text('◀️ Prev', `admin_users_${page - 1}`)
+  }
+  if (page < totalPages) {
+    keyboard.text('Next ▶️', `admin_users_${page + 1}`)
+  }
+  if (page > 1 || page < totalPages) keyboard.row()
+  
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard })
