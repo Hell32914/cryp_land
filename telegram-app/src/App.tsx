@@ -1580,14 +1580,14 @@ function App() {
                   <p className="text-center text-muted-foreground py-8">{t.noEarningsData}</p>
                 ) : (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {dailyUpdates.map((update, index) => (
+                    {[...dailyUpdates].reverse().map((update, index) => (
                       <div 
                         key={update.id}
                         className="flex items-center justify-between p-3 bg-accent/5 hover:bg-accent/10 rounded-lg border border-accent/10 transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                            <span className="text-xs font-bold text-accent">#{index + 1}</span>
+                            <span className="text-xs font-bold text-accent">#{dailyUpdates.length - index}</span>
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-foreground">
