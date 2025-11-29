@@ -136,6 +136,11 @@ export interface UserRecord {
 export interface UsersResponse {
   users: UserRecord[]
   count: number
+  totalCount: number
+  page: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
 }
 
 export interface DepositRecord {
@@ -207,7 +212,7 @@ export const fetchOverview = (token: string, from?: string, to?: string) => {
   return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
 }
 
-export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc') => {
+export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc', page?: number) => {
   const params = new URLSearchParams()
   if (search) {
     params.set('search', search)
@@ -217,6 +222,9 @@ export const fetchUsers = (token: string, search?: string, sortBy?: string, sort
   }
   if (sortOrder) {
     params.set('sortOrder', sortOrder)
+  }
+  if (page) {
+    params.set('page', String(page))
   }
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)

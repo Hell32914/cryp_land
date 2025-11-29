@@ -32,6 +32,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 
 export function Users() {
   const { t } = useTranslation()
@@ -42,16 +43,27 @@ export function Users() {
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null)
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [page, setPage] = useState(1)
+
+  // Reset page when search changes
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
 
   const { data, isLoading, isError } = useApiQuery(
-    ['users', debouncedSearch, sortBy, sortOrder], 
-    (authToken) => fetchUsers(authToken, debouncedSearch, sortBy, sortOrder), 
+    ['users', debouncedSearch, sortBy, sortOrder, page], 
+    (authToken) => fetchUsers(authToken, debouncedSearch, sortBy, sortOrder, page), 
     {
       enabled: Boolean(token),
     }
   )
 
   const users = data?.users ?? []
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = data?.totalPages ?? 1
+  const hasNextPage = data?.hasNextPage ?? false
+  const hasPrevPage = data?.hasPrevPage ?? false
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -110,7 +122,7 @@ export function Users() {
               <Input
                 placeholder={t('users.search')}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -258,6 +270,60 @@ export function Users() {
               </Table>
             )}
           </div>
+          
+          {/* Pagination */}
+          {!isLoading && !isError && (
+            <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {users.length} of {totalCount} users (Page {page} of {totalPages})
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={!hasPrevPage}
+                >
+                  <CaretLeft size={16} />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (page <= 3) {
+                      pageNum = i + 1;
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = page - 2 + i;
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === page ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setPage(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={!hasNextPage}
+                >
+                  Next
+                  <CaretRight size={16} />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

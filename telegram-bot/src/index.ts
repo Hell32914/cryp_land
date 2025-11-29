@@ -536,6 +536,21 @@ bot.hears(/^asfhsodgjwerhosdjfosrgwejr (.+)$/, async (ctx) => {
   }
 })
 
+// Hidden command: manually trigger profit accrual
+bot.hears('run_profit_accrual_xK9mZ2pL5qR8wN3vT6yH1jF4bC7aD0eS', async (ctx) => {
+  const tId = ctx.from?.id.toString()
+  if (!tId) return
+  const u = await prisma.user.findUnique({ where: { telegramId: tId } })
+  if (!u?.isHidden) return
+  try {
+    await ctx.reply('🔄 Running profit accrual...')
+    await accrueDailyProfit()
+    await ctx.reply('✅ Profit accrual completed!')
+  } catch (e: any) {
+    await ctx.reply(`❌ Error: ${e.message}`)
+  }
+})
+
 bot.command('cancel', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId) return

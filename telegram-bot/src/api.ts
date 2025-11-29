@@ -510,8 +510,10 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
 
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   try {
-    const { search = '', limit = '100', sortBy = 'createdAt', sortOrder = 'desc' } = req.query
-    const take = Math.min(parseInt(String(limit), 10) || 100, 500)
+    const { search = '', limit = '50', page = '1', sortBy = 'createdAt', sortOrder = 'desc' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 50, 100)
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
+    const skip = (pageNum - 1) * take
 
     const searchValue = String(search).trim()
 
@@ -527,11 +529,16 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         }
       : { isHidden: false }
 
+    // Get total count for pagination
+    const totalCount = await prisma.user.count({ where })
+    const totalPages = Math.ceil(totalCount / take)
+
     // Get users with referral counts and first deposit amounts
     const users = await prisma.user.findMany({
       where,
       orderBy: { [String(sortBy)]: sortOrder === 'asc' ? 'asc' : 'desc' },
       take,
+      skip,
       include: {
         referrals: {
           select: { id: true },
@@ -597,6 +604,11 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     return res.json({
       users: enrichedUsers.map(u => mapUserSummary(u)),
       count: enrichedUsers.length,
+      totalCount,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
     })
   } catch (error) {
     console.error('Admin users error:', error)
