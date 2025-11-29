@@ -384,10 +384,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     const geoData = await Promise.all(geoDataPromises)
 
-    // Get top 5 users by balance
+    // Get top 5 users by balance (totalDeposit is the working balance)
     const topUsersByBalance = await prisma.user.findMany({
-      where: { isHidden: false },
-      orderBy: { balance: 'desc' },
+      where: { isHidden: false, totalDeposit: { gt: 0 } },
+      orderBy: { totalDeposit: 'desc' },
       take: 5,
       select: {
         telegramId: true,
@@ -396,6 +396,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         lastName: true,
         balance: true,
         totalDeposit: true,
+        lifetimeDeposit: true,
       },
     })
 
@@ -403,8 +404,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       telegramId: Number(user.telegramId),
       username: user.username,
       fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
-      balance: user.balance,
-      totalDeposit: user.totalDeposit,
+      balance: user.totalDeposit, // Working balance
+      totalDeposit: user.lifetimeDeposit || user.totalDeposit, // Lifetime deposits
     }))
 
     // Transaction statistics

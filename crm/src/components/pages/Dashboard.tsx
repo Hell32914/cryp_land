@@ -56,8 +56,11 @@ export function Dashboard() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
 
-  // Use period-based values when period is selected, otherwise "today" values
-  const showPeriodData = period !== 'all'
+  // Use period-based values for all filters (depositsPeriod contains all time data when no filter)
+  const depositsLabel = period === 'today' ? t('dashboard.depositsToday') : 
+                        period === 'all' ? 'Total Deposits' : 'Deposits (Period)'
+  const withdrawalsLabel = period === 'today' ? t('dashboard.withdrawalsToday') : 
+                          period === 'all' ? 'Total Withdrawals' : 'Withdrawals (Period)'
 
   const kpiCards = [
     {
@@ -73,14 +76,14 @@ export function Dashboard() {
       gradient: 'from-purple-500 to-purple-600',
     },
     {
-      title: showPeriodData ? 'Deposits (Period)' : t('dashboard.depositsToday'),
-      value: data ? formatCurrency(showPeriodData ? data.kpis.depositsPeriod : data.kpis.depositsToday) : '—',
+      title: depositsLabel,
+      value: data ? formatCurrency(period === 'today' ? data.kpis.depositsToday : data.kpis.depositsPeriod) : '—',
       icon: ArrowCircleDown,
       gradient: 'from-green-500 to-green-600',
     },
     {
-      title: showPeriodData ? 'Withdrawals (Period)' : t('dashboard.withdrawalsToday'),
-      value: data ? formatCurrency(showPeriodData ? data.kpis.withdrawalsPeriod : data.kpis.withdrawalsToday) : '—',
+      title: withdrawalsLabel,
+      value: data ? formatCurrency(period === 'today' ? data.kpis.withdrawalsToday : data.kpis.withdrawalsPeriod) : '—',
       icon: ArrowCircleUp,
       gradient: 'from-orange-500 to-orange-600',
     },
