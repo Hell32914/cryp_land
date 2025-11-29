@@ -2681,8 +2681,22 @@ setTimeout(() => {
 }, 5000)
 
 // Start notification scheduler
-setTimeout(() => {
+setTimeout(async () => {
   console.log('🔄 Starting notification scheduler...')
+  
+  // Mark all old unnotified updates as notified to prevent spam after restart
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+  const marked = await prisma.dailyProfitUpdate.updateMany({
+    where: {
+      notified: false,
+      timestamp: { lt: fiveMinutesAgo }
+    },
+    data: { notified: true }
+  })
+  if (marked.count > 0) {
+    console.log(`🧹 Marked ${marked.count} old notifications as sent (skip after restart)`)
+  }
+  
   sendScheduledNotifications()
 }, 10000)
 
