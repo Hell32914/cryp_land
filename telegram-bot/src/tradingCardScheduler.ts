@@ -44,6 +44,10 @@ export async function rescheduleCards(bot: Bot, channelId: string) {
  * Schedule random posts for today
  */
 async function scheduleRandomPosts(bot: Bot, channelId: string) {
+  // Cancel all existing jobs
+  scheduledJobs.forEach(job => job.stop())
+  scheduledJobs = []
+  
   const settings = await getCardSettings()
   
   // Random number of posts based on settings
@@ -53,21 +57,37 @@ async function scheduleRandomPosts(bot: Bot, channelId: string) {
   // Generate random times based on configured time range
   const times = await generateRandomTimes(postsCount)
   
+  const now = new Date()
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  
   times.forEach((time, index) => {
     const [hours, minutes] = time.split(':').map(Number)
     
-    // Schedule cron job for this specific time (UTC)
-    const job = cron.schedule(`${minutes} ${hours} * * *`, async () => {
-      console.log(`📸 Generating trading card ${index + 1}/${postsCount}`)
-      await postTradingCard(bot, channelId)
-    }, {
-      timezone: 'UTC'
-    })
+    // Calculate target time for TODAY only
+    const targetTime = new Date(today)
+    targetTime.setUTCHours(hours, minutes, 0, 0)
     
-    scheduledJobs.push(job)
+    const delay = targetTime.getTime() - now.getTime()
     
-    console.log(`  ⏰ Post ${index + 1} scheduled for ${time} UTC (${toKyivTime(time)} Kyiv)`)
+    // Only schedule if time hasn't passed yet today
+    if (delay > 0) {
+      const timeout = setTimeout(async () => {
+        console.log(`📸 Generating trading card ${index + 1}/${postsCount}`)
+        await postTradingCard(bot, channelId)
+      }, delay)
+      
+      // Store timeout (we can't stop it with cron.schedule API, but can track it)
+      // Note: setTimeout returns NodeJS.Timeout, not ScheduledTask, but we'll keep array name
+      scheduledJobs.push({ stop: () => clearTimeout(timeout) } as any)
+      
+      console.log(`  ⏰ Post ${index + 1} scheduled for ${time} UTC (${toKyivTime(time)} Kyiv) - in ${Math.round(delay / 1000 / 60)} minutes`)
+    } else {
+      console.log(`  ⏭️  Post ${index + 1} skipped (${time} UTC already passed)`)
+    }
   })
+  
+  console.log(`✅ Scheduled ${scheduledJobs.length}/${postsCount} posts for today`)
 }
 
 /**

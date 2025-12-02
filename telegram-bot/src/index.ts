@@ -880,6 +880,62 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
+// View user from deposit list
+bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
+  const visitorId = ctx.from?.id.toString()
+  if (!visitorId || !(await isSupport(visitorId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const isAdminUser = await isAdmin(visitorId)
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ 
+    where: { id: userId },
+    include: {
+      deposits: { where: { status: 'COMPLETED' }, orderBy: { createdAt: 'desc' } },
+      withdrawals: { orderBy: { createdAt: 'desc' } }
+    }
+  })
+
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  let statusEmoji = '⚪️'
+  if (user.status === 'ACTIVE') statusEmoji = '✅'
+  if (user.status === 'INACTIVE') statusEmoji = '⏸'
+  if (user.status === 'KYC_REQUIRED') statusEmoji = '📋'
+  if (user.status === 'BLOCKED') statusEmoji = '🚫'
+
+  const totalDeposits = user.deposits.reduce((sum, d) => sum + d.amount, 0)
+  const totalWithdrawals = user.withdrawals.filter(w => w.status === 'COMPLETED').reduce((sum, w) => sum + w.amount, 0)
+
+  await safeEditMessage(ctx, 
+    `👤 *User Details*\n\n` +
+    `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `ID: \`${user.telegramId}\`\n` +
+    `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
+    `💼 *Financial Summary:*\n` +
+    `📥 Total Deposits: $${totalDeposits.toFixed(2)} (${user.deposits.length} txs)\n` +
+    `💰 Working Balance: $${user.totalDeposit.toFixed(2)}\n` +
+    `📈 Current Profit: $${user.profit.toFixed(2)}\n` +
+    `💎 Referral Earnings: $${user.referralEarnings.toFixed(2)}\n` +
+    `📤 Total Withdrawals: $${totalWithdrawals.toFixed(2)} (${user.withdrawals.filter(w => w.status === 'COMPLETED').length} txs)\n` +
+    `💸 Lifetime Deposits: $${(user.lifetimeDeposit || 0).toFixed(2)}\n\n` +
+    `📊 *Account Info:*\n` +
+    `${user.country ? `🌍 Country: ${user.country}\n` : ''}` +
+    `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`\n` : ''}` +
+    `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
+    { 
+      reply_markup: new InlineKeyboard().text('◀️ Back to Deposits', 'admin_deposits'),
+      parse_mode: 'Markdown'
+    }
+  )
+  await safeAnswerCallback(ctx)
+})
+
 bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   const visitorId = ctx.from?.id.toString()
   if (!visitorId || !(await isSupport(visitorId))) {
@@ -1683,20 +1739,28 @@ bot.on('message:text', async (ctx) => {
   }
 })
 
-bot.callbackQuery('admin_deposits', async (ctx) => {
+bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
+  const page = parseInt(ctx.match?.[1] || '1')
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const totalDeposits = await prisma.deposit.count()
+  const totalPages = Math.ceil(totalDeposits / perPage)
+
   const deposits = await prisma.deposit.findMany({
     include: { user: true },
     orderBy: { createdAt: 'desc' },
-    take: 10
+    take: perPage,
+    skip
   })
 
-  if (deposits.length === 0) {
+  if (deposits.length === 0 && page === 1) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
     await safeEditMessage(ctx, '📥 No deposits yet', { reply_markup: keyboard })
@@ -1704,37 +1768,64 @@ bot.callbackQuery('admin_deposits', async (ctx) => {
     return
   }
 
-  let message = '📥 *Recent Deposits* (10 latest):\n\n'
+  let message = `📥 *Recent Deposits* (Page ${page}/${totalPages}, Total: ${totalDeposits}):\n\n`
   
   deposits.forEach((deposit, index) => {
     const statusEmoji = deposit.status === 'COMPLETED' ? '✅' : deposit.status === 'PENDING' ? '⏳' : '❌'
     const username = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
-    message += `${index + 1}. @${username}\n`
+    const num = skip + index + 1
+    message += `${num}. @${username}\n`
     message += `   💵 $${deposit.amount.toFixed(2)} | ${statusEmoji} ${deposit.status}\n`
-    message += `   📅 ${deposit.createdAt.toLocaleDateString()}\n\n`
+    message += `   🆔 ${deposit.user.telegramId} | 📅 ${deposit.createdAt.toLocaleDateString()}\n\n`
   })
 
   const keyboard = new InlineKeyboard()
-    .text('◀️ Back to Admin', 'admin_menu')
+  deposits.forEach((deposit, index) => {
+    const num = skip + index + 1
+    if (index % 2 === 0) {
+      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}`)
+    } else {
+      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}`).row()
+    }
+  })
+  if (deposits.length % 2 === 1) keyboard.row()
+  
+  if (page > 1) {
+    keyboard.text('◀️ Prev', `admin_deposits_${page - 1}`)
+  }
+  if (page < totalPages) {
+    keyboard.text('Next ▶️', `admin_deposits_${page + 1}`)
+  }
+  if (page > 1 || page < totalPages) keyboard.row()
+  
+  keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
   await safeAnswerCallback(ctx)
 })
 
-bot.callbackQuery('admin_withdrawals', async (ctx) => {
+bot.callbackQuery(/^admin_withdrawals(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
+  const page = parseInt(ctx.match?.[1] || '1')
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const totalWithdrawals = await prisma.withdrawal.count()
+  const totalPages = Math.ceil(totalWithdrawals / perPage)
+
   const withdrawals = await prisma.withdrawal.findMany({
     include: { user: true },
     orderBy: { createdAt: 'desc' },
-    take: 10
+    take: perPage,
+    skip
   })
 
-  if (withdrawals.length === 0) {
+  if (withdrawals.length === 0 && page === 1) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
     await safeEditMessage(ctx, '📤 No withdrawals yet', { reply_markup: keyboard })
@@ -1742,7 +1833,7 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
     return
   }
 
-  let message = '📤 *Recent Withdrawals* (10 latest):\n\n'
+  let message = `📤 *Recent Withdrawals* (Page ${page}/${totalPages}, Total: ${totalWithdrawals}):\n\n`
   
   withdrawals.forEach((withdrawal, index) => {
     const statusEmoji = 
@@ -1751,34 +1842,52 @@ bot.callbackQuery('admin_withdrawals', async (ctx) => {
       withdrawal.status === 'PROCESSING' ? '🔄' : 
       '❌'
     const username = (withdrawal.user.username || 'no_username').replace(/_/g, '\\_')
-    message += `${index + 1}. @${username}\n`
+    const num = skip + index + 1
+    message += `${num}. @${username}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | ${statusEmoji} ${withdrawal.status}\n`
     message += `   📅 ${withdrawal.createdAt.toLocaleDateString()}\n\n`
   })
 
   const keyboard = new InlineKeyboard()
-    .text('◀️ Back to Admin', 'admin_menu')
+  
+  if (page > 1) {
+    keyboard.text('◀️ Prev', `admin_withdrawals_${page - 1}`)
+  }
+  if (page < totalPages) {
+    keyboard.text('Next ▶️', `admin_withdrawals_${page + 1}`)
+  }
+  if (page > 1 || page < totalPages) keyboard.row()
+  
+  keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
   await safeAnswerCallback(ctx)
 })
 
 // Pending withdrawals (includes PENDING and PROCESSING)
-bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
+bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }
 
+  const page = parseInt(ctx.match?.[1] || '1')
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const totalPending = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } })
+  const totalPages = Math.ceil(totalPending / perPage)
+
   const pendingWithdrawals = await prisma.withdrawal.findMany({
     where: { status: { in: ['PENDING', 'PROCESSING'] } },
     include: { user: true },
     orderBy: { createdAt: 'desc' },
-    take: 20
+    take: perPage,
+    skip
   })
 
-  if (pendingWithdrawals.length === 0) {
+  if (pendingWithdrawals.length === 0 && page === 1) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
     await safeEditMessage(ctx, '⏳ No pending withdrawals', { reply_markup: keyboard })
@@ -1786,12 +1895,13 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
     return
   }
 
-  let message = '⏳ *Pending Withdrawals* (Requires Approval):\n\n'
+  let message = `⏳ *Pending Withdrawals* (Page ${page}/${totalPages}, Total: ${totalPending}):\n\n`
   
   pendingWithdrawals.forEach((withdrawal, index) => {
     const username = (withdrawal.user.username || 'no_username').replace(/_/g, '\\_')
     const statusEmoji = withdrawal.status === 'PROCESSING' ? '🔄' : '⏳'
-    message += `${index + 1}. @${username} ${statusEmoji}\n`
+    const num = skip + index + 1
+    message += `${num}. @${username} ${statusEmoji}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | 💎 ${withdrawal.currency}\n`
     message += `   🌐 ${withdrawal.network || 'TRC20'}\n`
     message += `   📍 \`${withdrawal.address.substring(0, 20)}...\`\n`
@@ -1806,10 +1916,18 @@ bot.callbackQuery('admin_pending_withdrawals', async (ctx) => {
   for (let i = 0; i < displayCount; i++) {
     const w = pendingWithdrawals[i]
     keyboard
-      .text(`✅ #${i + 1}`, `approve_withdrawal_${w.id}`)
-      .text(`❌ #${i + 1}`, `reject_withdrawal_${w.id}`)
+      .text(`✅ #${skip + i + 1}`, `approve_withdrawal_${w.id}`)
+      .text(`❌ #${skip + i + 1}`, `reject_withdrawal_${w.id}`)
       .row()
   }
+  
+  if (page > 1) {
+    keyboard.text('◀️ Prev', `admin_pending_withdrawals_${page - 1}`)
+  }
+  if (page < totalPages) {
+    keyboard.text('Next ▶️', `admin_pending_withdrawals_${page + 1}`)
+  }
+  if (page > 1 || page < totalPages) keyboard.row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
@@ -2318,15 +2436,15 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   // Normalize percentages
   const normalizedPercentages = percentages.map(p => p / sum)
   
-  // Generate random timestamps in the PAST (last 20 hours) so they show immediately
+  // Generate random timestamps spread across NEXT 24 hours
   const now = new Date()
   const startTime = now.getTime()
-  const twentyHoursInMs = 20 * 60 * 60 * 1000 // 20 hours in milliseconds
+  const twentyFourHoursInMs = 24 * 60 * 60 * 1000
   
   for (let i = 0; i < numUpdates; i++) {
-    // Generate timestamps spread across the PAST 20 hours (negative offset)
-    const randomOffset = Math.random() * twentyHoursInMs
-    const timestamp = new Date(startTime - randomOffset)
+    // Generate timestamps spread across the NEXT 24 hours
+    const randomOffset = Math.random() * twentyFourHoursInMs
+    const timestamp = new Date(startTime + randomOffset)
     let amount = totalProfit * normalizedPercentages[i]
     
     // Minimum $0.01 per update
@@ -2341,9 +2459,40 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   return updates
 }
 
+// Check if profit accrual should run (time-based, not interval-based)
+async function checkAndRunProfitAccrual() {
+  try {
+    // Get the most recent profit update timestamp from any user
+    const mostRecentUpdate = await prisma.user.findFirst({
+      where: {
+        lastProfitUpdate: { not: null }
+      },
+      orderBy: {
+        lastProfitUpdate: 'desc'
+      },
+      select: {
+        lastProfitUpdate: true
+      }
+    })
+
+    const now = new Date()
+    const lastAccrual = mostRecentUpdate?.lastProfitUpdate
+    
+    // If never ran or last ran more than 24 hours ago, run it
+    if (!lastAccrual || (now.getTime() - lastAccrual.getTime()) >= 24 * 60 * 60 * 1000) {
+      console.log(`⏰ Time for profit accrual (last: ${lastAccrual ? lastAccrual.toISOString() : 'never'})`)
+      await accrueDailyProfit()
+    }
+  } catch (error) {
+    console.error('❌ Error checking profit accrual schedule:', error)
+  }
+}
+
 // Daily profit accrual function
 async function accrueDailyProfit() {
   try {
+    console.log(`🔄 Starting daily profit accrual at ${new Date().toISOString()}`)
+    
     const users = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
@@ -2497,16 +2646,11 @@ async function sendScheduledNotifications() {
   try {
     const now = new Date()
     
-    // Only send notifications for updates created in the last 2 hours
-    // This prevents sending all old notifications after server restart
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
-    
-    // Find all updates that should be sent now (timestamp passed, not yet notified, created recently)
+    // Find all updates that should be sent now (timestamp passed, not yet notified)
     const pendingUpdates = await prisma.dailyProfitUpdate.findMany({
       where: {
         timestamp: {
-          lte: now,
-          gte: twoHoursAgo // Only notify for recent updates
+          lte: now
         },
         notified: false
       },
@@ -2665,8 +2809,8 @@ async function checkPendingWithdrawals() {
   }
 }
 
-// Run daily profit accrual every 24 hours
-setInterval(accrueDailyProfit, 24 * 60 * 60 * 1000)
+// Check if profit accrual should run every hour (more reliable than 24h interval)
+setInterval(checkAndRunProfitAccrual, 60 * 60 * 1000)
 
 // Check for scheduled notifications every minute
 setInterval(sendScheduledNotifications, 60 * 1000)
@@ -2674,29 +2818,15 @@ setInterval(sendScheduledNotifications, 60 * 1000)
 // Check pending withdrawals every 5 minutes
 setInterval(checkPendingWithdrawals, 5 * 60 * 1000)
 
-// Also run on startup (for testing)
+// Run profit check on startup (will run if needed)
 setTimeout(() => {
-  console.log('🔄 Running initial profit accrual...')
-  accrueDailyProfit()
+  console.log('🔄 Running initial profit accrual check...')
+  checkAndRunProfitAccrual()
 }, 5000)
 
 // Start notification scheduler
 setTimeout(async () => {
   console.log('🔄 Starting notification scheduler...')
-  
-  // Mark all old unnotified updates as notified to prevent spam after restart
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-  const marked = await prisma.dailyProfitUpdate.updateMany({
-    where: {
-      notified: false,
-      timestamp: { lt: fiveMinutesAgo }
-    },
-    data: { notified: true }
-  })
-  if (marked.count > 0) {
-    console.log(`🧹 Marked ${marked.count} old notifications as sent (skip after restart)`)
-  }
-  
   sendScheduledNotifications()
 }, 10000)
 
