@@ -1131,10 +1131,18 @@ app.get('/api/user/:telegramId/daily-updates', async (req, res) => {
     const now = new Date()
     const visibleUpdates = updates.filter((update: any) => new Date(update.timestamp) <= now)
 
+    // Calculate total daily profit from visible updates (sum of amounts shown so far)
+    const visibleProfit = visibleUpdates.reduce((sum: number, u: any) => sum + u.amount, 0)
+    
+    // Get full daily total from any update (all updates have same dailyTotal)
+    const fullDailyTotal = updates.length > 0 ? updates[0].dailyTotal : 0
+
     res.json({
       updates: visibleUpdates,
       totalUpdates: updates.length,
-      totalProfit: updates.length > 0 ? updates[0].dailyTotal : 0
+      visibleUpdatesCount: visibleUpdates.length,
+      totalProfit: fullDailyTotal, // Full daily profit target
+      accruedProfit: visibleProfit  // Profit shown so far
     })
   } catch (error) {
     console.error('API Error:', error)

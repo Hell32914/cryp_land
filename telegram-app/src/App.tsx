@@ -38,6 +38,7 @@ function App() {
   const [referrals, setReferrals] = useState<any[]>([])
   const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [dailyUpdates, setDailyUpdates] = useState<any[]>([])
+  const [dailyProfitTotal, setDailyProfitTotal] = useState(0)
   const [loadingDailyUpdates, setLoadingDailyUpdates] = useState(false)
   const [transactions, setTransactions] = useState<any[]>([])
   const [loadingTransactions, setLoadingTransactions] = useState(false)
@@ -112,6 +113,7 @@ function App() {
       if (response.ok) {
         const data = await response.json()
         setDailyUpdates(data.updates || [])
+        setDailyProfitTotal(data.totalProfit || 0)
       }
     } catch (error) {
       console.error('Error fetching daily updates:', error)
@@ -1613,7 +1615,7 @@ function App() {
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-muted-foreground">Total Daily Profit</p>
                         <p className="text-lg font-bold text-accent">
-                          +${dailyUpdates.length > 0 ? dailyUpdates[0].dailyTotal.toFixed(2) : '0.00'}
+                          +${dailyProfitTotal.toFixed(2)}
                         </p>
                       </div>
                       <div className="flex items-center justify-between mt-2">

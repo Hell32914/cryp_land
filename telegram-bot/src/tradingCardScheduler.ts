@@ -58,33 +58,32 @@ async function scheduleRandomPosts(bot: Bot, channelId: string) {
   const times = await generateRandomTimes(postsCount)
   
   const now = new Date()
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
   
   times.forEach((time, index) => {
     const [hours, minutes] = time.split(':').map(Number)
     
-    // Calculate target time for TODAY only
-    const targetTime = new Date(today)
+    // Calculate target time - could be today or tomorrow
+    let targetTime = new Date(now)
     targetTime.setUTCHours(hours, minutes, 0, 0)
+    
+    // If time already passed today, schedule for tomorrow
+    if (targetTime.getTime() <= now.getTime()) {
+      targetTime = new Date(targetTime.getTime() + 24 * 60 * 60 * 1000)
+    }
     
     const delay = targetTime.getTime() - now.getTime()
     
-    // Only schedule if time hasn't passed yet today
-    if (delay > 0) {
-      const timeout = setTimeout(async () => {
-        console.log(`📸 Generating trading card ${index + 1}/${postsCount}`)
-        await postTradingCard(bot, channelId)
-      }, delay)
-      
-      // Store timeout (we can't stop it with cron.schedule API, but can track it)
-      // Note: setTimeout returns NodeJS.Timeout, not ScheduledTask, but we'll keep array name
-      scheduledJobs.push({ stop: () => clearTimeout(timeout) } as any)
-      
-      console.log(`  ⏰ Post ${index + 1} scheduled for ${time} UTC (${toKyivTime(time)} Kyiv) - in ${Math.round(delay / 1000 / 60)} minutes`)
-    } else {
-      console.log(`  ⏭️  Post ${index + 1} skipped (${time} UTC already passed)`)
-    }
+    // Schedule the timeout
+    const timeout = setTimeout(async () => {
+      console.log(`📸 Generating trading card ${index + 1}/${postsCount}`)
+      await postTradingCard(bot, channelId)
+    }, delay)
+    
+    // Store timeout (we can't stop it with cron.schedule API, but can track it)
+    // Note: setTimeout returns NodeJS.Timeout, not ScheduledTask, but we'll keep array name
+    scheduledJobs.push({ stop: () => clearTimeout(timeout) } as any)
+    
+    console.log(`  ⏰ Post ${index + 1} scheduled for ${time} UTC (${toKyivTime(time)} Kyiv) - in ${Math.round(delay / 1000 / 60)} minutes`)
   })
   
   console.log(`✅ Scheduled ${scheduledJobs.length}/${postsCount} posts for today`)
@@ -97,17 +96,34 @@ async function generateRandomTimes(count: number): Promise<string[]> {
   const times: number[] = []
   const settings = await getCardSettings()
   
-  // Convert Kyiv time to UTC (subtract 2 hours)
+  // Parse Kyiv times
   const [startH, startM] = settings.startTime.split(':').map(Number)
   const [endH, endM] = settings.endTime.split(':').map(Number)
   
-  const startMinutes = (startH - 2) * 60 + startM
-  const endMinutes = (endH - 2) * 60 + endM
+  // Create date objects in Kyiv timezone to properly handle conversion
+  const now = new Date()
+  const kyivOffset = 2 // Kyiv is UTC+2 (winter) or UTC+3 (summer), but we'll use standard UTC+2
   
-  // Generate random times
+  // Convert Kyiv time to UTC by subtracting offset
+  let startMinutesUTC = (startH - kyivOffset) * 60 + startM
+  let endMinutesUTC = (endH - kyivOffset) * 60 + endM
+  
+  // Handle day wrap-around if UTC time goes negative or exceeds 24h
+  if (startMinutesUTC < 0) startMinutesUTC += 24 * 60
+  if (endMinutesUTC < 0) endMinutesUTC += 24 * 60
+  if (startMinutesUTC >= 24 * 60) startMinutesUTC -= 24 * 60
+  if (endMinutesUTC >= 24 * 60) endMinutesUTC -= 24 * 60
+  
+  // If end time is before start time (crosses midnight), split into two ranges
+  const ranges = endMinutesUTC < startMinutesUTC 
+    ? [[startMinutesUTC, 24 * 60 - 1], [0, endMinutesUTC]]
+    : [[startMinutesUTC, endMinutesUTC]]
+  
+  // Generate random times across all ranges
   for (let i = 0; i < count; i++) {
-    const randomMinutes = Math.floor(Math.random() * (endMinutes - startMinutes + 1)) + startMinutes
-    times.push(randomMinutes)
+    const range = ranges[Math.floor(Math.random() * ranges.length)]
+    const randomMinutes = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0]
+    times.push(randomMinutes % (24 * 60))
   }
   
   // Sort times chronologically
@@ -115,7 +131,7 @@ async function generateRandomTimes(count: number): Promise<string[]> {
   
   // Convert to HH:MM format
   return times.map(minutes => {
-    const hours = Math.floor(minutes / 60)
+    const hours = Math.floor(minutes / 60) % 24
     const mins = minutes % 60
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   })
