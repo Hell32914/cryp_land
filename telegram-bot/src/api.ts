@@ -1630,8 +1630,11 @@ app.get('/api/user/:telegramId/transactions', async (req, res) => {
         type: 'DEPOSIT',
         amount: d.amount,
         currency: d.currency,
+        network: d.network,
         status: d.status,
         address: d.txHash,
+        txHash: d.txHash,
+        trackId: d.trackId,
         createdAt: d.createdAt
       })),
       ...user.withdrawals.map((w: any) => ({
@@ -1639,8 +1642,11 @@ app.get('/api/user/:telegramId/transactions', async (req, res) => {
         type: 'WITHDRAWAL',
         amount: w.amount,
         currency: w.currency,
+        network: w.network,
         status: w.status,
         address: w.address,
+        txHash: w.txHash,
+        trackId: w.trackId,
         createdAt: w.createdAt
       }))
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

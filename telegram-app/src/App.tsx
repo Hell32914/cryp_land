@@ -1728,10 +1728,15 @@ function App() {
                       // Determine blockchain explorer URL based on currency and network
                       const getExplorerUrl = () => {
                         const txHash = tx.txHash || tx.trackId
-                        if (!txHash) return null
+                        if (!txHash) {
+                          console.log('No txHash/trackId for transaction:', tx)
+                          return null
+                        }
                         
                         const currency = tx.currency?.toUpperCase()
                         const network = tx.network?.toUpperCase()
+                        
+                        console.log('Transaction explorer link:', { currency, network, txHash })
                         
                         // USDT TRC20 (Tron)
                         if (currency === 'USDT' && network === 'TRC20') {
