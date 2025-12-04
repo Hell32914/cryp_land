@@ -151,6 +151,11 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
       network: (params.network || 'TRC20').toUpperCase()
     })
 
+    // Determine callback URL from environment or use default
+    const callbackUrl = process.env.WEBHOOK_URL 
+      ? `${process.env.WEBHOOK_URL.startsWith('http') ? process.env.WEBHOOK_URL : `https://${process.env.WEBHOOK_URL}`}/api/oxapay-callback`
+      : 'https://api.syntrix.website/api/oxapay-callback'
+
     const response = await axios.post(
       'https://api.oxapay.com/v1/payout',
       {
@@ -158,7 +163,8 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
         amount: params.amount,
         currency: params.currency.toUpperCase(),
         network: (params.network || 'TRC20').toUpperCase(),
-        description: `Withdrawal ${params.amount} ${params.currency}`
+        description: `Withdrawal ${params.amount} ${params.currency}`,
+        callbackUrl: callbackUrl
       },
       {
         headers: {
@@ -167,6 +173,8 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
         }
       }
     )
+    
+    console.log(`📞 Payout callback URL set to: ${callbackUrl}`)
 
     console.log('📥 OxaPay payout response:', JSON.stringify(response.data, null, 2))
 
