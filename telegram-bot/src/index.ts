@@ -31,7 +31,7 @@ const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
-const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number }>()
+const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number, broadcastMessage?: any }>()
 
 // Middleware to check if user is blocked (blocks all bot interactions)
 bot.use(async (ctx, next) => {
