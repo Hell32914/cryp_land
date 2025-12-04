@@ -2918,6 +2918,10 @@ async function startBot() {
     console.log('✅ Bot started successfully')
     // Initialize trading card scheduler
     await scheduleTradingCards(bot, CHANNEL_ID)
+    
+    // Start payout status checker to automatically update blockchain hashes
+    const { startPayoutStatusChecker } = await import('./payoutStatusChecker.js')
+    startPayoutStatusChecker()
   } catch (err) {
     console.error('❌ Bot start error:', err)
     process.exit(1)
