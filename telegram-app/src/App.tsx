@@ -1730,6 +1730,17 @@ function App() {
                         // For withdrawals, use txHash (blockchain hash)
                         // For deposits, use trackId or txHash
                         const txHash = tx.txHash || tx.trackId
+                        console.log('Transaction:', { 
+                          id: tx.id, 
+                          type: tx.type, 
+                          currency: tx.currency,
+                          network: tx.network,
+                          txHash: tx.txHash, 
+                          trackId: tx.trackId, 
+                          finalHash: txHash,
+                          hashLength: txHash?.length 
+                        })
+                        
                         if (!txHash) {
                           console.log('No txHash/trackId for transaction:', tx)
                           return null
@@ -1741,6 +1752,7 @@ function App() {
                         // Only show blockchain explorer link if we have a real blockchain hash (64 chars)
                         // Shorter hashes like OxaPay trackId don't have public blockchain explorers
                         if (txHash.length !== 64) {
+                          console.log('Hash too short, not a blockchain hash:', txHash.length)
                           return null
                         }
                         
