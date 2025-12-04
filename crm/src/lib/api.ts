@@ -304,6 +304,8 @@ export const createMarketingLink = (token: string, data: {
   stream?: string
   geo?: string
   creative?: string
+  domain?: string
+  trackingPixel?: string
 }) =>
   request<MarketingLink>('/api/admin/marketing-links', {
     method: 'POST',

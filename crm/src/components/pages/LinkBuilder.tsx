@@ -34,7 +34,8 @@ export function LinkBuilder() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const [source, setSource] = useState('')
-  const [baseUrl] = useState('https://www.syntrix.website/?ref=')
+  const [selectedDomain, setSelectedDomain] = useState('syntrix.website')
+  const [trackingPixel, setTrackingPixel] = useState('')
   const [subIdParams, setSubIdParams] = useState<SubIdParam[]>([
     { id: 1, key: '', value: '' }
   ])
@@ -47,6 +48,13 @@ export function LinkBuilder() {
   const [copied, setCopied] = useState(false)
   const [links, setLinks] = useState<MarketingLink[]>([])
   const [loading, setLoading] = useState(false)
+
+  const domains = [
+    { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-blue-500' },
+    { value: 'app.syntrix.website', label: 'app.syntrix.website', color: 'bg-purple-500' },
+    { value: 'crypto-invest.pro', label: 'crypto-invest.pro', color: 'bg-green-500' },
+    { value: 'trade-signal.net', label: 'trade-signal.net', color: 'bg-orange-500' },
+  ]
 
   const sources = [
     { value: 'telegram', label: 'Telegram' },
@@ -141,10 +149,12 @@ export function LinkBuilder() {
         trafficerName: trafficerName || undefined,
         stream: stream || undefined,
         geo: geo || undefined,
-        creative: creative || undefined
+        creative: creative || undefined,
+        domain: selectedDomain,
+        trackingPixel: trackingPixel || undefined
       })
 
-      const link = `${baseUrl}${linkData.linkId}`
+      const link = `https://${selectedDomain}/?ref=${linkData.linkId}`
       setGeneratedLink(link)
       setGeneratedLinkId(linkData.linkId)
       
@@ -221,6 +231,38 @@ export function LinkBuilder() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Выбор домена</Label>
+              <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {domains.map(d => (
+                    <SelectItem key={d.value} value={d.value}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${d.color}`} />
+                        {d.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tracking Pixel (опционально)</Label>
+              <textarea
+                className="w-full min-h-[100px] p-3 border rounded-md text-sm font-mono"
+                placeholder="Вставьте код пикселя отслеживания (например, Facebook Pixel, Google Tag)..."
+                value={trackingPixel}
+                onChange={(e) => setTrackingPixel(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Этот пиксель будет автоматически встроен на лендинг для данной ссылки
+              </p>
             </div>
 
             {/* Metadata Fields */}
