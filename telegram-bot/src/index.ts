@@ -2184,8 +2184,8 @@ bot.callbackQuery('card_reschedule', async (ctx) => {
 
 // Approve withdrawal
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
-  const userId = ctx.from?.id.toString()
-  if (!userId || !(await isSupport(userId))) {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isSupport(adminId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }

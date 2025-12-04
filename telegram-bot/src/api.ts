@@ -1359,12 +1359,12 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
           data: {
-            txHash: payout.trackId,
+            trackId: payout.trackId,
             status: 'COMPLETED'
           }
         })
 
-        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. New deposit: $${newDeposit.toFixed(2)}`)
+        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. Track ID: ${payout.trackId}, New deposit: $${newDeposit.toFixed(2)}`)
 
         // Notify user about successful withdrawal
         try {
@@ -1665,8 +1665,63 @@ app.post('/api/oxapay-callback', async (req, res) => {
   try {
     console.log('📥 OxaPay callback received:', req.body)
     
-    const { trackId, status, orderid, amount } = req.body
+    const { trackId, status, orderid, amount, txID, type } = req.body
     
+    // Check if this is a payout (withdrawal) callback
+    if (type === 'payout' || req.body.hasOwnProperty('payoutId')) {
+      console.log('💸 Processing payout callback')
+      
+      // Find withdrawal by trackId
+      const withdrawal = await prisma.withdrawal.findFirst({
+        where: { 
+          OR: [
+            { txHash: trackId },
+            { trackId: trackId }
+          ]
+        },
+        include: { user: true }
+      })
+
+      if (!withdrawal) {
+        console.log(`⚠️ Withdrawal not found for trackId: ${trackId}`)
+        return res.json({ success: false, error: 'Withdrawal not found' })
+      }
+
+      // Update withdrawal with real blockchain transaction hash
+      if (txID && txID.length === 64) {
+        await prisma.withdrawal.update({
+          where: { id: withdrawal.id },
+          data: { 
+            txHash: txID,
+            status: status === 'Paid' || status === 'paid' ? 'COMPLETED' : withdrawal.status
+          }
+        })
+        console.log(`✅ Withdrawal ${withdrawal.id} updated with blockchain hash: ${txID}`)
+        
+        // Notify user about blockchain confirmation
+        if (status === 'Paid' || status === 'paid') {
+          try {
+            const { bot: botInstance } = await import('./index.js')
+            await botInstance.api.sendMessage(
+              withdrawal.user.telegramId,
+              `✅ *Withdrawal Confirmed in Blockchain!*\n\n` +
+              `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+              `💎 Currency: ${withdrawal.currency}\n` +
+              `🌐 Network: ${withdrawal.network}\n` +
+              `🔗 TX Hash: \`${txID}\`\n\n` +
+              `You can track your transaction in blockchain explorer.`,
+              { parse_mode: 'Markdown' }
+            )
+          } catch (err) {
+            console.error('Failed to notify user about withdrawal:', err)
+          }
+        }
+      }
+      
+      return res.json({ success: true })
+    }
+    
+    // Original deposit processing logic
     // Only process if payment is completed
     if (status !== 'Paid' && status !== 'paid') {
       console.log(`⏳ Payment not completed yet. Status: ${status}`)
