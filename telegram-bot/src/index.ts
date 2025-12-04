@@ -796,6 +796,11 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     keyboard.text('👥 Manage Roles', 'admin_manage_admins').row()
   }
 
+  // Only admins can broadcast messages
+  if (isAdminUser) {
+    keyboard.text('📢 Broadcast Message', 'admin_broadcast').row()
+  }
+
   keyboard.text('🔄 Refresh', 'admin_menu')
 
   const roleText = isSuperAdmin ? 'Super Admin' : isAdminUser ? 'Admin' : 'Support'
@@ -1185,6 +1190,38 @@ bot.on('message:text', async (ctx) => {
   if (attempts > 5) {
     adminState.delete(userId)
     await ctx.reply('❌ Too many invalid attempts. Operation cancelled.\nUse /admin to start again.')
+    return
+  }
+
+  // Handle broadcast message
+  if (state.awaitingInput === 'broadcast_message') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    adminState.delete(userId)
+
+    const keyboard = new InlineKeyboard()
+      .text('✅ Confirm', `broadcast_confirm`)
+      .text('❌ Cancel', 'admin_menu')
+
+    // Store message for confirmation
+    adminState.set(userId, { 
+      awaitingInput: 'broadcast_confirm',
+      broadcastMessage: ctx.message
+    })
+
+    await ctx.reply(
+      '📢 *Broadcast Preview*\n\n' +
+      'Your message:\n' +
+      '━━━━━━━━━━━━━━━\n' +
+      text + '\n' +
+      '━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ This will be sent to ALL users!\n' +
+      'Confirm broadcast?',
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    )
     return
   }
 
@@ -2181,6 +2218,109 @@ bot.callbackQuery('card_reschedule', async (ctx) => {
 
 // Handle text input for card settings (add to existing message handler or create new one)
 // Card settings handlers moved to first bot.on('message:text')
+
+// ===== BROADCAST MESSAGE HANDLERS =====
+bot.callbackQuery('admin_broadcast', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'broadcast_message' })
+
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Cancel', 'admin_menu')
+
+  await safeEditMessage(ctx,
+    '📢 *Broadcast Message*\n\n' +
+    'Send me the message you want to broadcast to all users.\n\n' +
+    'You can send:\n' +
+    '• Text message\n' +
+    '• Photo with caption\n' +
+    '• Video with caption\n' +
+    '• Document\n\n' +
+    '⚠️ The message will be sent to ALL users!\n\n' +
+    'Send /cancel to abort.',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery('broadcast_confirm', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const state = adminState.get(adminId) as any
+  if (!state?.broadcastMessage) {
+    await safeAnswerCallback(ctx, 'Message not found')
+    return
+  }
+
+  await safeAnswerCallback(ctx, 'Starting broadcast...')
+  adminState.delete(adminId)
+
+  try {
+    // Get all active users
+    const users = await prisma.user.findMany({
+      where: {
+        isBlocked: false,
+        isHidden: false
+      },
+      select: {
+        telegramId: true,
+        username: true
+      }
+    })
+
+    await ctx.editMessageText(
+      `📢 *Broadcasting...*\n\n` +
+      `Total users: ${users.length}\n` +
+      `Please wait...`,
+      { parse_mode: 'Markdown' }
+    )
+
+    let sent = 0
+    let failed = 0
+    const broadcastMessage = state.broadcastMessage
+
+    // Send in batches to avoid hitting rate limits
+    for (const user of users) {
+      try {
+        // Forward the original message
+        await bot.api.copyMessage(
+          user.telegramId,
+          broadcastMessage.chat.id,
+          broadcastMessage.message_id
+        )
+        sent++
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50))
+      } catch (error: any) {
+        console.error(`Failed to send to ${user.telegramId}:`, error.message)
+        failed++
+      }
+    }
+
+    await ctx.editMessageText(
+      `✅ *Broadcast Complete!*\n\n` +
+      `✅ Sent: ${sent}\n` +
+      `❌ Failed: ${failed}\n` +
+      `📊 Total: ${users.length}`,
+      { 
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard().text('◀️ Back to Admin', 'admin_menu')
+      }
+    )
+  } catch (error) {
+    console.error('Broadcast error:', error)
+    await ctx.reply('❌ Failed to broadcast message')
+  }
+})
 
 // Approve withdrawal
 bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
