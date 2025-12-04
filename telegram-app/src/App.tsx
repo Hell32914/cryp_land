@@ -1813,27 +1813,29 @@ function App() {
                         >
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              tx.currency === 'PROFIT' ? 'bg-purple-500/20' : 
                               tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
                             }`}>
                               <span className="text-sm font-bold">
-                                {tx.type === 'DEPOSIT' ? '↓' : '↑'}
+                                {tx.currency === 'PROFIT' ? '📈' : (tx.type === 'DEPOSIT' ? '↓' : '↑')}
                               </span>
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-foreground">
-                                {tx.type === 'DEPOSIT' ? 'Deposit' : 'Withdrawal'}
+                                {tx.currency === 'PROFIT' ? 'Profit Added' : (tx.type === 'DEPOSIT' ? 'Deposit' : 'Withdrawal')}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {tx.currency} • {new Date(tx.createdAt).toLocaleDateString()}
+                                {tx.currency === 'PROFIT' ? 'Manual' : tx.currency} • {new Date(tx.createdAt).toLocaleDateString()}
                                 {explorerUrl && <span className="ml-1">🔗</span>}
                               </p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className={`text-sm font-bold ${
+                              tx.currency === 'PROFIT' ? 'text-purple-500' : 
                               tx.type === 'DEPOSIT' ? 'text-green-500' : 'text-red-500'
                             }`}>
-                              {tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toFixed(2)}
+                              {tx.currency === 'PROFIT' || tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toFixed(2)}
                             </p>
                             <p className="text-xs">
                               <span className={`inline-block px-2 py-0.5 rounded text-xs ${

@@ -1163,6 +1163,38 @@ bot.callbackQuery(/^withdraw_balance_(\d+)$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
+// Add profit to user (admin)
+bot.callbackQuery(/^add_profit_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'add_profit', targetUserId: userId })
+
+  const keyboard = new InlineKeyboard()
+    .text('Cancel', `manage_${userId}`)
+
+  await safeEditMessage(ctx, 
+    `📈 *Add Profit*\n\n` +
+    `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `Current Profit: $${user.profit.toFixed(2)}\n` +
+    `Total Balance: $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
+    `Please reply with the profit amount to add (e.g., 25.50):`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
 bot.on('message:text', async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId) return
@@ -1541,7 +1573,81 @@ bot.on('message:text', async (ctx) => {
       adminState.delete(userId)
     } catch (error) {
       console.error('Error withdrawing balance:', error)
-      await ctx.reply('❌ Error withdrawing balance. Please try again.')
+      await ctx.reply('❌ Failed to withdraw balance. Please try again.')
+    }
+    return
+  }
+
+  // Handle add profit (admin)
+  if (state.awaitingInput === 'add_profit') {
+    const amount = parseFloat(ctx.message?.text || '')
+    const targetUserId = state.targetUserId
+
+    if (isNaN(amount) || !targetUserId || amount <= 0) {
+      await ctx.reply('❌ Invalid amount. Please enter a positive number.')
+      return
+    }
+
+    try {
+      const currentUser = await prisma.user.findUnique({ where: { id: targetUserId } })
+      if (!currentUser) {
+        await ctx.reply('❌ User not found')
+        adminState.delete(userId)
+        return
+      }
+
+      // Update user profit
+      const user = await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          profit: { increment: amount }
+        }
+      })
+
+      // Create deposit record with type indicator in currency field
+      await prisma.deposit.create({
+        data: {
+          userId: user.id,
+          amount,
+          status: 'COMPLETED',
+          currency: 'PROFIT' // Special currency type for manual profit additions
+        }
+      })
+
+      const totalBalance = user.totalDeposit + user.profit + user.referralEarnings
+
+      // Notify user
+      const userMessage = `📈 *Profit Added!*\n\n` +
+        `+$${amount.toFixed(2)} profit\n` +
+        `New Profit: $${user.profit.toFixed(2)}\n` +
+        `Total Balance: $${totalBalance.toFixed(2)}\n\n` +
+        `🎉 Your earnings have been increased!`
+
+      await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
+      
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'PROFIT',
+          message: userMessage
+        }
+      })
+
+      // Confirm to admin
+      await ctx.reply(
+        `✅ *Profit Added Successfully*\n\n` +
+        `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+        `Amount: +$${amount.toFixed(2)}\n` +
+        `Previous Profit: $${currentUser.profit.toFixed(2)}\n` +
+        `New Profit: $${user.profit.toFixed(2)}\n` +
+        `Total Balance: $${totalBalance.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error adding profit:', error)
+      await ctx.reply('❌ Failed to add profit. Please try again.')
     }
     return
   }
