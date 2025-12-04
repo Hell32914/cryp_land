@@ -568,9 +568,16 @@ function App() {
                 </label>
                 <Input
                   id="withdraw-amount"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Allow only numbers and decimal point
+                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                      setWithdrawAmount(value)
+                    }
+                  }}
                   placeholder="Enter amount"
                   className="h-10 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg"
                 />
