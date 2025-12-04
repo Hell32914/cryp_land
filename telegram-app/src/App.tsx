@@ -1727,54 +1727,68 @@ function App() {
                     {transactions.map((tx) => {
                       // Determine blockchain explorer URL based on currency and network
                       const getExplorerUrl = () => {
-                        // For withdrawals, use txHash (blockchain hash)
-                        // For deposits, use trackId or txHash
-                        const txHash = tx.txHash || tx.trackId
-                        console.log('Transaction:', { 
-                          id: tx.id, 
-                          type: tx.type, 
-                          currency: tx.currency,
-                          network: tx.network,
-                          txHash: tx.txHash, 
-                          trackId: tx.trackId, 
-                          finalHash: txHash,
-                          hashLength: txHash?.length 
-                        })
+                        // For deposits, trackId always exists from OxaPay
+                        // For withdrawals, txHash exists after blockchain confirmation
+                        const hash = tx.txHash || tx.trackId
                         
-                        if (!txHash) {
-                          console.log('No txHash/trackId for transaction:', tx)
+                        if (!hash) {
                           return null
                         }
                         
-                        const currency = tx.currency?.toUpperCase()
-                        const network = tx.network?.toUpperCase()
-                        
-                        // Only show blockchain explorer link if we have a real blockchain hash (64 chars)
-                        // Shorter hashes like OxaPay trackId don't have public blockchain explorers
-                        if (txHash.length !== 64) {
-                          console.log('Hash too short, not a blockchain hash:', txHash.length)
+                        // Only create explorer link for deposits (always have trackId)
+                        // or withdrawals with 64-char blockchain hash
+                        if (tx.type === 'DEPOSIT' && tx.trackId) {
+                          const currency = tx.currency?.toUpperCase()
+                          const network = tx.network?.toUpperCase()
+                          
+                          // For deposits, use OxaPay tracking (but it doesn't work, so use blockchain)
+                          // Actually, deposits from OxaPay have blockchain hashes too
+                          if (tx.txHash && tx.txHash.length === 64) {
+                            // USDT TRC20 (Tron)
+                            if (currency === 'USDT' && network === 'TRC20') {
+                              return `https://tronscan.org/#/transaction/${tx.txHash}`
+                            }
+                            // USDT ERC20 (Ethereum)
+                            if (currency === 'USDT' && network === 'ERC20') {
+                              return `https://etherscan.io/tx/${tx.txHash}`
+                            }
+                            // BTC
+                            if (currency === 'BTC') {
+                              return `https://blockchair.com/bitcoin/transaction/${tx.txHash}`
+                            }
+                            // ETH
+                            if (currency === 'ETH') {
+                              return `https://etherscan.io/tx/${tx.txHash}`
+                            }
+                          }
                           return null
                         }
                         
-                        // USDT TRC20 (Tron)
-                        if (currency === 'USDT' && network === 'TRC20') {
-                          return `https://tronscan.org/#/transaction/${txHash}`
-                        }
-                        // USDT ERC20 (Ethereum)
-                        if (currency === 'USDT' && network === 'ERC20') {
-                          return `https://etherscan.io/tx/${txHash}`
-                        }
-                        // BTC
-                        if (currency === 'BTC') {
-                          return `https://blockchair.com/bitcoin/transaction/${txHash}`
-                        }
-                        // ETH
-                        if (currency === 'ETH') {
-                          return `https://etherscan.io/tx/${txHash}`
-                        }
-                        // LTC
-                        if (currency === 'LTC') {
-                          return `https://blockchair.com/litecoin/transaction/${txHash}`
+                        // For withdrawals, only show link if we have blockchain confirmation
+                        if (tx.type === 'WITHDRAWAL' && tx.txHash && tx.txHash.length === 64) {
+                          const currency = tx.currency?.toUpperCase()
+                          const network = tx.network?.toUpperCase()
+                          
+                          // USDT TRC20 (Tron)
+                          if (currency === 'USDT' && network === 'TRC20') {
+                            return `https://tronscan.org/#/transaction/${tx.txHash}`
+                          }
+                          // USDT ERC20 (Ethereum)
+                          if (currency === 'USDT' && network === 'ERC20') {
+                            return `https://etherscan.io/tx/${tx.txHash}`
+                          }
+                          // BTC
+                          if (currency === 'BTC') {
+                            return `https://blockchair.com/bitcoin/transaction/${tx.txHash}`
+                          }
+                          // ETH
+                          if (currency === 'ETH') {
+                            return `https://etherscan.io/tx/${tx.txHash}`
+                          }
+                          // LTC
+                          if (currency === 'LTC') {
+                            return `https://blockchair.com/litecoin/transaction/${tx.txHash}`
+                          }
                         }
                         
                         return null
@@ -1782,13 +1796,22 @@ function App() {
                       
                       const explorerUrl = getExplorerUrl()
                       
+                      const handleClick = () => {
+                        if (explorerUrl) {
+                          window.open(explorerUrl, '_blank')
+                        } else {
+                          // For debugging - show alert with transaction info
+                          const info = `Type: ${tx.type}\nCurrency: ${tx.currency}\nNetwork: ${tx.network}\nStatus: ${tx.status}\ntxHash: ${tx.txHash || 'none'}\ntrackId: ${tx.trackId || 'none'}`
+                          console.log('Transaction clicked:', info)
+                          alert(info)
+                        }
+                      }
+                      
                       return (
                         <div
                           key={tx.id}
-                          onClick={() => explorerUrl && window.open(explorerUrl, '_blank')}
-                          className={`flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 hover:border-accent/30 transition-colors ${
-                            explorerUrl ? 'cursor-pointer hover:bg-secondary/50' : ''
-                          }`}
+                          onClick={handleClick}
+                          className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 hover:border-accent/30 transition-colors cursor-pointer hover:bg-secondary/50"
                         >
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
