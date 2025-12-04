@@ -1724,47 +1724,87 @@ function App() {
                   <p className="text-center text-muted-foreground py-8">{t.noTransactionsYet}</p>
                 ) : (
                   <div className="space-y-3">
-                    {transactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 hover:border-accent/30 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
-                          }`}>
-                            <span className="text-sm font-bold">
-                              {tx.type === 'DEPOSIT' ? '↓' : '↑'}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
-                              {tx.type === 'DEPOSIT' ? 'Deposit' : 'Withdrawal'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {tx.currency} • {new Date(tx.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`text-sm font-bold ${
-                            tx.type === 'DEPOSIT' ? 'text-green-500' : 'text-red-500'
-                          }`}>
-                            {tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toFixed(2)}
-                          </p>
-                          <p className="text-xs">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs ${
-                              tx.status === 'COMPLETED' ? 'bg-green-500/20 text-green-500' :
-                              tx.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500' :
-                              tx.status === 'PROCESSING' ? 'bg-blue-500/20 text-blue-500' :
-                              'bg-red-500/20 text-red-500'
+                    {transactions.map((tx) => {
+                      // Determine blockchain explorer URL based on currency and network
+                      const getExplorerUrl = () => {
+                        const txHash = tx.txHash || tx.trackId
+                        if (!txHash) return null
+                        
+                        const currency = tx.currency?.toUpperCase()
+                        const network = tx.network?.toUpperCase()
+                        
+                        // USDT TRC20 (Tron)
+                        if (currency === 'USDT' && network === 'TRC20') {
+                          return `https://tronscan.org/#/transaction/${txHash}`
+                        }
+                        // USDT ERC20 (Ethereum)
+                        if (currency === 'USDT' && network === 'ERC20') {
+                          return `https://etherscan.io/tx/${txHash}`
+                        }
+                        // BTC
+                        if (currency === 'BTC') {
+                          return `https://blockchair.com/bitcoin/transaction/${txHash}`
+                        }
+                        // ETH
+                        if (currency === 'ETH') {
+                          return `https://etherscan.io/tx/${txHash}`
+                        }
+                        // LTC
+                        if (currency === 'LTC') {
+                          return `https://blockchair.com/litecoin/transaction/${txHash}`
+                        }
+                        
+                        return null
+                      }
+                      
+                      const explorerUrl = getExplorerUrl()
+                      
+                      return (
+                        <div
+                          key={tx.id}
+                          onClick={() => explorerUrl && window.open(explorerUrl, '_blank')}
+                          className={`flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 hover:border-accent/30 transition-colors ${
+                            explorerUrl ? 'cursor-pointer hover:bg-secondary/50' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
                             }`}>
-                              {tx.status}
-                            </span>
-                          </p>
+                              <span className="text-sm font-bold">
+                                {tx.type === 'DEPOSIT' ? '↓' : '↑'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">
+                                {tx.type === 'DEPOSIT' ? 'Deposit' : 'Withdrawal'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {tx.currency} • {new Date(tx.createdAt).toLocaleDateString()}
+                                {explorerUrl && <span className="ml-1">🔗</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-bold ${
+                              tx.type === 'DEPOSIT' ? 'text-green-500' : 'text-red-500'
+                            }`}>
+                              {tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toFixed(2)}
+                            </p>
+                            <p className="text-xs">
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs ${
+                                tx.status === 'COMPLETED' ? 'bg-green-500/20 text-green-500' :
+                                tx.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-500' :
+                                tx.status === 'PROCESSING' ? 'bg-blue-500/20 text-blue-500' :
+                                'bg-red-500/20 text-red-500'
+                              }`}>
+                                {tx.status}
+                              </span>
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
