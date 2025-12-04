@@ -263,15 +263,11 @@ export async function checkPayoutStatus(trackId: string): Promise<any> {
   try {
     console.log('🔍 Checking payout status for trackId:', trackId)
     
-    const response = await axios.post(
-      'https://api.oxapay.com/v1/payout/inquiry',
-      {
-        trackId: trackId
-      },
+    const response = await axios.get(
+      `https://api.oxapay.com/v1/payout/inquiry/${trackId}`,
       {
         headers: {
-          'payout_api_key': OXAPAY_PAYOUT_API_KEY,
-          'Content-Type': 'application/json'
+          'payout_api_key': OXAPAY_PAYOUT_API_KEY
         }
       }
     )
