@@ -1,0 +1,42 @@
+# Команды для выполнения на сервере
+# SSH: ssh root@45.147.248.134
+
+# 1. Перейти в папку проекта
+cd ~/cryp_land/telegram-bot
+
+# 2. Обновить код с GitHub
+git pull origin main
+
+# 3. Обновить .env файл (добавить нового админа)
+nano .env
+# Измените строку:
+# ADMIN_IDS=8574768354,503856039
+# Сохраните: Ctrl+X, Y, Enter
+
+# 4. Установить зависимости (если нужно)
+npm install
+
+# 5. Пересобрать TypeScript
+npm run build
+
+# 6. Проверить конфигурацию админов
+node check-admins.cjs
+
+# 7. Проверить daily updates в базе
+node check-updates-simple.cjs
+
+# 8. Перезапустить бот
+pm2 restart syntrix
+
+# 9. Проверить логи
+pm2 logs syntrix --lines 50
+
+# 10. Проверить статус
+pm2 status
+
+# ЕСЛИ НУЖНО ЗАПУСТИТЬ НАЧИСЛЕНИЕ ПРОФИТА ВРУЧНУЮ:
+# В боте отправьте команду (от вашего Telegram ID):
+# /run_daily_profit
+
+# ИЛИ запустите через скрытую команду в боте:
+# run_profit_accrual_xK9mZ2pL5qR8wN3vT6yH1jF4bC7aD0eS
