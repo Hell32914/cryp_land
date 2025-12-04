@@ -67,8 +67,9 @@ try {
   console.log(`   Number of different dates: ${dateCount}`)
   
   if (dateCount > 1) {
-    console.log('   ⚠️  WARNING: Updates from multiple dates found!')
-    console.log('   This should not happen - old updates should be deleted.')
+    console.log('   ℹ️  Updates span multiple dates (normal - generated for 24 hours ahead)')
+  } else if (dateCount === 1) {
+    console.log('   ✅ All updates are for the same date')
   }
   
   // Check if notified updates are from past
