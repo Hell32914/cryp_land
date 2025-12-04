@@ -1736,36 +1736,30 @@ function App() {
                         const currency = tx.currency?.toUpperCase()
                         const network = tx.network?.toUpperCase()
                         
-                        console.log('Transaction explorer link:', { currency, network, txHash, type: tx.type, status: tx.status })
-                        
-                        // For withdrawals with trackId (OxaPay), use OxaPay tracking page
-                        if (tx.type === 'WITHDRAWAL' && txHash && txHash.length < 64) {
-                          // This is likely a trackId from payment provider, not blockchain hash
-                          return `https://oxapay.com/track/${txHash}`
+                        // Only show blockchain explorer link if we have a real blockchain hash (64 chars)
+                        if (!txHash || txHash.length !== 64) {
+                          return null
                         }
                         
-                        // For blockchain transactions (deposits or completed withdrawals with real hash)
-                        if (txHash && txHash.length === 64) {
-                          // USDT TRC20 (Tron)
-                          if (currency === 'USDT' && network === 'TRC20') {
-                            return `https://tronscan.org/#/transaction/${txHash}`
-                          }
-                          // USDT ERC20 (Ethereum)
-                          if (currency === 'USDT' && network === 'ERC20') {
-                            return `https://etherscan.io/tx/${txHash}`
-                          }
-                          // BTC
-                          if (currency === 'BTC') {
-                            return `https://blockchair.com/bitcoin/transaction/${txHash}`
-                          }
-                          // ETH
-                          if (currency === 'ETH') {
-                            return `https://etherscan.io/tx/${txHash}`
-                          }
-                          // LTC
-                          if (currency === 'LTC') {
-                            return `https://blockchair.com/litecoin/transaction/${txHash}`
-                          }
+                        // USDT TRC20 (Tron)
+                        if (currency === 'USDT' && network === 'TRC20') {
+                          return `https://tronscan.org/#/transaction/${txHash}`
+                        }
+                        // USDT ERC20 (Ethereum)
+                        if (currency === 'USDT' && network === 'ERC20') {
+                          return `https://etherscan.io/tx/${txHash}`
+                        }
+                        // BTC
+                        if (currency === 'BTC') {
+                          return `https://blockchair.com/bitcoin/transaction/${txHash}`
+                        }
+                        // ETH
+                        if (currency === 'ETH') {
+                          return `https://etherscan.io/tx/${txHash}`
+                        }
+                        // LTC
+                        if (currency === 'LTC') {
+                          return `https://blockchair.com/litecoin/transaction/${txHash}`
                         }
                         
                         return null
