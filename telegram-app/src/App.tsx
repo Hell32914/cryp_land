@@ -1796,22 +1796,13 @@ function App() {
                       
                       const explorerUrl = getExplorerUrl()
                       
-                      const handleClick = () => {
-                        if (explorerUrl) {
-                          window.open(explorerUrl, '_blank')
-                        } else {
-                          // For debugging - show alert with transaction info
-                          const info = `Type: ${tx.type}\nCurrency: ${tx.currency}\nNetwork: ${tx.network}\nStatus: ${tx.status}\ntxHash: ${tx.txHash || 'none'}\ntrackId: ${tx.trackId || 'none'}`
-                          console.log('Transaction clicked:', info)
-                          alert(info)
-                        }
-                      }
-                      
                       return (
                         <div
                           key={tx.id}
-                          onClick={handleClick}
-                          className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 hover:border-accent/30 transition-colors cursor-pointer hover:bg-secondary/50"
+                          onClick={() => explorerUrl && window.open(explorerUrl, '_blank')}
+                          className={`flex items-center justify-between p-4 bg-secondary/30 rounded-lg border border-border/30 transition-colors ${
+                            explorerUrl ? 'cursor-pointer hover:border-accent/30 hover:bg-secondary/50' : ''
+                          }`}
                         >
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
