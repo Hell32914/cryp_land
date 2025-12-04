@@ -60,11 +60,14 @@ try {
   
   console.log('\n\n📊 Summary:')
   const totalUpdates = db.prepare('SELECT COUNT(*) as count FROM DailyProfitUpdate').get()
-  const now = new Date().toISOString()
-  const visibleCount = db.prepare(`SELECT COUNT(*) as count FROM DailyProfitUpdate WHERE timestamp <= ?`).get(now)
+  const now = new Date()
+  const allUpdates = db.prepare('SELECT timestamp FROM DailyProfitUpdate').all()
+  const visibleCount = allUpdates.filter(u => new Date(u.timestamp) <= now).length
+  const futureCount = allUpdates.filter(u => new Date(u.timestamp) > now).length
   console.log(`   Total updates in DB: ${totalUpdates.count}`)
-  console.log(`   Visible updates: ${visibleCount.count}`)
-  console.log(`   Future updates: ${totalUpdates.count - visibleCount.count}`)
+  console.log(`   Visible updates (timestamp <= now): ${visibleCount}`)
+  console.log(`   Future updates (timestamp > now): ${futureCount}`)
+  console.log(`   Current server time: ${now.toISOString()}`)
   
 } catch (error) {
   console.error('❌ Error:', error)
