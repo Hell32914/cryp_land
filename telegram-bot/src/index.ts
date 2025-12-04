@@ -979,6 +979,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   if (isAdminUser) {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
+    keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1083,6 +1084,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
   if (isAdminUser) {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
+    keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
