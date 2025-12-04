@@ -1727,6 +1727,8 @@ function App() {
                     {transactions.map((tx) => {
                       // Determine blockchain explorer URL based on currency and network
                       const getExplorerUrl = () => {
+                        // For withdrawals, use txHash (blockchain hash)
+                        // For deposits, use trackId or txHash
                         const txHash = tx.txHash || tx.trackId
                         if (!txHash) {
                           console.log('No txHash/trackId for transaction:', tx)
@@ -1737,7 +1739,8 @@ function App() {
                         const network = tx.network?.toUpperCase()
                         
                         // Only show blockchain explorer link if we have a real blockchain hash (64 chars)
-                        if (!txHash || txHash.length !== 64) {
+                        // Shorter hashes like OxaPay trackId don't have public blockchain explorers
+                        if (txHash.length !== 64) {
                           return null
                         }
                         
