@@ -23,6 +23,8 @@ export function RefLinks() {
   const queryClient = useQueryClient()
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null)
   const [editCost, setEditCost] = useState('')
+  const [traffickerFilter, setTraffickerFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketing-links', token],
@@ -59,6 +61,16 @@ export function RefLinks() {
 
   const links = data?.links || []
 
+  const filteredLinks = links.filter((link) => {
+    const traffickerMatch = traffickerFilter.trim()
+      ? (link.trafficerName || '').toLowerCase().includes(traffickerFilter.trim().toLowerCase())
+      : true
+    const sourceMatch = sourceFilter.trim()
+      ? (link.source || '').toLowerCase().includes(sourceFilter.trim().toLowerCase())
+      : true
+    return traffickerMatch && sourceMatch
+  })
+
   const formatPercent = (val: number) => `${val.toFixed(2)}%`
   const formatMoney = (val: number) => `$${val.toFixed(2)}`
   const formatDate = (date: Date) => new Date(date).toLocaleDateString('en-GB')
@@ -74,6 +86,20 @@ export function RefLinks() {
           <CardTitle>Referral Links Performance</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Input
+              placeholder="Filter by Trafficker"
+              value={traffickerFilter}
+              onChange={(e) => setTraffickerFilter(e.target.value)}
+              className="w-52"
+            />
+            <Input
+              placeholder="Filter by Source"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-52"
+            />
+          </div>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : links.length === 0 ? (
@@ -86,15 +112,16 @@ export function RefLinks() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Trafficker</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Link ID</TableHead>
                     <TableHead>Stream</TableHead>
                     <TableHead>Geo</TableHead>
                     <TableHead>Creative</TableHead>
-                    <TableHead className="text-right text-purple-400">Total</TableHead>
-                    <TableHead className="text-right text-yellow-400">LEADS</TableHead>
+                    <TableHead className="text-right text-green-400">TOTAL USER</TableHead>
                     <TableHead className="text-right text-blue-400">TODAY USERS</TableHead>
                     <TableHead className="text-right text-cyan-400">WEEK USER</TableHead>
-                    <TableHead className="text-right text-green-400">TOTAL USER</TableHead>
+                    <TableHead className="text-right text-yellow-400">LEADS</TableHead>
+                    <TableHead className="text-right text-purple-400">Total</TableHead>
                     <TableHead className="text-right text-orange-400">CR% Lead→User</TableHead>
                     <TableHead className="text-right">FTD</TableHead>
                     <TableHead className="text-right">CR %</TableHead>
@@ -107,11 +134,12 @@ export function RefLinks() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {links.map((link) => (
+                  {filteredLinks.map((link) => (
                     <TableRow key={link.linkId}>
                       <TableCell className="font-medium text-blue-400">
                         {link.trafficerName || 'Unknown'}
                       </TableCell>
+                      <TableCell className="text-muted-foreground">{link.source || '—'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-mono text-xs">
                           {link.linkId}
@@ -126,11 +154,11 @@ export function RefLinks() {
                       <TableCell className="text-orange-400">
                         {link.creative || '-'}
                       </TableCell>
-                      <TableCell className="text-right text-purple-400 font-semibold">{link.totalLeads + (link.totalUsers || 0)}</TableCell>
-                      <TableCell className="text-right text-yellow-400">{link.totalLeads}</TableCell>
+                      <TableCell className="text-right text-green-400 font-semibold">{link.totalUsers || 0}</TableCell>
                       <TableCell className="text-right text-blue-400">{link.usersToday || 0}</TableCell>
                       <TableCell className="text-right text-cyan-400">{link.usersWeek || 0}</TableCell>
-                      <TableCell className="text-right text-green-400 font-semibold">{link.totalUsers || 0}</TableCell>
+                      <TableCell className="text-right text-yellow-400">{link.totalLeads}</TableCell>
+                      <TableCell className="text-right text-purple-400 font-semibold">{link.totalLeads + (link.totalUsers || 0)}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
                           {(link.totalLeads + (link.totalUsers || 0)) > 0 

@@ -24,6 +24,8 @@ import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, type MarketingLink } from '@/lib/api'
 
+const TELEGRAM_LANDING_DOMAIN = 'syntrix.website'
+
 interface SubIdParam {
   id: number
   key: string
@@ -100,6 +102,13 @@ export function LinkBuilder() {
     }
   }
 
+  // When user selects a domain that already has a pixel saved, prefill the textarea
+  useEffect(() => {
+    if (!links.length) return
+    const found = links.find((l) => l.domain === selectedDomain && l.trackingPixel)
+    setTrackingPixel(found?.trackingPixel || '')
+  }, [selectedDomain, links])
+
   const addSubIdParam = () => {
     if (subIdParams.length < 5) {
       setSubIdParams([...subIdParams, { id: Date.now(), key: '', value: '' }])
@@ -154,7 +163,7 @@ export function LinkBuilder() {
         trackingPixel: trackingPixel || undefined
       })
 
-      const link = `https://${selectedDomain}/?ref=${linkData.linkId}`
+      const link = `https://${TELEGRAM_LANDING_DOMAIN}/?ref=${linkData.linkId}`
       setGeneratedLink(link)
       setGeneratedLinkId(linkData.linkId)
       
@@ -455,7 +464,8 @@ export function LinkBuilder() {
                             size="sm"
                             onClick={async () => {
                               try {
-                                await navigator.clipboard.writeText(`${baseUrl}${link.linkId}`)
+                                const linkUrl = `https://${TELEGRAM_LANDING_DOMAIN}/?ref=${link.linkId}`
+                                await navigator.clipboard.writeText(linkUrl)
                                 toast.success('Link copied!')
                               } catch {
                                 toast.error('Failed to copy')

@@ -256,11 +256,14 @@ export const fetchReferrals = (token: string) =>
 export interface MarketingLink {
   linkId: string
   source: string
+  domain?: string
   clicks: number
   conversions: number
   conversionRate: string
   isActive: boolean
   createdAt: string
+  trackingPixel?: string | null
+  domain?: string
   // Extended metrics
   ownerName?: string
   linkName?: string

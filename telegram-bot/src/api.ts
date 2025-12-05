@@ -1969,11 +1969,13 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       return {
         linkId: link.linkId,
         source: link.source,
+        domain: link.domain,
         clicks: link.clicks,
         conversions: link.conversions,
         conversionRate: link.clicks > 0 ? ((link.conversions / link.clicks) * 100).toFixed(2) : '0.00',
         isActive: link.isActive,
         createdAt: link.createdAt.toISOString(),
+        trackingPixel: link.trackingPixel,
         ownerName: link.trafficerName || 'Unknown',
         linkName: link.source,
         trafficerName: link.trafficerName,
