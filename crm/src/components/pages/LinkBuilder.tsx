@@ -134,12 +134,18 @@ export function LinkBuilder() {
   // When user selects a domain that already has a pixel saved, prefill the textarea
   useEffect(() => {
     if (!links.length) return
+    const normalize = (d?: string) => (d || 'syntrix.website').trim().toLowerCase()
+    const targetDomain = normalize(selectedDomain)
+
     const found = links.find((l) => {
-      const domainMatch = l.domain === selectedDomain || (!l.domain && selectedDomain === 'syntrix.website')
-      return domainMatch && l.trackingPixel
+      const domainMatch = normalize(l.domain) === targetDomain
+      const pixel = (l.trackingPixel || '').trim()
+      return domainMatch && pixel.length > 0
     })
-    setTrackingPixel(found?.trackingPixel || '')
-    setPixelLoadedFromDomain(!!found?.trackingPixel)
+
+    const pixel = (found?.trackingPixel || '').trim()
+    setTrackingPixel(pixel)
+    setPixelLoadedFromDomain(pixel.length > 0)
   }, [selectedDomain, links])
 
   const addSubIdParam = () => {
