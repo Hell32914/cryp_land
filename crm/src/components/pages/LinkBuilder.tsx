@@ -81,6 +81,7 @@ export function LinkBuilder() {
 
   const domains = [
     { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-blue-500' },
+    { value: 'www.syntrix.website', label: 'www.syntrix.website', color: 'bg-blue-400' },
     { value: 'app.syntrix.website', label: 'app.syntrix.website', color: 'bg-purple-500' },
     { value: 'crypto-invest.pro', label: 'crypto-invest.pro', color: 'bg-green-500' },
     { value: 'trade-signal.net', label: 'trade-signal.net', color: 'bg-orange-500' },
@@ -306,6 +307,9 @@ export function LinkBuilder() {
                 <span>Этот пиксель будет автоматически встроен на лендинг для данной ссылки.</span>
                 {pixelLoadedFromDomain && (
                   <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Пиксель найден для домена</span>
+                )}
+                {!pixelLoadedFromDomain && trackingPixel === '' && (
+                  <span className="px-2 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/30">Пиксель не найден для домена</span>
                 )}
               </div>
             </div>
