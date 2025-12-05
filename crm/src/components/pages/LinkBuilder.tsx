@@ -51,6 +51,33 @@ export function LinkBuilder() {
   const [links, setLinks] = useState<MarketingLink[]>([])
   const [loading, setLoading] = useState(false)
 
+  const copyText = async (text: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+        return true
+      }
+    } catch (err) {
+      // will try fallback below
+    }
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.top = '0'
+      textarea.style.left = '0'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return ok
+    } catch (err) {
+      return false
+    }
+  }
+
   const domains = [
     { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-blue-500' },
     { value: 'app.syntrix.website', label: 'app.syntrix.website', color: 'bg-purple-500' },
@@ -180,10 +207,14 @@ export function LinkBuilder() {
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(generatedLink)
-      setCopied(true)
-      toast.success(t('linkBuilder.copied'))
-      setTimeout(() => setCopied(false), 2000)
+      const ok = await copyText(generatedLink)
+      if (ok) {
+        setCopied(true)
+        toast.success(t('linkBuilder.copied'))
+        setTimeout(() => setCopied(false), 2000)
+      } else {
+        toast.error('Failed to copy')
+      }
     } catch (err) {
       toast.error('Failed to copy')
     }
@@ -465,8 +496,12 @@ export function LinkBuilder() {
                             onClick={async () => {
                               try {
                                 const linkUrl = `https://${TELEGRAM_LANDING_DOMAIN}/?ref=${link.linkId}`
-                                await navigator.clipboard.writeText(linkUrl)
-                                toast.success('Link copied!')
+                                const ok = await copyText(linkUrl)
+                                if (ok) {
+                                  toast.success('Link copied!')
+                                } else {
+                                  toast.error('Failed to copy')
+                                }
                               } catch {
                                 toast.error('Failed to copy')
                               }
