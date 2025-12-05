@@ -156,6 +156,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       lte: periodEnd
     } : undefined
 
+    const userWhere = periodWhere
+      ? { isHidden: false, createdAt: periodWhere }
+      : { isHidden: false }
+
     const [
       totalUsers,
       balanceAgg,
@@ -170,7 +174,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       recentProfits,
       geoGroups,
     ] = await Promise.all([
-      prisma.user.count({ where: { isHidden: false } }),
+      prisma.user.count({ where: userWhere }),
       prisma.user.aggregate({ _sum: { balance: true }, where: { isHidden: false } }),
       prisma.deposit.aggregate({
         _sum: { amount: true },
