@@ -160,6 +160,14 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       ? { isHidden: false, createdAt: periodWhere }
       : { isHidden: false }
 
+    const depositWhere = periodWhere
+      ? { status: 'COMPLETED', createdAt: periodWhere }
+      : { status: 'COMPLETED' }
+
+    const withdrawalWhere = periodWhere
+      ? { status: 'COMPLETED', createdAt: periodWhere }
+      : { status: 'COMPLETED' }
+
     const [
       totalUsers,
       balanceAgg,
@@ -173,6 +181,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       recentWithdrawals,
       recentProfits,
       geoGroups,
+      geoUsers,
+      geoDeposits,
+      geoWithdrawals,
     ] = await Promise.all([
       prisma.user.count({ where: userWhere }),
       prisma.user.aggregate({ _sum: { balance: true }, where: { isHidden: false } }),
@@ -199,18 +210,12 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       // Deposits in selected period (for KPI)
       prisma.deposit.aggregate({
         _sum: { amount: true },
-        where: periodWhere ? {
-          status: 'COMPLETED',
-          createdAt: periodWhere,
-        } : { status: 'COMPLETED' },
+        where: depositWhere,
       }),
       // Withdrawals in selected period (for KPI)
       prisma.withdrawal.aggregate({
         _sum: { amount: true },
-        where: periodWhere ? {
-          status: 'COMPLETED',
-          createdAt: periodWhere,
-        } : { status: 'COMPLETED' },
+        where: withdrawalWhere,
       }),
       prisma.deposit.findMany({
         where: {
@@ -234,8 +239,28 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.user.groupBy({
         by: ['country'],
-        where: { isHidden: false },
+        where: userWhere,
         _count: { country: true },
+      }),
+      prisma.user.findMany({
+        where: userWhere,
+        select: { telegramId: true, username: true, firstName: true, lastName: true, country: true },
+      }),
+      prisma.deposit.findMany({
+        where: depositWhere,
+        include: {
+          user: {
+            select: { country: true, telegramId: true, username: true, firstName: true, lastName: true },
+          },
+        },
+      }),
+      prisma.withdrawal.findMany({
+        where: withdrawalWhere,
+        include: {
+          user: {
+            select: { country: true },
+          },
+        },
       }),
     ])
 
@@ -269,12 +294,35 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }
     })
 
-    const totalGeoUsers = geoGroups.reduce((sum, group) => sum + group._count.country, 0)
-    const sortedGeo = geoGroups
-      .map((group) => ({
-        country: group.country ?? 'Unknown',
-        userCount: group._count.country,
-      }))
+    // Country metrics using period filters
+    const countryUserCount = new Map<string, number>()
+    geoUsers.forEach((u) => {
+      const country = u.country ?? 'Unknown'
+      countryUserCount.set(country, (countryUserCount.get(country) || 0) + 1)
+    })
+
+    // Deposit/withdrawal aggregates per country within period
+    const countryDeposits = new Map<string, { total: number; byUser: Map<string, { amount: number; user: any }> }>()
+    geoDeposits.forEach((d) => {
+      const country = d.user?.country ?? 'Unknown'
+      const userKey = String(d.user?.telegramId ?? 'unknown')
+      if (!countryDeposits.has(country)) countryDeposits.set(country, { total: 0, byUser: new Map() })
+      const entry = countryDeposits.get(country)!
+      entry.total += Number(d.amount)
+      const userEntry = entry.byUser.get(userKey) || { amount: 0, user: d.user }
+      userEntry.amount += Number(d.amount)
+      entry.byUser.set(userKey, userEntry)
+    })
+
+    const countryWithdrawals = new Map<string, number>()
+    geoWithdrawals.forEach((w) => {
+      const country = w.user?.country ?? 'Unknown'
+      countryWithdrawals.set(country, (countryWithdrawals.get(country) || 0) + Number(w.amount))
+    })
+
+    const totalGeoUsers = Array.from(countryUserCount.values()).reduce((a, b) => a + b, 0)
+    const sortedGeo = Array.from(countryUserCount.entries())
+      .map(([country, count]) => ({ country, userCount: count }))
       .sort((a, b) => b.userCount - a.userCount)
 
     const geoLimit = 6
@@ -286,8 +334,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       limitedGeo.push({ country: 'Others', userCount: remaining })
     }
 
-    // Calculate extended geo metrics
-    const geoDataPromises = limitedGeo.map(async (entry) => {
+    const geoData = limitedGeo.map((entry) => {
       if (entry.country === 'Others') {
         return {
           country: entry.country,
@@ -302,76 +349,26 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         }
       }
 
-      // Get users from this country with completed deposits (FTD)
-      const usersWithDeposits = await prisma.user.findMany({
-        where: {
-          country: entry.country,
-          isHidden: false,
-          deposits: {
-            some: {
-              status: 'COMPLETED',
-            },
-          },
-        },
-        select: {
-          id: true,
-          telegramId: true,
-          username: true,
-          firstName: true,
-          lastName: true,
-          totalDeposit: true,
-        },
-        orderBy: {
-          totalDeposit: 'desc',
-        },
-        take: 5,
-      })
+      const depositsEntry = countryDeposits.get(entry.country)
+      const totalDeposits = depositsEntry?.total || 0
+      const totalWithdrawals = countryWithdrawals.get(entry.country) || 0
 
-      const ftdCount = usersWithDeposits.length
+      // FTD = unique users with at least one deposit in period
+      const ftdCount = depositsEntry ? depositsEntry.byUser.size : 0
       const conversionRate = entry.userCount > 0 ? Number(((ftdCount / entry.userCount) * 100).toFixed(1)) : 0
 
-      // Get total deposits for this country
-      const depositsAgg = await prisma.deposit.aggregate({
-        where: {
-          status: 'COMPLETED',
-          user: {
-            country: entry.country,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      })
-
-      // Get total withdrawals for this country
-      const withdrawalsAgg = await prisma.withdrawal.aggregate({
-        where: {
-          status: 'COMPLETED',
-          user: {
-            country: entry.country,
-          },
-        },
-        _sum: {
-          amount: true,
-        },
-      })
-
-      // Get total profit for this country
-      const profitAgg = await prisma.user.aggregate({
-        where: {
-          country: entry.country,
-        },
-        _sum: {
-          profit: true,
-        },
-      })
-
-      const topDepositors = usersWithDeposits.map(user => ({
-        telegramId: user.telegramId,
-        username: user.username,
-        fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
-        totalDeposit: user.totalDeposit,
-      }))
+      // Top depositors by amount within period
+      const topDepositors = depositsEntry
+        ? Array.from(depositsEntry.byUser.values())
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 5)
+            .map(({ amount, user }) => ({
+              telegramId: user?.telegramId,
+              username: user?.username,
+              fullName: [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.username || String(user?.telegramId),
+              totalDeposit: amount,
+            }))
+        : []
 
       return {
         country: entry.country,
@@ -379,14 +376,12 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         percentage: totalGeoUsers === 0 ? 0 : Number(((entry.userCount / totalGeoUsers) * 100).toFixed(1)),
         ftdCount,
         conversionRate,
-        totalDeposits: Number(depositsAgg._sum.amount ?? 0),
-        totalWithdrawals: Number(withdrawalsAgg._sum.amount ?? 0),
-        totalProfit: Number(profitAgg._sum.profit ?? 0),
+        totalDeposits,
+        totalWithdrawals,
+        totalProfit: 0, // Profit per country not yet tracked by period
         topDepositors,
       }
     })
-
-    const geoData = await Promise.all(geoDataPromises)
 
     // Get top 5 users by balance (totalDeposit is the working balance)
     const topUsersByBalance = await prisma.user.findMany({
@@ -423,22 +418,25 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     ] = await Promise.all([
       prisma.deposit.aggregate({
         _sum: { amount: true },
-        where: { status: 'COMPLETED' },
+        where: depositWhere,
       }),
       prisma.withdrawal.aggregate({
         _sum: { amount: true },
-        where: { status: 'COMPLETED' },
+        where: withdrawalWhere,
       }),
       prisma.deposit.count({
-        where: { status: 'COMPLETED' },
+        where: depositWhere,
       }),
       prisma.withdrawal.count({
-        where: { status: 'COMPLETED' },
+        where: withdrawalWhere,
       }),
       prisma.dailyProfitUpdate.aggregate({
         _sum: { amount: true },
+        where: periodWhere ? { timestamp: periodWhere } : undefined,
       }),
-      prisma.dailyProfitUpdate.count(),
+      prisma.dailyProfitUpdate.count({
+        where: periodWhere ? { timestamp: periodWhere } : undefined,
+      }),
     ])
 
     // Reinvest is calculated as total profit generated
