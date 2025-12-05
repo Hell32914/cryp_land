@@ -338,9 +338,6 @@ export function LinkBuilder() {
                 {pixelLoadedFromDomain && (
                   <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Пиксель найден для домена</span>
                 )}
-                {!pixelLoadedFromDomain && trackingPixel === '' && (
-                  <span className="px-2 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/30">Пиксель не найден для домена</span>
-                )}
                 <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
                   <input
                     type="checkbox"
