@@ -38,6 +38,7 @@ export function LinkBuilder() {
   const [source, setSource] = useState('')
   const [selectedDomain, setSelectedDomain] = useState('syntrix.website')
   const [trackingPixel, setTrackingPixel] = useState('')
+  const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
   const [subIdParams, setSubIdParams] = useState<SubIdParam[]>([
     { id: 1, key: '', value: '' }
   ])
@@ -134,6 +135,7 @@ export function LinkBuilder() {
     if (!links.length) return
     const found = links.find((l) => l.domain === selectedDomain && l.trackingPixel)
     setTrackingPixel(found?.trackingPixel || '')
+    setPixelLoadedFromDomain(!!found?.trackingPixel)
   }, [selectedDomain, links])
 
   const addSubIdParam = () => {
@@ -190,7 +192,7 @@ export function LinkBuilder() {
         trackingPixel: trackingPixel || undefined
       })
 
-      const link = `https://${TELEGRAM_LANDING_DOMAIN}/?ref=${linkData.linkId}`
+      const link = `https://${selectedDomain || 'syntrix.website'}/?ref=${linkData.linkId}`
       setGeneratedLink(link)
       setGeneratedLinkId(linkData.linkId)
       
@@ -300,9 +302,12 @@ export function LinkBuilder() {
                 value={trackingPixel}
                 onChange={(e) => setTrackingPixel(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Этот пиксель будет автоматически встроен на лендинг для данной ссылки
-              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Этот пиксель будет автоматически встроен на лендинг для данной ссылки.</span>
+                {pixelLoadedFromDomain && (
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Пиксель найден для домена</span>
+                )}
+              </div>
             </div>
 
             {/* Metadata Fields */}
@@ -495,7 +500,7 @@ export function LinkBuilder() {
                             size="sm"
                             onClick={async () => {
                               try {
-                                const linkUrl = `https://${TELEGRAM_LANDING_DOMAIN}/?ref=${link.linkId}`
+                                const linkUrl = `https://${link.domain || TELEGRAM_LANDING_DOMAIN}/?ref=${link.linkId}`
                                 const ok = await copyText(linkUrl)
                                 if (ok) {
                                   toast.success('Link copied!')
