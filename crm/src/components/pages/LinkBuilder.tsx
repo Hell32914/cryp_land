@@ -39,6 +39,7 @@ export function LinkBuilder() {
   const [selectedDomain, setSelectedDomain] = useState('syntrix.website')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
+  const [pixelConfirmed, setPixelConfirmed] = useState(false)
   const [subIdParams, setSubIdParams] = useState<SubIdParam[]>([
     { id: 1, key: '', value: '' }
   ])
@@ -103,6 +104,17 @@ export function LinkBuilder() {
     loadLinks()
   }, [])
 
+  // Load manual pixel confirmation from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('pixelConfirmationByDomain')
+    if (!saved) return
+    try {
+      const parsed = JSON.parse(saved) as Record<string, boolean>
+      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'syntrix.website'
+      setPixelConfirmed(!!parsed[normalizedDomain])
+    } catch {}
+  }, [selectedDomain])
+
   // Auto-generate SubID from metadata fields
   useEffect(() => {
     const parts = [trafficerName, stream, geo, creative].filter(Boolean)
@@ -146,6 +158,15 @@ export function LinkBuilder() {
     const pixel = (found?.trackingPixel || '').trim()
     setTrackingPixel(pixel)
     setPixelLoadedFromDomain(pixel.length > 0)
+    if (pixel.length > 0) {
+      setPixelConfirmed(true)
+      const saved = localStorage.getItem('pixelConfirmationByDomain')
+      const normalizedDomain = targetDomain
+      let map: Record<string, boolean> = {}
+      try { if (saved) map = JSON.parse(saved) as Record<string, boolean> } catch {}
+      map[normalizedDomain] = true
+      localStorage.setItem('pixelConfirmationByDomain', JSON.stringify(map))
+    }
   }, [selectedDomain, links])
 
   const addSubIdParam = () => {
@@ -320,6 +341,23 @@ export function LinkBuilder() {
                 {!pixelLoadedFromDomain && trackingPixel === '' && (
                   <span className="px-2 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/30">Пиксель не найден для домена</span>
                 )}
+                <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pixelConfirmed}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                      setPixelConfirmed(next)
+                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'syntrix.website'
+                      const saved = localStorage.getItem('pixelConfirmationByDomain')
+                      let map: Record<string, boolean> = {}
+                      try { if (saved) map = JSON.parse(saved) as Record<string, boolean> } catch {}
+                      map[normalizedDomain] = next
+                      localStorage.setItem('pixelConfirmationByDomain', JSON.stringify(map))
+                    }}
+                  />
+                  <span>Пиксель подтверждён</span>
+                </label>
               </div>
             </div>
 
