@@ -134,7 +134,10 @@ export function LinkBuilder() {
   // When user selects a domain that already has a pixel saved, prefill the textarea
   useEffect(() => {
     if (!links.length) return
-    const found = links.find((l) => l.domain === selectedDomain && l.trackingPixel)
+    const found = links.find((l) => {
+      const domainMatch = l.domain === selectedDomain || (!l.domain && selectedDomain === 'syntrix.website')
+      return domainMatch && l.trackingPixel
+    })
     setTrackingPixel(found?.trackingPixel || '')
     setPixelLoadedFromDomain(!!found?.trackingPixel)
   }, [selectedDomain, links])
