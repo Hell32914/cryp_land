@@ -81,11 +81,7 @@ export function LinkBuilder() {
   }
 
   const domains = [
-    { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-blue-500' },
     { value: 'www.syntrix.website', label: 'www.syntrix.website', color: 'bg-blue-400' },
-    { value: 'app.syntrix.website', label: 'app.syntrix.website', color: 'bg-purple-500' },
-    { value: 'crypto-invest.pro', label: 'crypto-invest.pro', color: 'bg-green-500' },
-    { value: 'trade-signal.net', label: 'trade-signal.net', color: 'bg-orange-500' },
   ]
 
   const sources = [
