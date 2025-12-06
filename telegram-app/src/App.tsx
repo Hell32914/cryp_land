@@ -52,6 +52,8 @@ function App() {
   const faqSections = t.faqSections ?? []
   const faqPlans = t.faqPlans ?? []
   const whitepaperContent = t.whitepaperContent
+  const securitySections = t.securitySections ?? []
+  const advantagesSections = t.advantagesSections ?? []
 
   const renderWhitepaperParagraph = (paragraph: WhitepaperParagraph, key: string) => {
     const classes = ['text-muted-foreground', 'mb-1']
@@ -911,202 +913,79 @@ function App() {
         </DialogContent>
       </Dialog>
 
+
+
       <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
         <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
-              Security - Syntrix Safety
+              {t.securityTitle}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-foreground text-sm">
-            <p className="text-accent font-semibold">Multi-level protection for your investments and peace of mind</p>
-            
-            <div>
-              <h3 className="font-bold text-accent mb-2">1. Encryption and Fund Protection</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>All client funds are encrypted and stored in a secure liquidity pool. The Syntrix team has no access to your funds</li>
-                <li>To secure data and assets, Syntrix uses industry-standard encryption both on the server and inside Telegram:</li>
-                <li className="ml-4">• AES-256 – symmetric encryption for data storage and transfer</li>
-                <li className="ml-4">• RSA-4096 – asymmetric encryption for secure key exchange and authentication</li>
-                <li className="ml-4">• SHA-512 – cryptographic hashing for data integrity and verification</li>
-                <li>All bot operations are conducted in a fully encrypted environment, making hacks or fund theft impossible</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">2. Liquidity Reserve Pool</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>25% of daily profits are allocated to a reserve liquidity pool, ensuring protection of all investments</li>
-                <li>The reserve pool exceeds current investor deposits ($53M vs $48M)</li>
-                <li>In case of technical failures, "black swan" events, or unforeseen circumstances, the pool automatically returns all client funds to their wallets</li>
-                <li>This system guarantees complete capital safety, even if individual trades result in losses</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">3. Risk Management and Trading Safety</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Maximum risk per trade is limited to 1% of the deposit</li>
-                <li>Risk/Reward per trade is always at least 1:5, ensuring steady growth even during losing trades</li>
-                <li>Maximum consecutive losses are 2 trades. If the bot detects 3 consecutive losses, trading pauses, and strategies are reviewed</li>
-                <li>Even under extreme conditions, client capital remains protected thanks to the reserve pool and strict risk management</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">4. Security Within Telegram</h3>
-              <p className="text-muted-foreground mb-1">To maximize account safety and secure access to Syntrix, users should:</p>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Enable 2FA (two-factor authentication) in Telegram</li>
-                <li>Use a registered SIM card to prevent unauthorized account recovery</li>
-                <li>Set up a secret question and answer during registration:</li>
-                <li className="ml-4">• If a phone or SIM card is lost, access can be restored by confirming the balance and secret question</li>
-                <li className="ml-4">• This acts as a third security layer for the account and funds</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">5. Server Protection and DDoS Mitigation</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Syntrix servers are protected against DDoS attacks and distributed across multiple regions worldwide</li>
-                <li>All servers implement multi-level authentication to minimize hacking risks</li>
-                <li>Critical operations are executed within a secure infrastructure inaccessible to external parties</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">6. Transparency and Verification</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>All Syntrix trades are trackable via referral codes and PNL screenshots</li>
-                <li>Users can request transaction verification through support</li>
-                <li>Full transparency ensures the platform is not a financial pyramid and avoids risky or opaque schemes</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">7. Backup and Contingency Mechanisms</h3>
-              <p className="text-muted-foreground mb-1">In the event of any technical failure or temporary bot downtime:</p>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>The reserve pool automatically returns all investments and profits to clients</li>
-                <li>Even under critical events (server outage, network failure), users will not lose funds</li>
-              </ul>
-            </div>
+            <p className="text-accent font-semibold">{t.securityDescription}</p>
+            {securitySections.map((section, sectionIndex) => (
+              <div key={`security-section-${sectionIndex}-${section.title}`}>
+                <h3 className="font-bold text-accent mb-2">{section.title}</h3>
+                {section.paragraphs?.map((paragraph, paragraphIndex) =>
+                  renderWhitepaperParagraph(
+                    paragraph,
+                    `security-paragraph-${sectionIndex}-${paragraphIndex}`
+                  )
+                )}
+                {section.lists?.map((list, listIndex) => (
+                  <ul
+                    key={`security-list-${sectionIndex}-${listIndex}`}
+                    className="text-muted-foreground space-y-1 ml-4 list-disc"
+                  >
+                    {list.map((item, itemIndex) =>
+                      renderWhitepaperListItem(
+                        item,
+                        `security-list-${sectionIndex}-${listIndex}-${itemIndex}`
+                      )
+                    )}
+                  </ul>
+                ))}
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
+
 
       <Dialog open={advantagesOpen} onOpenChange={setAdvantagesOpen}>
         <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
-              Advantages - Why Choose Syntrix
+              {t.advantagesTitle}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-foreground text-sm">
-            <p className="text-accent font-semibold">Discover the unique benefits that make Syntrix the best choice for crypto investors</p>
-            
-            <div>
-              <h3 className="font-bold text-accent mb-2">1. Fully Automated Trading</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Trades cryptocurrency pairs 24/7 without user intervention</li>
-                <li>Uses Smart Money Concepts (SMC), liquidity analysis, order book reading, and institutional risk management strategies</li>
-                <li>No need to monitor charts or make manual decisions</li>
-                <li>Generates passive income reliably with minimal effort</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">2. High Win Rate and Profitability</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Win-rate of 90%+, based on backtested strategies over 5–10 years</li>
-                <li>Risk/Reward ratio is always at least 1:5</li>
-                <li>Potential daily profit ranges from 1% to 11%, depending on your subscription plan</li>
-                <li>Advanced algorithms allow consistent gains even in volatile markets</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">3. Maximum Safety and Capital Protection</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Client funds are encrypted and inaccessible to the team</li>
-                <li>Liquidity reserve pool (25% of profits) ensures that all deposits and profits are protected against losses</li>
-                <li>Maximum risk per trade is 1% of your deposit</li>
-                <li>Multi-layered security implemented on servers and inside Telegram</li>
-                <li>Even in rare technical failures or "black swan" events, capital is fully safeguarded</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">4. Instant Withdrawals</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Withdrawals processed by the bot in 3 seconds, plus network time</li>
-                <li>Funds are always available; no lockups or waiting periods</li>
-                <li>Supports withdrawals in USDT or USDC, ensuring stability against market volatility</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">5. Complete Transparency</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>All trades and profits are trackable using referral codes and PNL screenshots</li>
-                <li>Full visibility ensures no hidden operations and confirms Syntrix is not a financial pyramid</li>
-                <li>Users can request transaction verification through support</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">6. Licensed and Regulated</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Operates under Syntrix Algo Systems LLC, Dubai</li>
-                <li>Licensed for algorithmic crypto trading bots</li>
-                <li>Legal and regulatory compliance ensures trustworthiness and long-term reliability</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">7. Flexible Wallet Functionality</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Syntrix can be used as a high-yield crypto wallet</li>
-                <li>Deposits and withdrawals can be done in under a minute</li>
-                <li>Funds remain fully accessible at all times, while generating passive daily income</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">8. No Technical Hassle</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Users do not need mining equipment, staking, or electricity costs</li>
-                <li>All operations are handled automatically inside the bot</li>
-                <li>The bot's algorithms manage market volatility, liquidity, and risk without user involvement</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">9. Multi-Level Referral Program</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Earn passive income through a 3-level referral system: 4% / 3% / 2%</li>
-                <li>Maximum passive income from referrals: 9%</li>
-                <li>Encourages organic growth without compromising your personal investments</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">10. Telegram Security Integration</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>Optional 2FA protection for user accounts</li>
-                <li>Secret question/answer system for account recovery</li>
-                <li>Ensures that funds and account access remain completely secure, even if a user loses their phone or SIM card</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">11. Ideal for Both Beginners and Professionals</h3>
-              <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-                <li>No prior trading experience needed; Syntrix handles all technical and analytical tasks</li>
-                <li>Professionals can leverage advanced trading algorithms without dedicating hours to charts or research</li>
-                <li>Perfect solution for those seeking reliable, stress-free crypto income</li>
-              </ul>
-            </div>
+            <p className="text-accent font-semibold">{t.advantagesDescription}</p>
+            {advantagesSections.map((section, sectionIndex) => (
+              <div key={`advantage-section-${sectionIndex}-${section.title}`}>
+                <h3 className="font-bold text-accent mb-2">{section.title}</h3>
+                {section.paragraphs?.map((paragraph, paragraphIndex) =>
+                  renderWhitepaperParagraph(
+                    paragraph,
+                    `advantage-paragraph-${sectionIndex}-${paragraphIndex}`
+                  )
+                )}
+                {section.lists?.map((list, listIndex) => (
+                  <ul
+                    key={`advantage-list-${sectionIndex}-${listIndex}`}
+                    className="text-muted-foreground space-y-1 ml-4 list-disc"
+                  >
+                    {list.map((item, itemIndex) =>
+                      renderWhitepaperListItem(
+                        item,
+                        `advantage-list-${sectionIndex}-${listIndex}-${itemIndex}`
+                      )
+                    )}
+                  </ul>
+                ))}
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

@@ -6,6 +6,11 @@ import { englishWhitepaperContent, germanWhitepaperContent } from './whitepaperC
 
 type FAQItem = { question: string; answer: string | string[] }
 type FAQSection = { title: string; items: FAQItem[] }
+type InfoSection = {
+  title: string
+  paragraphs?: string[]
+  lists?: string[][]
+}
 
 const englishFAQSections: FAQSection[] = [
   {
@@ -207,6 +212,402 @@ const germanFAQPlans = [
   'Sonderpläne: Einzahlungen über $100.000 (8 %+ täglich)'
 ]
 
+const englishSecuritySections: InfoSection[] = [
+  {
+    title: '1. Encryption and Fund Protection',
+    lists: [
+      [
+        'All client funds are encrypted and stored in a secure liquidity pool. The Syntrix team has no access to your funds',
+        'To secure data and assets, Syntrix uses industry-standard encryption both on the server and inside Telegram:',
+        'AES-256 – symmetric encryption for data storage and transfer',
+        'RSA-4096 – asymmetric encryption for secure key exchange and authentication',
+        'SHA-512 – cryptographic hashing for data integrity and verification',
+        'All bot operations run in a fully encrypted environment to prevent hacks or fund theft'
+      ]
+    ]
+  },
+  {
+    title: '2. Liquidity Reserve Pool',
+    lists: [
+      [
+        '25% of daily profits are allocated to a reserve liquidity pool to protect all investments',
+        'The reserve pool exceeds current investor deposits ($53M vs $48M)',
+        'In case of technical failures, "black swan" events, or unforeseen circumstances, the pool automatically returns all client funds',
+        'This system guarantees capital safety even if individual trades lose money'
+      ]
+    ]
+  },
+  {
+    title: '3. Risk Management and Trading Safety',
+    lists: [
+      [
+        'Maximum risk per trade is limited to 1% of the deposit',
+        'Risk/Reward per trade is always at least 1:5, ensuring steady growth even during losing trades',
+        'Maximum consecutive losses are 2 trades. If the bot detects 3 losses, it pauses and reviews strategies',
+        'Even under extreme conditions, client capital remains protected by the reserve pool and strict risk management'
+      ]
+    ]
+  },
+  {
+    title: '4. Security Within Telegram',
+    paragraphs: ['To maximize account safety and secure access to Syntrix, users should:'],
+    lists: [
+      [
+        'Enable 2FA (two-factor authentication) in Telegram',
+        'Use a registered SIM card to prevent unauthorized account recovery',
+        'Set up a secret question and answer during registration',
+        'If a phone or SIM card is lost, access can be restored by confirming the balance and secret question',
+        'This acts as a third security layer for the account and funds'
+      ]
+    ]
+  },
+  {
+    title: '5. Server Protection and DDoS Mitigation',
+    lists: [
+      [
+        'Syntrix servers are protected against DDoS attacks and distributed across multiple regions worldwide',
+        'All servers implement multi-level authentication to minimize hacking risks',
+        'Critical operations are executed within a secure infrastructure inaccessible to external parties'
+      ]
+    ]
+  },
+  {
+    title: '6. Transparency and Verification',
+    lists: [
+      [
+        'All Syntrix trades are trackable via referral codes and PNL screenshots',
+        'Users can request transaction verification through support',
+        'Full transparency ensures the platform is not a financial pyramid and avoids risky or opaque schemes'
+      ]
+    ]
+  },
+  {
+    title: '7. Backup and Contingency Mechanisms',
+    paragraphs: ['In the event of any technical failure or temporary bot downtime:'],
+    lists: [
+      [
+        'The reserve pool automatically returns all investments and profits to clients',
+        'Even during critical events (server outage, network failure), users will not lose funds'
+      ]
+    ]
+  }
+]
+
+const germanSecuritySections: InfoSection[] = [
+  {
+    title: '1. Verschlüsselung und Fondsabsicherung',
+    lists: [
+      [
+        'Alle Kundengelder sind verschlüsselt und in einem sicheren Liquiditätspool gespeichert. Das Syntrix-Team hat keinen Zugriff auf deine Mittel',
+        'Zum Schutz von Daten und Assets nutzt Syntrix branchenübliche Verschlüsselung auf Servern und in Telegram:',
+        'AES-256 – symmetrische Verschlüsselung für Datenspeicherung und -übertragung',
+        'RSA-4096 – asymmetrische Verschlüsselung für sicheren Schlüsselaustausch und Authentifizierung',
+        'SHA-512 – kryptografisches Hashing für Datenintegrität und Verifikation',
+        'Alle Bot-Operationen laufen in einer vollständig verschlüsselten Umgebung, um Hacks oder Diebstahl zu verhindern'
+      ]
+    ]
+  },
+  {
+    title: '2. Liquiditätsreservepool',
+    lists: [
+      [
+        '25 % der Tagesgewinne werden in einen Reserve-Liquiditätspool gesteckt, damit alle Investitionen geschützt sind',
+        'Der Reservepool übersteigt aktuelle Investoren-Einlagen (53 Mio. $ vs. 48 Mio. $)',
+        'Bei technischen Ausfällen, "Black-Swan"-Ereignissen oder unvorhergesehenen Situationen gibt der Pool automatisch alle Kundengelder zurück',
+        'Dieses System garantiert Kapitalsicherheit, selbst wenn einzelne Trades Verluste verzeichnen'
+      ]
+    ]
+  },
+  {
+    title: '3. Risikomanagement und sichere Trades',
+    lists: [
+      [
+        'Das maximale Risiko pro Trade beträgt 1 % der Einzahlung',
+        'Risk/Reward pro Trade liegt stets bei mindestens 1:5, was gleichmäßiges Wachstum auch bei Verlusten ermöglicht',
+        'Maximale aufeinanderfolgende Verluste: 2 Trades. Erkennt der Bot 3 Verluste, pausiert er und prüft Strategien',
+        'Auch unter extremen Bedingungen bleibt das Kapital dank Reservepool und striktem Risikomanagement geschützt'
+      ]
+    ]
+  },
+  {
+    title: '4. Sicherheit innerhalb von Telegram',
+    paragraphs: ['Für maximale Kontosicherheit und gesicherten Zugang zu Syntrix sollten Nutzer:'],
+    lists: [
+      [
+        '2FA (Zwei-Faktor-Authentifizierung) in Telegram aktivieren',
+        'Eine registrierte SIM-Karte verwenden, um unerlaubte Wiederherstellung zu verhindern',
+        'Eine geheime Frage und Antwort während der Registrierung festlegen',
+        'Gehen Telefon oder SIM verloren, kann der Zugriff durch Bestätigung des Guthabens und der Geheimfrage wiederhergestellt werden',
+        'Das bildet eine dritte Sicherheitsschicht für Konto und Gelder'
+      ]
+    ]
+  },
+  {
+    title: '5. Server-Schutz und DDoS-Abwehr',
+    lists: [
+      [
+        'Syntrix-Server sind gegen DDoS-Attacken geschützt und geografisch verteilt',
+        'Alle Server nutzen mehrstufige Authentifizierung, um Hack-Risiken zu minimieren',
+        'Kritische Prozesse laufen in einer sicheren Infrastruktur, die für externe Parteien unzugänglich ist'
+      ]
+    ]
+  },
+  {
+    title: '6. Transparenz und Verifikation',
+    lists: [
+      [
+        'Alle Syntrix-Trades sind über Empfehlungscodes und PNL-Screenshots nachvollziehbar',
+        'Nutzer können Transaktionsverifizierungen über den Support anfordern',
+        'Volle Transparenz stellt sicher, dass die Plattform keine Finanzpyramide ist und keine riskanten oder undurchsichtigen Systeme verwendet'
+      ]
+    ]
+  },
+  {
+    title: '7. Backup- und Notfallmechanismen',
+    paragraphs: ['Im Falle technischer Ausfälle oder temporärer Bot-Downtimes:'],
+    lists: [
+      [
+        'Der Reservepool gibt automatisch alle Investitionen und Gewinne an die Kunden zurück',
+        'Auch bei kritischen Ereignissen (Serverausfall, Netzstörung) verlieren Nutzer keine Mittel'
+      ]
+    ]
+  }
+]
+
+const englishAdvantagesSections: InfoSection[] = [
+  {
+    title: '1. Fully Automated Trading',
+    lists: [
+      [
+        'Trades cryptocurrency pairs 24/7 without user intervention',
+        'Uses Smart Money Concepts (SMC), liquidity analysis, order book reading, and institutional risk management strategies',
+        'No need to monitor charts or make manual decisions',
+        'Generates passive income reliably with minimal effort'
+      ]
+    ]
+  },
+  {
+    title: '2. High Win Rate and Profitability',
+    lists: [
+      [
+        'Win-rate of 90%+, based on backtested strategies over 5–10 years',
+        'Risk/Reward ratio is always at least 1:5',
+        'Potential daily profit ranges from 1% to 11%, depending on your subscription plan',
+        'Advanced algorithms allow consistent gains even in volatile markets'
+      ]
+    ]
+  },
+  {
+    title: '3. Maximum Safety and Capital Protection',
+    lists: [
+      [
+        'Client funds are encrypted and inaccessible to the team',
+        'Liquidity reserve pool (25% of profits) protects all deposits and profits against losses',
+        'Maximum risk per trade is 1% of your deposit',
+        'Multi-layered security on servers and inside Telegram',
+        'Even in rare technical failures or "black swan" events, capital stays safeguarded'
+      ]
+    ]
+  },
+  {
+    title: '4. Instant Withdrawals',
+    lists: [
+      [
+        'Withdrawals processed by the bot in 3 seconds, plus network time',
+        'Funds are always available; no lockups or waiting periods',
+        'Supports withdrawals in USDT or USDC to maintain stability against volatility'
+      ]
+    ]
+  },
+  {
+    title: '5. Complete Transparency',
+    lists: [
+      [
+        'All trades and profits are trackable using referral codes and PNL screenshots',
+        'Full visibility ensures no hidden operations and confirms Syntrix is not a financial pyramid',
+        'Users can request transaction verification through support'
+      ]
+    ]
+  },
+  {
+    title: '6. Licensed and Regulated',
+    lists: [
+      [
+        'Operates under Syntrix Algo Systems LLC, Dubai',
+        'Licensed for algorithmic crypto trading bots',
+        'Legal and regulatory compliance ensures trustworthiness and long-term reliability'
+      ]
+    ]
+  },
+  {
+    title: '7. Flexible Wallet Functionality',
+    lists: [
+      [
+        'Syntrix can be used as a high-yield crypto wallet',
+        'Deposits and withdrawals can be done in under a minute',
+        'Funds remain fully accessible at all times, while generating passive daily income'
+      ]
+    ]
+  },
+  {
+    title: '8. No Technical Hassle',
+    lists: [
+      [
+        'No mining equipment, staking, or electricity costs required',
+        'All operations are handled automatically inside the bot',
+        'The bot manages market volatility, liquidity, and risk without user involvement'
+      ]
+    ]
+  },
+  {
+    title: '9. Multi-Level Referral Program',
+    lists: [
+      [
+        'Earn passive income through a 3-level referral system: 4% / 3% / 2%',
+        'Maximum passive income from referrals: 9%',
+        'Encourages organic growth without compromising your personal investments'
+      ]
+    ]
+  },
+  {
+    title: '10. Telegram Security Integration',
+    lists: [
+      [
+        'Optional 2FA protection for user accounts',
+        'Secret question/answer system for account recovery',
+        'Keeps funds and account access secure even if a user loses their phone or SIM'
+      ]
+    ]
+  },
+  {
+    title: '11. Ideal for Beginners and Professionals',
+    lists: [
+      [
+        'No prior trading experience needed',
+        'Professionals can leverage advanced algorithms',
+        'Perfect solution for reliable crypto income'
+      ]
+    ]
+  }
+]
+
+const germanAdvantagesSections: InfoSection[] = [
+  {
+    title: '1. Vollständig automatisierter Handel',
+    lists: [
+      [
+        'Handelt 24/7 Kryptowährungspaare ohne Nutzerintervention',
+        'Verwendet Smart-Money-Konzepte (SMC), Liquiditätsanalyse, Orderbuch-Auswertung und institutionelle Risikomanagement-Strategien',
+        'Keine Charts oder manuelle Entscheidungen nötig',
+        'Erzeugt passives Einkommen zuverlässig mit minimalem Aufwand'
+      ]
+    ]
+  },
+  {
+    title: '2. Hohe Trefferquote und Rentabilität',
+    lists: [
+      [
+        'Trefferquote von über 90 %, basierend auf 5–10 Jahren rückgetesteter Strategien',
+        'Risk/Reward-Verhältnis liegt stets bei mindestens 1:5',
+        'Potentieller Tagesgewinn liegt zwischen 1 % und 11 %, je nach Abo-Plan',
+        'Fortschrittliche Algorithmen erlauben konstante Gewinne auch in volatilen Märkten'
+      ]
+    ]
+  },
+  {
+    title: '3. Maximale Sicherheit und Kapitalerhalt',
+    lists: [
+      [
+        'Kundengelder sind verschlüsselt und für das Team unzugänglich',
+        'Der Liquiditätspuffer (25 % der Gewinne) schützt alle Einzahlungen und Gewinne vor Verlusten',
+        'Maximales Risiko pro Trade beträgt 1 % deiner Einzahlung',
+        'Mehrschichtige Sicherheit auf Servern und innerhalb von Telegram',
+        'Auch bei seltenen technischen Fehlern oder "Black-Swan"-Ereignissen bleibt das Kapital gesichert'
+      ]
+    ]
+  },
+  {
+    title: '4. Sofortige Auszahlungen',
+    lists: [
+      [
+        'Auszahlungen werden vom Bot in 3 Sekunden verarbeitet, zuzüglich Netzwerklaufzeit',
+        'Mittel sind jederzeit verfügbar; es gibt keine Sperrfristen oder Wartezeiten',
+        'Unterstützt Auszahlungen in USDT oder USDC, um Stabilität gegenüber Volatilität zu gewährleisten'
+      ]
+    ]
+  },
+  {
+    title: '5. Absolute Transparenz',
+    lists: [
+      [
+        'Alle Trades und Gewinne lassen sich über Empfehlungscodes und PNL-Screenshots nachverfolgen',
+        'Volle Sichtbarkeit stellt sicher, dass Syntrix keine Finanzpyramide ist',
+        'Nutzer können Transaktionsverifizierungen über den Support anfordern'
+      ]
+    ]
+  },
+  {
+    title: '6. Lizenziert und reguliert',
+    lists: [
+      [
+        'Operiert unter Syntrix Algo Systems LLC, Dubai',
+        'Lizenziert für algorithmische Krypto-Trading-Bots',
+        'Rechtliche und regulatorische Compliance sorgt für Vertrauen und langfristige Verlässlichkeit'
+      ]
+    ]
+  },
+  {
+    title: '7. Flexible Wallet-Funktion',
+    lists: [
+      [
+        'Syntrix kann als hochrentable Krypto-Wallet genutzt werden',
+        'Ein- und Auszahlungen dauern unter einer Minute',
+        'Mittel bleiben jederzeit zugänglich, während sie passives Daily Income generieren'
+      ]
+    ]
+  },
+  {
+    title: '8. Keine technische Mühe',
+    lists: [
+      [
+        'Keine Mining-Hardware, kein Staking oder Stromkosten nötig',
+        'Alle Abläufe laufen automatisch innerhalb des Bots',
+        'Der Bot steuert Marktvolatilität, Liquidität und Risiko ganz ohne Nutzerintervention'
+      ]
+    ]
+  },
+  {
+    title: '9. Mehrstufiges Empfehlungsprogramm',
+    lists: [
+      [
+        'Verdiene passives Einkommen über ein 3-stufiges Empfehlungsmodell: 4 % / 3 % / 2 %',
+        'Maximaler passiver Verdienst aus Empfehlungen: 9 %',
+        'Fördert organisches Wachstum ohne dein eigenes Kapital zu beeinträchtigen'
+      ]
+    ]
+  },
+  {
+    title: '10. Telegram-Sicherheitsintegration',
+    lists: [
+      [
+        'Optionale 2FA zum Schutz deines Kontos',
+        'Geheimfrage/-antwort-System zur Wiederherstellung',
+        'Sichert Mittel und Zugang selbst bei Verlust des Telefons oder der SIM-Karte'
+      ]
+    ]
+  },
+  {
+    title: '11. Ideal für Einsteiger und Profis',
+    lists: [
+      [
+        'Keine Handelserfahrung notwendig',
+        'Profis profitieren von fortgeschrittenen Algorithmen',
+        'Perfekte Lösung für zuverlässiges Krypto-Einkommen'
+      ]
+    ]
+  }
+]
+
 export const translations = {
   ENGLISH: {
     appTitle: 'Syntrix Bot',
@@ -283,6 +684,8 @@ export const translations = {
     // Basic content placeholders (full content removed to reduce file size)
     securitySubtitle: 'Syntrix Security',
     securityDescription: 'Multi-level protection for your investments and peace of mind',
+    securitySections: englishSecuritySections,
+    advantagesSections: englishAdvantagesSections,
     whitepaperContent: englishWhitepaperContent,
     faqIntro: 'Find answers to the most common questions about Syntrix and get started faster.',
     faqSections: englishFAQSections,
@@ -444,6 +847,8 @@ export const translations = {
     advantagesDescription: 'Entdecke die einzigartigen Vorteile, die Syntrix zur besten Wahl für Krypto-Investoren machen',
     securitySubtitle: 'Syntrix-Sicherheit',
     securityDescription: 'Mehrstufiger Schutz für deine Investitionen und sorgenfreie Nutzung',
+    securitySections: germanSecuritySections,
+    advantagesSections: germanAdvantagesSections,
     whitepaperContent: germanWhitepaperContent,
     faqIntro: 'Finde Antworten auf die häufigsten Fragen und starte schneller mit Syntrix.',
     faqSections: germanFAQSections,
