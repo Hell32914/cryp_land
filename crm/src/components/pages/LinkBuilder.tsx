@@ -80,6 +80,14 @@ export function LinkBuilder() {
     }
   }
 
+  const buildLinkUrl = (domain: string | null | undefined, linkId: string) => {
+    const normalizedDomain = (domain || TELEGRAM_LANDING_DOMAIN)
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/+$/, '') || TELEGRAM_LANDING_DOMAIN
+    return `https://${normalizedDomain}/?ref=${linkId}`
+  }
+
   const domains = [
     { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-emerald-400' },
     { value: 'www.syntrix.website', label: 'www.syntrix.website', color: 'bg-blue-400' },
@@ -224,7 +232,7 @@ export function LinkBuilder() {
         trackingPixel: trackingPixel || undefined
       })
 
-      const link = `https://${selectedDomain || 'syntrix.website'}/?ref=${linkData.linkId}`
+      const link = buildLinkUrl(selectedDomain, linkData.linkId)
       setGeneratedLink(link)
       setGeneratedLinkId(linkData.linkId)
       
@@ -549,7 +557,7 @@ export function LinkBuilder() {
                             size="sm"
                             onClick={async () => {
                               try {
-                                const linkUrl = `https://${link.domain || TELEGRAM_LANDING_DOMAIN}/?ref=${link.linkId}`
+                                const linkUrl = link.linkUrl || buildLinkUrl(link.domain, link.linkId)
                                 const ok = await copyText(linkUrl)
                                 if (ok) {
                                   toast.success('Link copied!')

@@ -1853,6 +1853,21 @@ app.post('/api/oxapay-callback', async (req, res) => {
 
 // ============= MARKETING LINKS ENDPOINTS =============
 
+const DEFAULT_LANDING_DOMAIN = 'syntrix.website'
+
+const normalizeDomain = (domain?: string | null) => {
+  if (!domain) return DEFAULT_LANDING_DOMAIN
+  const trimmed = domain.trim()
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, '')
+  const withoutTrailingSlash = withoutProtocol.replace(/\/+$/, '')
+  return withoutTrailingSlash || DEFAULT_LANDING_DOMAIN
+}
+
+const buildMarketingLinkUrl = (domain: string | null | undefined, linkId: string) => {
+  const cleanDomain = normalizeDomain(domain)
+  return `https://${cleanDomain}/?ref=${linkId}`
+}
+
 // Create marketing link
 app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
   try {
@@ -1861,6 +1876,8 @@ app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
     if (!source) {
       return res.status(400).json({ error: 'Source is required' })
     }
+
+    const normalizedDomain = normalizeDomain(domain)
     
     // Generate unique linkId
     const linkId = `mk_${source}_${Date.now().toString(36)}`
@@ -1874,12 +1891,15 @@ app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
         stream: stream || null,
         geo: geo || null,
         creative: creative || null,
-        domain: domain || null,
+        domain: normalizedDomain,
         trackingPixel: trackingPixel || null
       }
     })
     
-    return res.json(link)
+    return res.json({
+      ...link,
+      linkUrl: buildMarketingLinkUrl(normalizedDomain, linkId)
+    })
   } catch (error) {
     console.error('Create marketing link error:', error)
     return res.status(500).json({ error: 'Failed to create marketing link' })
@@ -1969,7 +1989,8 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       return {
         linkId: link.linkId,
         source: link.source,
-        domain: link.domain,
+        domain: normalizeDomain(link.domain),
+        linkUrl: buildMarketingLinkUrl(link.domain, link.linkId),
         clicks: link.clicks,
         conversions: link.conversions,
         conversionRate: link.clicks > 0 ? ((link.conversions / link.clicks) * 100).toFixed(2) : '0.00',

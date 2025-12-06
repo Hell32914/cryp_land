@@ -257,6 +257,7 @@ export interface MarketingLink {
   linkId: string
   source: string
   domain?: string
+  linkUrl?: string
   clicks: number
   conversions: number
   conversionRate: string
