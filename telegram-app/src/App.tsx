@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast, Toaster } from 'sonner'
 import { useKV } from '@github/spark/hooks'
 import { translations, type Language } from '@/lib/translations'
+import { type WhitepaperParagraph, type WhitepaperListItem } from '@/lib/whitepaperContent'
 import { AnimatedBackground } from '@/components/AnimatedBackground'
 import { useUserData } from '@/hooks/useUserData'
 
@@ -47,6 +48,66 @@ function App() {
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
   
   const t = translations[selectedLanguage || 'ENGLISH']
+
+  const faqSections = t.faqSections ?? []
+  const faqPlans = t.faqPlans ?? []
+  const whitepaperContent = t.whitepaperContent
+
+  const renderWhitepaperParagraph = (paragraph: WhitepaperParagraph, key: string) => {
+    const classes = ['text-muted-foreground', 'mb-1']
+    if (typeof paragraph !== 'string') {
+      if (paragraph.semibold) {
+        classes.push('font-semibold', 'mt-2')
+      }
+      if (paragraph.indent) {
+        classes.push('ml-4')
+      }
+    }
+
+    return (
+      <p key={key} className={classes.join(' ')}>
+        {typeof paragraph === 'string' ? (
+          paragraph
+        ) : (
+          <>
+            {paragraph.boldPrefix && (
+              <>
+                <strong>{paragraph.boldPrefix}</strong>
+                {paragraph.text ? ' ' : ''}
+              </>
+            )}
+            {paragraph.text}
+          </>
+        )}
+      </p>
+    )
+  }
+
+  const renderWhitepaperListItem = (item: WhitepaperListItem, key: string) => (
+    <li key={key} className="text-muted-foreground">
+      {typeof item === 'string' ? (
+        item
+      ) : (
+        <>
+          <strong>{item.boldPrefix}</strong>
+          {item.text ? ` ${item.text}` : ''}
+        </>
+      )}
+    </li>
+  )
+
+  const renderFAQAnswer = (answer: string | string[], key: string) =>
+    Array.isArray(answer) ? (
+      answer.map((line, index) => (
+        <p key={`${key}-${index}`} className="text-muted-foreground ml-2">
+          {line}
+        </p>
+      ))
+    ) : (
+      <p key={key} className="text-muted-foreground ml-2">
+        {answer}
+      </p>
+    )
 
   // Get Telegram user ID (fallback to 503856039 for local testing)
   const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
@@ -785,134 +846,34 @@ function App() {
         <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
-              Syntrix Bot — FAQ
+              {t.faqTitle}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-foreground text-sm">
-            <p className="text-accent font-semibold">Frequently Asked Questions - Get answers to common questions about Syntrix Bot</p>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">1. General Information</h3>
-              
-              <p className="text-muted-foreground font-semibold mt-2">Q: What is Syntrix Bot and how does it work?</p>
-              <p className="text-muted-foreground ml-2">Syntrix Bot is not just another trading tool — it's a professional algorithm developed by a team of former Wall Street traders with over 20 years of real market experience. All their knowledge and insider understanding of financial markets have been encoded into a simple product: you deposit funds, and the bot trades automatically on your behalf, generating profits of up to 7% per day.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Who can use Syntrix Bot?</p>
-              <p className="text-muted-foreground ml-2">Anyone over 18 can join. The platform is designed to be simple and accessible for everyday users.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: What is the minimum deposit required?</p>
-              <p className="text-muted-foreground ml-2">You can get started with as little as $10 — a true entry point for everyone.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Do I need trading knowledge or experience?</p>
-              <p className="text-muted-foreground ml-2">No. The entire process is automated. All you need is a basic ability to use a crypto wallet. Syntrix Bot takes care of the rest.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Is it available worldwide?</p>
-              <p className="text-muted-foreground ml-2">Yes, Syntrix Bot works everywhere crypto is legally supported. Our client base is global, with users from dozens of countries.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">2. Deposits & Withdrawals</h3>
-              
-              <p className="text-muted-foreground font-semibold mt-2">Q: How do I deposit funds?</p>
-              <p className="text-muted-foreground ml-2">Depositing is seamless — simply use the bot's internal payment system, which is fast and intuitive.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How do I withdraw money?</p>
-              <p className="text-muted-foreground ml-2">Withdrawals work exactly the same way. Funds usually arrive within minutes, depending on blockchain network speed.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Are there any fees?</p>
-              <p className="text-muted-foreground ml-2">Syntrix Bot does not charge any internal fees. The only cost is the standard blockchain transaction fee charged by the network you choose.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Which currencies and networks are supported?</p>
-              <p className="text-muted-foreground ml-2">We support 100+ cryptocurrencies across 7 major blockchains, giving you full flexibility to use the assets you already own.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">3. Profitability & Risks</h3>
-              
-              <p className="text-muted-foreground font-semibold mt-2">Q: How much profit can I expect?</p>
-              <p className="text-muted-foreground ml-2">Your daily profit depends on your chosen plan and can reach up to 7% per day. With compounding and reinvestment, results can grow significantly over time.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Is the profit guaranteed?</p>
-              <p className="text-muted-foreground ml-2">Yes. Our strategies have been backtested on decades of market data, showing consistent, stable returns regardless of market cycles.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How is risk managed?</p>
-              <p className="text-muted-foreground ml-2">Every trade is capped at a maximum of 3% risk, supported by a high win rate. This disciplined risk management is the backbone of our stability.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How and when is profit credited?</p>
-              <p className="text-muted-foreground ml-2">Profits are distributed several times throughout the day, depending on trading activity. You'll see them instantly reflected in the "Profit" tab inside the bot.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Can I lose my initial deposit?</p>
-              <p className="text-muted-foreground ml-2">No. Syntrix Bot protects all clients with a Deposit Guarantee Fund. Even in the unlikely event of a failed trade sequence, your initial deposit is secured.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">4. Security & Reliability</h3>
-              
-              <p className="text-muted-foreground font-semibold mt-2">Q: Is my money safe with Syntrix Bot?</p>
-              <p className="text-muted-foreground ml-2">Yes. Each client is provided with a dedicated wallet. Funds remain under your control, while the trading bot connects via API to major crypto exchanges to execute trades. We cannot access your funds directly.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Can I stop trading anytime?</p>
-              <p className="text-muted-foreground ml-2">Yes, after an initial 7-day period. This short time frame ensures the bot can demonstrate consistent results before you decide whether to continue.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Who manages the algorithm?</p>
-              <p className="text-muted-foreground ml-2">The strategy was built by a professional team of traders and developers, but the trading process itself is fully automated — no human emotions, no mistakes.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Is my personal information secure?</p>
-              <p className="text-muted-foreground ml-2">Absolutely. All client data is protected with advanced encryption, and we never share or sell information to third parties. Your privacy is a core principle.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How transparent is the trading process?</p>
-              <p className="text-muted-foreground ml-2">You can track every step inside the bot. From deposits and withdrawals to daily profits — everything is displayed in real time for maximum clarity.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">5. Account & Support</h3>
-              
-              <p className="text-muted-foreground font-semibold mt-2">Q: How do I create an account?</p>
-              <p className="text-muted-foreground ml-2">Simply launch Syntrix Bot in Telegram, make a minimum deposit of $10, and you'll unlock the Bronze plan with returns starting at 0.5% per day.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: What if I have issues with my account?</p>
-              <p className="text-muted-foreground ml-2">Our 24/7 support team is always available to resolve any questions, no matter how big or small.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How can I contact support?</p>
-              <p className="text-muted-foreground ml-2">Just press the "Support" button inside the app, and you'll be instantly connected with our specialists.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How do I upgrade my plan?</p>
-              <p className="text-muted-foreground ml-2">Choose your desired plan, add the required funds to your balance, and the system will automatically upgrade you.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: Where can I find tutorials?</p>
-              <p className="text-muted-foreground ml-2">We've prepared detailed step-by-step video guides available inside the bot and on our official YouTube channel.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-2">6. How To…</h3>
-              
-              <p className="text-muted-foreground font-semibold mt-2">Q: How to activate my account?</p>
-              <p className="text-muted-foreground ml-2">Your account activates automatically after a minimum deposit of $10, unlocking the Bronze plan with daily returns.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How to deposit funds?</p>
-              <p className="text-muted-foreground ml-2">Open Syntrix Bot in Telegram, tap Deposit, choose your cryptocurrency and network, then follow the wallet instructions. Funds usually appear in minutes.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How to withdraw money?</p>
-              <p className="text-muted-foreground ml-2">Go to Withdraw, pick your currency, enter your wallet address, and confirm. Most withdrawals are processed within 5 minutes.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How to upgrade my plan?</p>
-              <p className="text-muted-foreground ml-2">Select a higher plan in the bot, add the required funds, and the system will automatically switch you to it.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How to contact support?</p>
-              <p className="text-muted-foreground ml-2">Simply tap the Support button in the bot to connect with our 24/7 support team.</p>
-
-              <p className="text-muted-foreground font-semibold mt-2">Q: How much profit can I earn with Syntrix Bot?</p>
-              <p className="text-muted-foreground ml-2 mb-2">Earnings depend on your plan and activity. Returns can reach up to 7% per day, with reinvestment boosting results even further, you can find our income plans list below.</p>
-              
-              <div className="text-muted-foreground space-y-0.5 ml-2">
-                <p><strong>Bronze:</strong> $10-$99 (0.5% daily)</p>
-                <p><strong>Silver:</strong> $100-$499 (1% daily)</p>
-                <p><strong>Gold:</strong> $500-$999 (2% daily)</p>
-                <p><strong>Platinum:</strong> $1000-$4999 (3% daily)</p>
-                <p><strong>Diamond:</strong> $5000-$19999 (5% daily)</p>
-                <p><strong>Black:</strong> $20000-$100000 (7% daily)</p>
+            <p className="text-accent font-semibold">{t.faqIntro}</p>
+            {faqSections.map((section, sectionIndex) => (
+              <div key={`faq-section-${sectionIndex}-${section.title}`}>
+                <h3 className="font-bold text-accent mb-2">{section.title}</h3>
+                <div className="space-y-2">
+                  {section.items.map((item, itemIndex) => (
+                    <div key={`faq-item-${sectionIndex}-${itemIndex}`} className="space-y-1">
+                      <p className="text-muted-foreground font-semibold mt-2">{item.question}</p>
+                      {renderFAQAnswer(item.answer, `faq-answer-${sectionIndex}-${itemIndex}`)}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ))}
+            {faqPlans.length > 0 && (
+              <div>
+                <h3 className="font-bold text-accent mb-2">{t.faqPlansTitle}</h3>
+                <div className="text-muted-foreground space-y-0.5 ml-2">
+                  {faqPlans.map((plan) => (
+                    <p key={plan}>{plan}</p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -921,259 +882,31 @@ function App() {
         <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-xl sm:text-2xl font-bold tracking-wider text-primary uppercase">
-              Syntrix WhitePaper
+              {whitepaperContent?.title ?? t.whitepaperTitle}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-foreground text-sm">
-            <div>
-              <h3 className="font-bold text-accent mb-1">1. Introduction</h3>
-              <p className="text-muted-foreground mb-2">Syntrix is a next-generation trading algorithm bot, built on Smart Money Concepts (SMC), liquidity analysis, order book analysis, and institutional risk management strategies. Syntrix delivers consistent performance in an unpredictable market through a proven and continuously optimized algorithm.</p>
-              <p className="text-muted-foreground mb-1">Syntrix can also be used as a wallet with passive income:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Assets are accessible unless it's margin used in opened trade</li>
-                <li>Withdrawal speed: processed by the bot in up to 3 seconds, plus network transaction time</li>
-                <li>Secure storage and transparency: blockchain-level verification of transactions</li>
-              </ul>
-              <p className="text-muted-foreground mt-1">Syntrix combines bank-level reliability, scalper-level speed, and blockchain transparency.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">2. Problems in Traditional Trading</h3>
-              <p className="text-muted-foreground mb-1">Traditional trading challenges:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Requires years of market experience to generate stable income</li>
-                <li>Requires 24/7 monitoring to avoid missed opportunities</li>
-                <li>Emotions often lead to poor decisions</li>
-                <li>Mistakes can result in capital loss</li>
-              </ul>
-              <p className="text-muted-foreground mt-2 mb-1">Syntrix solutions:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Fully automated passive income</li>
-                <li>Strategies are backtested for 5–10 years, win-rate above 90%</li>
-                <li>Strict risk management: maximum 1% risk per trade</li>
-              </ul>
-              <p className="text-muted-foreground mt-2 mb-1">Example calculation:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Bot capital: $1,000,000</li>
-                <li>Risk per trade: $10,000 (1%)</li>
-                <li>Risk/Reward ratio: 1:5</li>
-                <li>A $10,000 loss is covered by the next profitable trade of $50,000</li>
-                <li>Maximum consecutive losses: 2</li>
-                <li>Maximum consecutive wins: up to 17</li>
-              </ul>
-              <p className="text-muted-foreground mt-2 mb-1">Trading specifics:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Trades only cryptocurrency pairs</li>
-                <li>Trade duration: 30–60 minutes</li>
-                <li>Trades per day: 17–30</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">3. Security and Liquidity Pool</h3>
-              <p className="text-muted-foreground mb-1">Syntrix provides investor protection through a three-level security system:</p>
-              <p className="text-muted-foreground font-semibold mt-2">1. 50% of profits — client payouts</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Half of daily profits are distributed to investors</li>
-                <li>Syntrix delivers consistent performance through proven and continuously optimized algorithms</li>
-              </ul>
-              <p className="text-muted-foreground font-semibold mt-2">2. 25% of profits — liquidity reserve pool</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Funds stored in an encrypted wallet, inaccessible to the team</li>
-                <li>Current reserve pool exceeds investments: $53M vs $48M</li>
-              </ul>
-              <p className="text-muted-foreground font-semibold mt-2">3. 25% of profits — team and development</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>25% of net profit after all investor payouts is retained</li>
-                <li>Funds allocated to salaries, dividends, bot development, and ecosystem growth</li>
-                <li>Creates a win-win scenario for both investors and the team</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">4. Who Developed Syntrix</h3>
-              <p className="text-muted-foreground mb-1">Syntrix is developed by a team of 40+ specialists, including developers, cybersecurity experts, and support staff. The core leadership consists of former employees of major market-making firms and crypto exchanges such as Binance, OKX, and MEX.</p>
-              <p className="text-muted-foreground mb-1">Market makers are professionals managing exchange liquidity:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Create and balance orders to match supply and demand</li>
-                <li>Maintain order book depth and trading stability</li>
-                <li>Develop internal protocols and ensure platform security</li>
-              </ul>
-              <p className="text-muted-foreground mt-1">Syntrix leverages 5–10 years of experience in trading, IT, and cybersecurity. The compact team (~50 people) includes C-level experts who built the infrastructure for major exchanges.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">5. Registration and Jurisdiction</h3>
-              <p className="text-muted-foreground mb-1">Syntrix is registered in Dubai as Syntrix Algo Systems LLC.</p>
-              <p className="text-muted-foreground mb-1">Reasons for Dubai registration:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Zero taxation for cryptocurrency businesses</li>
-                <li>High security and legal stability</li>
-              </ul>
-              <p className="text-muted-foreground mt-1">Approximately 80% of the team is based in Dubai, the rest work remotely worldwide.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">6. Operating Period and Open Beta</h3>
-              <p className="text-muted-foreground"><strong>Closed beta:</strong> 6 years, generating stable profits for the team and private partners</p>
-              <p className="text-muted-foreground"><strong>Open beta:</strong> 9+ months, allowing ordinary users with small capital to participate and earn</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">7. Supported Currencies</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Supports all major cryptocurrencies: USDT, USDC, ETH, Solana, Bitcoin</li>
-                <li>Deposits are automatically converted to USDT for internal trading</li>
-                <li>Profit is credited in stablecoins, protecting against market volatility</li>
-                <li>Withdrawals available only in USDT or USDC</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">8. Withdrawal Processing Time</h3>
-              <p className="text-muted-foreground"><strong>Bot processing:</strong> 3 seconds</p>
-              <p className="text-muted-foreground"><strong>Network time:</strong></p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>USDT BEP20 — up to 20 seconds</li>
-                <li>Ethereum — slightly longer</li>
-              </ul>
-              <p className="text-muted-foreground mt-1"><strong>Total withdrawal:</strong> under 1 minute</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">9. Risk of Losing Funds</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Maximum risk per trade: 1% of deposit</li>
-                <li>25% of profits retained in liquidity reserve to protect against "black swan" events</li>
-                <li>Client funds are encrypted and inaccessible to the team</li>
-                <li>Multi-layered security implemented by experts from Binance and other exchanges</li>
-                <li>Even during consecutive losing trades, investor capital is protected</li>
-                <li>Withdrawals exceeding 10% of the account balance without prior notice may negatively affect the trading process and trigger liquidation of certain positions</li>
-                <li>All trading operations are carried out at the full discretion and responsibility of the user</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">10. Liquidity Reserve Pool</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>25% of profits are set aside daily</li>
-                <li>Pool exceeds current investments: $53M vs $48M</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">11. Trading Strategies</h3>
-              <p className="text-muted-foreground mb-1">Syntrix uses:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Smart Money Concepts (SMC)</li>
-                <li>ICT strategies</li>
-                <li>Liquidity and order book analysis</li>
-                <li>Elliott Wave analysis</li>
-                <li>Combined technical analysis</li>
-              </ul>
-              <p className="text-muted-foreground mt-1">Strategies are continuously monitored, improved, or excluded if performance drops.</p>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">12. Trade Frequency and Win Rate</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li><strong>Trade duration:</strong> 30–60 minutes</li>
-                <li><strong>Average trades:</strong> ~1 per hour</li>
-                <li><strong>Win rate:</strong> 90%+</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">13. Risk of Consecutive Losses</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Maximum consecutive losses: 2 stop-losses</li>
-                <li>After 3 consecutive losing trades, bot halts trading and reviews strategies</li>
-                <li>Liquidity reserve ensures clients still receive profits even during short-term drawdowns</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">14. Market Volatility</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Volatility accelerates trades and increases profitability</li>
-                <li>Crypto markets are ideal for scalping and short-term trades</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">15. Using Syntrix as a Wallet</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Deposit and withdrawal: under 1 minute</li>
-                <li>Funds available at any time</li>
-                <li>Passive daily income according to chosen plan</li>
-                <li>Full security and accessibility of assets</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">16. Risk Per Trade</h3>
-              <p className="text-muted-foreground mb-1"><strong>Risk Management:</strong></p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Always 1% risk per trade</li>
-                <li>Minimum Risk/Reward: 1:5</li>
-              </ul>
-              <p className="text-muted-foreground mt-2 mb-1"><strong>Profit Potential:</strong></p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Potential profit per trade: 5–17%</li>
-                <li>Win rate: 90%+</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">17. Referral Program</h3>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Three-level program: 4% / 3% / 2% from referral earnings</li>
-                <li>Total passive income from three levels: 9%</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">18. Pricing Plans</h3>
-              <div className="text-muted-foreground space-y-0.5">
-                <p><strong>Bronze:</strong> $10–$99 (0.5% daily)</p>
-                <p><strong>Silver:</strong> $100–$499 (1% daily)</p>
-                <p><strong>Gold:</strong> $500–$999 (2% daily)</p>
-                <p><strong>Platinum:</strong> $1000–$4999 (3% daily)</p>
-                <p><strong>Diamond:</strong> $5000–$19999 (5% daily)</p>
-                <p><strong>Black:</strong> $20000–$100000 (7% daily)</p>
-                <p className="mt-1"><strong>Custom plans:</strong> deposits &gt; $100,000 (8%+ daily profit)</p>
+            {whitepaperContent?.sections.map((section, sectionIndex) => (
+              <div key={`wp-section-${sectionIndex}-${section.title}`}>
+                <h3 className="font-bold text-accent mb-1">{section.title}</h3>
+                {section.paragraphs?.map((paragraph, paragraphIndex) =>
+                  renderWhitepaperParagraph(paragraph, `wp-paragraph-${sectionIndex}-${paragraphIndex}`)
+                )}
+                {section.lists?.map((list, listIndex) => (
+                  <ul
+                    key={`wp-list-${sectionIndex}-${listIndex}`}
+                    className="text-muted-foreground ml-4 list-disc space-y-0.5"
+                  >
+                    {list.map((item, itemIndex) =>
+                      renderWhitepaperListItem(
+                        item,
+                        `wp-list-${sectionIndex}-${listIndex}-${itemIndex}`
+                      )
+                    )}
+                  </ul>
+                ))}
               </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-accent mb-1">19. Additional Questions</h3>
-              <p className="text-muted-foreground font-semibold mt-2">General Information:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Closing a deposit: Investor can withdraw all funds; deposit closes; bot stops generating profit</li>
-                <li>Fees: Only network transaction fees apply</li>
-                <li>Exchanges: Binance and Bybit, trades via bot API; connecting personal API is prohibited</li>
-              </ul>
-              <p className="text-muted-foreground font-semibold mt-2">Security system:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Encryption: AES-256, RSA-4096, SHA-512 hashing</li>
-                <li>DDoS protection, global backup servers, multi-level authentication</li>
-                <li>Bot failure: Liquidity reserve automatically returns all investments and profits</li>
-              </ul>
-              <p className="text-muted-foreground font-semibold mt-2">Legal & Compliance:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>License: Syntrix Algo Systems LLC, Dubai; licensed for algorithmic crypto trading bots</li>
-                <li>Not a financial pyramid: Fully transparent transactions, guaranteed percentages, trackable trades</li>
-                <li>Difference from staking and mining: Funds never locked, passive income, no mining or electricity fees</li>
-              </ul>
-              <p className="text-muted-foreground font-semibold mt-2">Terms of Use and Restrictions:</p>
-              <p className="text-muted-foreground ml-4">Any form of abuse, exploitation, or manipulation of the Syntrix system or its referral program is strictly prohibited. If detected, the user's account may be permanently suspended without prior notice.</p>
-              <p className="text-muted-foreground font-semibold mt-2">Telegram security:</p>
-              <ul className="text-muted-foreground ml-4 list-disc space-y-0.5">
-                <li>Enable 2FA</li>
-                <li>Use a registered SIM card</li>
-                <li>Set secret question/answer during registration — allows account recovery if phone/SIM is lost</li>
-              </ul>
-            </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
@@ -2268,13 +2001,13 @@ function App() {
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
                     onClick={() => setFaqOpen(true)}
                   >
-                    FAQ
+                    {t.faq}
                   </Button>
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
                     onClick={() => setWhitepaperOpen(true)}
                   >
-                    Whitepaper
+                    {t.whitepaperLabel}
                   </Button>
                 </div>
 

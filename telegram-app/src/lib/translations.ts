@@ -2,6 +2,211 @@
 // Note: Full FAQ/Security/Whitepaper content removed due to TypeScript compilation limits
 // Only essential UI translations are included
 
+import { englishWhitepaperContent, germanWhitepaperContent } from './whitepaperContent'
+
+type FAQItem = { question: string; answer: string | string[] }
+type FAQSection = { title: string; items: FAQItem[] }
+
+const englishFAQSections: FAQSection[] = [
+  {
+    title: '1. General Information',
+    items: [
+      {
+        question: 'What is Syntrix and how does it operate?',
+        answer:
+          'Syntrix is a Telegram-based trading bot that executes institutional strategies across major crypto exchanges, giving you hands-off exposure to automated trading.'
+      },
+      {
+        question: 'Do I need trading experience to use Syntrix?',
+        answer: 'No. Just choose a plan, fund the bot, and it handles the rest with proven algorithms.'
+      },
+      {
+        question: 'Is Syntrix available worldwide and secure?',
+        answer: 'Yes. It operates in jurisdictions where crypto is legal and protects funds with encrypted wallets plus a large liquidity reserve.'
+      }
+    ]
+  },
+  {
+    title: '2. Deposits & Wallet',
+    items: [
+      {
+        question: 'Which currencies are supported for deposits?',
+        answer: 'USDT, USDC, Bitcoin, Ethereum, Solana, and other major tokens. Deposits are instantly converted to USDT for trading.'
+      },
+      {
+        question: 'How fast are deposits activated?',
+        answer: 'Funds arrive within seconds once the blockchain confirms the transaction and are available to the bot almost immediately.'
+      },
+      {
+        question: 'Can Syntrix be used as a wallet?',
+        answer: 'Absolutely. Your capital stays accessible, accrues passive income, and can be withdrawn at any time.'
+      }
+    ]
+  },
+  {
+    title: '3. Profit & Risk Management',
+    items: [
+      {
+        question: 'What returns should I expect?',
+        answer: 'Daily returns range from 0.5% to 7% depending on the plan, with compounding increasing long-term growth.'
+      },
+      {
+        question: 'How is risk controlled?',
+        answer: 'Each trade risks no more than 1% of your deposit, and 25% of profits are parked in a reserve pool to cover drawdowns.'
+      }
+    ]
+  },
+  {
+    title: '4. Withdrawals',
+    items: [
+      {
+        question: 'How long do withdrawals take?',
+        answer: 'The bot processes withdrawals in about 3 seconds, plus network time; most transactions complete in under a minute.'
+      },
+      {
+        question: 'Are there any hidden fees?',
+        answer: 'No. Syntrix itself does not charge fees—only the blockchain network fee applies.'
+      }
+    ]
+  },
+  {
+    title: '5. Referral Program',
+    items: [
+      {
+        question: 'How does the referral program work?',
+        answer: 'You earn 4% / 3% / 2% from three levels of referrals, for up to 9% passive income on referral profits.'
+      },
+      {
+        question: 'When do I receive referral bonuses?',
+        answer: 'Referral payouts are distributed daily alongside your regular plan profits.'
+      }
+    ]
+  },
+  {
+    title: '6. Support & Compliance',
+    items: [
+      {
+        question: 'Is Syntrix regulated?',
+        answer: 'It is registered in Dubai as Syntrix Algo Systems LLC and operates under compliant guidelines for algorithmic trading.'
+      },
+      {
+        question: 'How can I reach support?',
+        answer: 'Use the in-app Support button or Telegram support channel for 24/7 assistance.'
+      }
+    ]
+  }
+]
+
+const germanFAQSections: FAQSection[] = [
+  {
+    title: '1. Allgemeine Informationen',
+    items: [
+      {
+        question: 'Was ist Syntrix und wie funktioniert es?',
+        answer:
+          'Syntrix ist ein Telegram-Trading-Bot, der institutionelle Strategien auf großen Krypto-Börsen ausführt und automatisiertes Trading ohne manuelle Eingriffe liefert.'
+      },
+      {
+        question: 'Benötige ich Handelserfahrung?',
+        answer: 'Nein. Wähle einfach einen Plan aus, zahle ein, und der Bot übernimmt den Trading-Alltag für dich.'
+      },
+      {
+        question: 'Ist Syntrix sicher und weltweit verfügbar?',
+        answer: 'Ja. Die Plattform ist in allen Ländern nutzbar, in denen Krypto legal ist, und schützt Gelder mit verschlüsselten Wallets und einer großen Liquiditätsreserve.'
+      }
+    ]
+  },
+  {
+    title: '2. Einzahlungen & Wallet',
+    items: [
+      {
+        question: 'Welche Währungen werden unterstützt?',
+        answer: 'USDT, USDC, Bitcoin, Ethereum, Solana und weitere große Tokens. Einzahlungen werden für den Handel automatisch in USDT umgewandelt.'
+      },
+      {
+        question: 'Wie schnell sind Einzahlungen aktiv?',
+        answer: 'Sobald die Blockchain bestätigt, sind die Mittel innerhalb von Sekunden verfügbar und der Bot beginnt sofort mit dem Trading.'
+      },
+      {
+        question: 'Kann ich Syntrix als Wallet nutzen?',
+        answer: 'Ja. Dein Kapital bleibt zugänglich, erzielt passives Einkommen und kann jederzeit abgehoben werden.'
+      }
+    ]
+  },
+  {
+    title: '3. Rendite & Risikomanagement',
+    items: [
+      {
+        question: 'Welche Renditen kann ich erwarten?',
+        answer: 'Tägliche Renditen liegen je nach Plan zwischen 0,5 % und 7 %, wobei Reinvestitionen das Wachstum noch beschleunigen.'
+      },
+      {
+        question: 'Wie wird das Risiko kontrolliert?',
+        answer: 'Jeder Trade riskiert maximal 1 % des Kapitals, zudem sind 25 % der Gewinne in einem Reservepool geparkt, um Drawdowns abzufedern.'
+      }
+    ]
+  },
+  {
+    title: '4. Auszahlungen',
+    items: [
+      {
+        question: 'Wie schnell erfolgen Auszahlungen?',
+        answer: 'Der Bot verarbeitet Auszahlungen in etwa 3 Sekunden plus Netzwerklaufzeit; meistens ist die Auszahlung in unter einer Minute abgeschlossen.'
+      },
+      {
+        question: 'Gibt es versteckte Gebühren?',
+        answer: 'Nein. Syntrix erhebt keine eigenen Gebühren – nur die übliche Blockchain-Transaktionsgebühr fällt an.'
+      }
+    ]
+  },
+  {
+    title: '5. Empfehlungsprogramm',
+    items: [
+      {
+        question: 'Wie funktioniert das Empfehlungsprogramm?',
+        answer: 'Du verdienst 4 % / 3 % / 2 % aus drei Ebenen deiner Empfehlungen, für bis zu 9 % passives Einkommen auf deren Gewinne.'
+      },
+      {
+        question: 'Wann werden Boni ausgezahlt?',
+        answer: 'Empfehlungsboni werden täglich zusammen mit deinen regulären Plangewinnen ausgeschüttet.'
+      }
+    ]
+  },
+  {
+    title: '6. Support & Compliance',
+    items: [
+      {
+        question: 'Ist Syntrix reguliert?',
+        answer: 'Syntrix ist in Dubai als Syntrix Algo Systems LLC registriert und hält Compliance-Standards für algorithmisches Trading ein.'
+      },
+      {
+        question: 'Wie erreiche ich den Support?',
+        answer: 'Nutze die Support-Schaltfläche im Bot oder den Telegram-Support-Kanal für 24/7 Hilfe.'
+      }
+    ]
+  }
+]
+
+const englishFAQPlans = [
+  'Bronze Plan: $10–$99 (0.5% daily)',
+  'Silver Plan: $100–$499 (1% daily)',
+  'Gold Plan: $500–$999 (2% daily)',
+  'Platinum Plan: $1000–$4999 (3% daily)',
+  'Diamond Plan: $5000–$19999 (5% daily)',
+  'Black Plan: $20000–$100000 (7% daily)',
+  'Custom plans: deposits > $100,000 (8%+ daily)'
+]
+
+const germanFAQPlans = [
+  'Bronze-Plan: $10–$99 (0,5 % täglich)',
+  'Silber-Plan: $100–$499 (1 % täglich)',
+  'Gold-Plan: $500–$999 (2 % täglich)',
+  'Platin-Plan: $1000–$4999 (3 % täglich)',
+  'Diamond-Plan: $5000–$19999 (5 % täglich)',
+  'Black-Plan: $20000–$100000 (7 % täglich)',
+  'Sonderpläne: Einzahlungen über $100.000 (8 %+ täglich)'
+]
+
 export const translations = {
   ENGLISH: {
     appTitle: 'Syntrix Bot',
@@ -78,9 +283,11 @@ export const translations = {
     // Basic content placeholders (full content removed to reduce file size)
     securitySubtitle: 'Syntrix Security',
     securityDescription: 'Multi-level protection for your investments and peace of mind',
-    faqSection1: '1. General Information',
-    faqQ1_1: 'Q: What is Syntrix and how does it work?',
-    faqA1_1: 'Syntrix is a professional trading bot that automatically trades crypto on your behalf, generating up to 7% daily profit.',
+    whitepaperContent: englishWhitepaperContent,
+    faqIntro: 'Find answers to the most common questions about Syntrix and get started faster.',
+    faqSections: englishFAQSections,
+    faqPlansTitle: 'Income Plans',
+    faqPlans: englishFAQPlans,
     
     advantage1Title: '1. Fully Automated Trading',
     advantage1Text1: '• Trades 24/7 without user intervention',
@@ -157,7 +364,7 @@ export const translations = {
     language: 'Language',
     support: 'Support',
     advantages: 'Advantages',
-    whitepaper: 'WhitePaper',
+    whitepaperLabel: 'WhitePaper',
     security: 'Security',
     website: 'Website',
     faq: 'FAQ',
@@ -237,9 +444,11 @@ export const translations = {
     advantagesDescription: 'Entdecke die einzigartigen Vorteile, die Syntrix zur besten Wahl für Krypto-Investoren machen',
     securitySubtitle: 'Syntrix-Sicherheit',
     securityDescription: 'Mehrstufiger Schutz für deine Investitionen und sorgenfreie Nutzung',
-    faqSection1: '1. Allgemeine Informationen',
-    faqQ1_1: 'F: Was ist Syntrix und wie funktioniert es?',
-    faqA1_1: 'Syntrix ist ein professioneller Trading-Bot, der automatisch Kryptos für dich handelt und bis zu 7 % Tagesgewinn generiert.',
+    whitepaperContent: germanWhitepaperContent,
+    faqIntro: 'Finde Antworten auf die häufigsten Fragen und starte schneller mit Syntrix.',
+    faqSections: germanFAQSections,
+    faqPlansTitle: 'Einkommenspläne',
+    faqPlans: germanFAQPlans,
     advantage1Title: '1. Vollständig automatisierter Handel',
     advantage1Text1: '• Handelt rund um die Uhr ohne Nutzerintervention',
     advantage1Text2: '• Nutzt Smart-Money-Konzepte und institutionelle Risikomanagement-Strategien',
@@ -303,7 +512,7 @@ export const translations = {
     language: 'Sprache',
     support: 'Support',
     advantages: 'Vorteile',
-    whitepaper: 'WhitePaper',
+    whitepaperLabel: 'WhitePaper',
     security: 'Sicherheit',
     website: 'Webseite',
     faq: 'FAQ',
