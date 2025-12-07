@@ -2,7 +2,14 @@
 // Note: Full FAQ/Security/Whitepaper content removed due to TypeScript compilation limits
 // Only essential UI translations are included
 
-import { englishWhitepaperContent, germanWhitepaperContent } from './whitepaperContent'
+import {
+  englishWhitepaperContent,
+  germanWhitepaperContent,
+  spanishWhitepaperContent,
+  frenchWhitepaperContent,
+  italianWhitepaperContent,
+  dutchWhitepaperContent
+} from './whitepaperContent'
 
 type FAQItem = { question: string; answer: string | string[] }
 type FAQSection = { title: string; items: FAQItem[] }
@@ -708,6 +715,106 @@ const spanishFAQPlans = [
   'Planes personalizados: depósitos > $100000 (8 %+ diario)'
 ]
 
+const frenchFAQSections: FAQSection[] = [
+  {
+    title: '1. Informations générales',
+    items: [
+      {
+        question: 'Qu\'est-ce que Syntrix et comment fonctionne-t-il ?',
+        answer:
+          'Syntrix est un bot de trading Telegram qui exécute des stratégies institutionnelles sur les principales exchanges, offrant une exposition automatisée sans intervention manuelle.'
+      },
+      {
+        question: 'Ai-je besoin d\'expérience pour utiliser Syntrix ?',
+        answer: 'Non. Choisissez un plan, alimentez le bot et il s\'occupe du reste avec des algorithmes éprouvés.'
+      },
+      {
+        question: 'Syntrix est-il sécurisé et disponible dans le monde entier ?',
+        answer: 'Oui. Il opère dans les juridictions où la crypto est légale et protège les fonds avec des wallets chiffrés et un large pool de liquidité.'
+      }
+    ]
+  },
+  {
+    title: '2. Dépôts et wallet',
+    items: [
+      {
+        question: 'Quelles devises sont prises en charge pour les dépôts ?',
+        answer: 'USDT, USDC, Bitcoin, Ethereum, Solana et autres tokens majeurs, convertis instantanément en USDT pour le trading.'
+      },
+      {
+        question: 'À quelle vitesse les dépôts sont-ils activés ?',
+        answer: 'Les fonds arrivent en quelques secondes après la confirmation de la blockchain et sont immédiatement disponibles pour le bot.'
+      },
+      {
+        question: 'Puis-je utiliser Syntrix comme wallet ?',
+        answer: 'Absolument. Votre capital reste accessible, génère un revenu passif et peut être retiré quand vous le souhaitez.'
+      }
+    ]
+  },
+  {
+    title: '3. Rendement et gestion du risque',
+    items: [
+      {
+        question: 'Quels rendements puis-je espérer ?',
+        answer: 'Les rendements journaliers vont de 0,5 % à 7 % selon le plan, et la capitalisation accélère la croissance à long terme.'
+      },
+      {
+        question: 'Comment le risque est-il maîtrisé ?',
+        answer: 'Chaque trade risque au maximum 1 % du dépôt, et 25 % des gains sont mis en réserve pour absorber les drawdowns.'
+      }
+    ]
+  },
+  {
+    title: '4. Retraits',
+    items: [
+      {
+        question: 'Combien de temps prennent les retraits ?',
+        answer: 'Le bot traite les retraits en environ 3 secondes plus le temps du réseau ; la plupart arrivent en moins d\'une minute.'
+      },
+      {
+        question: 'Y a-t-il des frais cachés ?',
+        answer: 'Non. Syntrix ne facture rien de plus que les frais réseau standard.'
+      }
+    ]
+  },
+  {
+    title: '5. Programme de parrainage',
+    items: [
+      {
+        question: 'Comment fonctionne le programme de parrainage ?',
+        answer: 'Vous gagnez 4 % / 3 % / 2 % sur trois niveaux de parrainages, soit jusqu\'à 9 % de revenu passif sur leurs gains.'
+      },
+      {
+        question: 'Quand reçois-je les bonus ?',
+        answer: 'Les paiements de parrainages sortent quotidiennement avec vos gains réguliers.'
+      }
+    ]
+  },
+  {
+    title: '6. Support et conformité',
+    items: [
+      {
+        question: 'Syntrix est-il réglementé ?',
+        answer: 'Syntrix Algo Systems LLC est enregistré à Dubaï et respecte les lignes directrices de conformité pour le trading algorithmique.'
+      },
+      {
+        question: 'Comment joindre le support ?',
+        answer: 'Utilisez le bouton Support dans l\'app ou le canal Telegram officiel disponible 24/7.'
+      }
+    ]
+  }
+]
+
+const frenchFAQPlans = [
+  'Plan Bronze : $10–$99 (0,5 % par jour)',
+  'Plan Argent : $100–$499 (1 % par jour)',
+  'Plan Or : $500–$999 (2 % par jour)',
+  'Plan Platine : $1000–$4999 (3 % par jour)',
+  'Plan Diamond : $5000–$19999 (5 % par jour)',
+  'Plan Black : $20000–$100000 (7 % par jour)',
+  'Plans personnalisés : dépôts > $100000 (8 %+ par jour)'
+]
+
 const spanishSecuritySections: InfoSection[] = [
   {
     title: '1. Cifrado y protección de fondos',
@@ -784,6 +891,87 @@ const spanishSecuritySections: InfoSection[] = [
       [
         'El pool de reserva devuelve automáticamente todas las inversiones y ganancias a los clientes',
         'Incluso durante incidentes críticos (caída de servidores, fallas de red), los usuarios no pierden sus fondos'
+      ]
+    ]
+  }
+]
+
+const frenchSecuritySections: InfoSection[] = [
+  {
+    title: '1. Chiffrement et protection des fonds',
+    lists: [
+      [
+        'Tous les fonds clients sont chiffrés et stockés dans un pool de liquidité sécurisé. L\'équipe Syntrix n\'a aucun accès.',
+        'Pour protéger les données et les actifs, Syntrix utilise des chiffrement standards sur les serveurs et dans Telegram :',
+        'AES-256 – chiffrement symétrique pour le stockage et le transfert',
+        'RSA-4096 – chiffrement asymétrique pour l\'échange sécurisé de clés et l\'authentification',
+        'SHA-512 – hachage cryptographique pour l\'intégrité et la vérification',
+        'Toutes les opérations du bot tournent dans un environnement entièrement chiffré pour prévenir piratages et vols'
+      ]
+    ]
+  },
+  {
+    title: '2. Pool de réserve de liquidité',
+    lists: [
+      [
+        '25 % des profits journaliers sont alloués à un pool de réserve de liquidité pour protéger tous les investissements',
+        'Le pool dépasse les dépôts actuels : 53 M$ contre 48 M$',
+        'En cas de défaillances techniques ou d\'événements imprévus, le pool rend automatiquement tous les fonds',
+        'Ce système garantit la sécurité du capital même si des trades individuels perdent de l\'argent'
+      ]
+    ]
+  },
+  {
+    title: '3. Gestion des risques et sécurité du trading',
+    lists: [
+      [
+        'Risque maximal par trade limité à 1 % du dépôt',
+        'Ratio risque/rendement toujours au moins 1:5 pour assurer une croissance stable durant les pertes',
+        'Pertes consécutives maximales : 2 trades. Si 3 pertes sont détectées, le bot se met en pause pour réviser les stratégies',
+        'Même dans des conditions extrêmes, le capital reste protégé grâce au pool de réserve et à la gestion stricte du risque'
+      ]
+    ]
+  },
+  {
+    title: '4. Sécurité dans Telegram',
+    paragraphs: ['Pour maximiser la sécurité du compte et l\'accès à Syntrix, les utilisateurs devraient :'],
+    lists: [
+      [
+        'Activer la 2FA (authentification à deux facteurs) dans Telegram',
+        'Utiliser une carte SIM enregistrée pour empêcher les récupérations non autorisées',
+        'Configurer une question secrète et sa réponse lors de l\'inscription',
+        'En cas de perte du téléphone ou de la SIM, l\'accès est rétabli en confirmant le solde et la question secrète',
+        'Cela agit comme une troisième couche de protection pour le compte et les fonds'
+      ]
+    ]
+  },
+  {
+    title: '5. Protection des serveurs et mitigation DDoS',
+    lists: [
+      [
+        'Les serveurs Syntrix sont protégés contre les attaques DDoS et répartis globalement',
+        'Tous les serveurs appliquent une authentification multi-niveaux pour minimiser les risques de piratage',
+        'Les opérations critiques s\'exécutent dans une infrastructure sécurisée inaccessible aux parties externes'
+      ]
+    ]
+  },
+  {
+    title: '6. Transparence et vérification',
+    lists: [
+      [
+        'Tous les trades Syntrix sont traçables via les codes de parrainage et les captures de PnL',
+        'Les utilisateurs peuvent demander une vérification des transactions via le support',
+        'La transparence totale garantit qu\'il ne s\'agit pas d\'une pyramide financière ni de schémas opaques'
+      ]
+    ]
+  },
+  {
+    title: '7. Sauvegardes et plans de continuité',
+    paragraphs: ['En cas de défaillance technique ou d\'indisponibilité temporaire du bot :'],
+    lists: [
+      [
+        'Le pool de réserve retourne automatiquement tous les investissements et gains aux clients',
+        'Même lors d\'événements critiques (panne de serveur, coupure réseau), les utilisateurs ne perdent pas leurs fonds'
       ]
     ]
   }
@@ -906,6 +1094,719 @@ const spanishAdvantagesSections: InfoSection[] = [
   }
 ]
 
+const frenchAdvantagesSections: InfoSection[] = [
+  {
+    title: '1. Trading entièrement automatisé',
+    lists: [
+      [
+        'Opère 24h/24 et 7j/7 sans intervention',
+        'Utilise Smart Money Concepts, analyse de la liquidité, lecture du carnet d\'ordres et gestion institutionnelle des risques',
+        'Pas besoin de surveiller les graphiques ou de prendre des décisions manuelles',
+        'Génère un revenu passif fiable avec un minimum d\'effort'
+      ]
+    ]
+  },
+  {
+    title: '2. Taux de réussite élevé et rentabilité',
+    lists: [
+      [
+        'Taux de réussite supérieur à 90 % basé sur 5 à 10 ans de stratégies testées',
+        'Ratio risque/rendement d\'au moins 1:5',
+        'Potentiel de gain quotidien de 1 % à 11 % selon votre abonnement',
+        'Des algorithmes avancés assurent des gains constants même sur les marchés volatils'
+      ]
+    ]
+  },
+  {
+    title: '3. Sécurité maximale et protection du capital',
+    lists: [
+      [
+        'Les fonds des clients sont chiffrés et inaccessibles à l\'équipe',
+        'Le pool de réserve (25 % des gains) protège dépôts et profits en cas de pertes',
+        'Le risque maximal par trade est limité à 1 % du dépôt',
+        'Sécurité multicouche sur les serveurs et au sein de Telegram',
+        'Même face à des pannes techniques rares ou des événements imprévus, le capital reste protégé'
+      ]
+    ]
+  },
+  {
+    title: '4. Retraits instantanés',
+    lists: [
+      [
+        'Retraits traités par le bot en 3 secondes plus le temps réseau',
+        'Fonds disponibles à tout moment ; pas de blocage ni d\'attente',
+        'Retraits en USDT ou USDC pour une stabilité face à la volatilité'
+      ]
+    ]
+  },
+  {
+    title: '5. Transparence totale',
+    lists: [
+      [
+        'Toutes les opérations et profits sont traçables',
+        'La visibilité totale garantit qu\'il n\'y a rien de caché',
+        'Vous pouvez demander une vérification de transaction via le support'
+      ]
+    ]
+  },
+  {
+    title: '6. Licencié et réglementé',
+    lists: [
+      [
+        'Opère sous Syntrix Algo Systems LLC, Dubaï',
+        'Titulaire d\'une licence pour les bots de trading algorithmique crypto',
+        'La conformité juridique renforce la confiance'
+      ]
+    ]
+  },
+  {
+    title: '7. Fonctionnalité wallet flexible',
+    lists: [
+      [
+        'Syntrix peut servir de wallet crypto à rendement élevé',
+        'Dépôts et retraits en moins d\'une minute',
+        'Les fonds restent accessibles tout en générant un revenu'
+      ]
+    ]
+  },
+  {
+    title: '8. Aucun souci technique',
+    lists: [
+      [
+        'Aucun matériel de mining ni frais d\'électricité requis',
+        'Toutes les opérations sont gérées automatiquement',
+        'Le bot contrôle la volatilité, la liquidité et le risque sans intervention'
+      ]
+    ]
+  },
+  {
+    title: '9. Programme de parrainage multi-niveaux',
+    lists: [
+      [
+        'Gagnez via un programme à 3 niveaux : 4 % / 3 % / 2 %',
+        'Revenu passif maximal de 9 % tiré des gains des parrainés',
+        'Encourage une croissance organique sans compromettre votre capital'
+      ]
+    ]
+  },
+  {
+    title: '10. Intégration de sécurité Telegram',
+    lists: [
+      [
+        'Protection 2FA optionnelle pour vos comptes',
+        'Système question/réponse secrète pour récupérer l\'accès',
+        'Les fonds restent sécurisés même si vous perdez votre téléphone ou votre SIM'
+      ]
+    ]
+  },
+  {
+    title: '11. Idéal pour débutants et professionnels',
+    lists: [
+      [
+        'Aucune expérience en trading requise',
+        'Les professionnels exploitent des algorithmes avancés',
+        'Solution parfaite pour un revenu crypto fiable'
+      ]
+    ]
+  }
+]
+
+const italianFAQSections: FAQSection[] = [
+  {
+    title: '1. Informazioni generali',
+    items: [
+      {
+        question: 'Cos\'è Syntrix e come funziona?',
+        answer:
+          'Syntrix è un bot di trading su Telegram che esegue strategie istituzionali sulle principali exchange, offrendo un trading automatizzato senza intervento manuale.'
+      },
+      {
+        question: 'Serve esperienza di trading?',
+        answer: 'No. Scegli un piano, deposita e il bot gestisce tutto con algoritmi collaudati.'
+      },
+      {
+        question: 'Syntrix è sicuro e disponibile ovunque?',
+        answer: 'Sì. Opera dove la crypto è legale e protegge i fondi con wallet crittografati e un grande pool di liquidità.'
+      }
+    ]
+  },
+  {
+    title: '2. Depositi e wallet',
+    items: [
+      {
+        question: 'Quali valute accettate?',
+        answer: 'USDT, USDC, Bitcoin, Ethereum, Solana e altri token principali. I depositi vengono convertiti in USDT per il trading.'
+      },
+      {
+        question: 'Quanto impiegano i depositi?',
+        answer: 'I fondi arrivano in pochi secondi dopo la conferma della blockchain e il bot li usa subito.'
+      },
+      {
+        question: 'Posso usare Syntrix come wallet?',
+        answer: 'Sì. Il capitale resta accessibile, genera reddito passivo e può essere ritirato quando vuoi.'
+      }
+    ]
+  },
+  {
+    title: '3. Profitti e gestione del rischio',
+    items: [
+      {
+        question: 'Quali rendimenti aspettarmi?',
+        answer: 'Rendimenti giornalieri dal 0,5 % al 7 %, a seconda del piano, con la reinvestizione che accelera la crescita.'
+      },
+      {
+        question: 'Come gestite il rischio?',
+        answer: 'Ogni trade rischia al massimo l\'1 % del deposito e il 25 % dei profitti viene accantonato in un pool di riserva.'
+      }
+    ]
+  },
+  {
+    title: '4. Prelievi',
+    items: [
+      {
+        question: 'Quanto durano i prelievi?',
+        answer: 'Il bot li elabora in circa 3 secondi più il tempo di rete; la maggior parte impiega meno di un minuto.'
+      },
+      {
+        question: 'Ci sono commissioni nascoste?',
+        answer: 'No. Syntrix non applica commissioni extra, solo le fee di rete.'
+      }
+    ]
+  },
+  {
+    title: '5. Programma referral',
+    items: [
+      {
+        question: 'Come funziona il programma referral?',
+        answer: 'Guadagni il 4 % / 3 % / 2 % su tre livelli, fino al 9 % di reddito passivo sui profitti dei referral.'
+      },
+      {
+        question: 'Quando ricevo i bonus?',
+        answer: 'I bonus vengono erogati quotidianamente insieme ai guadagni del piano.'
+      }
+    ]
+  },
+  {
+    title: '6. Supporto e compliance',
+    items: [
+      {
+        question: 'Syntrix è regolamentato?',
+        answer: 'Syntrix Algo Systems LLC è registrata a Dubai e segue le linee guida per il trading algoritmico.'
+      },
+      {
+        question: 'Come contatto il supporto?',
+        answer: 'Usa il pulsante Supporto nell\'app o il canale Telegram ufficiale attivo 24/7.'
+      }
+    ]
+  }
+]
+
+const italianFAQPlans = [
+  'Piano Bronze: $10–$99 (0,5 % giornaliero)',
+  'Piano Silver: $100–$499 (1 % giornaliero)',
+  'Piano Gold: $500–$999 (2 % giornaliero)',
+  'Piano Platinum: $1000–$4999 (3 % giornaliero)',
+  'Piano Diamond: $5000–$19999 (5 % giornaliero)',
+  'Piano Black: $20000–$100000 (7 % giornaliero)',
+  'Piani personalizzati: depositi > $100000 (8 %+ giornaliero)'
+]
+
+const italianSecuritySections: InfoSection[] = [
+  {
+    title: '1. Crittografia e protezione dei fondi',
+    lists: [
+      [
+        'I fondi dei clienti sono crittografati e conservati in un pool di liquidità sicuro. Il team Syntrix non vi accede.',
+        'Syntrix usa crittografia industriale sul server e all\'interno di Telegram:',
+        'AES-256 – crittografia simmetrica per storage e trasferimento',
+        'RSA-4096 – crittografia asimmetrica per scambio sicuro di chiavi e autenticazione',
+        'SHA-512 – hashing per integrità e verifica dei dati',
+        'Le operazioni del bot girano in un ambiente completamente crittografato contro hacks e furti'
+      ]
+    ]
+  },
+  {
+    title: '2. Pool di riserva di liquidità',
+    lists: [
+      [
+        'Il 25 % dei profitti giornalieri finisce in un pool di riserva per proteggere tutti gli investimenti',
+        'Il pool supera i depositi attivi: 53 M$ vs 48 M$',
+        'In caso di guasti o eventi imprevisti, il pool restituisce automaticamente tutti i fondi',
+        'Questo garantisce la sicurezza del capitale anche se alcuni trade perdono'
+      ]
+    ]
+  },
+  {
+    title: '3. Gestione del rischio e sicurezza del trading',
+    lists: [
+      [
+        'Il rischio massimo per trade è limitato all\'1 % del deposito',
+        'Il rapporto rischio/ricompensa è sempre almeno di 1:5 per stare in crescita anche durante i drawdown',
+        'Massimo due perdite consecutive. Dopo tre, il bot si ferma e rivede le strategie',
+        'Anche in condizioni estreme, il capitale resta protetto da pool di riserva e gestione rigorosa'
+      ]
+    ]
+  },
+  {
+    title: '4. Sicurezza su Telegram',
+    paragraphs: ['Per massimizzare la sicurezza dell\'account e l\'accesso a Syntrix, chi usa dovrebbe:'],
+    lists: [
+      [
+        'Attivare la 2FA in Telegram',
+        'Usare una SIM registrata per evitare recuperi non autorizzati',
+        'Configurare una domanda/risposta segreta in registrazione',
+        'Se perdi telefono o SIM, riprendi l\'accesso confermando saldo e domanda segreta',
+        'Questo crea un terzo livello di protezione per account e fondi'
+      ]
+    ]
+  },
+  {
+    title: '5. Protezione server e mitigazione DDoS',
+    lists: [
+      [
+        'I server Syntrix sono protetti da DDoS e distribuiti globalmente',
+        'Tutti i server applicano autenticazione multi-livello per ridurre il rischio di hacking',
+        'Le operazioni critiche girano in un\'infrastruttura sicura inaccessibile agli esterni'
+      ]
+    ]
+  },
+  {
+    title: '6. Trasparenza e verifica',
+    lists: [
+      [
+        'Tutti i trade sono tracciabili via codici referral e screenshot PnL',
+        'Puoi richiedere la verifica di transazioni tramite supporto',
+        'Trasparenza totale assicura che la piattaforma non sia una piramide finanziaria'
+      ]
+    ]
+  },
+  {
+    title: '7. Backup e continuità',
+    paragraphs: ['In caso di guasti tecnici o fermo temporaneo del bot:'],
+    lists: [
+      [
+        'Il pool di riserva restituisce automaticamente investimenti e profitti ai clienti',
+        'Anche durante eventi critici (down server, interruzioni di rete), gli utenti non perdono fondi'
+      ]
+    ]
+  }
+]
+
+const italianAdvantagesSections: InfoSection[] = [
+  {
+    title: '1. Trading completamente automatizzato',
+    lists: [
+      [
+        'Opera 24/7 senza interventi manuali',
+        'Usa Smart Money Concepts, analisi della liquidità, lettura del book e gestione istituzionale del rischio',
+        'Non serve controllare i grafici o decidere manualmente',
+        'Genera reddito passivo costante con minimo sforzo'
+      ]
+    ]
+  },
+  {
+    title: '2. Alto tasso di successo e redditività',
+    lists: [
+      [
+        'Oltre il 90 % di successi su strategie testate 5-10 anni',
+        'Rapporto rischio/ricompensa almeno 1:5',
+        'Potenziale di guadagno giornaliero tra 1 % e 11 % a seconda del piano',
+        'Algoritmi avanzati mantengono guadagni costanti anche in mercati volatili'
+      ]
+    ]
+  },
+  {
+    title: '3. Massima sicurezza e protezione del capitale',
+    lists: [
+      [
+        'I fondi dei clienti sono crittografati e inaccessibili al team',
+        'Il pool di riserva (25 % dei profitti) protegge depositi e profitti dalle perdite',
+        'Il rischio per trade è al massimo dell\'1 % del deposito',
+        'Sicurezza multilivello su server e dentro Telegram',
+        'Anche in situazioni estreme, il capitale resta protetto'
+      ]
+    ]
+  },
+  {
+    title: '4. Prelievi istantanei',
+    lists: [
+      [
+        'Prelievi elaborati in 3 secondi più tempo di rete',
+        'Fondi disponibili sempre, senza blocchi né attese',
+        'Supporta prelievi in USDT o USDC per stabilità rispetto alla volatilità'
+      ]
+    ]
+  },
+  {
+    title: '5. Trasparenza totale',
+    lists: [
+      [
+        'Tutte le operazioni e i profitti sono tracciabili',
+        'Massima visibilità garantisce l\'assenza di operazioni nascoste',
+        'Puoi richiedere la verifica delle transazioni al supporto'
+      ]
+    ]
+  },
+  {
+    title: '6. Licenziato e regolamentato',
+    lists: [
+      [
+        'Opera sotto Syntrix Algo Systems LLC, Dubai',
+        'Autorizzato per bot di trading algoritmico crypto',
+        'La compliance legale assicura fiducia'
+      ]
+    ]
+  },
+  {
+    title: '7. Wallet flessibile',
+    lists: [
+      [
+        'Syntrix può funzionare come wallet crypto ad alto rendimento',
+        'Depositi e prelievi in meno di 60 secondi',
+        'I fondi restano accessibili mentre generano entrate passive'
+      ]
+    ]
+  },
+  {
+    title: '8. Nessuna complicazione tecnica',
+    lists: [
+      [
+        'Nessun hardware mining o costi elettrici',
+        'Tutte le operazioni automatiche',
+        'Il bot gestisce volatilità, liquidità e rischio'
+      ]
+    ]
+  },
+  {
+    title: '9. Programma referral multi-livello',
+    lists: [
+      [
+        'Guadagni fino al 4 % / 3 % / 2 % su tre livelli',
+        'Reddito passivo al massimo 9 % dai referral',
+        'Favorisce crescita organica senza compromettere il capitale'
+      ]
+    ]
+  },
+  {
+    title: '10. Sicurezza Telegram integrata',
+    lists: [
+      [
+        'Protezione 2FA opzionale per gli account',
+        'Sistema domanda/risposta segreta per recupero',
+        'I fondi restano sicuri anche se perdi telefono o SIM'
+      ]
+    ]
+  },
+  {
+    title: '11. Perfetto per principianti e professionisti',
+    lists: [
+      [
+        'Non serve esperienza di trading',
+        'I professionisti sfruttano algoritmi avanzati',
+        'Soluzione ideale per reddito crypto affidabile'
+      ]
+    ]
+  }
+]
+
+const dutchFAQSections: FAQSection[] = [
+  {
+    title: '1. Algemene informatie',
+    items: [
+      {
+        question: 'Wat is Syntrix en hoe werkt het?',
+        answer:
+          'Syntrix is een Telegram tradingbot die institutionele strategieën op grote crypto exchanges uitvoert en hands-off toegang biedt tot geautomatiseerd handelen.'
+      },
+      {
+        question: 'Heb ik ervaring nodig om Syntrix te gebruiken?',
+        answer: 'Nee. Kies een plan, stort geld en de bot handelt namens jou met bewezen algoritmes.'
+      },
+      {
+        question: 'Is Syntrix wereldwijd beschikbaar en veilig?',
+        answer: 'Ja. De dienst opereert in jurisdicties waar crypto legaal is en beschermt fondsen met versleutelde wallets en een grote liquiditeitsreserve.'
+      }
+    ]
+  },
+  {
+    title: '2. Stortingen en wallet',
+    items: [
+      {
+        question: 'Welke valuta worden geaccepteerd?',
+        answer: 'USDT, USDC, Bitcoin, Ethereum, Solana en andere grote tokens. Stortingen worden direct omgezet naar USDT voor trading.'
+      },
+      {
+        question: 'Hoe snel wordt een storting geactiveerd?',
+        answer: 'Zodra de blockchain bevestigt, zijn de middelen binnen enkele seconden beschikbaar en begint de bot met handelen.'
+      },
+      {
+        question: 'Kan ik Syntrix als wallet gebruiken?',
+        answer: 'Ja. Je kapitaal blijft toegankelijk, genereert passief inkomen en kan op elk moment worden opgenomen.'
+      }
+    ]
+  },
+  {
+    title: '3. Winst en risicobeheer',
+    items: [
+      {
+        question: 'Welke rendementen kan ik verwachten?',
+        answer: 'Dagelijkse rendementen variëren tussen 0,5 % en 7 % afhankelijk van je plan, met compounding voor extra groei.'
+      },
+      {
+        question: 'Hoe wordt het risico beheerd?',
+        answer: 'Elke trade riskeert maximaal 1 % van je storting en 25 % van de winsten gaat naar een reservepool om drawdowns op te vangen.'
+      }
+    ]
+  },
+  {
+    title: '4. Opnames',
+    items: [
+      {
+        question: 'Hoe snel zijn opnames?',
+        answer: 'De bot verwerkt opnames in ongeveer 3 seconden plus netwerktijd; de meeste opnames zijn binnen een minuut rond.'
+      },
+      {
+        question: 'Zijn er verborgen kosten?',
+        answer: 'Nee. Syntrix rekent geen extra kosten — alleen de gebruikelijke blockchain fee.'
+      }
+    ]
+  },
+  {
+    title: '5. Referralprogramma',
+    items: [
+      {
+        question: 'Hoe werkt het referralprogramma?',
+        answer: 'Je verdient 4 % / 3 % / 2 % over drie niveaus, tot 9 % passief inkomen over de winst van je referrals.'
+      },
+      {
+        question: 'Wanneer krijg ik referralbonussen?',
+        answer: 'Referralbonussen worden dagelijks uitgekeerd samen met je reguliere planwinsten.'
+      }
+    ]
+  },
+  {
+    title: '6. Support en compliance',
+    items: [
+      {
+        question: 'Is Syntrix gereguleerd?',
+        answer: 'Syntrix Algo Systems LLC is geregistreerd in Dubai en volgt compliance-richtlijnen voor algoritmisch handelen.'
+      },
+      {
+        question: 'Hoe neem ik contact op met support?',
+        answer: 'Gebruik de Support-knop in de app of het officiële Telegram-kanaal voor 24/7 hulp.'
+      }
+    ]
+  }
+]
+
+const dutchFAQPlans = [
+  'Plan Bronze: $10–$99 (0,5 % per dag)',
+  'Plan Silver: $100–$499 (1 % per dag)',
+  'Plan Gold: $500–$999 (2 % per dag)',
+  'Plan Platinum: $1000–$4999 (3 % per dag)',
+  'Plan Diamond: $5000–$19999 (5 % per dag)',
+  'Plan Black: $20000–$100000 (7 % per dag)',
+  'Aangepaste plannen: stortingen > $100000 (8 %+ per dag)'
+]
+
+const dutchSecuritySections: InfoSection[] = [
+  {
+    title: '1. Encryptie en fondsbescherming',
+    lists: [
+      [
+        'Klantenfondsen zijn versleuteld en opgeslagen in een veilige liquidity pool. Het Syntrix-team heeft geen toegang.',
+        'Voor server- en Telegrambeveiliging gebruikt Syntrix industriële encryptie:',
+        'AES-256 – symmetrische encryptie voor opslag en overdracht',
+        'RSA-4096 – asymmetrische encryptie voor veilige sleuteluitwisseling',
+        'SHA-512 – cryptografische hashing voor integriteit en verificatie',
+        'Alle botoperaties draaien in een volledig versleutelde omgeving om hacks en diefstal te voorkomen'
+      ]
+    ]
+  },
+  {
+    title: '2. Liquiditeitsreservepool',
+    lists: [
+      [
+        '25 % van de dagelijkse winsten wordt gealloceerd aan een reservepool om alle investeringen te beschermen',
+        'De pool overstijgt de actieve stortingen: $53M versus $48M',
+        'Bij technische storingen of “black swan”-events keert de pool automatisch alle fondsen terug',
+        'Dit systeem waarborgt kapitaalsveiligheid, ook als individuele trades verlies maken'
+      ]
+    ]
+  },
+  {
+    title: '3. Risicobeheer en handelsveiligheid',
+    lists: [
+      [
+        'Maximaal risico per trade is 1 % van het deposito',
+        'Risk/Reward-ratio blijft minimaal 1:5 voor stabiele groei tijdens drawdowns',
+        'De bot pauzeert na drie opeenvolgende verliestrades om de strategie te herzien',
+        'Ook onder extreme omstandigheden blijft het kapitaal beschermd dankzij de reservepool en strikte risicobeheersing'
+      ]
+    ]
+  },
+  {
+    title: '4. Telegram-beveiliging',
+    paragraphs: ['Voor maximale accountbeveiliging en toegang tot Syntrix raden we aan:'],
+    lists: [
+      [
+        'Activeer 2FA (twee-factor-authenticatie) in Telegram',
+        'Gebruik een geregistreerde simkaart om ongeoorloofde herstelpogingen te voorkomen',
+        'Stel tijdens registratie een geheime vraag en antwoord in',
+        'Bij verlies van telefoon of SIM herstel je toegang door saldo en geheime vraag te bevestigen',
+        'Deze extra laag beschermt account en fondsen'
+      ]
+    ]
+  },
+  {
+    title: '5. Serverbescherming en DDoS-mitigatie',
+    lists: [
+      [
+        'Syntrix-servers zijn beschermd tegen DDoS-aanvallen en wereldwijd verspreid',
+        'Alle servers gebruiken multi-level authenticatie om hackpogingen te minimaliseren',
+        'Kritieke operaties draaien binnen een beveiligde infrastructuur die afgesloten is voor derden'
+      ]
+    ]
+  },
+  {
+    title: '6. Transparantie en verificatie',
+    lists: [
+      [
+        'Alle Syntrix-trades zijn traceerbaar via referralcodes en PNL-screenshots',
+        'Verzoeken om transactiecontrole kunnen worden ingediend bij support',
+        'Volledige transparantie bewijst dat Syntrix geen financiële piramide is'
+      ]
+    ]
+  },
+  {
+    title: '7. Back-ups en continuïteitsplanning',
+    paragraphs: ['Bij technische storingen of tijdelijke onbereikbaarheid van de bot:'],
+    lists: [
+      [
+        'De reservepool keert automatisch alle investeringen en winsten terug aan klanten',
+        'Zelfs tijdens kritieke incidenten (server-down, netwerkproblemen) verliezen gebruikers geen fondsen'
+      ]
+    ]
+  }
+]
+
+const dutchAdvantagesSections: InfoSection[] = [
+  {
+    title: '1. Volledig geautomatiseerd handelen',
+    lists: [
+      [
+        'Handelt 24/7 zonder gebruikersinterventie',
+        'Gebruikt Smart Money Concepts, liquiditeitsanalyse, orderboeklezing en institutioneel risicobeheer',
+        'Geen charts volgen of handmatige beslissingen nodig',
+        'Genereert betrouwbaar passief inkomen met minimale inspanning'
+      ]
+    ]
+  },
+  {
+    title: '2. Hoog slagingspercentage en winstgevendheid',
+    lists: [
+      [
+        'Meer dan 90 % succesrate op basis van 5–10 jaar geteste strategieën',
+        'Risk/Reward-ratio is altijd minimaal 1:5',
+        'Dagelijkse winstmogelijkheden tussen 1 % en 11 % afhankelijk van het plan',
+        'Geavanceerde algoritmes zorgen voor consistente resultaten, zelfs bij volatiliteit'
+      ]
+    ]
+  },
+  {
+    title: '3. Maximale beveiliging en kapitaalbescherming',
+    lists: [
+      [
+        'Klantenfondsen zijn versleuteld en ontoegankelijk voor het team',
+        'De reservepool (25 % van de winsten) beschermt stortingen en opbrengsten tegen verliezen',
+        'Maximaal 1 % risico per trade van je deposito',
+        'Multilayer beveiliging op servers en binnen Telegram',
+        'Zelfs bij zeldzame uitval of black swan events blijft kapitaal beschermd'
+      ]
+    ]
+  },
+  {
+    title: '4. Instant opnames',
+    lists: [
+      [
+        'Opnames worden in 3 seconden plus netwerktijd verwerkt',
+        'Fondsen zijn altijd beschikbaar zonder blokkades of wachttijden',
+        'Ondersteunt opnames in USDT of USDC voor stabiliteit tijdens volatiliteit'
+      ]
+    ]
+  },
+  {
+    title: '5. Volledige transparantie',
+    lists: [
+      [
+        'Alle trades en winsten zijn traceerbaar',
+        'Volledige zichtbaarheid zorgt ervoor dat er geen verborgen operaties zijn',
+        'Je kunt transacties laten verifiëren via support'
+      ]
+    ]
+  },
+  {
+    title: '6. Gelicentieerd en gereguleerd',
+    lists: [
+      [
+        'Opereren onder Syntrix Algo Systems LLC, Dubai',
+        'Gelicentieerd voor algoritmische crypto trading bots',
+        'Wettelijke compliance zorgt voor vertrouwen'
+      ]
+    ]
+  },
+  {
+    title: '7. Flexibele wallet-functionaliteit',
+    lists: [
+      [
+        'Syntrix werkt als een crypto wallet met hoog rendement',
+        'Stortingen en opnames in minder dan een minuut',
+        'Fondsen blijven beschikbaar terwijl ze passief inkomen opleveren'
+      ]
+    ]
+  },
+  {
+    title: '8. Geen technische rompslomp',
+    lists: [
+      [
+        'Geen mining hardware of energiekosten nodig',
+        'Alle processen verlopen automatisch',
+        'De bot beheert volatiliteit, liquiditeit en risico zonder jouw tussenkomst'
+      ]
+    ]
+  },
+  {
+    title: '9. Multi-level referralprogramma',
+    lists: [
+      [
+        'Verdien via een 3-niveaus systeem: 4 % / 3 % / 2 %',
+        'Maximaal 9 % passief inkomen dankzij referenties',
+        'Stimuleert organische groei zonder jouw kapitaal aan te tasten'
+      ]
+    ]
+  },
+  {
+    title: '10. Telegram beveiliging geïntegreerd',
+    lists: [
+      [
+        'Optionele 2FA beveiliging voor accounts',
+        'Geheim vraag- en antwoordsysteem voor herstel',
+        'Fondsen blijven veilig als je telefoon of SIM verloren gaat'
+      ]
+    ]
+  },
+  {
+    title: '11. Perfect voor beginners en professionals',
+    lists: [
+      [
+        'Geen ervaring met handelen nodig',
+        'Professionals benutten geavanceerde algoritmes',
+        'Ideale oplossing voor betrouwbaar crypto-inkomen'
+      ]
+    ]
+  }
+]
+
 export const translations = {
   ENGLISH: {
     appTitle: 'Syntrix Bot',
@@ -984,7 +1885,7 @@ export const translations = {
     securityDescription: 'Multi-level protection for your investments and peace of mind',
     securitySections: englishSecuritySections,
     advantagesSections: englishAdvantagesSections,
-    whitepaperContent: englishWhitepaperContent,
+    whitepaperContent: spanishWhitepaperContent,
     faqIntro: 'Find answers to the most common questions about Syntrix and get started faster.',
     faqSections: englishFAQSections,
     faqPlansTitle: 'Income Plans',
@@ -1297,7 +2198,7 @@ export const translations = {
     securityDescription: 'Protección multicapa para tu inversión y tranquilidad',
     securitySections: spanishSecuritySections,
     advantagesSections: spanishAdvantagesSections,
-    whitepaperContent: englishWhitepaperContent,
+    whitepaperContent: spanishWhitepaperContent,
     faqIntro: 'Encuentra respuestas a las preguntas más frecuentes y comienza más rápido con Syntrix.',
     faqSections: spanishFAQSections,
     faqPlansTitle: 'Planes de ingreso',
@@ -1323,7 +2224,457 @@ export const translations = {
     faq: 'Preguntas',
     welcomeMatrix: 'BIENVENIDO A SYNTRIX',
     profitsNotRandom: 'Las ganancias no son al azar'
+  },
+  FRENCH: {
+    appTitle: 'Syntrix Bot',
+    wallet: 'Portefeuille',
+    invite: 'Inviter',
+    home: 'Accueil',
+    calculator: 'Calculatrice',
+    profile: 'Profil',
+    totalBalance: 'Solde total :',
+    profit: 'Profit :',
+    deposit: 'Dépôt :',
+    reinvest: 'RÉINVESTIR',
+    depositBtn: 'DÉPOSER',
+    inactive: 'INACTIF',
+    leftUntilBronze: 'jusqu\'à Bronze',
+    incomePlans: 'PLANS DE REVENU',
+    dailyUpdate: 'MISE À JOUR QUOTIDIENNE',
+    noEarningsData: 'Pas de données de gains',
+    walletComingSoon: 'Fonctionnalité portefeuille bientôt disponible',
+    manageYourBalance: 'GÉREZ VOTRE SOLDE',
+    availableBalance: 'Solde disponible :',
+    howToDeposit: 'Comment déposer',
+    withdraw: 'RETIRER',
+    howToWithdraw: 'Comment retirer',
+    transactionsHistory: 'HISTORIQUE DES TRANSACTIONS',
+    noTransactionsYet: 'Pas encore de transactions',
+    inviteFriends: 'Invitez des amis',
+    referralBalance: 'Solde de parrainage :',
+    yourReferralLink: 'VOTRE LIEN DE PARRAINAGE',
+    termsOfTheProgram: 'CONDITIONS DU PROGRAMME',
+    friendDeposit: 'Dépôt d’un ami',
+    earnings: 'Gains',
+    friendOfAFriend: 'Ami d’un ami',
+    thirdLevel: 'Troisième niveau',
+    yourReferrals: 'VOS PARRAINAGES',
+    noReferralsYet: 'Pas encore de parrainages',
+    linkCopied: 'Lien copié dans le presse-papiers',
+    calculateYourProfit: 'CALCULEZ VOTRE GAIN',
+    depositAmount: 'Montant du dépôt',
+    enterAmount: 'Entrez un montant',
+    timePeriodSelection: 'Sélection de la période',
+    enterDays: 'Entrez les jours',
+    reinvestToggle: 'Réinvestir',
+    profitText: 'Profit :',
+    summary: 'Résumé',
+    totalProfit: 'GAIN TOTAL :',
+    totalFunds: 'FONDS TOTAUX :',
+    leaderboard: 'Classement',
+    accountBalance: 'Solde du compte :',
+    referralEarnings: 'Gains de parrainage :',
+    totalReferrals: 'Total des parrainages :',
+    welcome: 'Bienvenue chez Syntrix',
+    websiteLink: 'Site Web',
+    verifyWithSyntrix: 'Vérifier avec Syntrix',
+    languageChanged: 'Langue changée en',
+    idCopied: 'ID copiée',
+    back: 'Retour',
+    selectCurrency: 'Sélectionner la devise',
+    enterAmountDollar: 'Entrez le montant $',
+    continue: 'CONTINUER',
+    faqTitle: 'SYNTRIX — FAQ',
+    faqSubtitle: 'Foire aux questions',
+    faqDescription: 'Réponses aux questions fréquentes sur Syntrix',
+    securityTitle: 'Sécurité',
+    whitepaperTitle: 'Livre Blanc SYNTRIX',
+    withdrawTitle: 'RETIRER LES GAINS',
+    incomePlansTitle: 'Plans de revenu',
+    tableDeposit: 'Dépôt',
+    tableDailyProfit: 'Gain quotidien',
+    advantagesTitle: 'Avantages',
+    advantagesSubtitle: 'Pourquoi choisir Syntrix',
+    advantagesDescription: 'Découvrez les bénéfices qui font de Syntrix le meilleur choix pour les investisseurs crypto',
+    securitySubtitle: 'Sécurité Syntrix',
+    securityDescription: 'Protection multi-niveaux pour vos investissements et votre tranquillité',
+    securitySections: frenchSecuritySections,
+    advantagesSections: frenchAdvantagesSections,
+    whitepaperContent: frenchWhitepaperContent,
+    faqIntro: 'Trouvez des réponses aux questions les plus fréquentes sur Syntrix et démarrez plus vite.',
+    faqSections: frenchFAQSections,
+    faqPlansTitle: 'Plans de revenu',
+    faqPlans: frenchFAQPlans,
+    advantage1Title: '1. Trading entièrement automatisé',
+    advantage1Text1: '• Opère 24h/24 et 7j/7 sans intervention utilisateur',
+    advantage1Text2: '• Utilise Smart Money Concepts et des stratégies institutionnelles de gestion des risques',
+    advantage1Text3: '• Pas besoin de surveiller les graphiques ou de prendre des décisions manuelles',
+    advantage1Text4: '• Génère un revenu passif fiable avec un minimum d\'effort',
+    advantage2Title: '2. Taux de réussite élevé et rentabilité',
+    advantage2Text1: '• Taux de réussite supérieur à 90 % basé sur 5-10 ans de stratégies testées',
+    advantage2Text2: '• Ratio risque/rendement toujours au moins 1:5',
+    advantage2Text3: '• Potentiel de gain quotidien de 1 % à 11 % selon votre plan',
+    advantage2Text4: '• Des algorithmes avancés assurent une croissance constante même en marchés volatils',
+    advantage3Title: '3. Sécurité maximale et protection du capital',
+    advantage3Text1: '• Les fonds clients sont chiffrés et inaccessibles à l\'équipe',
+    advantage3Text2: '• Le pool de réserve (25 % des gains) protège dépôts et profits contre les pertes',
+    advantage3Text3: '• Risque maximal par trade de 1 % du dépôt',
+    advantage3Text4: '• Sécurité multicouche sur les serveurs et dans Telegram',
+    advantage3Text5: '• Même avec des pannes techniques rares ou événements imprévus, le capital reste protégé',
+    advantage4Title: '4. Retraits instantanés',
+    advantage4Text1: '• Retraits traités par le bot en 3 secondes, plus le temps réseau',
+    advantage4Text2: '• Les fonds sont toujours disponibles ; pas de blocages ni d\'attente',
+    advantage4Text3: '• Prend en charge les retraits en USDT ou USDC pour rester stable face à la volatilité',
+    advantage5Title: '5. Transparence totale',
+    advantage5Text1: '• Toutes les opérations et profits sont traçables',
+    advantage5Text2: '• Une visibilité complète garantit l\'absence d\'opérations cachées',
+    advantage5Text3: '• Les utilisateurs peuvent demander la vérification des transactions',
+    advantage6Title: '6. Licencié et réglementé',
+    advantage6Text1: '• Opère sous Syntrix Algo Systems LLC, Dubaï',
+    advantage6Text2: '• Titulaire d\'une licence pour les bots de trading algorithmique crypto',
+    advantage6Text3: '• La conformité juridique inspire confiance',
+    advantage7Title: '7. Fonctionnalité wallet flexible',
+    advantage7Text1: '• Syntrix peut servir de wallet crypto à haut rendement',
+    advantage7Text2: '• Dépôts et retraits en moins d\'une minute',
+    advantage7Text3: '• Les fonds restent accessibles tout en générant du revenu',
+    advantage8Title: '8. Sans complications techniques',
+    advantage8Text1: '• Aucun matériel de minage ni coût d\'électricité requis',
+    advantage8Text2: '• Toutes les opérations sont automatisées',
+    advantage8Text3: '• Le bot gère la volatilité et le risque',
+    advantage9Title: '9. Programme de parrainage multi-niveaux',
+    advantage9Text1: '• Gagnez via un système à 3 niveaux : 4 % / 3 % / 2 %',
+    advantage9Text2: '• Revenu passif maximal de 9 % grâce aux parrainages',
+    advantage9Text3: '• Encourage une croissance organique',
+    advantage10Title: '10. Intégration de sécurité Telegram',
+    advantage10Text1: '• Protection 2FA optionnelle pour les comptes utilisateur',
+    advantage10Text2: '• Système question/réponse secrète pour la récupération',
+    advantage10Text3: '• Les fonds restent sécurisés même si le téléphone est perdu',
+    advantage11Title: '11. Idéal pour débutants et professionnels',
+    advantage11Text1: '• Aucune expérience en trading requise',
+    advantage11Text2: '• Les professionnels exploitent des algorithmes avancés',
+    advantage11Text3: '• Solution parfaite pour un revenu crypto fiable',
+    close: 'Fermer',
+    plan: 'Plan',
+    minAmount: 'Montant min',
+    dailyPercent: '% journalier',
+    selectLanguage: 'Choisir la langue',
+    approximateCalculation: 'Calcul approximatif',
+    day: 'jour',
+    profileTitle: 'Profil',
+    id: 'ID',
+    nickname: 'Pseudo',
+    currentPlan: 'Plan actuel',
+    status: 'Statut',
+    language: 'Langue',
+    support: 'Support',
+    advantages: 'Avantages',
+    whitepaperLabel: 'Livre Blanc',
+    security: 'Sécurité',
+    website: 'Site',
+    faq: 'FAQ',
+    welcomeMatrix: 'BIENVENUE CHEZ SYNTRIX',
+    profitsNotRandom: 'Les gains ne sont pas aléatoires'
+  },
+  ITALIAN: {
+    appTitle: 'Syntrix Bot',
+    wallet: 'Portafoglio',
+    invite: 'Invita',
+    home: 'Home',
+    calculator: 'Calcolatrice',
+    profile: 'Profilo',
+    totalBalance: 'Saldo totale :',
+    profit: 'Profitto :',
+    deposit: 'Deposito :',
+    reinvest: 'REINVESTI',
+    depositBtn: 'DEPOSITA',
+    inactive: 'INATTIVO',
+    leftUntilBronze: 'fino a Bronze',
+    incomePlans: 'Piani di reddito',
+    dailyUpdate: 'AGGIORNAMENTO QUOTIDIANO',
+    noEarningsData: 'Nessun dato di guadagno',
+    walletComingSoon: 'Funzionalità wallet in arrivo',
+    manageYourBalance: 'GESTISCI IL TUO SALDO',
+    availableBalance: 'Saldo disponibile :',
+    howToDeposit: 'Come depositare',
+    withdraw: 'RITIRA',
+    howToWithdraw: 'Come ritirare',
+    transactionsHistory: 'STORICO TRANSAZIONI',
+    noTransactionsYet: 'Ancora nessuna transazione',
+    inviteFriends: 'Invita amici',
+    referralBalance: 'Saldo referral :',
+    yourReferralLink: 'IL TUO LINK DI REFERRAL',
+    termsOfTheProgram: 'TERMINI DEL PROGRAMMA',
+    friendDeposit: 'Deposito di un amico',
+    earnings: 'Guadagni',
+    friendOfAFriend: 'Amico di un amico',
+    thirdLevel: 'Terzo livello',
+    yourReferrals: 'I TUOI REFERRAL',
+    noReferralsYet: 'Ancora nessun referral',
+    linkCopied: 'Link copiato negli appunti',
+    calculateYourProfit: 'CALCOLA IL TUO GUADAGNO',
+    depositAmount: 'Importo deposito',
+    enterAmount: 'Inserisci importo',
+    timePeriodSelection: 'Seleziona il periodo',
+    enterDays: 'Inserisci i giorni',
+    reinvestToggle: 'Reinvesti',
+    profitText: 'Profitto :',
+    summary: 'Riepilogo',
+    totalProfit: 'PROFITTO TOTALE :',
+    totalFunds: 'FONDI TOTALI :',
+    leaderboard: 'Classifica',
+    accountBalance: 'Saldo conto :',
+    referralEarnings: 'Guadagni referral :',
+    totalReferrals: 'Totale referral :',
+    welcome: 'Benvenuto in Syntrix',
+    websiteLink: 'Sito web',
+    verifyWithSyntrix: 'Verifica con Syntrix',
+    languageChanged: 'Lingua cambiata in',
+    idCopied: 'ID copiata',
+    back: 'Indietro',
+    selectCurrency: 'Seleziona valuta',
+    enterAmountDollar: 'Inserisci importo $',
+    continue: 'CONTINUA',
+    faqTitle: 'SYNTRIX — FAQ',
+    faqSubtitle: 'Domande frequenti',
+    faqDescription: 'Risposte alle domande più comuni su Syntrix',
+    securityTitle: 'Sicurezza',
+    whitepaperTitle: 'WhitePaper Syntrix',
+    withdrawTitle: 'RITIRA I GUADAGNI',
+    incomePlansTitle: 'Piani di reddito',
+    tableDeposit: 'Deposito',
+    tableDailyProfit: 'Profitto giornaliero',
+    advantagesTitle: 'Vantaggi',
+    advantagesSubtitle: 'Perché scegliere Syntrix',
+    advantagesDescription: 'Scopri i benefici che rendono Syntrix la scelta migliore per gli investitori crypto',
+    securitySubtitle: 'Sicurezza Syntrix',
+    securityDescription: 'Protezione multilivello per i tuoi investimenti e la tua tranquillità',
+    securitySections: italianSecuritySections,
+    advantagesSections: italianAdvantagesSections,
+    whitepaperContent: italianWhitepaperContent,
+    faqIntro: 'Trova risposte alle domande frequenti su Syntrix e inizia più velocemente.',
+    faqSections: italianFAQSections,
+    faqPlansTitle: 'Piani di reddito',
+    faqPlans: italianFAQPlans,
+    advantage1Title: '1. Trading completamente automatizzato',
+    advantage1Text1: '• Opera 24/7 senza interventi manuali',
+    advantage1Text2: '• Usa Smart Money Concepts e strategie istituzionali di gestione del rischio',
+    advantage1Text3: '• Non serve monitorare i grafici o prendere decisioni manuali',
+    advantage1Text4: '• Genera reddito passivo affidabile con minimo sforzo',
+    advantage2Title: '2. Alto tasso di successo e redditività',
+    advantage2Text1: '• Successo oltre il 90 % grazie a strategie testate 5-10 anni',
+    advantage2Text2: '• Rapporto rischio/ricompensa sempre almeno 1:5',
+    advantage2Text3: '• Potenziale di guadagno giornaliero tra 1 % e 11 % a seconda del piano',
+    advantage2Text4: '• Algoritmi avanzati garantiscono guadagni costanti anche in mercati volatili',
+    advantage3Title: '3. Massima sicurezza e protezione del capitale',
+    advantage3Text1: '• I fondi sono crittografati e inaccessibili al team',
+    advantage3Text2: '• Pool di riserva (25 % dei profitti) protegge depositi e rendimenti',
+    advantage3Text3: '• Rischio massimo per trade 1 % del deposito',
+    advantage3Text4: '• Sicurezza multilivello sui server e all\'interno di Telegram',
+    advantage3Text5: '• Anche in eventi tecnici rari il capitale resta protetto',
+    advantage4Title: '4. Prelievi istantanei',
+    advantage4Text1: '• Prelievi gestiti dal bot in 3 secondi più tempo di rete',
+    advantage4Text2: '• Fondi sempre disponibili, senza blocchi o attese',
+    advantage4Text3: '• Supporta prelievi in USDT o USDC per stabilità contro la volatilità',
+    advantage5Title: '5. Trasparenza totale',
+    advantage5Text1: '• Tutti i trade e i profitti sono tracciabili',
+    advantage5Text2: '• Visibilità completa garantisce nessuna operazione nascosta',
+    advantage5Text3: '• Puoi richiedere verifiche delle transazioni al supporto',
+    advantage6Title: '6. Licenziato e regolamentato',
+    advantage6Text1: '• Opera come Syntrix Algo Systems LLC, Dubai',
+    advantage6Text2: '• Autorizzato per bot di trading algoritmico crypto',
+    advantage6Text3: '• Compliance legale crea fiducia',
+    advantage7Title: '7. Funzionalità wallet flessibile',
+    advantage7Text1: '• Syntrix può essere usato come wallet ad alto rendimento',
+    advantage7Text2: '• Depositi e prelievi in meno di un minuto',
+    advantage7Text3: '• I fondi restano accessibili mentre generano reddito',
+    advantage8Title: '8. Nessuna complicazione tecnica',
+    advantage8Text1: '• Nessuna attrezzatura di mining o costi elettrici',
+    advantage8Text2: '• Tutte le operazioni sono automatizzate',
+    advantage8Text3: '• Il bot gestisce volatilità e rischio automaticamente',
+    advantage9Title: '9. Programma referral multi-livello',
+    advantage9Text1: '• Guadagna tramite 3 livelli: 4 % / 3 % / 2 %',
+    advantage9Text2: '• Reddito passivo massimo del 9 % dai referral',
+    advantage9Text3: '• Favorisce crescita organica senza intaccare il capitale',
+    advantage10Title: '10. Sicurezza Telegram integrata',
+    advantage10Text1: '• Protezione 2FA opzionale per l\'account',
+    advantage10Text2: '• Domanda/risposta segreta per recuperare l\'accesso',
+    advantage10Text3: '• I fondi restano protetti anche se perdi telefono o SIM',
+    advantage11Title: '11. Ideale per principianti e professionisti',
+    advantage11Text1: '• Non serve esperienza di trading',
+    advantage11Text2: '• I professionisti sfruttano algoritmi avanzati',
+    advantage11Text3: '• Soluzione perfetta per reddito crypto affidabile',
+    close: 'Chiudi',
+    plan: 'Piano',
+    minAmount: 'Importo min',
+    dailyPercent: '% giornaliero',
+    selectLanguage: 'Seleziona lingua',
+    approximateCalculation: 'Calcolo approssimato',
+    day: 'giorno',
+    profileTitle: 'Profilo',
+    id: 'ID',
+    nickname: 'Nickname',
+    currentPlan: 'Piano attuale',
+    status: 'Stato',
+    language: 'Lingua',
+    support: 'Supporto',
+    advantages: 'Vantaggi',
+    whitepaperLabel: 'WhitePaper',
+    security: 'Sicurezza',
+    website: 'Sito',
+    faq: 'FAQ',
+    welcomeMatrix: 'BENVENUTO IN SYNTRIX',
+    profitsNotRandom: 'I profitti non sono casuali'
   }
+  DUTCH: {
+    appTitle: 'Syntrix Bot',
+    wallet: 'Portemonnee',
+    invite: 'Uitnodigen',
+    home: 'Home',
+    calculator: 'Calculator',
+    profile: 'Profiel',
+    totalBalance: 'Totaalsaldo:',
+    profit: 'Winst:',
+    deposit: 'Storting:',
+    reinvest: 'HERINVESTEREN',
+    depositBtn: 'STORTEN',
+    inactive: 'INACTIEF',
+    leftUntilBronze: 'tot Bronze',
+    incomePlans: 'INKOMSTPLANNEN',
+    dailyUpdate: 'DAGELIJKSE UPDATE',
+    noEarningsData: 'Geen winstgegevens',
+    walletComingSoon: 'Wallet-functionaliteit binnenkort beschikbaar',
+    manageYourBalance: 'BEHEER JE SALDO',
+    availableBalance: 'Beschikbaar saldo:',
+    howToDeposit: 'Hoe stort ik',
+    withdraw: 'OPNEMEN',
+    howToWithdraw: 'Hoe op te nemen',
+    transactionsHistory: 'TRANSACTIEGESCHIEDENIS',
+    noTransactionsYet: 'Nog geen transacties',
+    inviteFriends: 'Nodig vrienden uit',
+    referralBalance: 'Referral saldo:',
+    yourReferralLink: 'JOUW REFERRALLINK',
+    termsOfTheProgram: 'PROGRAMMACONDITIES',
+    friendDeposit: 'Storting van een vriend',
+    earnings: 'Winst',
+    friendOfAFriend: 'Vriend van een vriend',
+    thirdLevel: 'Derde niveau',
+    yourReferrals: 'JOUW REFERRALS',
+    noReferralsYet: 'Nog geen referrals',
+    linkCopied: 'Link gekopieerd naar clipboard',
+    calculateYourProfit: 'BEREKEN JE WINST',
+    depositAmount: 'Stortingsbedrag',
+    enterAmount: 'Voer bedrag in',
+    timePeriodSelection: 'Kies periode',
+    enterDays: 'Voer dagen in',
+    reinvestToggle: 'Herinvesteren',
+    profitText: 'Winst:',
+    summary: 'Samenvatting',
+    totalProfit: 'TOTALE WINST:',
+    totalFunds: 'TOTALE MIDDELEN:',
+    leaderboard: 'Ranglijst',
+    accountBalance: 'Rekeningsaldo:',
+    referralEarnings: 'Referral opbrengst:',
+    totalReferrals: 'Totaal referrals:',
+    welcome: 'Welkom bij Syntrix',
+    websiteLink: 'Website',
+    verifyWithSyntrix: 'Verifieer met Syntrix',
+    languageChanged: 'Taal gewijzigd naar',
+    idCopied: 'ID gekopieerd',
+    back: 'Terug',
+    selectCurrency: 'Selecteer valuta',
+    enterAmountDollar: 'Voer bedrag in $',
+    continue: 'DOORGAAN',
+    faqTitle: 'SYNTRIX — FAQ',
+    faqSubtitle: 'Veelgestelde vragen',
+    faqDescription: 'Vind antwoorden op vaak gestelde vragen over Syntrix',
+    securityTitle: 'Beveiliging',
+    whitepaperTitle: 'Whitepaper van Syntrix',
+    withdrawTitle: 'WINST OPNEMEN',
+    incomePlansTitle: 'Inkomstplannen',
+    tableDeposit: 'Storting',
+    tableDailyProfit: 'Dagelijkse winst',
+    advantagesTitle: 'Voordelen',
+    advantagesSubtitle: 'Waarom Syntrix kiezen',
+    advantagesDescription: 'Ontdek de unieke voordelen die Syntrix tot de beste keuze voor crypto-investeerders maken',
+    securitySubtitle: 'Syntrix beveiliging',
+    securityDescription: 'Meerdere beschermingslagen voor je investering en gemoedsrust',
+    securitySections: dutchSecuritySections,
+    advantagesSections: dutchAdvantagesSections,
+    whitepaperContent: dutchWhitepaperContent,
+    faqIntro: 'Vind antwoorden op de meest gestelde vragen en begin sneller.',
+    faqSections: dutchFAQSections,
+    faqPlansTitle: 'Inkomstplannen',
+    faqPlans: dutchFAQPlans,
+    advantage1Title: '1. Volledig geautomatiseerd handelen',
+    advantage1Text1: '• Handelt 24/7 zonder gebruikersinterventie',
+    advantage1Text2: '• Gebruikt Smart Money Concepts en institutionele risicobeheerstrategieën',
+    advantage1Text3: '• Geen grafieken of handmatige beslissingen nodig',
+    advantage1Text4: '• Genereert betrouwbaar passief inkomen met minimale inspanning',
+    advantage2Title: '2. Hoog slagingspercentage en winstgevendheid',
+    advantage2Text1: '• Meer dan 90 % succesratio gebaseerd op 5–10 jaar geteste strategieën',
+    advantage2Text2: '• Risk/Reward-ratio blijft minimaal 1:5',
+    advantage2Text3: '• Dagelijks winstpotentieel van 1 % tot 11 % afhankelijk van je abonnement',
+    advantage2Text4: '• Geavanceerde algoritmes leveren constante winsten tijdens volatiliteit',
+    advantage3Title: '3. Maximale beveiliging en kapitaalbescherming',
+    advantage3Text1: '• Klantenfondsen zijn versleuteld en ontoegankelijk',
+    advantage3Text2: '• Reservepool (25 % van de winsten) beschermt stortingen en opbrengsten tegen verliezen',
+    advantage3Text3: '• Maximaal 1 % risico per trade van je storting',
+    advantage3Text4: '• Multilayer beveiliging op servers en binnen Telegram',
+    advantage3Text5: '• Zelfs bij zeldzame storingen blijft kapitaal beschermd',
+    advantage4Title: '4. Instant opnames',
+    advantage4Text1: '• Opnames in 3 seconden plus netwerktijd',
+    advantage4Text2: '• Fondsen zijn altijd beschikbaar zonder blokkades',
+    advantage4Text3: '• Ondersteunt opnames in USDT of USDC voor stabiliteit tegen volatiliteit',
+    advantage5Title: '5. Volledige transparantie',
+    advantage5Text1: '• Alle trades en winsten zijn traceerbaar',
+    advantage5Text2: '• Volledige zichtbaarheid voorkomt verborgen operaties',
+    advantage5Text3: '• Je kunt transacties laten verifiëren via support',
+    advantage6Title: '6. Gelicentieerd en gereguleerd',
+    advantage6Text1: '• Opereren onder Syntrix Algo Systems LLC, Dubai',
+    advantage6Text2: '• Gelicenseerd voor algoritmische crypto trading bots',
+    advantage6Text3: '• Juridische compliance creëert vertrouwen',
+    advantage7Title: '7. Flexibele wallet-functionaliteit',
+    advantage7Text1: '• Syntrix werkt als wallet met hoog rendement',
+    advantage7Text2: '• Stortingen en opnames duren minder dan een minuut',
+    advantage7Text3: '• Fondsen blijven bereikbaar terwijl ze inkomsten genereren',
+    advantage8Title: '8. Geen technische rompslomp',
+    advantage8Text1: '• Geen mining hardware of energiekosten vereist',
+    advantage8Text2: '• Alles verloopt automatisch',
+    advantage8Text3: '• De bot beheert volatiliteit en risico zonder jouw input',
+    advantage9Title: '9. Multi-level referralprogramma',
+    advantage9Text1: '• Verdien via een 3-niveaus systeem: 4 % / 3 % / 2 %',
+    advantage9Text2: '• Maximaal 9 % passief inkomen dankzij referrals',
+    advantage9Text3: '• Stimuleert organische groei zonder jouw kapitaal aan te tasten',
+    advantage10Title: '10. Telegram beveiligingsintegratie',
+    advantage10Text1: '• Optionele 2FA voor accounts',
+    advantage10Text2: '• Geheim vraag-en-antwoord systeem voor herstel',
+    advantage10Text3: '• Fondsen blijven veilig als je telefoon of SIM wordt verloren',
+    advantage11Title: '11. Perfect voor beginners en professionals',
+    advantage11Text1: '• Geen ervaring met handelen nodig',
+    advantage11Text2: '• Professionals benutten geavanceerde algoritmes',
+    advantage11Text3: '• Ideale oplossing voor betrouwbaar crypto-inkomen',
+    close: 'Sluiten',
+    plan: 'Plan',
+    minAmount: 'Minimaal bedrag',
+    dailyPercent: 'Dagelijks %',
+    selectLanguage: 'Selecteer taal',
+    approximateCalculation: 'Geschatte berekening',
+    day: 'dag',
+    profileTitle: 'Profiel',
+    id: 'ID',
+    nickname: 'Bijnaam',
+    currentPlan: 'Huidig plan',
+    status: 'Status',
+    language: 'Taal',
+    support: 'Support',
+    advantages: 'Voordelen',
+    whitepaperLabel: 'WhitePaper',
+    security: 'Beveiliging',
+    website: 'Website',
+    faq: 'FAQ',
+    welcomeMatrix: 'WELKOM BIJ SYNTRIX',
+    profitsNotRandom: 'Winsten zijn geen toeval'
+  },
 } as const
 
 export type Language = keyof typeof translations
