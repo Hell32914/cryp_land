@@ -3,7 +3,6 @@
 // Only essential UI translations are included
 
 import {
-  englishWhitepaperContent,
   germanWhitepaperContent,
   spanishWhitepaperContent,
   frenchWhitepaperContent,

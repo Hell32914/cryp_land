@@ -491,13 +491,16 @@ function App() {
     { name: 'Black', minAmount: '$20000+', dailyPercent: '7%' }
   ]
 
-  const languages: Language[] = ['ENGLISH', 'GERMAN', 'SPANISH']
+  const languages: Language[] = ['ENGLISH', 'GERMAN', 'SPANISH', 'FRENCH', 'ITALIAN', 'DUTCH']
 
   const getLanguageDisplayName = (lang: Language): string => {
     const names: Record<Language, string> = {
       ENGLISH: 'English',
       GERMAN: 'Deutsch',
-      SPANISH: 'Español'
+      SPANISH: 'Español',
+      FRENCH: 'Français',
+      ITALIAN: 'Italiano',
+      DUTCH: 'Nederlands'
     }
     return names[lang]
   }
