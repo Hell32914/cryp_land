@@ -2524,7 +2524,7 @@ export const translations = {
     faq: 'FAQ',
     welcomeMatrix: 'BENVENUTO IN SYNTRIX',
     profitsNotRandom: 'I profitti non sono casuali'
-  }
+  },
   DUTCH: {
     appTitle: 'Syntrix Bot',
     wallet: 'Portemonnee',
