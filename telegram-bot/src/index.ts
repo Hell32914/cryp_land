@@ -864,9 +864,9 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
   let message = `👥 Users List (Page ${page}/${totalPages}, Total: ${totalUsers}):\n\n`
   
   users.forEach((user, index) => {
-    const username = (user.username || 'no_username').replace(/_/g, '\\_')
+    const username = user.username ? `@${user.username}` : 'no username'
     const num = skip + index + 1
-    message += `${num}. @${username}\n`
+    message += `${num}. ${username}\n`
     message += `   ID: ${user.telegramId}\n`
     message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
   })
@@ -893,7 +893,7 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
-  await safeEditMessage(ctx, message, { reply_markup: keyboard })
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
   await safeAnswerCallback(ctx)
 })
 
