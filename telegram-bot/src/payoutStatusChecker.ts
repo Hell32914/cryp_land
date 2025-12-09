@@ -6,11 +6,10 @@ const prisma = new PrismaClient()
 // Check status of pending withdrawals and update with blockchain hash
 export async function checkPendingPayouts() {
   try {
-    // Find all completed withdrawals that have trackId but no txHash
+    // Find all completed withdrawals that have no txHash or fake txHash
     const pendingWithdrawals = await prisma.withdrawal.findMany({
       where: {
         status: 'COMPLETED',
-        trackId: { not: null },
         OR: [
           { txHash: null },
           { txHash: { not: { contains: '0x' } } } // Filter out real blockchain hashes
@@ -28,7 +27,12 @@ export async function checkPendingPayouts() {
 
     for (const withdrawal of pendingWithdrawals) {
       try {
-        const statusData = await checkPayoutStatus(withdrawal.trackId!)
+        // Skip if no txHash to check
+        if (!withdrawal.txHash) {
+          continue
+        }
+        
+        const statusData = await checkPayoutStatus(withdrawal.txHash)
         
         // Check if we got a blockchain transaction hash
         const txID = statusData.data?.txID || statusData.txID
