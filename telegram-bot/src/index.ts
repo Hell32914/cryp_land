@@ -137,6 +137,17 @@ async function getUserRole(userId: string): Promise<string> {
   return user?.role || 'user'
 }
 
+// Format user display name for messages
+function formatUserDisplay(user: { username?: string | null, phoneNumber?: string | null }): string {
+  if (user.username) {
+    return '@' + user.username.replace(/_/g, '\\_')
+  } else if (user.phoneNumber) {
+    return user.phoneNumber
+  } else {
+    return 'no\\_username'
+  }
+}
+
 // Send notification to support team (admins + supports)
 export async function notifySupport(message: string, options?: any) {
   const results = []
@@ -416,6 +427,7 @@ bot.command('start', async (ctx) => {
         username: ctx.from?.username,
         firstName: ctx.from?.first_name,
         lastName: ctx.from?.last_name,
+        phoneNumber: ctx.from?.username ? null : ctx.from?.id.toString(),
         languageCode: ctx.from?.language_code,
         referredBy: referrerId,
         marketingSource,
@@ -919,7 +931,7 @@ bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
 
   await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
-    `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `Username: ${formatUserDisplay(user)}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
     `💼 *Financial Summary:*\n` +
@@ -998,7 +1010,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
 
   await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
-    `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `Username: ${formatUserDisplay(user)}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `${getCountryFlag(user.languageCode)} Language: ${user.languageCode?.toUpperCase() || 'Unknown'}\n` +
     `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
@@ -1089,9 +1101,18 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
   
   keyboard.text('◀️ Back to Users', 'admin_users')
 
+  let displayName = ''
+  if (user.username) {
+    displayName = `@${user.username.replace(/_/g, '\\_')}`
+  } else if (user.phoneNumber) {
+    displayName = user.phoneNumber
+  } else {
+    displayName = 'no\\_username'
+  }
+
   await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
-    `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `User: ${displayName}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
     `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) - user.totalWithdraw - user.profit).toFixed(2)}\n` +
@@ -1126,7 +1147,7 @@ bot.callbackQuery(/^add_balance_(\d+)$/, async (ctx) => {
 
   await safeEditMessage(ctx, 
     `💰 *Add Balance*\n\n` +
-    `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `User: ${formatUserDisplay(user)}\n` +
     `Current Deposit: $${user.totalDeposit.toFixed(2)}\n\n` +
     `Please reply with the amount to add (e.g., 100):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -1157,7 +1178,7 @@ bot.callbackQuery(/^withdraw_balance_(\d+)$/, async (ctx) => {
 
   await safeEditMessage(ctx, 
     `💸 *Withdraw Balance*\n\n` +
-    `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `User: ${formatUserDisplay(user)}\n` +
     `Current Deposit: $${user.totalDeposit.toFixed(2)}\n\n` +
     `Please reply with the amount to withdraw (e.g., 50):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -1188,7 +1209,7 @@ bot.callbackQuery(/^add_profit_(\d+)$/, async (ctx) => {
 
   await safeEditMessage(ctx, 
     `📈 *Add Profit*\n\n` +
-    `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+    `User: ${formatUserDisplay(user)}\n` +
     `Current Profit: $${user.profit.toFixed(2)}\n` +
     `Total Balance: $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
     `Please reply with the profit amount to add (e.g., 25.50):`,
@@ -1516,7 +1537,7 @@ bot.on('message:text', async (ctx) => {
     // Confirm to admin
     await ctx.reply(
       `✅ *Deposit Added Successfully*\n\n` +
-      `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+      `User: ${formatUserDisplay(user)}\n` +
       `Amount: +$${amount.toFixed(2)}\n` +
       `New Deposit: $${user.totalDeposit.toFixed(2)}`,
       { parse_mode: 'Markdown' }
@@ -1565,7 +1586,7 @@ bot.on('message:text', async (ctx) => {
       // Confirm to admin
       await ctx.reply(
         `✅ *Balance Withdrawn Successfully*\n\n` +
-        `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+        `User: ${formatUserDisplay(user)}\n` +
         `Amount: -$${amount.toFixed(2)}\n` +
         `Previous Deposit: $${currentUser.totalDeposit.toFixed(2)}\n` +
         `New Deposit: $${user.totalDeposit.toFixed(2)}`,
@@ -1638,7 +1659,7 @@ bot.on('message:text', async (ctx) => {
       // Confirm to admin
       await ctx.reply(
         `✅ *Profit Added Successfully*\n\n` +
-        `User: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+        `User: ${formatUserDisplay(user)}\n` +
         `Amount: +$${amount.toFixed(2)}\n` +
         `Previous Profit: $${currentUser.profit.toFixed(2)}\n` +
         `New Profit: $${user.profit.toFixed(2)}\n` +
@@ -1738,7 +1759,7 @@ bot.on('message:text', async (ctx) => {
 
       await ctx.reply(
         `👤 *User Found*\n\n` +
-        `Username: @${user.username?.replace(/_/g, '\\_') || 'no\\_username'}\n` +
+        `Username: ${formatUserDisplay(user)}\n` +
         `Telegram ID: \`${user.telegramId}\`\n` +
         `Name: ${user.firstName || 'N/A'}\n\n` +
         `📥 Total Deposited: $${user.totalDeposit.toFixed(2)}\n` +
