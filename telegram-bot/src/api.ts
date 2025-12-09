@@ -1365,7 +1365,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
           }
         })
 
-        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. Payout ID: ${payout.payoutId}, New deposit: $${newDeposit.toFixed(2)}`)
+        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. Withdrawal ID: ${withdrawal.id}, New deposit: $${newDeposit.toFixed(2)}`)
 
         // Notify user about successful withdrawal
         try {
