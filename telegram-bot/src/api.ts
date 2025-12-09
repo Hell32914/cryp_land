@@ -1361,12 +1361,11 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         await prisma.withdrawal.update({
           where: { id: withdrawal.id },
           data: {
-            trackId: payout.trackId,
             status: 'COMPLETED'
           }
         })
 
-        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. Track ID: ${payout.trackId}, New deposit: $${newDeposit.toFixed(2)}`)
+        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. Payout ID: ${payout.payoutId}, New deposit: $${newDeposit.toFixed(2)}`)
 
         // Notify user about successful withdrawal
         try {
@@ -1673,13 +1672,10 @@ app.post('/api/oxapay-callback', async (req, res) => {
     if (type === 'payout' || req.body.hasOwnProperty('payoutId')) {
       console.log('💸 Processing payout callback')
       
-      // Find withdrawal by trackId
+      // Find withdrawal by txHash
       const withdrawal = await prisma.withdrawal.findFirst({
         where: { 
-          OR: [
-            { txHash: trackId },
-            { trackId: trackId }
-          ]
+          txHash: trackId
         },
         include: { user: true }
       })
