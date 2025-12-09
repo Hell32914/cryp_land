@@ -1251,10 +1251,10 @@ bot.callbackQuery(/^add_bonus_(\d+)$/, async (ctx) => {
     .text('Cancel', `manage_${userId}`)
 
   await safeEditMessage(ctx, 
-    `🎁 *Add Bonus Token*\n\n` +
+    `🎁 *Add Syntrix Token*\n\n` +
     `User: ${formatUserDisplay(user)}\n` +
-    `Current Bonus Tokens: $${user.bonusTokens.toFixed(2)}\n\n` +
-    `Please reply with the bonus amount to add (e.g., 25):`,
+    `Current Syntrix Token: $${user.bonusTokens.toFixed(2)}\n\n` +
+    `Please reply with the amount to add (e.g., 25):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
@@ -1282,10 +1282,10 @@ bot.callbackQuery(/^remove_bonus_(\d+)$/, async (ctx) => {
     .text('Cancel', `manage_${userId}`)
 
   await safeEditMessage(ctx, 
-    `🗑 *Remove Bonus Token*\n\n` +
+    `🗑 *Remove Syntrix Token*\n\n` +
     `User: ${formatUserDisplay(user)}\n` +
-    `Current Bonus Tokens: $${user.bonusTokens.toFixed(2)}\n\n` +
-    `Please reply with the bonus amount to remove (e.g., 10):`,
+    `Current Syntrix Token: $${user.bonusTokens.toFixed(2)}\n\n` +
+    `Please reply with the amount to remove (e.g., 10):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
@@ -1787,13 +1787,13 @@ bot.on('message:text', async (ctx) => {
       })
 
       // Notify user
-      const userMessage = `🎁 *Bonus Tokens Added!*\n\n` +
-        `+$${amount.toFixed(2)} bonus tokens\n` +
-        `New Bonus Tokens: $${user.bonusTokens.toFixed(2)}\n\n` +
+      const userMessage = `🎁 *Syntrix Token Added!*\n\n` +
+        `+$${amount.toFixed(2)} Syntrix Token\n` +
+        `New Balance: $${user.bonusTokens.toFixed(2)}\n\n` +
         `💡 *How it works:*\n` +
         `• Added to your Total Balance\n` +
         `• Can be reinvested\n` +
-        `• Earns $0.50/week profit\n` +
+        `• Earns 0.5% daily profit (Bronze rate)\n` +
         `• Cannot be withdrawn as cash`
 
       await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
@@ -3147,8 +3147,8 @@ async function accrueDailyProfit() {
       const planInfo = calculateTariffPlan(user.totalDeposit)
       const dailyProfit = (user.totalDeposit * planInfo.dailyPercent) / 100
       
-      // Bonus tokens earn $0.50 per week = $0.071428 per day (approximately $0.50/7)
-      const bonusProfit = (user.bonusTokens || 0) > 0 ? 0.50 / 7 : 0
+      // Syntrix Token earns daily profit at Bronze plan rate (0.5%)
+      const bonusProfit = ((user.bonusTokens || 0) * 0.5) / 100
       const totalDailyProfit = dailyProfit + bonusProfit
 
       await prisma.user.update({
