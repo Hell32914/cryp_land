@@ -973,6 +973,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
       profit: user.profit || 0,
       totalDeposit: user.totalDeposit,
       totalWithdraw: user.totalWithdraw,
+      bonusTokens: user.bonusTokens || 0,
       plan: user.plan,
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,
