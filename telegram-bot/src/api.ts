@@ -1303,11 +1303,11 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.status(400).json({ error: 'Minimum withdrawal amount is $10' })
     }
 
-    // Available balance = totalDeposit + profit (can withdraw profit directly without reinvest)
+    // Available balance = totalDeposit + profit (bonus tokens cannot be withdrawn)
     const availableBalance = user.totalDeposit + (user.profit || 0)
     if (amount > availableBalance) {
       pendingWithdrawalRequests.delete(requestKey)
-      return res.status(400).json({ error: 'Insufficient balance' })
+      return res.status(400).json({ error: 'Insufficient balance. Bonus tokens cannot be withdrawn.' })
     }
 
     if (!address || !currency) {

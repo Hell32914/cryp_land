@@ -3146,17 +3146,21 @@ async function accrueDailyProfit() {
     for (const user of users) {
       const planInfo = calculateTariffPlan(user.totalDeposit)
       const dailyProfit = (user.totalDeposit * planInfo.dailyPercent) / 100
+      
+      // Bonus tokens earn $0.50 per week = $0.071428 per day (approximately $0.50/7)
+      const bonusProfit = (user.bonusTokens || 0) > 0 ? 0.50 / 7 : 0
+      const totalDailyProfit = dailyProfit + bonusProfit
 
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          profit: user.profit + dailyProfit,
+          profit: user.profit + totalDailyProfit,
           lastProfitUpdate: new Date()
         }
       })
 
-      // Generate random daily updates
-      const updates = generateDailyUpdates(dailyProfit)
+      // Generate random daily updates (use total profit including bonus)
+      const updates = generateDailyUpdates(totalDailyProfit)
       
       // Delete old daily updates for this user
       await prisma.dailyProfitUpdate.deleteMany({
@@ -3170,12 +3174,13 @@ async function accrueDailyProfit() {
             userId: user.id,
             amount: update.amount,
             timestamp: update.timestamp,
-            dailyTotal: dailyProfit
+            dailyTotal: totalDailyProfit
           }
         })
       }
 
-      console.log(`💰 Accrued $${dailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%) - ${updates.length} updates`)
+      const bonusInfo = bonusProfit > 0 ? ` + $${bonusProfit.toFixed(4)} bonus` : ''
+      console.log(`💰 Accrued $${totalDailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%${bonusInfo}) - ${updates.length} updates`)
 
       // Distribute referral earnings (3-level cascade: 4%, 3%, 2%)
       // Only if user is active referral (totalDeposit >= $1000)

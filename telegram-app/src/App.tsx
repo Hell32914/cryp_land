@@ -388,10 +388,11 @@ function App() {
     nickname: userData?.nickname || window.Telegram?.WebApp?.initDataUnsafe?.user?.username || 'User',
     plan: userData?.plan || 'Bronze',
     status: userData?.status || 'INACTIVE',
-    // Total Balance = totalDeposit + profit + referralEarnings
-    balance: (userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0),
+    // Total Balance = totalDeposit + profit + referralEarnings + bonusTokens
+    balance: (userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0) + (userData?.bonusTokens || 0),
     totalDeposit: userData?.totalDeposit || 0,
     totalWithdraw: userData?.totalWithdraw || 0,
+    bonusTokens: userData?.bonusTokens || 0,
     isBlocked: userData?.isBlocked || false,
     kycRequired: userData?.kycRequired || false
   }
@@ -1104,7 +1105,7 @@ function App() {
                   <div className="flex items-start justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.totalBalance}</p>
-                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {((userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0)).toFixed(2)}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {((userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0) + (userData?.bonusTokens || 0)).toFixed(2)}</p>
                     </div>
                     <Badge 
                       variant="outline" 
@@ -1128,7 +1129,7 @@ function App() {
                     </Button>
                   </div>
 
-                  <div className="flex items-center justify-between pb-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.deposit}</p>
                       <p className="text-lg sm:text-xl font-bold text-foreground">${(userData?.totalDeposit || 0).toFixed(2)}</p>
@@ -1140,6 +1141,21 @@ function App() {
                       {t.depositBtn}
                     </Button>
                   </div>
+
+                  {(userData?.bonusTokens || 0) > 0 && (
+                    <div className="flex items-center justify-between pb-3">
+                      <div>
+                        <p className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-2">
+                          🎁 Bonus Token
+                          <span className="text-xs opacity-70">($0.50/week)</span>
+                        </p>
+                        <p className="text-lg sm:text-xl font-bold text-primary">${(userData?.bonusTokens || 0).toFixed(2)}</p>
+                      </div>
+                      <Badge variant="outline" className="border-primary text-primary bg-primary/10 px-3 py-1 rounded-lg text-xs">
+                        25$
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               </div>
 
