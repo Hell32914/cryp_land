@@ -999,6 +999,8 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
+    keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
+      .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1104,6 +1106,8 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
+    keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
+      .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1220,6 +1224,68 @@ bot.callbackQuery(/^add_profit_(\d+)$/, async (ctx) => {
     `Current Profit: $${user.profit.toFixed(2)}\n` +
     `Total Balance: $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
     `Please reply with the profit amount to add (e.g., 25.50):`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+// Add bonus tokens to user (admin)
+bot.callbackQuery(/^add_bonus_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'add_bonus', targetUserId: userId })
+
+  const keyboard = new InlineKeyboard()
+    .text('Cancel', `manage_${userId}`)
+
+  await safeEditMessage(ctx, 
+    `🎁 *Add Bonus Token*\n\n` +
+    `User: ${formatUserDisplay(user)}\n` +
+    `Current Bonus Tokens: $${user.bonusTokens.toFixed(2)}\n\n` +
+    `Please reply with the bonus amount to add (e.g., 25):`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+// Remove bonus tokens from user (admin)
+bot.callbackQuery(/^remove_bonus_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'remove_bonus', targetUserId: userId })
+
+  const keyboard = new InlineKeyboard()
+    .text('Cancel', `manage_${userId}`)
+
+  await safeEditMessage(ctx, 
+    `🗑 *Remove Bonus Token*\n\n` +
+    `User: ${formatUserDisplay(user)}\n` +
+    `Current Bonus Tokens: $${user.bonusTokens.toFixed(2)}\n\n` +
+    `Please reply with the bonus amount to remove (e.g., 10):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
@@ -1690,6 +1756,134 @@ bot.on('message:text', async (ctx) => {
     } catch (error) {
       console.error('Error adding profit:', error)
       await ctx.reply('❌ Failed to add profit. Please try again.')
+    }
+    return
+  }
+
+  // Handle add bonus tokens (admin)
+  if (state.awaitingInput === 'add_bonus') {
+    const amount = parseFloat(ctx.message?.text || '')
+    const targetUserId = state.targetUserId
+
+    if (isNaN(amount) || !targetUserId || amount <= 0) {
+      await ctx.reply('❌ Invalid amount. Please enter a positive number.')
+      return
+    }
+
+    try {
+      const currentUser = await prisma.user.findUnique({ where: { id: targetUserId } })
+      if (!currentUser) {
+        await ctx.reply('❌ User not found')
+        adminState.delete(userId)
+        return
+      }
+
+      // Update user bonus tokens
+      const user = await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          bonusTokens: { increment: amount }
+        }
+      })
+
+      // Notify user
+      const userMessage = `🎁 *Bonus Tokens Added!*\n\n` +
+        `+$${amount.toFixed(2)} bonus tokens\n` +
+        `New Bonus Tokens: $${user.bonusTokens.toFixed(2)}\n\n` +
+        `💡 *How it works:*\n` +
+        `• Added to your Total Balance\n` +
+        `• Can be reinvested\n` +
+        `• Earns $0.50/week profit\n` +
+        `• Cannot be withdrawn as cash`
+
+      await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
+      
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'BONUS',
+          message: userMessage
+        }
+      })
+
+      // Confirm to admin
+      await ctx.reply(
+        `✅ *Bonus Tokens Added Successfully*\n\n` +
+        `User: ${formatUserDisplay(user)}\n` +
+        `Amount: +$${amount.toFixed(2)}\n` +
+        `Previous Bonus: $${currentUser.bonusTokens.toFixed(2)}\n` +
+        `New Bonus: $${user.bonusTokens.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error adding bonus tokens:', error)
+      await ctx.reply('❌ Failed to add bonus tokens. Please try again.')
+    }
+    return
+  }
+
+  // Handle remove bonus tokens (admin)
+  if (state.awaitingInput === 'remove_bonus') {
+    const amount = parseFloat(ctx.message?.text || '')
+    const targetUserId = state.targetUserId
+
+    if (isNaN(amount) || !targetUserId || amount <= 0) {
+      await ctx.reply('❌ Invalid amount. Please enter a positive number.')
+      return
+    }
+
+    try {
+      const currentUser = await prisma.user.findUnique({ where: { id: targetUserId } })
+      if (!currentUser) {
+        await ctx.reply('❌ User not found')
+        adminState.delete(userId)
+        return
+      }
+
+      if (currentUser.bonusTokens < amount) {
+        await ctx.reply(`❌ User only has $${currentUser.bonusTokens.toFixed(2)} bonus tokens.`)
+        return
+      }
+
+      // Update user bonus tokens
+      const user = await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          bonusTokens: { decrement: amount }
+        }
+      })
+
+      // Notify user
+      const userMessage = `🗑 *Bonus Tokens Removed*\n\n` +
+        `-$${amount.toFixed(2)} bonus tokens\n` +
+        `Remaining Bonus Tokens: $${user.bonusTokens.toFixed(2)}`
+
+      await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
+      
+      await prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'BONUS',
+          message: userMessage
+        }
+      })
+
+      // Confirm to admin
+      await ctx.reply(
+        `✅ *Bonus Tokens Removed Successfully*\n\n` +
+        `User: ${formatUserDisplay(user)}\n` +
+        `Amount: -$${amount.toFixed(2)}\n` +
+        `Previous Bonus: $${currentUser.bonusTokens.toFixed(2)}\n` +
+        `New Bonus: $${user.bonusTokens.toFixed(2)}`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error removing bonus tokens:', error)
+      await ctx.reply('❌ Failed to remove bonus tokens. Please try again.')
     }
     return
   }
