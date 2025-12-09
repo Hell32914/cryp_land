@@ -871,7 +871,10 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
         : 'no info'
     const num = skip + index + 1
     message += `${num}. ${displayName}\n`
-    message += `   ID: ${user.telegramId}\n`
+    // Show ID only if we didn't show phone number
+    if (!user.phoneNumber) {
+      message += `   ID: ${user.telegramId}\n`
+    }
     message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
   })
 
