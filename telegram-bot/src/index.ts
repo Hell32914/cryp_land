@@ -1267,11 +1267,23 @@ bot.on('message:text', async (ctx) => {
       broadcastMessage: ctx.message
     })
 
+    // Send preview with header
     await ctx.reply(
       '📢 *Broadcast Preview*\n\n' +
-      'Your message:\n' +
-      '━━━━━━━━━━━━━━━\n' +
-      text + '\n' +
+      'Your message will look like this:\n' +
+      '━━━━━━━━━━━━━━━',
+      { parse_mode: 'Markdown' }
+    )
+
+    // Copy the actual message to show exact preview with formatting and media
+    await bot.api.copyMessage(
+      ctx.chat.id,
+      ctx.message.chat.id,
+      ctx.message.message_id
+    )
+
+    // Send confirmation request
+    await ctx.reply(
       '━━━━━━━━━━━━━━━\n\n' +
       '⚠️ This will be sent to ALL users!\n' +
       'Confirm broadcast?',
@@ -1905,6 +1917,163 @@ bot.on('message:text', async (ctx) => {
   }
 })
 
+// Handle photo/video/document messages for broadcast
+bot.on('message:photo', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId) return
+
+  const state = adminState.get(userId)
+  if (!state) return
+
+  // Handle broadcast message with photo
+  if (state.awaitingInput === 'broadcast_message') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    adminState.delete(userId)
+
+    const keyboard = new InlineKeyboard()
+      .text('✅ Confirm', `broadcast_confirm`)
+      .text('❌ Cancel', 'admin_menu')
+
+    // Store message for confirmation
+    adminState.set(userId, { 
+      awaitingInput: 'broadcast_confirm',
+      broadcastMessage: ctx.message
+    })
+
+    // Send preview with header
+    await ctx.reply(
+      '📢 *Broadcast Preview*\n\n' +
+      'Your message will look like this:\n' +
+      '━━━━━━━━━━━━━━━',
+      { parse_mode: 'Markdown' }
+    )
+
+    // Copy the actual message to show exact preview with formatting and media
+    await bot.api.copyMessage(
+      ctx.chat.id,
+      ctx.message.chat.id,
+      ctx.message.message_id
+    )
+
+    // Send confirmation request
+    await ctx.reply(
+      '━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ This will be sent to ALL users!\n' +
+      'Confirm broadcast?',
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    )
+    return
+  }
+})
+
+bot.on('message:video', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId) return
+
+  const state = adminState.get(userId)
+  if (!state) return
+
+  // Handle broadcast message with video
+  if (state.awaitingInput === 'broadcast_message') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    adminState.delete(userId)
+
+    const keyboard = new InlineKeyboard()
+      .text('✅ Confirm', `broadcast_confirm`)
+      .text('❌ Cancel', 'admin_menu')
+
+    // Store message for confirmation
+    adminState.set(userId, { 
+      awaitingInput: 'broadcast_confirm',
+      broadcastMessage: ctx.message
+    })
+
+    // Send preview with header
+    await ctx.reply(
+      '📢 *Broadcast Preview*\n\n' +
+      'Your message will look like this:\n' +
+      '━━━━━━━━━━━━━━━',
+      { parse_mode: 'Markdown' }
+    )
+
+    // Copy the actual message to show exact preview with formatting and media
+    await bot.api.copyMessage(
+      ctx.chat.id,
+      ctx.message.chat.id,
+      ctx.message.message_id
+    )
+
+    // Send confirmation request
+    await ctx.reply(
+      '━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ This will be sent to ALL users!\n' +
+      'Confirm broadcast?',
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    )
+    return
+  }
+})
+
+bot.on('message:document', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId) return
+
+  const state = adminState.get(userId)
+  if (!state) return
+
+  // Handle broadcast message with document
+  if (state.awaitingInput === 'broadcast_message') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    adminState.delete(userId)
+
+    const keyboard = new InlineKeyboard()
+      .text('✅ Confirm', `broadcast_confirm`)
+      .text('❌ Cancel', 'admin_menu')
+
+    // Store message for confirmation
+    adminState.set(userId, { 
+      awaitingInput: 'broadcast_confirm',
+      broadcastMessage: ctx.message
+    })
+
+    // Send preview with header
+    await ctx.reply(
+      '📢 *Broadcast Preview*\n\n' +
+      'Your message will look like this:\n' +
+      '━━━━━━━━━━━━━━━',
+      { parse_mode: 'Markdown' }
+    )
+
+    // Copy the actual message to show exact preview with formatting and media
+    await bot.api.copyMessage(
+      ctx.chat.id,
+      ctx.message.chat.id,
+      ctx.message.message_id
+    )
+
+    // Send confirmation request
+    await ctx.reply(
+      '━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ This will be sent to ALL users!\n' +
+      'Confirm broadcast?',
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    )
+    return
+  }
+})
+
 bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
@@ -2365,10 +2534,11 @@ bot.callbackQuery('admin_broadcast', async (ctx) => {
     '📢 *Broadcast Message*\n\n' +
     'Send me the message you want to broadcast to all users.\n\n' +
     'You can send:\n' +
-    '• Text message\n' +
+    '• Text message (with formatting: **bold**, _italic_, `code`)\n' +
     '• Photo with caption\n' +
     '• Video with caption\n' +
     '• Document\n\n' +
+    '✨ All formatting and media will be preserved!\n' +
     '⚠️ The message will be sent to ALL users!\n\n' +
     'Send /cancel to abort.',
     { reply_markup: keyboard, parse_mode: 'Markdown' }
