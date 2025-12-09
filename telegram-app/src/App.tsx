@@ -388,8 +388,8 @@ function App() {
     nickname: userData?.nickname || window.Telegram?.WebApp?.initDataUnsafe?.user?.username || 'User',
     plan: userData?.plan || 'Bronze',
     status: userData?.status || 'INACTIVE',
-    // Total Balance = totalDeposit + profit + referralEarnings + bonusTokens
-    balance: (userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0) + (userData?.bonusTokens || 0),
+    // Total Balance = totalDeposit + profit + referralEarnings (bonusTokens NOT included)
+    balance: (userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0),
     totalDeposit: userData?.totalDeposit || 0,
     totalWithdraw: userData?.totalWithdraw || 0,
     bonusTokens: userData?.bonusTokens || 0,
