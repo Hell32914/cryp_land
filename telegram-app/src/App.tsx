@@ -1145,7 +1145,7 @@ function App() {
                   <div className="flex items-center justify-between pb-3">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-2">
-                        🎁 Bonus Token
+                        Syntrix Token
                         <span className="text-xs opacity-70">($0.50/week)</span>
                       </p>
                       <p className="text-lg sm:text-xl font-bold text-primary">${(userData?.bonusTokens || 0).toFixed(2)}</p>
