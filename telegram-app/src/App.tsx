@@ -1141,6 +1141,16 @@ function App() {
                       {t.depositBtn}
                     </Button>
                   </div>
+
+                  <div className="flex items-center justify-between pb-3">
+                    <div>
+                      <p className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-2">
+                        Syntrix Token
+                        <span className="text-xs opacity-70">(0.5% daily)</span>
+                      </p>
+                      <p className="text-lg sm:text-xl font-bold text-primary">${(userData?.bonusTokens || 0).toFixed(2)}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
