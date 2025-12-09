@@ -18,6 +18,7 @@ interface UserData {
   profit: number
   totalDeposit: number
   totalWithdraw: number
+  bonusTokens: number
   plan: string
   kycRequired: boolean
   isBlocked: boolean
