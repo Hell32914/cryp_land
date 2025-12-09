@@ -868,7 +868,7 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
       ? `@${user.username}` 
       : user.phoneNumber 
         ? `📱 ${user.phoneNumber}` 
-        : `ID: ${user.telegramId}`
+        : 'no info'
     const num = skip + index + 1
     message += `${num}. ${displayName}\n`
     message += `   ID: ${user.telegramId}\n`
