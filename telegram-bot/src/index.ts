@@ -864,9 +864,13 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
   let message = `👥 Users List (Page ${page}/${totalPages}, Total: ${totalUsers}):\n\n`
   
   users.forEach((user, index) => {
-    const username = user.username ? `@${user.username}` : 'no username'
+    const displayName = user.username 
+      ? `@${user.username}` 
+      : user.phoneNumber 
+        ? `📱 ${user.phoneNumber}` 
+        : `ID: ${user.telegramId}`
     const num = skip + index + 1
-    message += `${num}. ${username}\n`
+    message += `${num}. ${displayName}\n`
     message += `   ID: ${user.telegramId}\n`
     message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
   })
