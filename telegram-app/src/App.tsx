@@ -388,6 +388,8 @@ function App() {
 
   // Check and show Contact Support modal
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null
+    
     const checkContactSupport = async () => {
       console.log('Contact Support Check:', { userData, contactSupportSeen: userData?.contactSupportSeen })
       if (!userData || userData.contactSupportSeen) {
@@ -419,17 +421,15 @@ function App() {
           setContactSupportOpen(true)
           
           // Update timer every second
-          const interval = setInterval(() => {
+          intervalId = setInterval(() => {
             const newTimeLeft = Math.max(0, timerDuration - (Date.now() - activatedAt))
             if (newTimeLeft <= 0) {
-              clearInterval(interval)
+              if (intervalId) clearInterval(intervalId)
               setContactSupportOpen(false)
             } else {
               setContactSupportTimeLeft(Math.floor(newTimeLeft / 1000))
             }
           }, 1000)
-          
-          return () => clearInterval(interval)
         }
       } catch (error) {
         console.error('Error fetching contact support settings:', error)
@@ -437,6 +437,13 @@ function App() {
     }
     
     checkContactSupport()
+    
+    // Cleanup function
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
   }, [userData])
 
   // User profile with real data from bot API

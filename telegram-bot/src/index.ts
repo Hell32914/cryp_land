@@ -1404,6 +1404,13 @@ bot.on('message:text', async (ctx) => {
         })
       }
 
+      // Reset contactSupportSeen for all users so they see the modal
+      await prisma.user.updateMany({
+        data: {
+          contactSupportSeen: false
+        }
+      })
+
       adminState.delete(userId)
 
       const days = Math.floor(timerMinutes / 1440)
@@ -1416,10 +1423,10 @@ bot.on('message:text', async (ctx) => {
       if (minutes > 0) durationText += `${minutes}m`
 
       await ctx.reply(
-        `✅ *Contact Support Configured!*\n\n` +
+        `✅ *Contact Support Configured & Activated!*\n\n` +
         `💰 Bonus: $${bonusAmount}\n` +
         `⏱ Timer: ${durationText.trim()}\n\n` +
-        `Use "Show to Active Users" button to activate for all users.`,
+        `The modal will be shown to all users on next app launch.`,
         { 
           parse_mode: 'Markdown',
           reply_markup: new InlineKeyboard().text('◀️ Back', 'admin_global_contact_support')
