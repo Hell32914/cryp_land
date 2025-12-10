@@ -391,7 +391,7 @@ function App() {
     let intervalId: ReturnType<typeof setInterval> | null = null
     
     const checkContactSupport = async () => {
-      console.log('Contact Support Check:', { userData, contactSupportSeen: userData?.contactSupportSeen })
+      console.log('Contact Support Check:', 'userData exists:', !!userData, 'contactSupportSeen:', userData?.contactSupportSeen)
       if (!userData) {
         console.log('Skipping contact support - userData not loaded yet')
         return
@@ -401,6 +401,8 @@ function App() {
         console.log('Skipping contact support - already seen')
         return
       }
+      
+      console.log('Proceeding to fetch contact support settings...')
       
       try {
         // Fetch global settings
