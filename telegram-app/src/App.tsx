@@ -386,25 +386,15 @@ function App() {
 
   // Check and show Contact Support modal
   useEffect(() => {
-    console.log('Contact Support Check:', {
-      active: userData?.contactSupportActive,
-      activatedAt: userData?.contactSupportActivatedAt,
-      timerMinutes: userData?.contactSupportTimerMinutes,
-      bonusAmount: userData?.contactSupportBonusAmount
-    })
-    
     if (userData?.contactSupportActive && userData?.contactSupportActivatedAt && userData?.contactSupportTimerMinutes) {
       const activatedAt = new Date(userData.contactSupportActivatedAt).getTime()
       const now = Date.now()
       const timerDuration = userData.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
       const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
       
-      console.log('Timer calculation:', { activatedAt, now, timerDuration, timeLeft })
-      
       if (timeLeft > 0) {
         setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
         setContactSupportOpen(true)
-        console.log('Contact Support Modal OPENED')
         
         // Update timer every second
         const interval = setInterval(() => {
@@ -2017,40 +2007,26 @@ function App() {
 
       {/* Contact Support Modal */}
       <Dialog open={contactSupportOpen} onOpenChange={setContactSupportOpen}>
-        <DialogContent className="bg-gradient-to-br from-green-500/10 to-green-600/10 border-2 border-green-500/30 w-[calc(100vw-2rem)] sm:max-w-md p-0 gap-0 overflow-hidden rounded-xl">
-          <div className="relative p-6 space-y-6">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-5 pointer-events-none">
-              <svg className="w-full h-full">
-                <pattern id="circuit-support" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
-                  <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-green-500"/>
-                  <circle cx="30" cy="10" r="2" fill="currentColor" className="text-green-500"/>
-                  <circle cx="30" cy="30" r="2" fill="currentColor" className="text-green-500"/>
-                  <circle cx="50" cy="30" r="2" fill="currentColor" className="text-green-500"/>
-                  <circle cx="50" cy="50" r="2" fill="currentColor" className="text-green-500"/>
-                </pattern>
-                <rect x="0" y="0" width="100%" height="100%" fill="url(#circuit-support)"/>
-              </svg>
-            </div>
-
+        <DialogContent className="bg-black border-2 border-green-500/30 w-[calc(100vw-2rem)] sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
+          <div className="relative p-4 space-y-4">
             {/* Title */}
-            <div className="relative text-center">
-              <h2 className="text-2xl font-bold text-green-400 uppercase tracking-wider">Призовой фонд</h2>
+            <div className="relative text-center pt-2">
+              <h2 className="text-xl font-bold text-green-400 uppercase tracking-widest">Призовой фонд</h2>
             </div>
 
             {/* Bonus Card */}
-            <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 shadow-2xl border-4 border-green-400/50 border-dashed">
+            <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 shadow-2xl border-4 border-dashed border-green-300/40">
               {/* Bonus Amount */}
-              <div className="text-center mb-4">
-                <div className="text-6xl font-bold text-white drop-shadow-lg">
+              <div className="text-center mb-6">
+                <div className="text-7xl font-black text-white drop-shadow-2xl tracking-tight">
                   {userData?.contactSupportBonusAmount || 50}$
                 </div>
-                <div className="text-sm text-green-100 mt-2 uppercase tracking-wider">BDT</div>
+                <div className="text-base text-white/90 mt-2 uppercase tracking-widest font-semibold">BDT</div>
               </div>
 
               {/* Timer */}
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 mb-4">
-                <div className="flex justify-center gap-4 text-white">
+              <div className="bg-white/25 backdrop-blur-md rounded-xl p-5 shadow-inner">
+                <div className="flex justify-center items-center gap-2 text-white">
                   {(() => {
                     const days = Math.floor(contactSupportTimeLeft / 86400)
                     const hours = Math.floor((contactSupportTimeLeft % 86400) / 3600)
@@ -2059,52 +2035,45 @@ function App() {
 
                     return (
                       <>
-                        <div className="text-center">
-                          <div className="text-3xl font-bold">{days}</div>
-                          <div className="text-xs uppercase">дня</div>
+                        <div className="text-center min-w-[45px]">
+                          <div className="text-4xl font-black leading-none">{days}</div>
+                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">дня</div>
                         </div>
-                        <div className="text-3xl font-bold">:</div>
-                        <div className="text-center">
-                          <div className="text-3xl font-bold">{hours}</div>
-                          <div className="text-xs uppercase">назад</div>
+                        <div className="text-3xl font-black pb-3">:</div>
+                        <div className="text-center min-w-[45px]">
+                          <div className="text-4xl font-black leading-none">{hours}</div>
+                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">назад</div>
                         </div>
-                        <div className="text-3xl font-bold">:</div>
-                        <div className="text-center">
-                          <div className="text-3xl font-bold">{minutes}</div>
-                          <div className="text-xs uppercase">минуты</div>
+                        <div className="text-3xl font-black pb-3">:</div>
+                        <div className="text-center min-w-[50px]">
+                          <div className="text-4xl font-black leading-none">{minutes}</div>
+                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">минуты</div>
                         </div>
-                        <div className="text-3xl font-bold">:</div>
-                        <div className="text-center">
-                          <div className="text-3xl font-bold">{seconds}</div>
-                          <div className="text-xs uppercase">секунд</div>
+                        <div className="text-3xl font-black pb-3">:</div>
+                        <div className="text-center min-w-[50px]">
+                          <div className="text-4xl font-black leading-none">{seconds}</div>
+                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">секунд</div>
                         </div>
                       </>
                     )
                   })()}
                 </div>
               </div>
-
-              {/* Location Icon */}
-              <div className="absolute top-4 right-4">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-              </div>
             </div>
 
             {/* Support Message */}
-            <div className="relative bg-blue-500/90 rounded-2xl p-4 shadow-lg">
-              <p className="text-white text-center font-medium">
+            <div className="relative bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl p-4 shadow-xl">
+              <p className="text-white text-center font-semibold text-sm leading-snug">
                 Contact support to activate the bot and get a bonus deposit
               </p>
             </div>
 
             {/* Send Button */}
             <Button 
-              className="relative w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 text-lg uppercase rounded-xl shadow-lg transition-all"
+              className="relative w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-black py-5 text-xl uppercase rounded-2xl shadow-2xl transition-all tracking-wider"
               onClick={() => window.open('https://t.me/SyntrixSupport', '_blank')}
             >
-              Send
+              SEND
             </Button>
           </div>
         </DialogContent>

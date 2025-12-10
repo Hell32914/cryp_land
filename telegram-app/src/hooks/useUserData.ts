@@ -75,7 +75,6 @@ export function useUserData(telegramId: string | undefined) {
         }
 
         const data = await response.json()
-        console.log('User data received:', data)
         setUserData(data)
         setError(null)
       } catch (err) {
