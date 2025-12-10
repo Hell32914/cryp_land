@@ -386,15 +386,25 @@ function App() {
 
   // Check and show Contact Support modal
   useEffect(() => {
+    console.log('Contact Support Check:', {
+      active: userData?.contactSupportActive,
+      activatedAt: userData?.contactSupportActivatedAt,
+      timerMinutes: userData?.contactSupportTimerMinutes,
+      bonusAmount: userData?.contactSupportBonusAmount
+    })
+    
     if (userData?.contactSupportActive && userData?.contactSupportActivatedAt && userData?.contactSupportTimerMinutes) {
       const activatedAt = new Date(userData.contactSupportActivatedAt).getTime()
       const now = Date.now()
       const timerDuration = userData.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
       const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
       
+      console.log('Timer calculation:', { activatedAt, now, timerDuration, timeLeft })
+      
       if (timeLeft > 0) {
         setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
         setContactSupportOpen(true)
+        console.log('Contact Support Modal OPENED')
         
         // Update timer every second
         const interval = setInterval(() => {
