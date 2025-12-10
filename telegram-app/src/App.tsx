@@ -397,8 +397,9 @@ function App() {
         return
       }
       
+      // Show modal every time if timer is active, unless user clicked SEND button
       if (userData.contactSupportSeen) {
-        console.log('Skipping contact support - already seen')
+        console.log('Skipping contact support - user already contacted support')
         return
       }
       
@@ -2055,7 +2056,10 @@ function App() {
       </nav>
 
       {/* Contact Support Modal */}
-      <Dialog open={contactSupportOpen} onOpenChange={setContactSupportOpen}>
+      <Dialog open={contactSupportOpen} onOpenChange={(open) => {
+        // Allow closing the modal, but it will reappear on next app open if timer is still active
+        setContactSupportOpen(open)
+      }}>
         <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] max-w-[400px] p-0 gap-0 overflow-hidden rounded-2xl">
           <div className="relative p-3 space-y-3">
             {/* Bonus Card */}
