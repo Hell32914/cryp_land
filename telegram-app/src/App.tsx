@@ -2007,26 +2007,20 @@ function App() {
 
       {/* Contact Support Modal */}
       <Dialog open={contactSupportOpen} onOpenChange={setContactSupportOpen}>
-        <DialogContent className="bg-black border-2 border-green-500/30 w-[calc(100vw-2rem)] sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
-          <div className="relative p-4 space-y-4">
-            {/* Title */}
-            <div className="relative text-center pt-2">
-              <h2 className="text-xl font-bold text-green-400 uppercase tracking-widest">Призовой фонд</h2>
-            </div>
-
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] max-w-[400px] p-0 gap-0 overflow-hidden rounded-2xl">
+          <div className="relative p-3 space-y-3">
             {/* Bonus Card */}
-            <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 shadow-2xl border-4 border-dashed border-green-300/40">
+            <div className="relative bg-gradient-to-br from-primary to-accent rounded-2xl p-6 shadow-2xl border-4 border-dashed border-primary/40">
               {/* Bonus Amount */}
-              <div className="text-center mb-6">
-                <div className="text-7xl font-black text-white drop-shadow-2xl tracking-tight">
+              <div className="text-center mb-4">
+                <div className="text-6xl font-black text-white drop-shadow-2xl tracking-tight">
                   {userData?.contactSupportBonusAmount || 50}$
                 </div>
-                <div className="text-base text-white/90 mt-2 uppercase tracking-widest font-semibold">BDT</div>
               </div>
 
               {/* Timer */}
-              <div className="bg-white/25 backdrop-blur-md rounded-xl p-5 shadow-inner">
-                <div className="flex justify-center items-center gap-2 text-white">
+              <div className="bg-white/25 backdrop-blur-md rounded-xl p-3 shadow-inner">
+                <div className="flex justify-center items-center gap-1.5 text-white">
                   {(() => {
                     const days = Math.floor(contactSupportTimeLeft / 86400)
                     const hours = Math.floor((contactSupportTimeLeft % 86400) / 3600)
@@ -2035,24 +2029,24 @@ function App() {
 
                     return (
                       <>
-                        <div className="text-center min-w-[45px]">
-                          <div className="text-4xl font-black leading-none">{days}</div>
-                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">дня</div>
+                        <div className="text-center min-w-[38px]">
+                          <div className="text-3xl font-black leading-none">{days}</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">дня</div>
                         </div>
-                        <div className="text-3xl font-black pb-3">:</div>
-                        <div className="text-center min-w-[45px]">
-                          <div className="text-4xl font-black leading-none">{hours}</div>
-                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">назад</div>
+                        <div className="text-2xl font-black pb-2">:</div>
+                        <div className="text-center min-w-[38px]">
+                          <div className="text-3xl font-black leading-none">{hours}</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">назад</div>
                         </div>
-                        <div className="text-3xl font-black pb-3">:</div>
-                        <div className="text-center min-w-[50px]">
-                          <div className="text-4xl font-black leading-none">{minutes}</div>
-                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">минуты</div>
+                        <div className="text-2xl font-black pb-2">:</div>
+                        <div className="text-center min-w-[42px]">
+                          <div className="text-3xl font-black leading-none">{minutes}</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">минуты</div>
                         </div>
-                        <div className="text-3xl font-black pb-3">:</div>
-                        <div className="text-center min-w-[50px]">
-                          <div className="text-4xl font-black leading-none">{seconds}</div>
-                          <div className="text-[10px] uppercase mt-1 font-medium opacity-90">секунд</div>
+                        <div className="text-2xl font-black pb-2">:</div>
+                        <div className="text-center min-w-[42px]">
+                          <div className="text-3xl font-black leading-none">{seconds}</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">секунд</div>
                         </div>
                       </>
                     )
@@ -2062,15 +2056,15 @@ function App() {
             </div>
 
             {/* Support Message */}
-            <div className="relative bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl p-4 shadow-xl">
-              <p className="text-white text-center font-semibold text-sm leading-snug">
+            <div className="relative bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl p-3 shadow-xl">
+              <p className="text-white text-center font-semibold text-xs leading-snug">
                 Contact support to activate the bot and get a bonus deposit
               </p>
             </div>
 
             {/* Send Button */}
             <Button 
-              className="relative w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-black py-5 text-xl uppercase rounded-2xl shadow-2xl transition-all tracking-wider"
+              className="relative w-full bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary text-white font-black py-4 text-lg uppercase rounded-2xl shadow-2xl transition-all tracking-wider"
               onClick={() => window.open('https://t.me/SyntrixSupport', '_blank')}
             >
               SEND
