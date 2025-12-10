@@ -1,5 +1,5 @@
 import { Bot, Context, InlineKeyboard, InputFile } from 'grammy'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './db.js'
 import * as dotenv from 'dotenv'
 import { startApiServer, stopApiServer } from './api.js'
 import { scheduleTradingCards, postTradingCard, rescheduleCards } from './tradingCardScheduler.js'
@@ -16,7 +16,6 @@ type TransactionStatus = 'PENDING' | 'COMPLETED' | 'REJECTED'
 
 dotenv.config()
 
-const prisma = new PrismaClient()
 export const bot = new Bot(process.env.BOT_TOKEN!)
 
 // Parse admin IDs from comma-separated list in .env

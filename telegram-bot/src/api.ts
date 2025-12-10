@@ -1,14 +1,12 @@
 import express, { type RequestHandler } from 'express'
 import cors from 'cors'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './db.js'
 import axios from 'axios'
 import { webhookCallback } from 'grammy'
 import type { Bot } from 'grammy'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { z } from 'zod'
-
-const prisma = new PrismaClient()
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 

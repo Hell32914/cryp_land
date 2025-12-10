@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './db.js'
 import { checkPayoutStatus } from './oxapay.js'
-
-const prisma = new PrismaClient()
 
 // Check status of pending withdrawals and update with blockchain hash
 export async function checkPendingPayouts() {

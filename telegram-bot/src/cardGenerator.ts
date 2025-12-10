@@ -1,14 +1,12 @@
 import { createCanvas, loadImage as canvasLoadImage, CanvasRenderingContext2D, Image, registerFont } from 'canvas'
 import QRCode from 'qrcode'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './db.js'
 import { generateTradingData } from './binanceApi.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
-const prisma = new PrismaClient()
 
 // Register Arial font with Cyrillic support from project fonts folder
 try {

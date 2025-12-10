@@ -151,9 +151,8 @@ function toKyivTime(utcTime: string): string {
  */
 export async function postTradingCard(bot: Bot, channelId: string) {
   try {
-    // Import Prisma to get all users
-    const { PrismaClient } = await import('@prisma/client')
-    const prisma = new PrismaClient()
+    // Import shared Prisma instance
+    const { prisma } = await import('./db.js')
     
     // Generate card image
     const imageBuffer = await generateTradingCard()
@@ -182,8 +181,6 @@ export async function postTradingCard(bot: Bot, channelId: string) {
         console.error(`Failed to send card to ${user.telegramId}:`, error.message)
       }
     }
-    
-    await prisma.$disconnect()
     
     console.log(`✅ Trading card #${cardData.orderNumber} sent to ${successCount}/${users.length} users`)
   } catch (error) {
