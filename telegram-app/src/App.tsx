@@ -48,6 +48,7 @@ function App() {
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
   const [contactSupportOpen, setContactSupportOpen] = useState(false)
   const [contactSupportTimeLeft, setContactSupportTimeLeft] = useState(0)
+  const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(50)
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   
   const t = translations[selectedLanguage || 'ENGLISH']
@@ -405,6 +406,7 @@ function App() {
         const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
         
         if (timeLeft > 0) {
+          setContactSupportBonusAmount(settings.contactSupportBonusAmount || 50)
           setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
           setContactSupportOpen(true)
           
@@ -2039,7 +2041,7 @@ function App() {
               {/* Bonus Amount */}
               <div className="text-center mb-4">
                 <div className="text-6xl font-black text-white drop-shadow-2xl tracking-tight">
-                  {userData?.contactSupportBonusAmount || 50}$
+                  {contactSupportBonusAmount}$
                 </div>
               </div>
 
