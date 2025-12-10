@@ -40,6 +40,10 @@ model User {
   referralEarnings  Float         @default(0)
   isActiveReferral  Boolean       @default(false)
   bonusTokens       Float         @default(0)
+  contactSupportActive Boolean    @default(false)
+  contactSupportBonusAmount Float  @default(0)
+  contactSupportTimerMinutes Int   @default(0)
+  contactSupportActivatedAt DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   

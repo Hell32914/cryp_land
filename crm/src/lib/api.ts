@@ -344,3 +344,9 @@ export const updateUserRole = (token: string, telegramId: string, role: string) 
     method: 'PATCH',
     body: JSON.stringify({ role }),
   }, token)
+
+export const activateContactSupport = (token: string, telegramId: string, bonusAmount: number, timerMinutes: number) =>
+  request<UserRecord>(`/api/admin/users/${telegramId}/contact-support`, {
+    method: 'POST',
+    body: JSON.stringify({ bonusAmount, timerMinutes }),
+  }, token)

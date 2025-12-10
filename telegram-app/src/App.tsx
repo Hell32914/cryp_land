@@ -46,6 +46,8 @@ function App() {
   const [depositQrCode, setDepositQrCode] = useState<string>('')
   const [depositAddress, setDepositAddress] = useState<string>('')
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
+  const [contactSupportOpen, setContactSupportOpen] = useState(false)
+  const [contactSupportTimeLeft, setContactSupportTimeLeft] = useState(0)
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -381,6 +383,34 @@ function App() {
     document.addEventListener('focusin', handleFocus)
     return () => document.removeEventListener('focusin', handleFocus)
   }, [])
+
+  // Check and show Contact Support modal
+  useEffect(() => {
+    if (userData?.contactSupportActive && userData?.contactSupportActivatedAt && userData?.contactSupportTimerMinutes) {
+      const activatedAt = new Date(userData.contactSupportActivatedAt).getTime()
+      const now = Date.now()
+      const timerDuration = userData.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
+      const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
+      
+      if (timeLeft > 0) {
+        setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
+        setContactSupportOpen(true)
+        
+        // Update timer every second
+        const interval = setInterval(() => {
+          const newTimeLeft = Math.max(0, timerDuration - (Date.now() - activatedAt))
+          if (newTimeLeft <= 0) {
+            clearInterval(interval)
+            setContactSupportOpen(false)
+          } else {
+            setContactSupportTimeLeft(Math.floor(newTimeLeft / 1000))
+          }
+        }, 1000)
+        
+        return () => clearInterval(interval)
+      }
+    }
+  }, [userData])
 
   // User profile with real data from bot API
   const userProfile = {
@@ -1974,6 +2004,101 @@ function App() {
           })}
         </div>
       </nav>
+
+      {/* Contact Support Modal */}
+      <Dialog open={contactSupportOpen} onOpenChange={setContactSupportOpen}>
+        <DialogContent className="bg-gradient-to-br from-green-500/10 to-green-600/10 border-2 border-green-500/30 w-[calc(100vw-2rem)] sm:max-w-md p-0 gap-0 overflow-hidden rounded-xl">
+          <div className="relative p-6 space-y-6">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-5 pointer-events-none">
+              <svg className="w-full h-full">
+                <pattern id="circuit-support" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                  <path d="M10 10h20M30 10v20M30 30h20M50 30v20M50 50h20" stroke="currentColor" strokeWidth="1" fill="none" className="text-green-500"/>
+                  <circle cx="30" cy="10" r="2" fill="currentColor" className="text-green-500"/>
+                  <circle cx="30" cy="30" r="2" fill="currentColor" className="text-green-500"/>
+                  <circle cx="50" cy="30" r="2" fill="currentColor" className="text-green-500"/>
+                  <circle cx="50" cy="50" r="2" fill="currentColor" className="text-green-500"/>
+                </pattern>
+                <rect x="0" y="0" width="100%" height="100%" fill="url(#circuit-support)"/>
+              </svg>
+            </div>
+
+            {/* Title */}
+            <div className="relative text-center">
+              <h2 className="text-2xl font-bold text-green-400 uppercase tracking-wider">Призовой фонд</h2>
+            </div>
+
+            {/* Bonus Card */}
+            <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 shadow-2xl border-4 border-green-400/50 border-dashed">
+              {/* Bonus Amount */}
+              <div className="text-center mb-4">
+                <div className="text-6xl font-bold text-white drop-shadow-lg">
+                  {userData?.contactSupportBonusAmount || 50}$
+                </div>
+                <div className="text-sm text-green-100 mt-2 uppercase tracking-wider">BDT</div>
+              </div>
+
+              {/* Timer */}
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 mb-4">
+                <div className="flex justify-center gap-4 text-white">
+                  {(() => {
+                    const days = Math.floor(contactSupportTimeLeft / 86400)
+                    const hours = Math.floor((contactSupportTimeLeft % 86400) / 3600)
+                    const minutes = Math.floor((contactSupportTimeLeft % 3600) / 60)
+                    const seconds = contactSupportTimeLeft % 60
+
+                    return (
+                      <>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold">{days}</div>
+                          <div className="text-xs uppercase">дня</div>
+                        </div>
+                        <div className="text-3xl font-bold">:</div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold">{hours}</div>
+                          <div className="text-xs uppercase">назад</div>
+                        </div>
+                        <div className="text-3xl font-bold">:</div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold">{minutes}</div>
+                          <div className="text-xs uppercase">минуты</div>
+                        </div>
+                        <div className="text-3xl font-bold">:</div>
+                        <div className="text-center">
+                          <div className="text-3xl font-bold">{seconds}</div>
+                          <div className="text-xs uppercase">секунд</div>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              {/* Location Icon */}
+              <div className="absolute top-4 right-4">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Support Message */}
+            <div className="relative bg-blue-500/90 rounded-2xl p-4 shadow-lg">
+              <p className="text-white text-center font-medium">
+                Contact support to activate the bot and get a bonus deposit
+              </p>
+            </div>
+
+            {/* Send Button */}
+            <Button 
+              className="relative w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 text-lg uppercase rounded-xl shadow-lg transition-all"
+              onClick={() => window.open('https://t.me/SyntrixSupport', '_blank')}
+            >
+              Send
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </>
   )

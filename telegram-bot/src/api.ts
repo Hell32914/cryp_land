@@ -979,6 +979,10 @@ app.get('/api/user/:telegramId', async (req, res) => {
       isBlocked: user.isBlocked,
       lastProfitUpdate: user.lastProfitUpdate,
       referralEarnings: user.referralEarnings || 0,
+      contactSupportActive: user.contactSupportActive || false,
+      contactSupportBonusAmount: user.contactSupportBonusAmount || 0,
+      contactSupportTimerMinutes: user.contactSupportTimerMinutes || 0,
+      contactSupportActivatedAt: user.contactSupportActivatedAt,
       planProgress: {
         currentPlan: planProgress.currentPlan,
         dailyPercent: planProgress.dailyPercent,
@@ -2122,6 +2126,37 @@ app.patch('/api/admin/users/:telegramId/role', requireAdminAuth, async (req, res
   } catch (error) {
     console.error('Update user role error:', error)
     return res.status(500).json({ error: 'Failed to update user role' })
+  }
+})
+
+// Activate contact support for user
+app.post('/api/admin/users/:telegramId/contact-support', requireAdminAuth, async (req, res) => {
+  try {
+    const { telegramId } = req.params
+    const { bonusAmount, timerMinutes } = req.body
+    
+    if (typeof bonusAmount !== 'number' || bonusAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid bonus amount' })
+    }
+    
+    if (typeof timerMinutes !== 'number' || timerMinutes <= 0) {
+      return res.status(400).json({ error: 'Invalid timer duration' })
+    }
+    
+    const user = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        contactSupportActive: true,
+        contactSupportBonusAmount: bonusAmount,
+        contactSupportTimerMinutes: timerMinutes,
+        contactSupportActivatedAt: new Date()
+      }
+    })
+    
+    return res.json(user)
+  } catch (error) {
+    console.error('Activate contact support error:', error)
+    return res.status(500).json({ error: 'Failed to activate contact support' })
   }
 })
 

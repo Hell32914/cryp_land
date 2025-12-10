@@ -24,6 +24,10 @@ interface UserData {
   isBlocked: boolean
   lastProfitUpdate: string | null
   referralEarnings: number
+  contactSupportActive?: boolean
+  contactSupportBonusAmount?: number
+  contactSupportTimerMinutes?: number
+  contactSupportActivatedAt?: string
   planProgress: {
     currentPlan: string
     dailyPercent: number
