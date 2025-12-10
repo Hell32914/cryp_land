@@ -388,7 +388,7 @@ function App() {
 
   // Check and show Contact Support modal
   useEffect(() => {
-    let intervalId: number | null = null
+    let intervalId: ReturnType<typeof setInterval> | null = null
     
     const checkContactSupport = async () => {
       console.log('Contact Support Check:', { userData, contactSupportSeen: userData?.contactSupportSeen })
