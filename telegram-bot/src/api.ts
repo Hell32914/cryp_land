@@ -979,10 +979,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
       isBlocked: user.isBlocked,
       lastProfitUpdate: user.lastProfitUpdate,
       referralEarnings: user.referralEarnings || 0,
-      contactSupportActive: user.contactSupportActive || false,
-      contactSupportBonusAmount: user.contactSupportBonusAmount || 0,
-      contactSupportTimerMinutes: user.contactSupportTimerMinutes || 0,
-      contactSupportActivatedAt: user.contactSupportActivatedAt,
+      contactSupportSeen: user.contactSupportSeen || false,
       planProgress: {
         currentPlan: planProgress.currentPlan,
         dailyPercent: planProgress.dailyPercent,
