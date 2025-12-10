@@ -2129,34 +2129,130 @@ app.patch('/api/admin/users/:telegramId/role', requireAdminAuth, async (req, res
   }
 })
 
-// Activate contact support for user
-app.post('/api/admin/users/:telegramId/contact-support', requireAdminAuth, async (req, res) => {
+// Get global contact support settings
+app.get('/api/settings/contact-support', async (req, res) => {
   try {
-    const { telegramId } = req.params
-    const { bonusAmount, timerMinutes } = req.body
+    let settings = await prisma.globalSettings.findFirst()
     
-    if (typeof bonusAmount !== 'number' || bonusAmount <= 0) {
+    // Create default settings if none exist
+    if (!settings) {
+      settings = await prisma.globalSettings.create({
+        data: {
+          contactSupportEnabled: false,
+          contactSupportBonusAmount: 0,
+          contactSupportTimerMinutes: 0
+        }
+      })
+    }
+    
+    return res.json(settings)
+  } catch (error) {
+    console.error('Get contact support settings error:', error)
+    return res.status(500).json({ error: 'Failed to get settings' })
+  }
+})
+
+// Update global contact support settings
+app.post('/api/admin/settings/contact-support', requireAdminAuth, async (req, res) => {
+  try {
+    const { enabled, bonusAmount, timerMinutes } = req.body
+    
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'Invalid enabled value' })
+    }
+    
+    if (typeof bonusAmount !== 'number' || bonusAmount < 0) {
       return res.status(400).json({ error: 'Invalid bonus amount' })
     }
     
-    if (typeof timerMinutes !== 'number' || timerMinutes <= 0) {
+    if (typeof timerMinutes !== 'number' || timerMinutes < 0) {
       return res.status(400).json({ error: 'Invalid timer duration' })
     }
+    
+    let settings = await prisma.globalSettings.findFirst()
+    
+    if (settings) {
+      settings = await prisma.globalSettings.update({
+        where: { id: settings.id },
+        data: {
+          contactSupportEnabled: enabled,
+          contactSupportBonusAmount: bonusAmount,
+          contactSupportTimerMinutes: timerMinutes,
+          contactSupportActivatedAt: enabled ? new Date() : settings.contactSupportActivatedAt
+        }
+      })
+    } else {
+      settings = await prisma.globalSettings.create({
+        data: {
+          contactSupportEnabled: enabled,
+          contactSupportBonusAmount: bonusAmount,
+          contactSupportTimerMinutes: timerMinutes,
+          contactSupportActivatedAt: enabled ? new Date() : null
+        }
+      })
+    }
+    
+    return res.json(settings)
+  } catch (error) {
+    console.error('Update contact support settings error:', error)
+    return res.status(500).json({ error: 'Failed to update settings' })
+  }
+})
+
+// Show contact support to all active users
+app.post('/api/admin/contact-support/show-to-active', requireAdminAuth, async (req, res) => {
+  try {
+    // Reset contactSupportSeen for all users
+    const result = await prisma.user.updateMany({
+      data: {
+        contactSupportSeen: false
+      }
+    })
+    
+    return res.json({ message: 'Contact support will be shown to all active users', usersUpdated: result.count })
+  } catch (error) {
+    console.error('Show to active users error:', error)
+    return res.status(500).json({ error: 'Failed to show to active users' })
+  }
+})
+
+// Disable contact support globally
+app.post('/api/admin/contact-support/disable', requireAdminAuth, async (req, res) => {
+  try {
+    let settings = await prisma.globalSettings.findFirst()
+    
+    if (settings) {
+      settings = await prisma.globalSettings.update({
+        where: { id: settings.id },
+        data: {
+          contactSupportEnabled: false
+        }
+      })
+    }
+    
+    return res.json({ message: 'Contact support disabled globally', settings })
+  } catch (error) {
+    console.error('Disable contact support error:', error)
+    return res.status(500).json({ error: 'Failed to disable contact support' })
+  }
+})
+
+// Mark user as seen contact support
+app.post('/api/users/:telegramId/contact-support-seen', async (req, res) => {
+  try {
+    const { telegramId } = req.params
     
     const user = await prisma.user.update({
       where: { telegramId },
       data: {
-        contactSupportActive: true,
-        contactSupportBonusAmount: bonusAmount,
-        contactSupportTimerMinutes: timerMinutes,
-        contactSupportActivatedAt: new Date()
+        contactSupportSeen: true
       }
     })
     
     return res.json(user)
   } catch (error) {
-    console.error('Activate contact support error:', error)
-    return res.status(500).json({ error: 'Failed to activate contact support' })
+    console.error('Mark contact support seen error:', error)
+    return res.status(500).json({ error: 'Failed to mark as seen' })
   }
 })
 

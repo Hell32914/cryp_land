@@ -31,7 +31,7 @@ const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
-const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number, broadcastMessage?: any, contactSupportBonusAmount?: number }>()
+const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number, broadcastMessage?: any, contactSupportBonusAmount?: number, csBonusAmount?: number }>()
 
 // Middleware to check if user is blocked (blocks all bot interactions)
 bot.use(async (ctx, next) => {
@@ -813,6 +813,11 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     keyboard.text('📢 Broadcast Message', 'admin_broadcast').row()
   }
 
+  // Only admins can manage global contact support
+  if (isAdminUser) {
+    keyboard.text('📞 Global Contact Support', 'admin_global_contact_support').row()
+  }
+
   keyboard.text('🔄 Refresh', 'admin_menu')
 
   const roleText = isSuperAdmin ? 'Super Admin' : isAdminUser ? 'Admin' : 'Support'
@@ -1001,7 +1006,6 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
     keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
-    keyboard.text('📞 Contact Support', `contact_support_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1109,7 +1113,6 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
     keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
-    keyboard.text('📞 Contact Support', `contact_support_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1294,34 +1297,7 @@ bot.callbackQuery(/^remove_bonus_(\d+)$/, async (ctx) => {
 })
 
 // Contact Support activation (admin)
-bot.callbackQuery(/^contact_support_(\d+)$/, async (ctx) => {
-  const adminId = ctx.from?.id.toString()
-  if (!adminId || !(await isAdmin(adminId))) {
-    await safeAnswerCallback(ctx, 'Access denied')
-    return
-  }
 
-  const userId = parseInt(ctx.match![1])
-  const user = await prisma.user.findUnique({ where: { id: userId } })
-  
-  if (!user) {
-    await safeAnswerCallback(ctx, 'User not found')
-    return
-  }
-
-  adminState.set(adminId, { awaitingInput: 'contact_support_bonus', targetUserId: userId })
-
-  const keyboard = new InlineKeyboard()
-    .text('Cancel', `manage_${userId}`)
-
-  await safeEditMessage(ctx, 
-    `📞 *Activate Contact Support*\n\n` +
-    `User: ${formatUserDisplay(user)}\n\n` +
-    `Enter the bonus token amount (e.g., 50):`,
-    { reply_markup: keyboard, parse_mode: 'Markdown' }
-  )
-  await safeAnswerCallback(ctx)
-})
 
 bot.on('message:text', async (ctx) => {
   const userId = ctx.from?.id.toString()
@@ -1350,6 +1326,110 @@ bot.on('message:text', async (ctx) => {
   if (attempts > 5) {
     adminState.delete(userId)
     await ctx.reply('❌ Too many invalid attempts. Operation cancelled.\nUse /admin to start again.')
+    return
+  }
+
+  // Handle contact support bonus amount input
+  if (state.awaitingInput === 'cs_bonus_amount') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const bonusAmount = parseFloat(text)
+    if (isNaN(bonusAmount) || bonusAmount <= 0) {
+      adminState.set(userId, { awaitingInput: 'cs_bonus_amount', attempts })
+      await ctx.reply('❌ Invalid amount. Please enter a valid number greater than 0.')
+      return
+    }
+
+    adminState.set(userId, { 
+      awaitingInput: 'cs_timer',
+      csBonusAmount: bonusAmount
+    })
+
+    const keyboard = new InlineKeyboard()
+      .text('❌ Cancel', 'admin_global_contact_support')
+
+    await ctx.reply(
+      `✅ Bonus amount set to $${bonusAmount}\n\n` +
+      `Step 2: Enter timer duration in minutes\n\n` +
+      `Example: 4320 (for 3 days)`,
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    )
+    return
+  }
+
+  // Handle contact support timer input
+  if (state.awaitingInput === 'cs_timer') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const timerMinutes = parseInt(text)
+    if (isNaN(timerMinutes) || timerMinutes <= 0) {
+      adminState.set(userId, { 
+        awaitingInput: 'cs_timer',
+        csBonusAmount: state.csBonusAmount,
+        attempts 
+      })
+      await ctx.reply('❌ Invalid timer. Please enter a valid number of minutes.')
+      return
+    }
+
+    const bonusAmount = state.csBonusAmount
+
+    try {
+      let settings = await prisma.globalSettings.findFirst()
+      
+      if (settings) {
+        settings = await prisma.globalSettings.update({
+          where: { id: settings.id },
+          data: {
+            contactSupportEnabled: true,
+            contactSupportBonusAmount: bonusAmount,
+            contactSupportTimerMinutes: timerMinutes,
+            contactSupportActivatedAt: new Date()
+          }
+        })
+      } else {
+        settings = await prisma.globalSettings.create({
+          data: {
+            contactSupportEnabled: true,
+            contactSupportBonusAmount: bonusAmount,
+            contactSupportTimerMinutes: timerMinutes,
+            contactSupportActivatedAt: new Date()
+          }
+        })
+      }
+
+      adminState.delete(userId)
+
+      const days = Math.floor(timerMinutes / 1440)
+      const hours = Math.floor((timerMinutes % 1440) / 60)
+      const minutes = timerMinutes % 60
+
+      let durationText = ''
+      if (days > 0) durationText += `${days}d `
+      if (hours > 0) durationText += `${hours}h `
+      if (minutes > 0) durationText += `${minutes}m`
+
+      await ctx.reply(
+        `✅ *Contact Support Configured!*\n\n` +
+        `💰 Bonus: $${bonusAmount}\n` +
+        `⏱ Timer: ${durationText.trim()}\n\n` +
+        `Use "Show to Active Users" button to activate for all users.`,
+        { 
+          parse_mode: 'Markdown',
+          reply_markup: new InlineKeyboard().text('◀️ Back', 'admin_global_contact_support')
+        }
+      )
+    } catch (error) {
+      console.error('Configure contact support error:', error)
+      await ctx.reply('❌ Failed to configure contact support')
+      adminState.delete(userId)
+    }
     return
   }
 
@@ -1920,87 +2000,7 @@ bot.on('message:text', async (ctx) => {
     return
   }
 
-  // Handle contact support activation
-  if (state.awaitingInput === 'contact_support_bonus') {
-    const amount = parseFloat(ctx.message?.text || '')
-    
-    if (isNaN(amount) || amount <= 0) {
-      handleInvalidInput(userId, state, attempts)
-      await ctx.reply('❌ Invalid amount. Please enter a valid bonus amount.\nSend /cancel to abort.')
-      return
-    }
 
-    // Store bonus amount and ask for timer duration
-    state.contactSupportBonusAmount = amount
-    state.awaitingInput = 'contact_support_timer'
-    state.attempts = 0
-
-    await ctx.reply(
-      '⏱️ Enter timer duration in minutes:\n\n' +
-      'Examples:\n' +
-      '• 60 = 1 hour\n' +
-      '• 1440 = 1 day\n' +
-      '• 4320 = 3 days\n\n' +
-      '⚠️ Send /cancel to abort'
-    )
-    return
-  }
-
-  if (state.awaitingInput === 'contact_support_timer') {
-    const minutes = parseInt(ctx.message?.text || '')
-    
-    if (isNaN(minutes) || minutes <= 0) {
-      handleInvalidInput(userId, state, attempts)
-      await ctx.reply('❌ Invalid duration. Please enter a valid number of minutes.\nSend /cancel to abort.')
-      return
-    }
-
-    const targetUserId = state.targetUserId
-    if (!targetUserId) {
-      await ctx.reply('❌ Error: User ID not found. Please try again.')
-      adminState.delete(userId)
-      return
-    }
-
-    try {
-      const user = await prisma.user.update({
-        where: { id: targetUserId },
-        data: {
-          contactSupportActive: true,
-          contactSupportBonusAmount: state.contactSupportBonusAmount || 0,
-          contactSupportTimerMinutes: minutes,
-          contactSupportActivatedAt: new Date()
-        }
-      })
-
-      const hours = Math.floor(minutes / 60)
-      const days = Math.floor(hours / 24)
-      
-      let durationText = ''
-      if (days > 0) {
-        durationText = `${days} day${days > 1 ? 's' : ''}`
-      } else if (hours > 0) {
-        durationText = `${hours} hour${hours > 1 ? 's' : ''}`
-      } else {
-        durationText = `${minutes} minute${minutes > 1 ? 's' : ''}`
-      }
-
-      await ctx.reply(
-        `✅ *Contact Support Activated*\n\n` +
-        `User: @${user.username || user.telegramId}\n` +
-        `Bonus: $${state.contactSupportBonusAmount}\n` +
-        `Duration: ${durationText}\n\n` +
-        `User will see the modal when they open the mini app.`,
-        { parse_mode: 'Markdown' }
-      )
-
-      adminState.delete(userId)
-    } catch (error) {
-      console.error('Error activating contact support:', error)
-      await ctx.reply('❌ Failed to activate contact support. Please try again.')
-    }
-    return
-  }
 
   // Handle card settings
   if (state.awaitingInput === 'card_count') {
@@ -2933,6 +2933,152 @@ bot.callbackQuery('broadcast_confirm', async (ctx) => {
   } catch (error) {
     console.error('Broadcast error:', error)
     await ctx.reply('❌ Failed to broadcast message')
+  }
+})
+
+// ===== GLOBAL CONTACT SUPPORT HANDLERS =====
+bot.callbackQuery('admin_global_contact_support', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  try {
+    let settings = await prisma.globalSettings.findFirst()
+    
+    if (!settings) {
+      settings = await prisma.globalSettings.create({
+        data: {
+          contactSupportEnabled: false,
+          contactSupportBonusAmount: 0,
+          contactSupportTimerMinutes: 0
+        }
+      })
+    }
+
+    const statusEmoji = settings.contactSupportEnabled ? '✅' : '❌'
+    const statusText = settings.contactSupportEnabled ? 'Enabled' : 'Disabled'
+    
+    let timeLeftText = ''
+    if (settings.contactSupportEnabled && settings.contactSupportActivatedAt) {
+      const activatedAt = new Date(settings.contactSupportActivatedAt).getTime()
+      const now = Date.now()
+      const timerDuration = settings.contactSupportTimerMinutes * 60 * 1000
+      const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
+      
+      if (timeLeft > 0) {
+        const days = Math.floor(timeLeft / (24 * 60 * 60 * 1000))
+        const hours = Math.floor((timeLeft % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000))
+        const minutes = Math.floor((timeLeft % (60 * 60 * 1000)) / (60 * 1000))
+        timeLeftText = `\n⏱ Time left: ${days}d ${hours}h ${minutes}m`
+      } else {
+        timeLeftText = `\n⏱ Timer expired`
+      }
+    }
+
+    const keyboard = new InlineKeyboard()
+      .text('⚙️ Configure Settings', 'cs_configure').row()
+      .text('👥 Show to Active Users', 'cs_show_active').row()
+      .text('❌ Disable Globally', 'cs_disable').row()
+      .text('◀️ Back to Admin', 'admin_menu')
+
+    await safeEditMessage(ctx,
+      `📞 *Global Contact Support*\n\n` +
+      `Status: ${statusEmoji} ${statusText}\n` +
+      `Bonus Amount: $${settings.contactSupportBonusAmount}\n` +
+      `Timer: ${settings.contactSupportTimerMinutes} minutes${timeLeftText}`,
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    )
+    await safeAnswerCallback(ctx)
+  } catch (error) {
+    console.error('Global contact support error:', error)
+    await ctx.reply('❌ Failed to load settings')
+  }
+})
+
+bot.callbackQuery('cs_configure', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'cs_bonus_amount' })
+
+  const keyboard = new InlineKeyboard()
+    .text('❌ Cancel', 'admin_global_contact_support')
+
+  await safeEditMessage(ctx,
+    '📞 *Configure Contact Support*\n\n' +
+    'Step 1: Enter bonus amount (in $)\n\n' +
+    'Example: 50',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery('cs_show_active', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  try {
+    // Reset contactSupportSeen for all users
+    const result = await prisma.user.updateMany({
+      data: {
+        contactSupportSeen: false
+      }
+    })
+
+    await safeEditMessage(ctx,
+      `✅ *Contact Support Activated*\n\n` +
+      `The modal will be shown to all ${result.count} users on next app launch.`,
+      { 
+        reply_markup: new InlineKeyboard().text('◀️ Back', 'admin_global_contact_support'),
+        parse_mode: 'Markdown'
+      }
+    )
+    await safeAnswerCallback(ctx)
+  } catch (error) {
+    console.error('Show to active error:', error)
+    await ctx.reply('❌ Failed to activate for users')
+  }
+})
+
+bot.callbackQuery('cs_disable', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  try {
+    let settings = await prisma.globalSettings.findFirst()
+    
+    if (settings) {
+      await prisma.globalSettings.update({
+        where: { id: settings.id },
+        data: {
+          contactSupportEnabled: false
+        }
+      })
+    }
+
+    await safeEditMessage(ctx,
+      `✅ *Contact Support Disabled*\n\n` +
+      `The modal will no longer be shown to users.`,
+      { 
+        reply_markup: new InlineKeyboard().text('◀️ Back', 'admin_global_contact_support'),
+        parse_mode: 'Markdown'
+      }
+    )
+    await safeAnswerCallback(ctx)
+  } catch (error) {
+    console.error('Disable contact support error:', error)
+    await ctx.reply('❌ Failed to disable')
   }
 })
 

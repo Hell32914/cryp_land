@@ -387,30 +387,46 @@ function App() {
 
   // Check and show Contact Support modal
   useEffect(() => {
-    if (userData?.contactSupportActive && userData?.contactSupportActivatedAt && userData?.contactSupportTimerMinutes) {
-      const activatedAt = new Date(userData.contactSupportActivatedAt).getTime()
-      const now = Date.now()
-      const timerDuration = userData.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
-      const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
+    const checkContactSupport = async () => {
+      if (!userData || userData.contactSupportSeen) return
       
-      if (timeLeft > 0) {
-        setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
-        setContactSupportOpen(true)
+      try {
+        // Fetch global settings
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/contact-support`)
+        const settings = await response.json()
         
-        // Update timer every second
-        const interval = setInterval(() => {
-          const newTimeLeft = Math.max(0, timerDuration - (Date.now() - activatedAt))
-          if (newTimeLeft <= 0) {
-            clearInterval(interval)
-            setContactSupportOpen(false)
-          } else {
-            setContactSupportTimeLeft(Math.floor(newTimeLeft / 1000))
-          }
-        }, 1000)
+        if (!settings.contactSupportEnabled || !settings.contactSupportActivatedAt || !settings.contactSupportTimerMinutes) {
+          return
+        }
         
-        return () => clearInterval(interval)
+        const activatedAt = new Date(settings.contactSupportActivatedAt).getTime()
+        const now = Date.now()
+        const timerDuration = settings.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
+        const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
+        
+        if (timeLeft > 0) {
+          setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
+          setContactSupportOpen(true)
+          
+          // Update timer every second
+          const interval = setInterval(() => {
+            const newTimeLeft = Math.max(0, timerDuration - (Date.now() - activatedAt))
+            if (newTimeLeft <= 0) {
+              clearInterval(interval)
+              setContactSupportOpen(false)
+            } else {
+              setContactSupportTimeLeft(Math.floor(newTimeLeft / 1000))
+            }
+          }, 1000)
+          
+          return () => clearInterval(interval)
+        }
+      } catch (error) {
+        console.error('Error fetching contact support settings:', error)
       }
     }
+    
+    checkContactSupport()
   }, [userData])
 
   // User profile with real data from bot API
@@ -2074,7 +2090,20 @@ function App() {
             {/* Send Button */}
             <Button 
               className="relative w-full bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary text-white font-black py-4 text-lg uppercase rounded-2xl shadow-2xl transition-all tracking-wider"
-              onClick={() => window.open('https://t.me/SyntrixSupport', '_blank')}
+              onClick={async () => {
+                // Mark as seen
+                try {
+                  await fetch(`${import.meta.env.VITE_API_URL}/api/users/${telegramUserId}/contact-support-seen`, {
+                    method: 'POST'
+                  })
+                } catch (error) {
+                  console.error('Error marking contact support as seen:', error)
+                }
+                
+                // Open support chat
+                window.open('https://t.me/SyntrixSupport', '_blank')
+                setContactSupportOpen(false)
+              }}
             >
               SEND
             </Button>

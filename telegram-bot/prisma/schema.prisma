@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -40,10 +40,7 @@ model User {
   referralEarnings  Float         @default(0)
   isActiveReferral  Boolean       @default(false)
   bonusTokens       Float         @default(0)
-  contactSupportActive Boolean    @default(false)
-  contactSupportBonusAmount Float  @default(0)
-  contactSupportTimerMinutes Int   @default(0)
-  contactSupportActivatedAt DateTime?
+  contactSupportSeen Boolean      @default(false)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   
@@ -152,4 +149,16 @@ model MarketingLink {
   trackingPixel  String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model GlobalSettings {
+  id                  Int       @id @default(autoincrement())
+  contactSupportEnabled Boolean @default(false)
+  contactSupportBonusAmount Float @default(0)
+  contactSupportTimerMinutes Int @default(0)
+  contactSupportActivatedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("global_settings")
 }
