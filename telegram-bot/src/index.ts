@@ -31,7 +31,7 @@ const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
-const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number, broadcastMessage?: any }>()
+const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number, broadcastMessage?: any, contactSupportBonusAmount?: number }>()
 
 // Middleware to check if user is blocked (blocks all bot interactions)
 bot.use(async (ctx, next) => {
@@ -1001,6 +1001,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
     keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
+    keyboard.text('📞 Contact Support', `contact_support_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1108,6 +1109,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
     keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
+    keyboard.text('📞 Contact Support', `contact_support_${userId}`).row()
   }
   
   keyboard.text('◀️ Back to Users', 'admin_users')
@@ -1286,6 +1288,36 @@ bot.callbackQuery(/^remove_bonus_(\d+)$/, async (ctx) => {
     `User: ${formatUserDisplay(user)}\n` +
     `Current Syntrix Token: $${user.bonusTokens.toFixed(2)}\n\n` +
     `Please reply with the amount to remove (e.g., 10):`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+// Contact Support activation (admin)
+bot.callbackQuery(/^contact_support_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  adminState.set(adminId, { awaitingInput: 'contact_support_bonus', targetUserId: userId })
+
+  const keyboard = new InlineKeyboard()
+    .text('Cancel', `manage_${userId}`)
+
+  await safeEditMessage(ctx, 
+    `📞 *Activate Contact Support*\n\n` +
+    `User: ${formatUserDisplay(user)}\n\n` +
+    `Enter the bonus token amount (e.g., 50):`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
@@ -1884,6 +1916,88 @@ bot.on('message:text', async (ctx) => {
     } catch (error) {
       console.error('Error removing bonus tokens:', error)
       await ctx.reply('❌ Failed to remove bonus tokens. Please try again.')
+    }
+    return
+  }
+
+  // Handle contact support activation
+  if (state.awaitingInput === 'contact_support_bonus') {
+    const amount = parseFloat(ctx.message?.text || '')
+    
+    if (isNaN(amount) || amount <= 0) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Invalid amount. Please enter a valid bonus amount.\nSend /cancel to abort.')
+      return
+    }
+
+    // Store bonus amount and ask for timer duration
+    state.contactSupportBonusAmount = amount
+    state.awaitingInput = 'contact_support_timer'
+    state.attempts = 0
+
+    await ctx.reply(
+      '⏱️ Enter timer duration in minutes:\n\n' +
+      'Examples:\n' +
+      '• 60 = 1 hour\n' +
+      '• 1440 = 1 day\n' +
+      '• 4320 = 3 days\n\n' +
+      '⚠️ Send /cancel to abort'
+    )
+    return
+  }
+
+  if (state.awaitingInput === 'contact_support_timer') {
+    const minutes = parseInt(ctx.message?.text || '')
+    
+    if (isNaN(minutes) || minutes <= 0) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Invalid duration. Please enter a valid number of minutes.\nSend /cancel to abort.')
+      return
+    }
+
+    const targetUserId = state.targetUserId
+    if (!targetUserId) {
+      await ctx.reply('❌ Error: User ID not found. Please try again.')
+      adminState.delete(userId)
+      return
+    }
+
+    try {
+      const user = await prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          contactSupportActive: true,
+          contactSupportBonusAmount: state.contactSupportBonusAmount || 0,
+          contactSupportTimerMinutes: minutes,
+          contactSupportActivatedAt: new Date()
+        }
+      })
+
+      const hours = Math.floor(minutes / 60)
+      const days = Math.floor(hours / 24)
+      
+      let durationText = ''
+      if (days > 0) {
+        durationText = `${days} day${days > 1 ? 's' : ''}`
+      } else if (hours > 0) {
+        durationText = `${hours} hour${hours > 1 ? 's' : ''}`
+      } else {
+        durationText = `${minutes} minute${minutes > 1 ? 's' : ''}`
+      }
+
+      await ctx.reply(
+        `✅ *Contact Support Activated*\n\n` +
+        `User: @${user.username || user.telegramId}\n` +
+        `Bonus: $${state.contactSupportBonusAmount}\n` +
+        `Duration: ${durationText}\n\n` +
+        `User will see the modal when they open the mini app.`,
+        { parse_mode: 'Markdown' }
+      )
+
+      adminState.delete(userId)
+    } catch (error) {
+      console.error('Error activating contact support:', error)
+      await ctx.reply('❌ Failed to activate contact support. Please try again.')
     }
     return
   }
