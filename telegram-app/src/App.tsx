@@ -388,7 +388,7 @@ function App() {
 
   // Check and show Contact Support modal
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
+    let intervalId: number | null = null
     
     const checkContactSupport = async () => {
       console.log('Contact Support Check:', { userData, contactSupportSeen: userData?.contactSupportSeen })
