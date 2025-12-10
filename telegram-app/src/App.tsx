@@ -392,8 +392,13 @@ function App() {
     
     const checkContactSupport = async () => {
       console.log('Contact Support Check:', { userData, contactSupportSeen: userData?.contactSupportSeen })
-      if (!userData || userData.contactSupportSeen) {
-        console.log('Skipping contact support - userData:', !!userData, 'seen:', userData?.contactSupportSeen)
+      if (!userData) {
+        console.log('Skipping contact support - userData not loaded yet')
+        return
+      }
+      
+      if (userData.contactSupportSeen) {
+        console.log('Skipping contact support - already seen')
         return
       }
       
