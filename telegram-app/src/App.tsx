@@ -48,6 +48,7 @@ function App() {
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
   const [contactSupportOpen, setContactSupportOpen] = useState(false)
   const [contactSupportTimeLeft, setContactSupportTimeLeft] = useState(0)
+  const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -1180,6 +1181,14 @@ function App() {
                       </p>
                       <p className="text-lg sm:text-xl font-bold text-primary">${(userData?.bonusTokens || 0).toFixed(2)}</p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                      onClick={() => setSyntrixTokenInfoOpen(true)}
+                    >
+                      <Info size={20} weight="fill" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -2031,22 +2040,22 @@ function App() {
                       <>
                         <div className="text-center min-w-[38px]">
                           <div className="text-3xl font-black leading-none">{days}</div>
-                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">дня</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">days</div>
                         </div>
                         <div className="text-2xl font-black pb-2">:</div>
                         <div className="text-center min-w-[38px]">
                           <div className="text-3xl font-black leading-none">{hours}</div>
-                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">назад</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">hours</div>
                         </div>
                         <div className="text-2xl font-black pb-2">:</div>
                         <div className="text-center min-w-[42px]">
                           <div className="text-3xl font-black leading-none">{minutes}</div>
-                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">минуты</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">minutes</div>
                         </div>
                         <div className="text-2xl font-black pb-2">:</div>
                         <div className="text-center min-w-[42px]">
                           <div className="text-3xl font-black leading-none">{seconds}</div>
-                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">секунд</div>
+                          <div className="text-[9px] uppercase mt-0.5 font-medium opacity-90">seconds</div>
                         </div>
                       </>
                     )
@@ -2068,6 +2077,66 @@ function App() {
               onClick={() => window.open('https://t.me/SyntrixSupport', '_blank')}
             >
               SEND
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Syntrix Token Info Dialog */}
+      <Dialog open={syntrixTokenInfoOpen} onOpenChange={setSyntrixTokenInfoOpen}>
+        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] max-w-[400px] rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-primary flex items-center gap-2">
+              <Info size={24} weight="fill" className="text-primary" />
+              Syntrix Token Info
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+              <p className="text-lg font-bold text-primary mb-2">💡 How it works:</p>
+              <ul className="space-y-2 text-sm text-foreground/90">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>It's given as a reward.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>You receive REAL profit from this token and can withdraw it to your USDT wallet.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-accent/5 rounded-lg border border-accent/20">
+                <span className="text-accent text-xl">✓</span>
+                <div>
+                  <p className="font-semibold text-foreground">Can be reinvested</p>
+                  <p className="text-xs text-muted-foreground">Add to your balance to increase daily profit</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
+                <span className="text-green-500 text-xl">📈</span>
+                <div>
+                  <p className="font-semibold text-foreground">Earns 0.5% daily profit</p>
+                  <p className="text-xs text-muted-foreground">Bronze rate (same as $10-$99 deposit)</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-lg border border-orange-500/20">
+                <span className="text-orange-500 text-xl">⚠️</span>
+                <div>
+                  <p className="font-semibold text-foreground">Token amount cannot be withdrawn as cash</p>
+                  <p className="text-xs text-muted-foreground">Only the profit can be withdrawn</p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3"
+              onClick={() => setSyntrixTokenInfoOpen(false)}
+            >
+              Got it!
             </Button>
           </div>
         </DialogContent>
