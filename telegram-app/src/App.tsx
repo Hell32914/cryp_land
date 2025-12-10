@@ -389,14 +389,20 @@ function App() {
   // Check and show Contact Support modal
   useEffect(() => {
     const checkContactSupport = async () => {
-      if (!userData || userData.contactSupportSeen) return
+      console.log('Contact Support Check:', { userData, contactSupportSeen: userData?.contactSupportSeen })
+      if (!userData || userData.contactSupportSeen) {
+        console.log('Skipping contact support - userData:', !!userData, 'seen:', userData?.contactSupportSeen)
+        return
+      }
       
       try {
         // Fetch global settings
         const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/contact-support`)
         const settings = await response.json()
+        console.log('Contact Support Settings:', settings)
         
         if (!settings.contactSupportEnabled || !settings.contactSupportActivatedAt || !settings.contactSupportTimerMinutes) {
+          console.log('Contact support not enabled or invalid settings')
           return
         }
         
@@ -404,8 +410,10 @@ function App() {
         const now = Date.now()
         const timerDuration = settings.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
         const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
+        console.log('Timer check:', { activatedAt, now, timerDuration, timeLeft })
         
         if (timeLeft > 0) {
+          console.log('Opening contact support modal!')
           setContactSupportBonusAmount(settings.contactSupportBonusAmount || 50)
           setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
           setContactSupportOpen(true)
