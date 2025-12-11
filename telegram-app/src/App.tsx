@@ -154,9 +154,6 @@ function App() {
       </p>
     )
 
-  // Get Telegram user ID (fallback to 503856039 for local testing)
-  const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
-  
   // Fetch real user data from bot API
   const { userData, loading, error, refreshData } = useUserData(telegramUserId, authToken)
 
