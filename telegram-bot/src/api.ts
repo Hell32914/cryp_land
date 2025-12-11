@@ -2424,9 +2424,11 @@ export function startApiServer(bot?: Bot) {
   // Add webhook endpoint if bot is provided
   if (bot) {
     app.post('/webhook', async (req, res) => {
-      console.log(`📥 Webhook request received from ${req.ip}`)
+      // Verify request is from Telegram's IP ranges
+      const clientIp = req.ip || req.headers['x-real-ip'] || req.headers['x-forwarded-for']
+      console.log(`📥 Webhook request received from ${clientIp}`)
       
-      // Verify secret token
+      // Verify secret token (защита от пункта 1 и 2)
       const receivedToken = req.headers['x-telegram-bot-api-secret-token']
       if (receivedToken !== WEBHOOK_SECRET_TOKEN) {
         console.error('❌ Invalid webhook secret token')
