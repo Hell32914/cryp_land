@@ -534,10 +534,21 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     const totalCount = await prisma.user.count({ where })
     const totalPages = Math.ceil(totalCount / take)
 
+    // Map frontend sortBy to database fields
+    const sortByField = String(sortBy)
+    let dbSortField = sortByField
+    
+    // Map computed fields to database fields
+    if (sortByField === 'totalDeposit') {
+      dbSortField = 'lifetimeDeposit' // Sort by lifetime deposits
+    } else if (sortByField === 'balance') {
+      dbSortField = 'totalDeposit' // Sort by current balance
+    }
+
     // Get users with referral counts and first deposit amounts
     const users = await prisma.user.findMany({
       where,
-      orderBy: { [String(sortBy)]: sortOrder === 'asc' ? 'asc' : 'desc' },
+      orderBy: { [dbSortField]: sortOrder === 'asc' ? 'asc' : 'desc' },
       take,
       skip,
       include: {
