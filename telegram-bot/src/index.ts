@@ -3265,6 +3265,82 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
   }
 })
 
+// Show withdrawal details
+bot.callbackQuery(/^withdrawal_details_(\d+)$/, async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isSupport(userId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const withdrawalId = parseInt(ctx.match![1])
+  
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      include: { user: true }
+    })
+
+    if (!withdrawal) {
+      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
+      return
+    }
+
+    const user = withdrawal.user
+    const username = (user.username || 'no_username').replace(/_/g, '\\_')
+    
+    // Risk indicators
+    const riskFlags = []
+    if (withdrawal.isVpnProxy) riskFlags.push('🔴 VPN/Proxy detected')
+    if (withdrawal.ipChanged) riskFlags.push('⚠️ IP changed since registration')
+    if (withdrawal.percentOfBalance && withdrawal.percentOfBalance > 90) riskFlags.push('⚠️ Withdrawing >90% of balance')
+    if (withdrawal.hoursSinceLastDeposit && withdrawal.hoursSinceLastDeposit < 1) riskFlags.push('⚠️ Withdrawal <1h after deposit')
+    if (withdrawal.accountAge && withdrawal.accountAge < 1) riskFlags.push('⚠️ New account (<24h)')
+    
+    const riskLevel = riskFlags.length === 0 ? '🟢 Low Risk' : 
+                      riskFlags.length <= 2 ? '🟡 Medium Risk' : '🔴 High Risk'
+
+    const detailsMessage = `📊 *Withdrawal Details #${withdrawal.id}*\n\n` +
+      `👤 *User Info:*\n` +
+      `• Username: @${username}\n` +
+      `• Telegram ID: ${user.telegramId}\n` +
+      `• Account age: ${withdrawal.accountAge || 'N/A'} days\n` +
+      `• Previous withdrawals: ${withdrawal.previousWithdrawals || 0}\n\n` +
+      
+      `🌍 *Location & Device:*\n` +
+      `• IP: \`${withdrawal.ipAddress || 'N/A'}\`\n` +
+      `• Country: ${withdrawal.country || 'N/A'}\n` +
+      `• City: ${withdrawal.city || 'N/A'}\n` +
+      `• ISP: ${withdrawal.isp || 'N/A'}\n` +
+      `• Timezone: ${withdrawal.timezone || 'N/A'}\n` +
+      `• Language: ${withdrawal.language || 'N/A'}\n` +
+      `• VPN/Proxy: ${withdrawal.isVpnProxy ? 'Yes ⚠️' : 'No ✅'}\n` +
+      `• IP changed: ${withdrawal.ipChanged ? 'Yes ⚠️' : 'No ✅'}\n\n` +
+      
+      `💻 *Technical:*\n` +
+      `• User Agent: ${withdrawal.userAgent ? withdrawal.userAgent.substring(0, 60) + '...' : 'N/A'}\n` +
+      `• Screen: ${withdrawal.screenResolution || 'N/A'}\n` +
+      `• Fingerprint: ${withdrawal.deviceFingerprint ? withdrawal.deviceFingerprint.substring(0, 20) + '...' : 'N/A'}\n` +
+      `• Referrer: ${withdrawal.referrer || 'N/A'}\n\n` +
+      
+      `💰 *Transaction Stats:*\n` +
+      `• Amount: $${withdrawal.amount.toFixed(2)}\n` +
+      `• % of balance: ${withdrawal.percentOfBalance?.toFixed(1) || 'N/A'}%\n` +
+      `• Deposit/Withdraw ratio: ${withdrawal.depositToWithdrawRatio?.toFixed(2) || 'N/A'}\n` +
+      `• Hours since last deposit: ${withdrawal.hoursSinceLastDeposit?.toFixed(1) || 'N/A'}\n\n` +
+      
+      `🎯 *Risk Assessment:*\n` +
+      `${riskLevel}\n` +
+      (riskFlags.length > 0 ? riskFlags.join('\n') : '✅ No risk flags detected')
+
+    await ctx.reply(detailsMessage, { parse_mode: 'Markdown' })
+    await safeAnswerCallback(ctx)
+  } catch (error) {
+    console.error('Error showing withdrawal details:', error)
+    await safeAnswerCallback(ctx, '❌ Error loading details')
+  }
+})
+
 // Generate random profit updates throughout the day
 function generateDailyUpdates(totalProfit: number): { amount: number, timestamp: Date }[] {
   const updates: { amount: number, timestamp: Date }[] = []

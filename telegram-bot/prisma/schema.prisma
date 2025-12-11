@@ -88,18 +88,34 @@ model Deposit {
 }
 
 model Withdrawal {
-  id          Int            @id @default(autoincrement())
-  userId      Int
-  user        User           @relation(fields: [userId], references: [id])
-  amount      Float
-  status      String         @default("PENDING")
-  currency    String         @default("USDT")
-  network     String?
-  address     String
-  txHash      String?
-  ipAddress   String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                Int            @id @default(autoincrement())
+  userId            Int
+  user              User           @relation(fields: [userId], references: [id])
+  amount            Float
+  status            String         @default("PENDING")
+  currency          String         @default("USDT")
+  network           String?
+  address           String
+  txHash            String?
+  ipAddress         String?
+  userAgent         String?
+  country           String?
+  city              String?
+  isp               String?
+  timezone          String?
+  language          String?
+  referrer          String?
+  deviceFingerprint String?
+  screenResolution  String?
+  isVpnProxy        Boolean?
+  accountAge        Int?
+  previousWithdrawals Int?
+  depositToWithdrawRatio Float?
+  hoursSinceLastDeposit Float?
+  percentOfBalance  Float?
+  ipChanged         Boolean?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }
 
 model Notification {

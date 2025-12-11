@@ -13,6 +13,26 @@ const PORT = process.env.PORT || process.env.API_PORT || 3001
 // Track pending withdrawal requests to prevent double-clicking race condition
 const pendingWithdrawalRequests = new Set<string>()
 
+// Get IP geolocation data
+async function getIpGeoData(ip: string) {
+  try {
+    // Use ip-api.com (free, no API key needed, 45 requests/minute)
+    const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,city,isp,timezone,proxy,query`)
+    if (response.data.status === 'success') {
+      return {
+        country: response.data.country || null,
+        city: response.data.city || null,
+        isp: response.data.isp || null,
+        timezone: response.data.timezone || null,
+        isVpnProxy: response.data.proxy || false
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching IP geo data:', error)
+  }
+  return { country: null, city: null, isp: null, timezone: null, isVpnProxy: null }
+}
+
 // Tariff plans configuration
 const TARIFF_PLANS = [
   { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
@@ -1346,7 +1366,41 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
                      req.socket.remoteAddress || 
                      'unknown'
 
-    // Create withdrawal record first (don't deduct balance yet)
+    // Collect metadata from request
+    const userAgent = req.headers['user-agent'] || null
+    const language = req.headers['accept-language']?.split(',')[0] || null
+    const referrer = req.headers['referer'] || req.headers['referrer'] || null
+    
+    // Get additional metadata from request body (sent from frontend)
+    const deviceFingerprint = req.body.deviceFingerprint || null
+    const screenResolution = req.body.screenResolution || null
+    const clientTimezone = req.body.timezone || null
+
+    // Get IP geolocation data
+    const geoData = await getIpGeoData(clientIp)
+
+    // Calculate account statistics
+    const accountAge = Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24)) // days
+    const previousWithdrawals = await prisma.withdrawal.count({
+      where: { userId: user.id, status: 'COMPLETED' }
+    })
+    
+    const lastDeposit = await prisma.deposit.findFirst({
+      where: { userId: user.id, status: 'COMPLETED' },
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    const hoursSinceLastDeposit = lastDeposit 
+      ? (Date.now() - lastDeposit.createdAt.getTime()) / (1000 * 60 * 60)
+      : null
+    
+    const depositToWithdrawRatio = user.totalDeposit > 0 ? amount / user.totalDeposit : null
+    const percentOfBalance = availableBalance > 0 ? (amount / availableBalance) * 100 : null
+    
+    // Check if IP changed since registration
+    const ipChanged = user.ipAddress && user.ipAddress !== clientIp ? true : false
+
+    // Create withdrawal record with all metadata
     const withdrawal = await prisma.withdrawal.create({
       data: {
         userId: user.id,
@@ -1355,7 +1409,23 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         currency,
         address,
         network: network || 'TRC20',
-        ipAddress: clientIp
+        ipAddress: clientIp,
+        userAgent,
+        country: geoData.country,
+        city: geoData.city,
+        isp: geoData.isp,
+        timezone: clientTimezone || geoData.timezone,
+        language,
+        referrer,
+        deviceFingerprint,
+        screenResolution,
+        isVpnProxy: geoData.isVpnProxy,
+        accountAge,
+        previousWithdrawals,
+        depositToWithdrawRatio,
+        hoursSinceLastDeposit,
+        percentOfBalance,
+        ipChanged
       }
     })
 
@@ -1394,8 +1464,7 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       `💰 Amount: $${amount.toFixed(2)}\n` +
       `💎 Currency: ${currency}\n` +
       `🌐 Network: ${network || 'TRC20'}\n` +
-      `📍 Address: \`${address}\`\n` +
-      `🌍 IP Address: ${clientIp}\n\n` +
+      `📍 Address: \`${address}\`\n\n` +
       `💳 Previous Deposit: $${user.totalDeposit.toFixed(2)}\n` +
       `💳 New Deposit: $${newDeposit.toFixed(2)}\n` +
       `✅ Funds have been reserved\n\n` +
@@ -1406,6 +1475,9 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         [
           { text: '✅ Approve & Process', callback_data: `approve_withdrawal_${withdrawal.id}` },
           { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
+        ],
+        [
+          { text: '📊 Подробнее', callback_data: `withdrawal_details_${withdrawal.id}` }
         ]
       ]
     }
