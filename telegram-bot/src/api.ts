@@ -118,13 +118,14 @@ if (!CRM_ADMIN_USERNAME || !CRM_ADMIN_PASSWORD || !CRM_JWT_SECRET) {
 
 const isAdminAuthConfigured = () => Boolean(CRM_ADMIN_USERNAME && CRM_ADMIN_PASSWORD && CRM_JWT_SECRET)
 
-// Rate limiting configuration
+// Rate limiting configuration (trust proxy for nginx)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Max 5 attempts per 15 minutes
   message: 'Too many login attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, // Trust X-Forwarded-For from nginx
 })
 
 const authLimiter = rateLimit({
@@ -133,6 +134,7 @@ const authLimiter = rateLimit({
   message: 'Too many authentication requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,
 })
 
 const withdrawalLimiter = rateLimit({
@@ -141,6 +143,7 @@ const withdrawalLimiter = rateLimit({
   message: 'Too many withdrawal requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,
 })
 
 const depositLimiter = rateLimit({
@@ -149,6 +152,7 @@ const depositLimiter = rateLimit({
   message: 'Too many deposit requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,
 })
 
 const safeCompare = (first?: string, second?: string) => {
