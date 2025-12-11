@@ -1339,6 +1339,13 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
       return res.status(400).json({ error: 'Address and currency are required' })
     }
 
+    // Get client IP address from request
+    const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || 
+                     req.headers['x-real-ip']?.toString() || 
+                     req.ip || 
+                     req.socket.remoteAddress || 
+                     'unknown'
+
     // Create withdrawal record first (don't deduct balance yet)
     const withdrawal = await prisma.withdrawal.create({
       data: {
@@ -1347,264 +1354,127 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
         status: 'PENDING',
         currency,
         address,
-        network: network || 'TRC20'
+        network: network || 'TRC20',
+        ipAddress: clientIp
       }
     })
 
-    // If amount < 100, process automatically via OxaPay
-    // If amount >= 100, require admin approval
-    if (amount < 100) {
-      try {
-        console.log(`💸 Processing withdrawal ${withdrawal.id} for user ${user.telegramId}`)
-        const { createPayout } = await import('./oxapay.js')
-        
-        const payout = await createPayout({
-          address,
-          amount,
-          currency,
-          network: network || 'TRC20'
-        })
-
-        console.log(`✅ OxaPay payout successful:`, payout)
-
-        // Calculate how much to deduct from profit vs totalDeposit
-        const profitToDeduct = Math.min(user.profit || 0, amount)
-        const depositToDeduct = amount - profitToDeduct
-        const newDeposit = user.totalDeposit - depositToDeduct
-
-        // SUCCESS: Deduct from profit first, then totalDeposit
-        const updatedUser = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            profit: { decrement: profitToDeduct },
-            totalDeposit: { decrement: depositToDeduct },
-            totalWithdraw: { increment: amount }
-          }
-        })
-
-        await prisma.withdrawal.update({
-          where: { id: withdrawal.id },
-          data: {
-            status: 'COMPLETED'
-          }
-        })
-
-        console.log(`✅ Deposit deducted, withdrawal marked as COMPLETED. Withdrawal ID: ${withdrawal.id}, New deposit: $${newDeposit.toFixed(2)}`)
-
-        // Notify user about successful withdrawal
-        try {
-          const { bot } = await import('./index.js')
-          await bot.api.sendMessage(
-            user.telegramId,
-            `✅ *Withdrawal Completed*\n\n` +
-            `💰 Amount: $${amount.toFixed(2)}\n` +
-            `💎 Currency: ${currency}\n` +
-            `🌐 Network: ${network || 'TRC20'}\n` +
-            `📍 Address: \`${address}\`\n\n` +
-            `🔗 Track ID: ${payout.trackId}\n\n` +
-            `💳 New deposit: $${newDeposit.toFixed(2)}`,
-            { parse_mode: 'Markdown' }
-          )
-        } catch (err) {
-          console.error('Failed to notify user:', err)
-        }
-
-        // Notify support team about withdrawal
-        try {
-          const { notifySupport } = await import('./index.js')
-          const username = (user.username || 'no_username').replace(/_/g, '\\_')
-          await notifySupport(
-            `💸 *Withdrawal Completed*\n\n` +
-            `👤 User: @${username} (ID: ${user.telegramId})\n` +
-            `💰 Amount: $${amount.toFixed(2)}\n` +
-            `💎 Currency: ${currency}\n` +
-            `🌐 Network: ${network || 'TRC20'}\n` +
-            `📍 Address: \`${address}\`\n` +
-            `🔗 Track ID: ${payout.trackId}\n` +
-            `💳 User New Deposit: $${newDeposit.toFixed(2)}`,
-            { parse_mode: 'Markdown' }
-          )
-          console.log(`✅ Support team notified about withdrawal from ${user.telegramId}`)
-        } catch (err) {
-          console.error('Failed to notify support team about withdrawal:', err)
-        }
-
-        // Clear pending request key
-        pendingWithdrawalRequests.delete(requestKey)
-        
-        return res.json({
-          success: true,
-          withdrawalId: withdrawal.id,
-          trackId: payout.trackId,
-          status: 'COMPLETED',
-          message: 'Withdrawal completed successfully',
-          newBalance: newDeposit
-        })
-      } catch (error: any) {
-        console.error(`❌ Withdrawal ${withdrawal.id} failed:`, {
-          error: error.message,
-          stack: error.stack
-        })
-
-        // For withdrawals ≤ $100: If Oxapay fails, DO NOT deduct balance
-        // Mark withdrawal as FAILED
-        console.log(`❌ OxaPay request failed for withdrawal ${withdrawal.id}. Not deducting balance, marking as FAILED.`)
-
-        // Mark withdrawal as FAILED
-        await prisma.withdrawal.update({
-          where: { id: withdrawal.id },
-          data: { status: 'FAILED' }
-        })
-
-        console.log(`❌ Withdrawal marked as FAILED. User balance unchanged: $${user.balance.toFixed(2)}`)
-
-        // Notify user about failed withdrawal
-        try {
-          const { bot } = await import('./index.js')
-          await bot.api.sendMessage(
-            user.telegramId,
-            `❌ *Withdrawal Failed*\n\n` +
-            `💰 Amount: $${amount.toFixed(2)}\n` +
-            `💎 Currency: ${currency}\n` +
-            `🌐 Network: ${network || 'TRC20'}\n` +
-            `📍 Address: \`${address}\`\n\n` +
-            `⚠️ Payment provider error: ${error.message}\n\n` +
-            `💳 Your balance remains unchanged: $${user.balance.toFixed(2)}\n\n` +
-            `Please try again later or contact support.`,
-            { parse_mode: 'Markdown' }
-          )
-        } catch (err) {
-          console.error('Failed to notify user:', err)
-        }
-
-        // Clear pending request key
-        pendingWithdrawalRequests.delete(requestKey)
-        
-        return res.status(400).json({
-          success: false,
-          withdrawalId: withdrawal.id,
-          status: 'FAILED',
-          error: 'Withdrawal failed. Please try again.',
-          details: error.message
-        })
+    // ALL withdrawals now require admin approval
+    // Deduct balance immediately (reserve funds) and set status to PROCESSING
+    const { bot, notifySupport } = await import('./index.js')
+    
+    console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
+    
+    // Calculate how much to deduct from profit vs totalDeposit
+    const profitToDeduct = Math.min(user.profit || 0, amount)
+    const depositToDeduct = amount - profitToDeduct
+    const newDeposit = user.totalDeposit - depositToDeduct
+    
+    // STEP 1: Deduct from profit first, then totalDeposit (reserve funds)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        profit: { decrement: profitToDeduct },
+        totalDeposit: { decrement: depositToDeduct },
+        totalWithdraw: { increment: amount }
       }
-    } else {
-      // Amount >= 100, deduct balance immediately (reserve funds) and set status to PROCESSING
-      const { bot, notifySupport } = await import('./index.js')
+    })
+    
+    // STEP 2: Update withdrawal status to PROCESSING
+    await prisma.withdrawal.update({
+      where: { id: withdrawal.id },
+      data: { status: 'PROCESSING' }
+    })
+    
+    console.log(`✅ Funds reserved. New deposit: $${newDeposit.toFixed(2)}`)
+    
+    const username = (user.username || 'no_username').replace(/_/g, '\\_')
+    const adminMessage = `🔔 *Withdrawal Request - Requires Approval*\n\n` +
+      `👤 User: @${username} (ID: ${user.telegramId})\n` +
+      `💰 Amount: $${amount.toFixed(2)}\n` +
+      `💎 Currency: ${currency}\n` +
+      `🌐 Network: ${network || 'TRC20'}\n` +
+      `📍 Address: \`${address}\`\n` +
+      `🌍 IP Address: ${clientIp}\n\n` +
+      `💳 Previous Deposit: $${user.totalDeposit.toFixed(2)}\n` +
+      `💳 New Deposit: $${newDeposit.toFixed(2)}\n` +
+      `✅ Funds have been reserved\n\n` +
+      `🆔 Withdrawal ID: ${withdrawal.id}`
+    
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '✅ Approve & Process', callback_data: `approve_withdrawal_${withdrawal.id}` },
+          { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
+        ]
+      ]
+    }
+    
+    // Notify support team about withdrawal requiring approval
+    try {
+      const { notifySupport } = await import('./index.js')
+      console.log(`📨 Sending withdrawal notification to support team`)
       
-      console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
-      
-      // Calculate how much to deduct from profit vs totalDeposit
-      const profitToDeduct = Math.min(user.profit || 0, amount)
-      const depositToDeduct = amount - profitToDeduct
-      const newDeposit = user.totalDeposit - depositToDeduct
-      
-      // STEP 1: Deduct from profit first, then totalDeposit (reserve funds)
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          profit: { decrement: profitToDeduct },
-          totalDeposit: { decrement: depositToDeduct },
-          totalWithdraw: { increment: amount }
+      // Get all support users
+      const { ADMIN_IDS } = await import('./index.js')
+      for (const adminId of ADMIN_IDS) {
+        try {
+          await bot.api.sendMessage(adminId, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+          console.log(`✅ Notification sent to admin/support ${adminId}`)
+        } catch (err) {
+          console.error(`❌ Failed to notify ${adminId}:`, err)
         }
+      }
+      
+      // Also notify support users from database
+      const supportUsers = await prisma.user.findMany({
+        where: { role: { in: ['admin', 'support'] } }
       })
       
-      // STEP 2: Update withdrawal status to PROCESSING
-      await prisma.withdrawal.update({
-        where: { id: withdrawal.id },
-        data: { status: 'PROCESSING' }
-      })
-      
-      console.log(`✅ Funds reserved. New deposit: $${newDeposit.toFixed(2)}`)
-      
-      const username = (user.username || 'no_username').replace(/_/g, '\\_')
-      const adminMessage = `🔔 *Withdrawal Request - Manual Approval Required*\n\n` +
-        `👤 User: @${username} (ID: ${user.telegramId})\n` +
+      for (const supportUser of supportUsers) {
+        if (ADMIN_IDS.includes(supportUser.telegramId)) continue // Already notified
+        
+        try {
+          await bot.api.sendMessage(supportUser.telegramId, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
+          console.log(`✅ Notification sent to support ${supportUser.telegramId}`)
+        } catch (err) {
+          console.error(`❌ Failed to notify support ${supportUser.telegramId}:`, err)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to send support team notifications:', error)
+    }
+
+    // Notify user that withdrawal is pending approval (funds already reserved)
+    try {
+      await bot.api.sendMessage(
+        user.telegramId,
+        `⏳ *Withdrawal Pending Approval*\n\n` +
         `💰 Amount: $${amount.toFixed(2)}\n` +
         `💎 Currency: ${currency}\n` +
         `🌐 Network: ${network || 'TRC20'}\n` +
         `📍 Address: \`${address}\`\n\n` +
-        `💳 Previous Deposit: $${user.totalDeposit.toFixed(2)}\n` +
-        `💳 New Deposit: $${newDeposit.toFixed(2)}\n` +
-        `✅ Funds have been reserved\n\n` +
-        `⚠️ Amount ≥ $100 - Requires approval\n` +
-        `🆔 Withdrawal ID: ${withdrawal.id}`
-      
-      const keyboard = {
-        inline_keyboard: [
-          [
-            { text: '✅ Approve & Process', callback_data: `approve_withdrawal_${withdrawal.id}` },
-            { text: '❌ Reject', callback_data: `reject_withdrawal_${withdrawal.id}` }
-          ]
-        ]
-      }
-      
-      // Notify support team about withdrawal requiring approval
-      try {
-        const { notifySupport } = await import('./index.js')
-        console.log(`📨 Sending withdrawal notification to support team`)
-        
-        // Get all support users
-        const { ADMIN_IDS } = await import('./index.js')
-        for (const adminId of ADMIN_IDS) {
-          try {
-            await bot.api.sendMessage(adminId, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-            console.log(`✅ Notification sent to admin/support ${adminId}`)
-          } catch (err) {
-            console.error(`❌ Failed to notify ${adminId}:`, err)
-          }
-        }
-        
-        // Also notify support users from database
-        const supportUsers = await prisma.user.findMany({
-          where: { role: { in: ['admin', 'support'] } }
-        })
-        
-        for (const supportUser of supportUsers) {
-          if (ADMIN_IDS.includes(supportUser.telegramId)) continue // Already notified
-          
-          try {
-            await bot.api.sendMessage(supportUser.telegramId, adminMessage, { parse_mode: 'Markdown', reply_markup: keyboard })
-            console.log(`✅ Notification sent to support ${supportUser.telegramId}`)
-          } catch (err) {
-            console.error(`❌ Failed to notify support ${supportUser.telegramId}:`, err)
-          }
-        }
-      } catch (error) {
-        console.error('❌ Failed to send support team notifications:', error)
-      }
-
-      // Notify user that withdrawal is pending approval (funds already reserved)
-      try {
-        await bot.api.sendMessage(
-          user.telegramId,
-          `⏳ *Withdrawal Pending Approval*\n\n` +
-          `💰 Amount: $${amount.toFixed(2)}\n` +
-          `💎 Currency: ${currency}\n` +
-          `🌐 Network: ${network || 'TRC20'}\n` +
-          `📍 Address: \`${address}\`\n\n` +
-          `📋 Your withdrawal request has been sent to admin for approval.\n` +
-          `⏱ This usually takes a few minutes.\n\n` +
-          `✅ Funds have been reserved from your deposit\n` +
-          `💳 New deposit: $${newDeposit.toFixed(2)}\n\n` +
-          `ℹ️ If rejected, funds will be returned to your account.`,
-          { parse_mode: 'Markdown' }
-        )
-      } catch (err) {
-        console.error('Failed to notify user:', err)
-      }
-
-      // Clear pending request key
-      pendingWithdrawalRequests.delete(requestKey)
-      
-      return res.json({
-        success: true,
-        withdrawalId: withdrawal.id,
-        status: 'PROCESSING',
-        message: 'Withdrawal request sent to admin for approval. Funds have been reserved.',
-        newBalance: newDeposit
-      })
+        `📋 Your withdrawal request has been sent to admin for approval.\n` +
+        `⏱ This usually takes a few minutes.\n\n` +
+        `✅ Funds have been reserved from your deposit\n` +
+        `💳 New deposit: $${newDeposit.toFixed(2)}\n\n` +
+        `ℹ️ If rejected, funds will be returned to your account.`,
+        { parse_mode: 'Markdown' }
+      )
+    } catch (err) {
+      console.error('Failed to notify user:', err)
     }
+
+    // Clear pending request key
+    pendingWithdrawalRequests.delete(requestKey)
+    
+    return res.json({
+      success: true,
+      withdrawalId: withdrawal.id,
+      status: 'PROCESSING',
+      message: 'Withdrawal request sent to admin for approval. Funds have been reserved.',
+      newBalance: newDeposit
+    })
   } catch (error: any) {
     console.error('❌ Withdrawal API Error:', error)
     
