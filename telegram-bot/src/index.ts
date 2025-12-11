@@ -3832,6 +3832,9 @@ async function startBot() {
     // Initialize database first
     await initDatabase()
     
+    // Initialize bot (required for handleUpdate)
+    await bot.init()
+    
     // Set webhook URL with secret token for security
     const webhookUrl = process.env.WEBHOOK_URL || 'https://syntrix-bot.onrender.com'
     const fullWebhookUrl = webhookUrl.startsWith('http') ? webhookUrl : `https://${webhookUrl}`
