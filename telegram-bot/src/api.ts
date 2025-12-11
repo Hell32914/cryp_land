@@ -7,14 +7,20 @@ import type { Bot } from 'grammy'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { z } from 'zod'
+import rateLimit from 'express-rate-limit'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 
 // Generate webhook secret token for security
+const isProduction = process.env.NODE_ENV === 'production'
+
 export const WEBHOOK_SECRET_TOKEN = process.env.WEBHOOK_SECRET_TOKEN || crypto.randomBytes(32).toString('hex')
 if (!process.env.WEBHOOK_SECRET_TOKEN) {
+  if (isProduction) {
+    throw new Error('❌ WEBHOOK_SECRET_TOKEN must be set in .env for production!')
+  }
   console.warn('⚠️ WEBHOOK_SECRET_TOKEN not set in .env, using generated token. Add it to .env for persistence.')
-  console.log(`Generated WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN}`)
+  console.log(`Generated WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN.slice(0, 8)}...${WEBHOOK_SECRET_TOKEN.slice(-8)}`)
 }
 
 // Track pending withdrawal requests to prevent double-clicking race condition
@@ -68,7 +74,26 @@ function calculateTariffPlan(balance: number) {
   }
 }
 
-app.use(cors())
+// Configure CORS with allowed origins
+const allowedOrigins = [
+  'https://syntrix.website',
+  'https://syntrix-crm.onrender.com',
+  'http://localhost:5173', // Development
+  'http://localhost:3000'  // Development
+]
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      console.warn(`⚠️ CORS blocked origin: ${origin}`)
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
+  credentials: true
+}))
 app.use(express.json())
 
 const CRM_ADMIN_USERNAME = process.env.CRM_ADMIN_USERNAME
@@ -79,8 +104,11 @@ const ADMIN_TOKEN_EXPIRATION = '12h'
 // User JWT secret for mini-app authentication
 const USER_JWT_SECRET = process.env.USER_JWT_SECRET || crypto.randomBytes(32).toString('hex')
 if (!process.env.USER_JWT_SECRET) {
+  if (isProduction) {
+    throw new Error('❌ USER_JWT_SECRET must be set in .env for production!')
+  }
   console.warn('⚠️ USER_JWT_SECRET not set in .env, using generated secret. Add it to .env for persistence.')
-  console.log(`Generated USER_JWT_SECRET=${USER_JWT_SECRET}`)
+  console.log(`Generated USER_JWT_SECRET=${USER_JWT_SECRET.slice(0, 8)}...${USER_JWT_SECRET.slice(-8)}`)
 }
 
 if (!CRM_ADMIN_USERNAME || !CRM_ADMIN_PASSWORD || !CRM_JWT_SECRET) {
@@ -155,7 +183,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
   }
@@ -186,8 +214,49 @@ app.post('/api/admin/login', (req, res) => {
   return res.json({ token })
 })
 
+// Validate Telegram WebApp initData
+function validateTelegramWebAppData(initData: string, botToken: string): { valid: boolean; telegramId?: string } {
+  try {
+    const urlParams = new URLSearchParams(initData)
+    const hash = urlParams.get('hash')
+    urlParams.delete('hash')
+    
+    if (!hash) {
+      return { valid: false }
+    }
+
+    // Create data check string
+    const dataCheckArr = Array.from(urlParams.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+    const dataCheckString = dataCheckArr.join('\n')
+
+    // Calculate secret key
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest()
+    
+    // Calculate hash
+    const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex')
+
+    if (calculatedHash !== hash) {
+      return { valid: false }
+    }
+
+    // Extract user data
+    const userStr = urlParams.get('user')
+    if (userStr) {
+      const userData = JSON.parse(userStr)
+      return { valid: true, telegramId: String(userData.id) }
+    }
+
+    return { valid: false }
+  } catch (error) {
+    console.error('Error validating Telegram WebApp data:', error)
+    return { valid: false }
+  }
+}
+
 // User authentication endpoint - generates JWT for mini-app users
-app.post('/api/user/auth', async (req, res) => {
+app.post('/api/user/auth', authLimiter, async (req, res) => {
   try {
     const { telegramId, initData } = req.body
     
@@ -195,8 +264,19 @@ app.post('/api/user/auth', async (req, res) => {
       return res.status(400).json({ error: 'telegramId is required' })
     }
 
-    // TODO: В production добавить валидацию Telegram WebApp initData
-    // https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    // Validate Telegram WebApp initData in production
+    if (isProduction && initData) {
+      const botToken = process.env.BOT_TOKEN
+      if (!botToken) {
+        return res.status(500).json({ error: 'Server configuration error' })
+      }
+
+      const validation = validateTelegramWebAppData(initData, botToken)
+      if (!validation.valid || validation.telegramId !== telegramId) {
+        console.warn(`⚠️ Invalid Telegram WebApp data for user ${telegramId}`)
+        return res.status(401).json({ error: 'Invalid authentication data' })
+      }
+    }
     
     // Verify user exists in database
     const user = await prisma.user.findUnique({
@@ -1204,7 +1284,7 @@ app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => 
 })
 
 // Get user referrals
-app.get('/api/user/:telegramId/referrals', async (req, res) => {
+app.get('/api/user/:telegramId/referrals', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
 
@@ -1232,7 +1312,7 @@ app.get('/api/user/:telegramId/referrals', async (req, res) => {
 })
 
 // Get daily profit updates
-app.get('/api/user/:telegramId/daily-updates', async (req, res) => {
+app.get('/api/user/:telegramId/daily-updates', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
 
@@ -1273,7 +1353,7 @@ app.get('/api/user/:telegramId/daily-updates', async (req, res) => {
 })
 
 // Reinvest referral earnings to balance
-app.post('/api/user/:telegramId/referral-reinvest', async (req, res) => {
+app.post('/api/user/:telegramId/referral-reinvest', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
 
@@ -1325,7 +1405,7 @@ app.post('/api/user/:telegramId/referral-reinvest', async (req, res) => {
 })
 
 // Create deposit invoice
-app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
+app.post('/api/user/:telegramId/create-deposit', depositLimiter, async (req, res) => {
   try {
     const { telegramId } = req.params
     const { amount, currency } = req.body
@@ -1389,7 +1469,7 @@ app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
 })
 
 // Create withdrawal request
-app.post('/api/user/:telegramId/create-withdrawal', requireUserAuth, async (req, res) => {
+app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
     const { amount, currency, address, network } = req.body
@@ -1645,7 +1725,7 @@ app.post('/api/user/:telegramId/create-withdrawal', requireUserAuth, async (req,
 })
 
 // Get transaction history
-app.get('/api/user/:telegramId/transactions', async (req, res) => {
+app.get('/api/user/:telegramId/transactions', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
 
