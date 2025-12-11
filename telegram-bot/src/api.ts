@@ -2423,23 +2423,16 @@ let server: any
 export function startApiServer(bot?: Bot) {
   // Add webhook endpoint if bot is provided
   if (bot) {
-    // Webhook security middleware - validate secret token
-    // TEMPORARILY DISABLED - Telegram's secret_token mechanism works differently
-    // app.post('/webhook', (req, res, next) => {
-    //   const token = req.header('X-Telegram-Bot-Api-Secret-Token')
-    //   if (token !== WEBHOOK_SECRET_TOKEN) {
-    //     console.warn(`⚠️ Unauthorized webhook request blocked. Invalid token.`)
-    //     return res.sendStatus(401)
-    //   }
-    //   next()
-    // }, webhookCallback(bot, 'express', {
-    //   timeoutMilliseconds: 60000 // 60 seconds timeout
-    // }))
+    // Debug logging middleware - log before processing
+    app.use('/webhook', (req, res, next) => {
+      console.log(`📥 Webhook request received from ${req.ip}`)
+      next()
+    })
     
     app.post('/webhook', webhookCallback(bot, 'express', {
       timeoutMilliseconds: 60000 // 60 seconds timeout
     }))
-    console.log('✅ Webhook handler registered at /webhook')
+    console.log('✅ Webhook handler registered at /webhook with debug logging')
   }
   
   server = app.listen(PORT, () => {
