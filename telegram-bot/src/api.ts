@@ -117,6 +117,39 @@ if (!CRM_ADMIN_USERNAME || !CRM_ADMIN_PASSWORD || !CRM_JWT_SECRET) {
 
 const isAdminAuthConfigured = () => Boolean(CRM_ADMIN_USERNAME && CRM_ADMIN_PASSWORD && CRM_JWT_SECRET)
 
+// Rate limiting configuration
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Max 5 attempts per 15 minutes
+  message: 'Too many login attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Max 20 auth requests per 15 minutes
+  message: 'Too many authentication requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const withdrawalLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Max 10 withdrawal requests per hour
+  message: 'Too many withdrawal requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const depositLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30, // Max 30 deposit requests per hour
+  message: 'Too many deposit requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 const safeCompare = (first?: string, second?: string) => {
   if (typeof first !== 'string' || typeof second !== 'string') {
     return false
