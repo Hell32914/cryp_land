@@ -77,6 +77,7 @@ function calculateTariffPlan(balance: number) {
 // Configure CORS with allowed origins
 const allowedOrigins = [
   'https://syntrix.website',
+  'https://app.syntrix.website',
   'https://syntrix-crm.onrender.com',
   'http://localhost:5173', // Development
   'http://localhost:3000'  // Development
