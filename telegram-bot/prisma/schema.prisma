@@ -145,6 +145,7 @@ model MarketingLink {
   stream         String?
   geo            String?
   creative       String?
+  language       String?
   domain         String?
   trackingPixel  String?
   createdAt      DateTime @default(now())

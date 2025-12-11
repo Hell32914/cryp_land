@@ -373,6 +373,7 @@ bot.command('start', async (ctx) => {
     let marketingSource: string | null = null
     let utmParams: string | null = null
     let linkId: string | null = null
+    let preferredLanguage: string | null = null
     
     if (startPayload) {
       if (startPayload.startsWith('ref5')) {
@@ -396,6 +397,8 @@ bot.command('start', async (ctx) => {
           marketingSource = marketingLink.source
           // Store the linkId in utmParams so we can match it later
           utmParams = linkId
+          // Get language from marketing link
+          preferredLanguage = marketingLink.language
         }
       } else {
         // Try to parse URL params: source=<name>&param1=value1&param2=value2
@@ -427,7 +430,7 @@ bot.command('start', async (ctx) => {
         firstName: ctx.from?.first_name,
         lastName: ctx.from?.last_name,
         phoneNumber: ctx.from?.username ? null : ctx.from?.id.toString(),
-        languageCode: ctx.from?.language_code,
+        languageCode: preferredLanguage || ctx.from?.language_code,
         referredBy: referrerId,
         marketingSource,
         utmParams

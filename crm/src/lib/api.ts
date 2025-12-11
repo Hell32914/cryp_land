@@ -308,6 +308,7 @@ export const createMarketingLink = (token: string, data: {
   stream?: string
   geo?: string
   creative?: string
+  language?: string
   domain?: string
   trackingPixel?: string
 }) =>

@@ -47,6 +47,7 @@ export function LinkBuilder() {
   const [stream, setStream] = useState('')
   const [geo, setGeo] = useState('')
   const [creative, setCreative] = useState('')
+  const [language, setLanguage] = useState('EN') // Default language
   const [generatedLink, setGeneratedLink] = useState('')
   const [generatedLinkId, setGeneratedLinkId] = useState('')
   const [copied, setCopied] = useState(false)
@@ -228,6 +229,7 @@ export function LinkBuilder() {
         stream: stream || undefined,
         geo: geo || undefined,
         creative: creative || undefined,
+        language: language || 'EN', // Add language parameter
         domain: selectedDomain,
         trackingPixel: trackingPixel || undefined
       })
@@ -405,6 +407,27 @@ export function LinkBuilder() {
                   value={creative}
                   onChange={(e) => setCreative(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Язык пользователя</Label>
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите язык" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EN">🇬🇧 English</SelectItem>
+                    <SelectItem value="RU">🇷🇺 Русский</SelectItem>
+                    <SelectItem value="FR">🇫🇷 Français</SelectItem>
+                    <SelectItem value="DE">🇩🇪 Deutsch</SelectItem>
+                    <SelectItem value="ES">🇪🇸 Español</SelectItem>
+                    <SelectItem value="PT">🇵🇹 Português</SelectItem>
+                    <SelectItem value="IT">🇮🇹 Italiano</SelectItem>
+                    <SelectItem value="TR">🇹🇷 Türkçe</SelectItem>
+                    <SelectItem value="AR">🇸🇦 العربية</SelectItem>
+                    <SelectItem value="HI">🇮🇳 हिन्दी</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

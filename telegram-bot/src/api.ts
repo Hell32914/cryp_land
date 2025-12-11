@@ -1891,7 +1891,7 @@ const buildMarketingLinkUrl = (domain: string | null | undefined, linkId: string
 // Create marketing link
 app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
   try {
-    const { source, utmParams, trafficerName, stream, geo, creative, domain, trackingPixel } = req.body
+    const { source, utmParams, trafficerName, stream, geo, creative, language, domain, trackingPixel } = req.body
     
     if (!source) {
       return res.status(400).json({ error: 'Source is required' })
@@ -1911,6 +1911,7 @@ app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
         stream: stream || null,
         geo: geo || null,
         creative: creative || null,
+        language: language || 'EN',
         domain: normalizedDomain,
         trackingPixel: trackingPixel || null
       }
