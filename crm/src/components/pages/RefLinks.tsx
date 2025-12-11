@@ -117,11 +117,11 @@ export function RefLinks() {
                     <TableHead>Stream</TableHead>
                     <TableHead>Geo</TableHead>
                     <TableHead>Creative</TableHead>
+                    <TableHead className="text-right text-purple-400">Total</TableHead>
                     <TableHead className="text-right text-green-400">TOTAL USER</TableHead>
                     <TableHead className="text-right text-blue-400">TODAY USERS</TableHead>
                     <TableHead className="text-right text-cyan-400">WEEK USER</TableHead>
                     <TableHead className="text-right text-yellow-400">LEADS</TableHead>
-                    <TableHead className="text-right text-purple-400">Total</TableHead>
                     <TableHead className="text-right text-orange-400">CR% Lead→User</TableHead>
                     <TableHead className="text-right">FTD</TableHead>
                     <TableHead className="text-right">CR %</TableHead>
@@ -154,11 +154,11 @@ export function RefLinks() {
                       <TableCell className="text-orange-400">
                         {link.creative || '-'}
                       </TableCell>
+                      <TableCell className="text-right text-purple-400 font-semibold">{link.totalLeads + (link.totalUsers || 0)}</TableCell>
                       <TableCell className="text-right text-green-400 font-semibold">{link.totalUsers || 0}</TableCell>
                       <TableCell className="text-right text-blue-400">{link.usersToday || 0}</TableCell>
                       <TableCell className="text-right text-cyan-400">{link.usersWeek || 0}</TableCell>
                       <TableCell className="text-right text-yellow-400">{link.totalLeads}</TableCell>
-                      <TableCell className="text-right text-purple-400 font-semibold">{link.totalLeads + (link.totalUsers || 0)}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
                           {(link.totalLeads + (link.totalUsers || 0)) > 0 
