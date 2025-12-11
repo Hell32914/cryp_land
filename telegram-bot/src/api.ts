@@ -99,15 +99,7 @@ app.use(cors({
   },
   credentials: true
 }))
-
-// Parse JSON for all routes except webhook (grammy handles webhook body parsing)
-app.use((req, res, next) => {
-  if (req.path === '/webhook') {
-    next()
-  } else {
-    express.json()(req, res, next)
-  }
-})
+app.use(express.json())
 
 const CRM_ADMIN_USERNAME = process.env.CRM_ADMIN_USERNAME
 const CRM_ADMIN_PASSWORD = process.env.CRM_ADMIN_PASSWORD
@@ -2431,8 +2423,7 @@ let server: any
 export function startApiServer(bot?: Bot) {
   // Add webhook endpoint if bot is provided
   if (bot) {
-    // Debug logging middleware - log before processing
-    app.use('/webhook', (req, res, next) => {
+    app.post('/webhook', async (req, res) => {
       console.log(`📥 Webhook request received from ${req.ip}`)
       
       // Verify secret token
@@ -2445,12 +2436,16 @@ export function startApiServer(bot?: Bot) {
       }
       
       console.log('✅ Token validated, processing webhook...')
-      next()
+      
+      // Handle update with grammy
+      try {
+        await bot.handleUpdate(req.body)
+        res.sendStatus(200)
+      } catch (error) {
+        console.error('Error processing webhook:', error)
+        res.sendStatus(500)
+      }
     })
-    
-    app.post('/webhook', webhookCallback(bot, 'express', {
-      timeoutMilliseconds: 60000 // 60 seconds timeout
-    }))
     console.log('✅ Webhook handler registered at /webhook with debug logging')
   }
   
