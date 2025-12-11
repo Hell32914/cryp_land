@@ -1369,7 +1369,8 @@ app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
     // Collect metadata from request
     const userAgent = req.headers['user-agent'] || null
     const language = req.headers['accept-language']?.split(',')[0] || null
-    const referrer = req.headers['referer'] || req.headers['referrer'] || null
+    const referrerHeader = req.headers['referer'] || req.headers['referrer']
+    const referrer = typeof referrerHeader === 'string' ? referrerHeader : (Array.isArray(referrerHeader) ? referrerHeader[0] : null)
     
     // Get additional metadata from request body (sent from frontend)
     const deviceFingerprint = req.body.deviceFingerprint || null
