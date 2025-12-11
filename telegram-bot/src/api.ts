@@ -2426,6 +2426,16 @@ export function startApiServer(bot?: Bot) {
     // Debug logging middleware - log before processing
     app.use('/webhook', (req, res, next) => {
       console.log(`📥 Webhook request received from ${req.ip}`)
+      
+      // Verify secret token
+      const receivedToken = req.headers['x-telegram-bot-api-secret-token']
+      if (receivedToken !== WEBHOOK_SECRET_TOKEN) {
+        console.error('❌ Invalid webhook secret token')
+        console.log(`Expected: ${WEBHOOK_SECRET_TOKEN}`)
+        console.log(`Received: ${receivedToken}`)
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+      
       next()
     })
     
