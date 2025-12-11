@@ -950,6 +950,7 @@ bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
     `💰 Working Balance: $${user.totalDeposit.toFixed(2)}\n` +
     `📈 Current Profit: $${user.profit.toFixed(2)}\n` +
     `💎 Referral Earnings: $${user.referralEarnings.toFixed(2)}\n` +
+    `🎁 Bonus Tokens: $${(user.bonusTokens || 0).toFixed(2)}\n` +
     `📤 Total Withdrawals: $${totalWithdrawals.toFixed(2)} (${user.withdrawals.filter(w => w.status === 'COMPLETED').length} txs)\n` +
     `💸 Lifetime Deposits: $${(user.lifetimeDeposit || 0).toFixed(2)}\n\n` +
     `📊 *Account Info:*\n` +
@@ -1033,6 +1034,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
     `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
     `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
+    `🎁 Bonus Tokens: $${(user.bonusTokens || 0).toFixed(2)}\n` +
     `📤 Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -1883,7 +1885,10 @@ bot.on('message:text', async (ctx) => {
     const amount = parseFloat(ctx.message?.text || '')
     const targetUserId = state.targetUserId
 
+    console.log('[Add Bonus] Parsed amount:', amount, 'Text:', ctx.message?.text, 'Target user ID:', targetUserId)
+
     if (isNaN(amount) || !targetUserId || amount <= 0) {
+      console.log('[Add Bonus] Validation failed - amount:', amount, 'targetUserId:', targetUserId)
       await ctx.reply('❌ Invalid amount. Please enter a positive number.')
       return
     }
@@ -1891,10 +1896,13 @@ bot.on('message:text', async (ctx) => {
     try {
       const currentUser = await prisma.user.findUnique({ where: { id: targetUserId } })
       if (!currentUser) {
+        console.log('[Add Bonus] User not found:', targetUserId)
         await ctx.reply('❌ User not found')
         adminState.delete(userId)
         return
       }
+
+      console.log('[Add Bonus] Updating user bonus tokens:', { userId: targetUserId, currentBonus: currentUser.bonusTokens, addAmount: amount })
 
       // Update user bonus tokens
       const user = await prisma.user.update({
@@ -1903,6 +1911,8 @@ bot.on('message:text', async (ctx) => {
           bonusTokens: { increment: amount }
         }
       })
+
+      console.log('[Add Bonus] Successfully updated. New bonus:', user.bonusTokens)
 
       // Notify user
       const userMessage = `🎁 *Syntrix Token Added!*\n\n` +
@@ -1936,7 +1946,12 @@ bot.on('message:text', async (ctx) => {
 
       adminState.delete(userId)
     } catch (error) {
-      console.error('Error adding bonus tokens:', error)
+      console.error('[Add Bonus] Error adding bonus tokens:', error)
+      console.error('[Add Bonus] Error details:', {
+        name: (error as Error).name,
+        message: (error as Error).message,
+        stack: (error as Error).stack
+      })
       await ctx.reply('❌ Failed to add bonus tokens. Please try again.')
     }
     return
