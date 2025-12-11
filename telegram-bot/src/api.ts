@@ -613,9 +613,22 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       }
     }))
 
+    // Map to summary format
+    const mappedUsers = enrichedUsers.map(u => mapUserSummary(u))
+    
+    // Re-sort if sorting by computed fields (that weren't sorted in DB)
+    const computedFields = ['balance', 'totalDeposit', 'totalWithdraw', 'profit']
+    if (computedFields.includes(sortByField)) {
+      mappedUsers.sort((a, b) => {
+        const aValue = (a as any)[sortByField] || 0
+        const bValue = (b as any)[sortByField] || 0
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue
+      })
+    }
+
     return res.json({
-      users: enrichedUsers.map(u => mapUserSummary(u)),
-      count: enrichedUsers.length,
+      users: mappedUsers,
+      count: mappedUsers.length,
       totalCount,
       page: pageNum,
       totalPages,
