@@ -99,7 +99,15 @@ app.use(cors({
   },
   credentials: true
 }))
-app.use(express.json())
+
+// Parse JSON for all routes except webhook (grammy handles webhook body parsing)
+app.use((req, res, next) => {
+  if (req.path === '/webhook') {
+    next()
+  } else {
+    express.json()(req, res, next)
+  }
+})
 
 const CRM_ADMIN_USERNAME = process.env.CRM_ADMIN_USERNAME
 const CRM_ADMIN_PASSWORD = process.env.CRM_ADMIN_PASSWORD
@@ -2437,7 +2445,6 @@ export function startApiServer(bot?: Bot) {
       }
       
       console.log('✅ Token validated, processing webhook...')
-      console.log(`Body: ${JSON.stringify(req.body)}`)
       next()
     })
     
