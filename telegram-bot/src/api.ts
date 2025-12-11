@@ -2436,6 +2436,8 @@ export function startApiServer(bot?: Bot) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
       
+      console.log('✅ Token validated, processing webhook...')
+      console.log(`Body: ${JSON.stringify(req.body)}`)
       next()
     })
     
