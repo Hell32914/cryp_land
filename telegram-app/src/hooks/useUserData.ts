@@ -47,24 +47,34 @@ interface UserData {
   }>
 }
 
-export function useUserData(telegramId: string | undefined) {
+export function useUserData(telegramId: string | undefined, authToken: string | null = null) {
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!telegramId) {
+    if (!telegramId || !authToken) {
       setLoading(false)
       return
     }
 
     const fetchUserData = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/user/${telegramId}`)
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        }
+        
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`
+        }
+        
+        const response = await fetch(`${API_URL}/api/user/${telegramId}`, { headers })
         
         if (!response.ok) {
           if (response.status === 404) {
             setError('User not found')
+          } else if (response.status === 401 || response.status === 403) {
+            setError('Authentication failed')
           } else {
             setError('Failed to load user data')
           }
@@ -88,14 +98,22 @@ export function useUserData(telegramId: string | undefined) {
     const interval = setInterval(fetchUserData, 10000)
 
     return () => clearInterval(interval)
-  }, [telegramId])
+  }, [telegramId, authToken])
 
   const refreshData = async () => {
-    if (!telegramId) return
+    if (!telegramId || !authToken) return
 
     setLoading(true)
     try {
-      const response = await fetch(`${API_URL}/api/user/${telegramId}`)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
+      }
+      
+      const response = await fetch(`${API_URL}/api/user/${telegramId}`, { headers })
       if (response.ok) {
         const data = await response.json()
         setUserData(data)

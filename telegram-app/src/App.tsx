@@ -50,6 +50,7 @@ function App() {
   const [contactSupportTimeLeft, setContactSupportTimeLeft] = useState(0)
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(50)
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
+  const [authToken, setAuthToken] = useState<string | null>(null)
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -58,6 +59,44 @@ function App() {
   const whitepaperContent = t.whitepaperContent
   const securitySections = t.securitySections ?? []
   const advantagesSections = t.advantagesSections ?? []
+
+  // Get Telegram user ID (fallback to 503856039 for local testing)
+  const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
+
+  // Authenticate user and get JWT token
+  useEffect(() => {
+    const authenticateUser = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+        const initData = window.Telegram?.WebApp?.initData || ''
+        
+        const response = await fetch(`${API_URL}/api/user/auth`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            telegramId: telegramUserId,
+            initData
+          })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setAuthToken(data.token)
+          console.log('✅ User authenticated successfully')
+        } else {
+          console.error('❌ Authentication failed:', await response.text())
+        }
+      } catch (error) {
+        console.error('❌ Authentication error:', error)
+      }
+    }
+
+    if (telegramUserId) {
+      authenticateUser()
+    }
+  }, [telegramUserId])
 
   const renderWhitepaperParagraph = (paragraph: WhitepaperParagraph, key: string) => {
     const classes = ['text-muted-foreground', 'mb-1']
@@ -119,16 +158,29 @@ function App() {
   const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
   
   // Fetch real user data from bot API
-  const { userData, loading, error, refreshData } = useUserData(telegramUserId)
+  const { userData, loading, error, refreshData } = useUserData(telegramUserId, authToken)
+
+  // Helper function to create authenticated headers
+  const getAuthHeaders = () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`
+    }
+    return headers
+  }
 
   // Fetch referrals
   const fetchReferrals = async () => {
-    if (!telegramUserId) return
+    if (!telegramUserId || !authToken) return
 
     setLoadingReferrals(true)
     try {
       const API_URL = 'https://api.syntrix.website'
-      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referrals`)
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referrals`, {
+        headers: getAuthHeaders()
+      })
       
       if (response.ok) {
         const data = await response.json()
@@ -143,15 +195,13 @@ function App() {
 
   // Reinvest referral earnings to balance
   const handleReferralReinvest = async () => {
-    if (!userData || userData.referralEarnings <= 0) return
+    if (!userData || userData.referralEarnings <= 0 || !authToken) return
 
     try {
       const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/referral-reinvest`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       })
 
       if (response.ok) {
@@ -170,12 +220,14 @@ function App() {
 
   // Fetch daily updates
   const fetchDailyUpdates = async () => {
-    if (!telegramUserId) return
+    if (!telegramUserId || !authToken) return
 
     setLoadingDailyUpdates(true)
     try {
       const API_URL = 'https://api.syntrix.website'
-      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/daily-updates`)
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/daily-updates`, {
+        headers: getAuthHeaders()
+      })
       
       if (response.ok) {
         const data = await response.json()
@@ -198,12 +250,14 @@ function App() {
 
   // Fetch transactions
   const fetchTransactions = async () => {
-    if (!telegramUserId) return
+    if (!telegramUserId || !authToken) return
 
     setLoadingTransactions(true)
     try {
       const API_URL = 'https://api.syntrix.website'
-      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/transactions`)
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/transactions`, {
+        headers: getAuthHeaders()
+      })
       
       if (response.ok) {
         const data = await response.json()
@@ -233,9 +287,7 @@ function App() {
       const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/create-deposit`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           amount,
           currency: selectedCurrency
@@ -280,9 +332,7 @@ function App() {
       const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/create-withdrawal`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           amount,
           currency: selectedCurrency,
@@ -344,9 +394,7 @@ function App() {
       const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/reinvest`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       })
 
       if (response.ok) {

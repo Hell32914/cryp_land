@@ -3832,12 +3832,15 @@ async function startBot() {
     // Initialize database first
     await initDatabase()
     
-    // Set webhook URL
+    // Set webhook URL with secret token for security
     const webhookUrl = process.env.WEBHOOK_URL || 'https://syntrix-bot.onrender.com'
     const fullWebhookUrl = webhookUrl.startsWith('http') ? webhookUrl : `https://${webhookUrl}`
+    const { WEBHOOK_SECRET_TOKEN } = await import('./api.js')
     console.log(`🔗 Setting webhook to: ${fullWebhookUrl}/webhook`)
-    await bot.api.setWebhook(`${fullWebhookUrl}/webhook`)
-    console.log('✅ Webhook set successfully')
+    await bot.api.setWebhook(`${fullWebhookUrl}/webhook`, {
+      secret_token: WEBHOOK_SECRET_TOKEN
+    })
+    console.log('✅ Webhook set successfully with secret token')
     
     // Start API server (includes webhook handler)
     startApiServer(bot)

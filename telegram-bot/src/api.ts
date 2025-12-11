@@ -10,6 +10,13 @@ import { z } from 'zod'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 
+// Generate webhook secret token for security
+export const WEBHOOK_SECRET_TOKEN = process.env.WEBHOOK_SECRET_TOKEN || crypto.randomBytes(32).toString('hex')
+if (!process.env.WEBHOOK_SECRET_TOKEN) {
+  console.warn('⚠️ WEBHOOK_SECRET_TOKEN not set in .env, using generated token. Add it to .env for persistence.')
+  console.log(`Generated WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN}`)
+}
+
 // Track pending withdrawal requests to prevent double-clicking race condition
 const pendingWithdrawalRequests = new Set<string>()
 
@@ -69,6 +76,13 @@ const CRM_ADMIN_PASSWORD = process.env.CRM_ADMIN_PASSWORD
 const CRM_JWT_SECRET = process.env.CRM_JWT_SECRET
 const ADMIN_TOKEN_EXPIRATION = '12h'
 
+// User JWT secret for mini-app authentication
+const USER_JWT_SECRET = process.env.USER_JWT_SECRET || crypto.randomBytes(32).toString('hex')
+if (!process.env.USER_JWT_SECRET) {
+  console.warn('⚠️ USER_JWT_SECRET not set in .env, using generated secret. Add it to .env for persistence.')
+  console.log(`Generated USER_JWT_SECRET=${USER_JWT_SECRET}`)
+}
+
 if (!CRM_ADMIN_USERNAME || !CRM_ADMIN_PASSWORD || !CRM_JWT_SECRET) {
   console.warn('⚠️ CRM admin credentials are not configured. Admin API endpoints will be disabled until CRM_ADMIN_* env vars are set.')
 }
@@ -109,6 +123,33 @@ const requireAdminAuth: RequestHandler = (req, res, next) => {
   }
 }
 
+// Middleware to verify user JWT token and extract telegramId
+const requireUserAuth: RequestHandler = (req, res, next) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' })
+  }
+
+  try {
+    const token = authHeader.slice(7)
+    const decoded = jwt.verify(token, USER_JWT_SECRET) as { telegramId: string }
+    
+    // Verify that telegramId in token matches telegramId in URL
+    const urlTelegramId = req.params.telegramId
+    if (urlTelegramId && decoded.telegramId !== urlTelegramId) {
+      console.warn(`⚠️ Token telegramId mismatch: ${decoded.telegramId} !== ${urlTelegramId}`)
+      return res.status(403).json({ error: 'Forbidden: telegramId mismatch' })
+    }
+    
+    // Attach verified telegramId to request for use in route handlers
+    ;(req as any).verifiedTelegramId = decoded.telegramId
+    next()
+  } catch (error) {
+    console.error('JWT verification failed:', error)
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
+}
+
 const loginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
@@ -143,6 +184,41 @@ app.post('/api/admin/login', (req, res) => {
   )
 
   return res.json({ token })
+})
+
+// User authentication endpoint - generates JWT for mini-app users
+app.post('/api/user/auth', async (req, res) => {
+  try {
+    const { telegramId, initData } = req.body
+    
+    if (!telegramId) {
+      return res.status(400).json({ error: 'telegramId is required' })
+    }
+
+    // TODO: В production добавить валидацию Telegram WebApp initData
+    // https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    
+    // Verify user exists in database
+    const user = await prisma.user.findUnique({
+      where: { telegramId }
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // Generate JWT token for user
+    const token = jwt.sign(
+      { telegramId },
+      USER_JWT_SECRET,
+      { expiresIn: '7d' } // Token valid for 7 days
+    )
+
+    res.json({ token })
+  } catch (error) {
+    console.error('Error generating user token:', error)
+    res.status(500).json({ error: 'Failed to generate token' })
+  }
 })
 
 app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
@@ -965,7 +1041,7 @@ function getClientIP(req: express.Request): string {
   return req.socket.remoteAddress || 'unknown'
 }
 
-app.get('/api/user/:telegramId', async (req, res) => {
+app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
     
@@ -1050,7 +1126,7 @@ app.get('/api/user/:telegramId', async (req, res) => {
 })
 
 // Get user notifications
-app.get('/api/user/:telegramId/notifications', async (req, res) => {
+app.get('/api/user/:telegramId/notifications', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
     
@@ -1076,7 +1152,7 @@ app.get('/api/user/:telegramId/notifications', async (req, res) => {
 })
 
 // Reinvest profit to balance
-app.post('/api/user/:telegramId/reinvest', async (req, res) => {
+app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
     
@@ -1313,7 +1389,7 @@ app.post('/api/user/:telegramId/create-deposit', async (req, res) => {
 })
 
 // Create withdrawal request
-app.post('/api/user/:telegramId/create-withdrawal', async (req, res) => {
+app.post('/api/user/:telegramId/create-withdrawal', requireUserAuth, async (req, res) => {
   try {
     const { telegramId } = req.params
     const { amount, currency, address, network } = req.body
@@ -2229,10 +2305,18 @@ let server: any
 export function startApiServer(bot?: Bot) {
   // Add webhook endpoint if bot is provided
   if (bot) {
-    app.post('/webhook', webhookCallback(bot, 'express', {
+    // Webhook security middleware - validate secret token
+    app.post('/webhook', (req, res, next) => {
+      const token = req.header('X-Telegram-Bot-Api-Secret-Token')
+      if (token !== WEBHOOK_SECRET_TOKEN) {
+        console.warn(`⚠️ Unauthorized webhook request blocked. Invalid token.`)
+        return res.sendStatus(401)
+      }
+      next()
+    }, webhookCallback(bot, 'express', {
       timeoutMilliseconds: 60000 // 60 seconds timeout
     }))
-    console.log('✅ Webhook handler registered at /webhook')
+    console.log('✅ Webhook handler registered at /webhook with secret token validation')
   }
   
   server = app.listen(PORT, () => {
