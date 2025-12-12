@@ -10,6 +10,7 @@ import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
+const BIND_HOST = process.env.API_BIND_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0')
 
 // Generate webhook secret token for security
 const isProduction = process.env.NODE_ENV === 'production'
@@ -2531,8 +2532,8 @@ export function startApiServer(bot?: Bot) {
     console.log('✅ Webhook handler registered at /webhook with debug logging')
   }
   
-  server = app.listen(PORT, () => {
-    console.log(`🌐 API Server running on http://localhost:${PORT}`)
+  server = app.listen(Number(PORT), BIND_HOST, () => {
+    console.log(`🌐 API Server running on http://${BIND_HOST}:${PORT}`)
   })
   return server
 }
