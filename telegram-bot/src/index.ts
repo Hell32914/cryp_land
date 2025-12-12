@@ -898,6 +898,7 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   }
 
   const isAdminUser = await isAdmin(visitorId)
+  const isSupportUser = await isSupport(visitorId)
   const userId = parseInt(ctx.match![1])
   const user = await prisma.user.findUnique({ 
     where: { id: userId },
@@ -929,6 +930,10 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
+  }
+  
+  // Support can manage bonus tokens
+  if (isSupportUser) {
     keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
   }
@@ -975,6 +980,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
   }
 
   const isAdminUser = await isAdmin(visitorId)
+  const isSupportUser = await isSupport(visitorId)
   const userId = parseInt(ctx.match![1])
   const newStatus = ctx.match![2] as UserStatus
 
@@ -1037,6 +1043,10 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
+  }
+  
+  // Support can manage bonus tokens
+  if (isSupportUser) {
     keyboard.text('🎁 Add Bonus Token', `add_bonus_${userId}`)
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
   }
@@ -1160,10 +1170,10 @@ bot.callbackQuery(/^add_profit_(\d+)$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
-// Add bonus tokens to user (admin)
+// Add bonus tokens to user (admin/support)
 bot.callbackQuery(/^add_bonus_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
-  if (!adminId || !(await isAdmin(adminId))) {
+  if (!adminId || !(await isSupport(adminId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }
@@ -1191,10 +1201,10 @@ bot.callbackQuery(/^add_bonus_(\d+)$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
-// Remove bonus tokens from user (admin)
+// Remove bonus tokens from user (admin/support)
 bot.callbackQuery(/^remove_bonus_(\d+)$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
-  if (!adminId || !(await isAdmin(adminId))) {
+  if (!adminId || !(await isSupport(adminId))) {
     await safeAnswerCallback(ctx, 'Access denied')
     return
   }

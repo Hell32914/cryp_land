@@ -1161,7 +1161,8 @@ function getClientIP(req: express.Request): string {
 
 app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
     
     const user = await prisma.user.findUnique({
       where: { telegramId },
@@ -1246,7 +1247,8 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
 // Get user notifications
 app.get('/api/user/:telegramId/notifications', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
     
     const user = await prisma.user.findUnique({
       where: { telegramId }
@@ -1272,7 +1274,8 @@ app.get('/api/user/:telegramId/notifications', requireUserAuth, async (req, res)
 // Reinvest profit to balance
 app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
     
     const user = await prisma.user.findUnique({
       where: { telegramId }
@@ -1324,7 +1327,8 @@ app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => 
 // Get user referrals
 app.get('/api/user/:telegramId/referrals', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
 
     const user = await prisma.user.findUnique({
       where: { telegramId }
@@ -1352,7 +1356,8 @@ app.get('/api/user/:telegramId/referrals', requireUserAuth, async (req, res) => 
 // Get daily profit updates
 app.get('/api/user/:telegramId/daily-updates', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
 
     const user = await prisma.user.findUnique({
       where: { telegramId }
@@ -1393,7 +1398,8 @@ app.get('/api/user/:telegramId/daily-updates', requireUserAuth, async (req, res)
 // Reinvest referral earnings to balance
 app.post('/api/user/:telegramId/referral-reinvest', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
 
     const user = await prisma.user.findUnique({
       where: { telegramId }
@@ -1443,9 +1449,10 @@ app.post('/api/user/:telegramId/referral-reinvest', requireUserAuth, async (req,
 })
 
 // Create deposit invoice
-app.post('/api/user/:telegramId/create-deposit', depositLimiter, async (req, res) => {
+app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
     const { amount, currency } = req.body
 
     const user = await prisma.user.findUnique({
@@ -1509,7 +1516,8 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, async (req, res
 // Create withdrawal request
 app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
     const { amount, currency, address, network } = req.body
 
     // Check for duplicate request (race condition protection)
@@ -1765,7 +1773,8 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
 // Get transaction history
 app.get('/api/user/:telegramId/transactions', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
 
     const user = await prisma.user.findUnique({
       where: { telegramId },
@@ -1829,6 +1838,12 @@ app.post('/api/oxapay-callback', async (req, res) => {
     
     const { trackId, status, orderid, amount, txID, type } = req.body
     
+    // SECURITY: Validate required fields
+    if (!trackId) {
+      console.error('⚠️ Missing trackId in callback')
+      return res.status(400).json({ success: false, error: 'Missing trackId' })
+    }
+    
     // Check if this is a payout (withdrawal) callback
     if (type === 'payout' || req.body.hasOwnProperty('payoutId')) {
       console.log('💸 Processing payout callback')
@@ -1844,6 +1859,12 @@ app.post('/api/oxapay-callback', async (req, res) => {
       if (!withdrawal) {
         console.log(`⚠️ Withdrawal not found for trackId: ${trackId}`)
         return res.json({ success: false, error: 'Withdrawal not found' })
+      }
+      
+      // SECURITY: Prevent status downgrade - only allow PENDING/PROCESSING -> COMPLETED
+      if (withdrawal.status === 'COMPLETED') {
+        console.log(`✓ Withdrawal already completed: ${trackId}`)
+        return res.json({ success: true, message: 'Already processed' })
       }
 
       // Update withdrawal with real blockchain transaction hash
@@ -1902,22 +1923,41 @@ app.post('/api/oxapay-callback', async (req, res) => {
       console.log(`✓ Deposit already processed: ${trackId}`)
       return res.json({ success: true, message: 'Already processed' })
     }
+    
+    // SECURITY: Verify amount matches (if provided in callback)
+    if (amount && Math.abs(parseFloat(amount) - deposit.amount) > 0.01) {
+      console.error(`⚠️ Amount mismatch for trackId ${trackId}: callback=${amount}, expected=${deposit.amount}`)
+      return res.status(400).json({ success: false, error: 'Amount mismatch' })
+    }
 
-    // Update deposit status to COMPLETED
-    await prisma.deposit.update({
-      where: { id: deposit.id },
-      data: { status: 'COMPLETED' }
-    })
+    // SECURITY: Use transaction to ensure atomicity
+    await prisma.$transaction(async (tx) => {
+      // Update deposit status to COMPLETED
+      await tx.deposit.update({
+        where: { id: deposit.id },
+        data: { status: 'COMPLETED' }
+      })
 
-    // Add amount to user totalDeposit and activate account if needed
-    const updatedUser = await prisma.user.update({
-      where: { id: deposit.userId },
-      data: {
-        totalDeposit: { increment: deposit.amount },
-        lifetimeDeposit: { increment: deposit.amount },
-        status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
-      }
+      // Add amount to user totalDeposit and activate account if needed
+      await tx.user.update({
+        where: { id: deposit.userId },
+        data: {
+          totalDeposit: { increment: deposit.amount },
+          lifetimeDeposit: { increment: deposit.amount },
+          status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
+        }
+      })
     })
+    
+    // Fetch updated user data after transaction
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: deposit.userId }
+    })
+    
+    if (!updatedUser) {
+      console.error('Failed to fetch updated user')
+      return res.status(500).json({ success: false, error: 'Failed to update user' })
+    }
 
     console.log(`✅ Deposit completed: $${deposit.amount} added to user ${deposit.user.telegramId}`)
     
@@ -2206,7 +2246,7 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
 })
 
 // Update marketing link traffic cost
-app.patch('/api/admin/marketing-links/:linkId/traffic-cost', async (req, res) => {
+app.patch('/api/admin/marketing-links/:linkId/traffic-cost', requireAdminAuth, async (req, res) => {
   try {
     const { linkId } = req.params
     const { trafficCost } = req.body
@@ -2395,9 +2435,10 @@ app.post('/api/admin/contact-support/disable', requireAdminAuth, async (req, res
 })
 
 // Mark user as seen contact support
-app.post('/api/users/:telegramId/contact-support-seen', async (req, res) => {
+app.post('/api/users/:telegramId/contact-support-seen', requireUserAuth, async (req, res) => {
   try {
-    const { telegramId } = req.params
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
     
     const user = await prisma.user.update({
       where: { telegramId },
