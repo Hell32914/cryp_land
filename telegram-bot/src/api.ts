@@ -253,7 +253,10 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
 })
 
 // Validate Telegram WebApp initData
-function validateTelegramWebAppData(initData: string, botToken: string): { valid: boolean; telegramId?: string } {
+function validateTelegramWebAppData(
+  initData: string,
+  botToken: string
+): { valid: boolean; telegramId?: string; authDate?: number } {
   try {
     const urlParams = new URLSearchParams(initData)
     const hash = urlParams.get('hash')
@@ -275,7 +278,26 @@ function validateTelegramWebAppData(initData: string, botToken: string): { valid
     // Calculate hash
     const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex')
 
-    if (calculatedHash !== hash) {
+    if (!safeCompare(calculatedHash, hash)) {
+      return { valid: false }
+    }
+
+    // Enforce initData freshness to reduce replay risk
+    const authDateStr = urlParams.get('auth_date')
+    const authDate = authDateStr ? Number(authDateStr) : NaN
+    if (!Number.isFinite(authDate)) {
+      return { valid: false }
+    }
+
+    const maxAgeSecondsRaw = process.env.TELEGRAM_INITDATA_MAX_AGE_SECONDS
+    const maxAgeSeconds = Number.isFinite(Number(maxAgeSecondsRaw)) ? Number(maxAgeSecondsRaw) : 600
+    const nowSeconds = Math.floor(Date.now() / 1000)
+
+    // Basic sanity bounds (allow small clock skew)
+    if (authDate > nowSeconds + 60) {
+      return { valid: false }
+    }
+    if (nowSeconds - authDate > maxAgeSeconds) {
       return { valid: false }
     }
 
@@ -283,7 +305,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): { valid
     const userStr = urlParams.get('user')
     if (userStr) {
       const userData = JSON.parse(userStr)
-      return { valid: true, telegramId: String(userData.id) }
+      return { valid: true, telegramId: String(userData.id), authDate }
     }
 
     return { valid: false }
@@ -297,28 +319,44 @@ function validateTelegramWebAppData(initData: string, botToken: string): { valid
 app.post('/api/user/auth', authLimiter, async (req, res) => {
   try {
     const { telegramId, initData } = req.body
-    
-    if (!telegramId) {
-      return res.status(400).json({ error: 'telegramId is required' })
-    }
 
-    // Validate Telegram WebApp initData in production
-    if (isProduction && initData) {
+    let effectiveTelegramId: string | undefined
+
+    // PRODUCTION: initData is mandatory; telegramId must be derived from validated initData.
+    if (isProduction) {
+      if (!initData || typeof initData !== 'string') {
+        return res.status(401).json({ error: 'initData is required' })
+      }
+
       const botToken = process.env.BOT_TOKEN
       if (!botToken) {
         return res.status(500).json({ error: 'Server configuration error' })
       }
 
       const validation = validateTelegramWebAppData(initData, botToken)
-      if (!validation.valid || validation.telegramId !== telegramId) {
-        console.warn(`⚠️ Invalid Telegram WebApp data for user ${telegramId}`)
+      if (!validation.valid || !validation.telegramId) {
+        console.warn('⚠️ Invalid Telegram WebApp initData')
         return res.status(401).json({ error: 'Invalid authentication data' })
       }
+
+      effectiveTelegramId = validation.telegramId
+
+      // If client also sends telegramId, it must match (defense-in-depth)
+      if (telegramId && telegramId !== effectiveTelegramId) {
+        console.warn(`⚠️ telegramId mismatch in auth body: ${telegramId} !== ${effectiveTelegramId}`)
+        return res.status(401).json({ error: 'Invalid authentication data' })
+      }
+    } else {
+      // DEVELOPMENT: allow plain telegramId for local testing
+      if (!telegramId) {
+        return res.status(400).json({ error: 'telegramId is required' })
+      }
+      effectiveTelegramId = telegramId
     }
     
     // Verify user exists in database
     const user = await prisma.user.findUnique({
-      where: { telegramId }
+      where: { telegramId: effectiveTelegramId }
     })
 
     if (!user) {
@@ -327,7 +365,7 @@ app.post('/api/user/auth', authLimiter, async (req, res) => {
 
     // Generate JWT token for user
     const token = jwt.sign(
-      { telegramId },
+      { telegramId: effectiveTelegramId },
       USER_JWT_SECRET,
       { expiresIn: '7d' } // Token valid for 7 days
     )
@@ -2465,16 +2503,17 @@ export function startApiServer(bot?: Bot) {
   // Add webhook endpoint if bot is provided
   if (bot) {
     app.post('/webhook', async (req, res) => {
-      // Verify request is from Telegram's IP ranges
       const clientIp = req.ip || req.headers['x-real-ip'] || req.headers['x-forwarded-for']
       console.log(`📥 Webhook request received from ${clientIp}`)
-      
-      // Verify secret token (защита от пункта 1 и 2)
-      const receivedToken = req.headers['x-telegram-bot-api-secret-token']
-      if (receivedToken !== WEBHOOK_SECRET_TOKEN) {
+
+      // Verify secret token (do NOT log secrets)
+      const receivedHeader = req.headers['x-telegram-bot-api-secret-token']
+      const receivedToken = typeof receivedHeader === 'string'
+        ? receivedHeader
+        : (Array.isArray(receivedHeader) ? receivedHeader[0] : undefined)
+
+      if (!safeCompare(receivedToken, WEBHOOK_SECRET_TOKEN)) {
         console.error('❌ Invalid webhook secret token')
-        console.log(`Expected: ${WEBHOOK_SECRET_TOKEN}`)
-        console.log(`Received: ${receivedToken}`)
         return res.status(401).json({ error: 'Unauthorized' })
       }
       
