@@ -30,7 +30,17 @@ const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
 // Admin state management
-const adminState = new Map<string, { awaitingInput?: string, targetUserId?: number, attempts?: number, lastAttempt?: number, broadcastMessage?: any, contactSupportBonusAmount?: number, csBonusAmount?: number }>()
+const adminState = new Map<string, {
+  awaitingInput?: string,
+  targetUserId?: number,
+  attempts?: number,
+  lastAttempt?: number,
+  broadcastMessage?: any,
+  contactSupportBonusAmount?: number,
+  csBonusAmount?: number,
+  usersSearchQuery?: string,
+  usersSearchPage?: number,
+}>()
 
 // Middleware to check if user is blocked (blocks all bot interactions)
 bot.use(async (ctx, next) => {
@@ -835,8 +845,124 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
     keyboard.text('Next ▶️', `admin_users_${page + 1}`)
   }
   if (page > 1 || page < totalPages) keyboard.row()
-  
+
+  keyboard.text('🔎 Search', 'admin_users_search').row()
   keyboard.text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery('admin_users_search', async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isSupport(userId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  // Reset previous search + pending input
+  adminState.delete(userId)
+  adminState.set(userId, { awaitingInput: 'search_users_username' })
+
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back to Users', 'admin_users').row()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    '🔎 Search Users\n\n' +
+      'Send the username to search:\n' +
+      '• `@username`\n' +
+      '• `username`\n\n' +
+      '⚠️ Send /cancel to abort',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery(/^admin_users_search_page_(\d+)$/, async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isSupport(userId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const page = parseInt(ctx.match?.[1] || '1')
+  const state = adminState.get(userId)
+  const searchQuery = state?.usersSearchQuery
+
+  if (!searchQuery) {
+    const keyboard = new InlineKeyboard()
+      .text('🔎 Search', 'admin_users_search').row()
+      .text('👥 All Users', 'admin_users').row()
+      .text('◀️ Back to Admin', 'admin_menu')
+
+    await safeEditMessage(ctx, '⚠️ Search expired. Please start a new search.', { reply_markup: keyboard })
+    await safeAnswerCallback(ctx)
+    return
+  }
+
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const where = {
+    isHidden: false,
+    username: { contains: searchQuery, mode: 'insensitive' as const },
+  }
+
+  const totalUsers = await prisma.user.count({ where })
+  const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
+  const safePage = Math.min(Math.max(page, 1), totalPages)
+  const safeSkip = (safePage - 1) * perPage
+
+  const users = await prisma.user.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: perPage,
+    skip: safeSkip,
+  })
+
+  let message = `🔎 Results for "${searchQuery}" (Page ${safePage}/${totalPages}, Total: ${totalUsers}):\n\n`
+
+  if (users.length === 0) {
+    message += 'No users found.'
+  } else {
+    users.forEach((user, index) => {
+      const displayName = user.username
+        ? `@${user.username}`
+        : user.phoneNumber
+          ? `📱 ${user.phoneNumber}`
+          : 'no info'
+      const num = safeSkip + index + 1
+      message += `${num}. ${displayName}\n`
+      if (!user.phoneNumber) {
+        message += `   ID: ${user.telegramId}\n`
+      }
+      message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
+    })
+  }
+
+  adminState.set(userId, { ...state, usersSearchQuery: searchQuery, usersSearchPage: safePage })
+
+  const keyboard = new InlineKeyboard()
+  users.forEach((user, index) => {
+    const num = safeSkip + index + 1
+    if (index % 2 === 0) {
+      keyboard.text(`${num}`, `manage_${user.id}`)
+    } else {
+      keyboard.text(`${num}`, `manage_${user.id}`).row()
+    }
+  })
+  if (users.length % 2 === 1) keyboard.row()
+
+  if (safePage > 1) keyboard.text('◀️ Prev', `admin_users_search_page_${safePage - 1}`)
+  if (safePage < totalPages) keyboard.text('Next ▶️', `admin_users_search_page_${safePage + 1}`)
+  if (safePage > 1 || safePage < totalPages) keyboard.row()
+
+  keyboard.text('🔎 New Search', 'admin_users_search')
+    .text('👥 All Users', 'admin_users')
+    .row()
+    .text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
   await safeAnswerCallback(ctx)
@@ -947,7 +1073,13 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
   }
   
-  keyboard.text('◀️ Back to Users', 'admin_users')
+  const backState = adminState.get(visitorId)
+  if (backState?.usersSearchQuery) {
+    const backPage = backState.usersSearchPage || 1
+    keyboard.text('◀️ Back to Search', `admin_users_search_page_${backPage}`)
+  } else {
+    keyboard.text('◀️ Back to Users', 'admin_users')
+  }
 
   // Get country flag from language code
   const getCountryFlag = (langCode: string | null) => {
@@ -2067,6 +2199,97 @@ bot.on('message:text', async (ctx) => {
       await ctx.reply('❌ Error searching user. Please try again.')
     }
     return
+  }
+
+  // Handle search users by username (admin users list)
+  if (state.awaitingInput === 'search_users_username') {
+    if (!(await isSupport(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const raw = ctx.message?.text?.trim()
+    if (!raw || raw.startsWith('/')) {
+      await ctx.reply('❌ Please provide a username (e.g., @username)')
+      return
+    }
+
+    const query = raw.replace(/^@+/, '').trim()
+    if (!query) {
+      await ctx.reply('❌ Please provide a username (e.g., @username)')
+      return
+    }
+
+    const perPage = 10
+    const page = 1
+    const skip = 0
+
+    try {
+      const where = {
+        isHidden: false,
+        username: { contains: query, mode: 'insensitive' as const },
+      }
+
+      const totalUsers = await prisma.user.count({ where })
+      const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
+
+      const users = await prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: perPage,
+        skip,
+      })
+
+      let message = `🔎 Results for "${query}" (Page ${page}/${totalPages}, Total: ${totalUsers}):\n\n`
+
+      if (users.length === 0) {
+        message += 'No users found.'
+      } else {
+        users.forEach((user, index) => {
+          const displayName = user.username
+            ? `@${user.username}`
+            : user.phoneNumber
+              ? `📱 ${user.phoneNumber}`
+              : 'no info'
+          const num = skip + index + 1
+          message += `${num}. ${displayName}\n`
+          if (!user.phoneNumber) {
+            message += `   ID: ${user.telegramId}\n`
+          }
+          message += `   💰 $${user.totalDeposit.toFixed(2)} | ${user.status}\n\n`
+        })
+      }
+
+      // Persist query for pagination and back-navigation
+      adminState.set(userId, { usersSearchQuery: query, usersSearchPage: 1 })
+
+      const keyboard = new InlineKeyboard()
+      users.forEach((user, index) => {
+        const num = skip + index + 1
+        if (index % 2 === 0) {
+          keyboard.text(`${num}`, `manage_${user.id}`)
+        } else {
+          keyboard.text(`${num}`, `manage_${user.id}`).row()
+        }
+      })
+      if (users.length % 2 === 1) keyboard.row()
+
+      if (page < totalPages) {
+        keyboard.text('Next ▶️', `admin_users_search_page_${page + 1}`).row()
+      }
+
+      keyboard.text('🔎 New Search', 'admin_users_search')
+        .text('👥 All Users', 'admin_users')
+        .row()
+        .text('◀️ Back to Admin', 'admin_menu')
+
+      await ctx.reply(message, { reply_markup: keyboard, parse_mode: undefined })
+      return
+    } catch (error) {
+      console.error('Error searching users:', error)
+      await ctx.reply('❌ Error searching users. Please try again.')
+      return
+    }
   }
 
   // Handle add balance amount

@@ -1244,6 +1244,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
     res.json({
       id: user.telegramId,
       nickname: user.username || user.firstName || 'User',
+      createdAt: user.createdAt,
       status: user.status,
       languageCode: user.languageCode || null,
       balance: user.balance,
@@ -2370,15 +2371,32 @@ app.patch('/api/admin/users/:telegramId/role', requireAdminAuth, async (req, res
 app.get('/api/settings/contact-support', async (req, res) => {
   try {
     let settings = await prisma.globalSettings.findFirst()
+
+    const DEFAULT_BONUS_AMOUNT = 25
+    const DEFAULT_TIMER_MINUTES = 1440 // 1 day
     
     // Create default settings if none exist
     if (!settings) {
       settings = await prisma.globalSettings.create({
         data: {
-          contactSupportEnabled: false,
-          contactSupportBonusAmount: 0,
-          contactSupportTimerMinutes: 0
+          // Default: new users get $25 offer for 2 days
+          contactSupportEnabled: true,
+          contactSupportBonusAmount: DEFAULT_BONUS_AMOUNT,
+          contactSupportTimerMinutes: DEFAULT_TIMER_MINUTES
         }
+      })
+    } else if (
+      settings.contactSupportBonusAmount === 0 &&
+      settings.contactSupportTimerMinutes === 0
+    ) {
+      // If settings exist but were never configured, seed sensible defaults
+      settings = await prisma.globalSettings.update({
+        where: { id: settings.id },
+        data: {
+          contactSupportEnabled: true,
+          contactSupportBonusAmount: DEFAULT_BONUS_AMOUNT,
+          contactSupportTimerMinutes: DEFAULT_TIMER_MINUTES,
+        },
       })
     }
     
@@ -2388,6 +2406,55 @@ app.get('/api/settings/contact-support', async (req, res) => {
     return res.status(500).json({ error: 'Failed to get settings' })
   }
 })
+
+async function claimContactSupportBonus(telegramId: string) {
+  const [settings, user] = await Promise.all([
+    prisma.globalSettings.findFirst(),
+    prisma.user.findUnique({ where: { telegramId } }),
+  ])
+
+  if (!user) {
+    const err: any = new Error('User not found')
+    err.statusCode = 404
+    throw err
+  }
+
+  const contactSupportEnabled = settings?.contactSupportEnabled ?? true
+  const bonusAmount = settings?.contactSupportBonusAmount ?? 25
+  const timerMinutes = settings?.contactSupportTimerMinutes ?? 1440
+
+  if (!contactSupportEnabled || !timerMinutes) {
+    const err: any = new Error('Contact support bonus is disabled')
+    err.statusCode = 400
+    throw err
+  }
+
+  // Offer window: user.createdAt -> +timerMinutes
+  const offerEndsAt = new Date(user.createdAt.getTime() + timerMinutes * 60 * 1000)
+  const now = new Date()
+  if (now.getTime() > offerEndsAt.getTime()) {
+    const err: any = new Error('Offer expired')
+    err.statusCode = 400
+    throw err
+  }
+
+  // Already claimed: return current user
+  if (user.contactSupportSeen) {
+    return user
+  }
+
+  return prisma.user.update({
+    where: { telegramId },
+    data: {
+      contactSupportSeen: true,
+      bonusTokens: { increment: bonusAmount },
+      contactSupportBonusGrantedAt: now,
+      // Bonus becomes permanent after claim; no auto-expiry.
+      contactSupportBonusExpiresAt: null,
+      contactSupportBonusAmountGranted: bonusAmount,
+    },
+  })
+}
 
 // Update global contact support settings
 app.post('/api/admin/settings/contact-support', requireAdminAuth, async (req, res) => {
@@ -2479,18 +2546,27 @@ app.post('/api/users/:telegramId/contact-support-seen', requireUserAuth, async (
   try {
     // SECURITY: Use verified telegramId from JWT, not from URL params
     const telegramId = (req as any).verifiedTelegramId
-    
-    const user = await prisma.user.update({
-      where: { telegramId },
-      data: {
-        contactSupportSeen: true
-      }
-    })
-    
+
+    // Backwards compatible: treat "seen" as "claim" (SEND)
+    const user = await claimContactSupportBonus(telegramId)
     return res.json(user)
   } catch (error) {
-    console.error('Mark contact support seen error:', error)
-    return res.status(500).json({ error: 'Failed to mark as seen' })
+    const statusCode = (error as any)?.statusCode || 500
+    console.error('Mark/claim contact support error:', error)
+    return res.status(statusCode).json({ error: (error as any)?.message || 'Failed to claim bonus' })
+  }
+})
+
+// Claim contact support bonus explicitly
+app.post('/api/users/:telegramId/contact-support-claim', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId
+    const user = await claimContactSupportBonus(telegramId)
+    return res.json(user)
+  } catch (error) {
+    const statusCode = (error as any)?.statusCode || 500
+    console.error('Claim contact support error:', error)
+    return res.status(statusCode).json({ error: (error as any)?.message || 'Failed to claim bonus' })
   }
 })
 

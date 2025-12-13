@@ -13,6 +13,7 @@ export interface Referral {
 interface UserData {
   id: string
   nickname: string
+  createdAt: string
   status: string
   languageCode?: string | null
   balance: number

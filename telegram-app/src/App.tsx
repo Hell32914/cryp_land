@@ -48,7 +48,7 @@ function App() {
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
   const [contactSupportOpen, setContactSupportOpen] = useState(false)
   const [contactSupportTimeLeft, setContactSupportTimeLeft] = useState(0)
-  const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(50)
+  const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(25)
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
   
@@ -504,12 +504,14 @@ function App() {
         const settings = await response.json()
         console.log('Contact Support Settings:', settings)
         
-        if (!settings.contactSupportEnabled || !settings.contactSupportActivatedAt || !settings.contactSupportTimerMinutes) {
+        if (!settings.contactSupportEnabled || !settings.contactSupportTimerMinutes) {
           console.log('Contact support not enabled or invalid settings')
           return
         }
-        
-        const activatedAt = new Date(settings.contactSupportActivatedAt).getTime()
+
+        // Timer is per-user: starts when the user first created their account
+        // (New users get a 2-day window by default)
+        const activatedAt = userData.createdAt ? new Date(userData.createdAt).getTime() : Date.now()
         const now = Date.now()
         const timerDuration = settings.contactSupportTimerMinutes * 60 * 1000 // minutes to milliseconds
         const timeLeft = Math.max(0, timerDuration - (now - activatedAt))
@@ -517,7 +519,7 @@ function App() {
         
         if (timeLeft > 0) {
           console.log('Opening contact support modal!')
-          setContactSupportBonusAmount(settings.contactSupportBonusAmount || 50)
+          setContactSupportBonusAmount(settings.contactSupportBonusAmount || 25)
           setContactSupportTimeLeft(Math.floor(timeLeft / 1000)) // convert to seconds
           setContactSupportOpen(true)
           
@@ -2150,10 +2152,15 @@ function App() {
 
       {/* Contact Support Modal */}
       <Dialog open={contactSupportOpen} onOpenChange={(open) => {
-        // Allow closing the modal, but it will reappear on next app open if timer is still active
-        setContactSupportOpen(open)
+        // Do not allow dismissing this modal (only closes after SEND or when timer expires)
+        if (open) setContactSupportOpen(true)
       }}>
-        <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] max-w-[400px] p-0 gap-0 overflow-hidden rounded-2xl">
+        <DialogContent
+          hideClose
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] max-w-[400px] p-0 gap-0 overflow-hidden rounded-2xl"
+        >
           <div className="relative p-3 space-y-3">
             {/* Bonus Card */}
             <div className="relative bg-gradient-to-br from-primary to-accent rounded-2xl p-6 shadow-2xl border-4 border-dashed border-primary/40">
@@ -2214,7 +2221,7 @@ function App() {
               onClick={async () => {
                 // Mark as seen
                 try {
-                  await fetch(`${import.meta.env.VITE_API_URL}/api/users/${telegramUserId}/contact-support-seen`, {
+                  await fetch(`${import.meta.env.VITE_API_URL}/api/users/${telegramUserId}/contact-support-claim`, {
                     method: 'POST'
                   })
                 } catch (error) {
