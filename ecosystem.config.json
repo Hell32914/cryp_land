@@ -11,7 +11,8 @@
       "watch": false,
       "max_memory_restart": "500M",
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "API_BIND_HOST": "127.0.0.1"
       },
       "error_file": "./logs/bot-error.log",
       "out_file": "./logs/bot-out.log",
