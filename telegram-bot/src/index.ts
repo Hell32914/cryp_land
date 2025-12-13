@@ -352,6 +352,62 @@ bot.command('start', async (ctx) => {
   const telegramId = ctx.from?.id.toString()
   if (!telegramId) return
 
+  // Parse referral code or marketing params from start parameter (for both new and existing users)
+  const startPayload = ctx.match as string
+  let referrerId: string | null = null
+  let marketingSource: string | null = null
+  let utmParams: string | null = null
+  let linkId: string | null = null
+  let preferredLanguage: string | null = null
+
+  if (startPayload) {
+    if (startPayload.startsWith('ref5')) {
+      // Referral link: ref5<userId>
+      referrerId = startPayload.slice(4)
+    } else if (startPayload.startsWith('mk_')) {
+      // Marketing link: mk_<linkId>
+      linkId = startPayload
+
+      // Track click in marketing link
+      const marketingLink = await prisma.marketingLink.findUnique({
+        where: { linkId }
+      })
+
+      if (marketingLink) {
+        await prisma.marketingLink.update({
+          where: { linkId },
+          data: { clicks: { increment: 1 } }
+        }).catch(() => {})
+
+        marketingSource = marketingLink.source
+        // Store the linkId in utmParams so we can match it later
+        utmParams = linkId
+        // Get language from marketing link
+        preferredLanguage = marketingLink.language
+      }
+    } else {
+      // Try to parse URL params: source=<name>&param1=value1&param2=value2
+      try {
+        const params = new URLSearchParams(startPayload)
+        marketingSource = params.get('source')
+
+        // Store all params as JSON
+        const paramsObj: Record<string, string> = {}
+        params.forEach((value, key) => {
+          if (key !== 'source') {
+            paramsObj[key] = value
+          }
+        })
+
+        if (Object.keys(paramsObj).length > 0) {
+          utmParams = JSON.stringify(paramsObj)
+        }
+      } catch (e) {
+        console.log('Could not parse start payload as URL params:', startPayload)
+      }
+    }
+  }
+
   // Check if user is blocked
   const existingUser = await prisma.user.findUnique({
     where: { telegramId }
@@ -366,63 +422,16 @@ bot.command('start', async (ctx) => {
     where: { telegramId }
   })
 
-  if (!user) {
-    // Parse referral code or marketing params from start parameter
-    const startPayload = ctx.match as string
-    let referrerId: string | null = null
-    let marketingSource: string | null = null
-    let utmParams: string | null = null
-    let linkId: string | null = null
-    let preferredLanguage: string | null = null
-    
-    if (startPayload) {
-      if (startPayload.startsWith('ref5')) {
-        // Referral link: ref5<userId>
-        referrerId = startPayload.slice(4)
-      } else if (startPayload.startsWith('mk_')) {
-        // Marketing link: mk_<linkId>
-        linkId = startPayload
-        
-        // Track click in marketing link
-        const marketingLink = await prisma.marketingLink.findUnique({
-          where: { linkId }
-        })
-        
-        if (marketingLink) {
-          await prisma.marketingLink.update({
-            where: { linkId },
-            data: { clicks: { increment: 1 } }
-          })
-          
-          marketingSource = marketingLink.source
-          // Store the linkId in utmParams so we can match it later
-          utmParams = linkId
-          // Get language from marketing link
-          preferredLanguage = marketingLink.language
-        }
-      } else {
-        // Try to parse URL params: source=<name>&param1=value1&param2=value2
-        try {
-          const params = new URLSearchParams(startPayload)
-          marketingSource = params.get('source')
-          
-          // Store all params as JSON
-          const paramsObj: Record<string, string> = {}
-          params.forEach((value, key) => {
-            if (key !== 'source') {
-              paramsObj[key] = value
-            }
-          })
-          
-          if (Object.keys(paramsObj).length > 0) {
-            utmParams = JSON.stringify(paramsObj)
-          }
-        } catch (e) {
-          console.log('Could not parse start payload as URL params:', startPayload)
-        }
-      }
-    }
+  // If an existing user came via a marketing link that forces language, apply it.
+  // This helps when users re-open via a ref link after the very first registration.
+  if (user && preferredLanguage && user.languageCode !== preferredLanguage) {
+    user = await prisma.user.update({
+      where: { telegramId },
+      data: { languageCode: preferredLanguage }
+    })
+  }
 
+  if (!user) {
     user = await prisma.user.create({
       data: {
         telegramId,

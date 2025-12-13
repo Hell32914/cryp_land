@@ -14,6 +14,7 @@ interface UserData {
   id: string
   nickname: string
   status: string
+  languageCode?: string | null
   balance: number
   profit: number
   totalDeposit: number

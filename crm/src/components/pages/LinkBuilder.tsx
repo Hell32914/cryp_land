@@ -417,15 +417,11 @@ export function LinkBuilder() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EN">🇬🇧 English</SelectItem>
-                    <SelectItem value="RU">🇷🇺 Русский</SelectItem>
-                    <SelectItem value="FR">🇫🇷 Français</SelectItem>
                     <SelectItem value="DE">🇩🇪 Deutsch</SelectItem>
                     <SelectItem value="ES">🇪🇸 Español</SelectItem>
-                    <SelectItem value="PT">🇵🇹 Português</SelectItem>
                     <SelectItem value="IT">🇮🇹 Italiano</SelectItem>
-                    <SelectItem value="TR">🇹🇷 Türkçe</SelectItem>
-                    <SelectItem value="AR">🇸🇦 العربية</SelectItem>
-                    <SelectItem value="HI">🇮🇳 हिन्दी</SelectItem>
+                    <SelectItem value="FR">🇫🇷 Français</SelectItem>
+                    <SelectItem value="NL">🇳🇱 Nederlands</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

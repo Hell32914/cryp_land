@@ -1245,6 +1245,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
       id: user.telegramId,
       nickname: user.username || user.firstName || 'User',
       status: user.status,
+      languageCode: user.languageCode || null,
       balance: user.balance,
       profit: user.profit || 0,
       totalDeposit: user.totalDeposit,

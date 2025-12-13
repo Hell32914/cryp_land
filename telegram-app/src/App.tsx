@@ -54,6 +54,43 @@ function App() {
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
+  const mapLanguageCodeToAppLanguage = (code?: string | null): Language => {
+    if (!code) return 'ENGLISH'
+    const normalized = code.toString().trim().toLowerCase().split(/[-_]/)[0]
+    switch (normalized) {
+      case 'en':
+        return 'ENGLISH'
+      case 'de':
+        return 'GERMAN'
+      case 'es':
+        return 'SPANISH'
+      case 'fr':
+        return 'FRENCH'
+      case 'it':
+        return 'ITALIAN'
+      case 'nl':
+        return 'DUTCH'
+      default:
+        // Also accept 2-letter codes stored as uppercase (e.g. EN, DE, FR...)
+        switch (code.toString().trim().toUpperCase()) {
+          case 'EN':
+            return 'ENGLISH'
+          case 'DE':
+            return 'GERMAN'
+          case 'ES':
+            return 'SPANISH'
+          case 'FR':
+            return 'FRENCH'
+          case 'IT':
+            return 'ITALIAN'
+          case 'NL':
+            return 'DUTCH'
+          default:
+            return 'ENGLISH'
+        }
+    }
+  }
+
   const faqSections = t.faqSections ?? []
   const faqPlans = t.faqPlans ?? []
   const whitepaperContent = t.whitepaperContent
@@ -156,6 +193,17 @@ function App() {
 
   // Fetch real user data from bot API
   const { userData, loading, error, refreshData } = useUserData(telegramUserId, authToken)
+
+  // If the user arrived via a marketing/ref link with a forced language, the bot stores it in user.languageCode.
+  // Apply it only when the app is still on default language (don't override user's manual choice).
+  useEffect(() => {
+    if (!userData?.languageCode) return
+    if (selectedLanguage !== 'ENGLISH') return
+    const mapped = mapLanguageCodeToAppLanguage(userData.languageCode)
+    if (mapped !== 'ENGLISH') {
+      setSelectedLanguage(mapped)
+    }
+  }, [userData?.languageCode, selectedLanguage, setSelectedLanguage])
 
   // Helper function to create authenticated headers
   const getAuthHeaders = () => {
