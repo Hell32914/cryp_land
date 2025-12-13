@@ -3583,8 +3583,15 @@ bot.callbackQuery(/^withdrawal_details_(\d+)$/, async (ctx) => {
   }
 })
 
-// Generate random profit updates throughout the day
-function generateDailyUpdates(totalProfit: number): { amount: number, timestamp: Date }[] {
+const getLocalDateKey = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// Generate random profit updates throughout a given time range
+function generateDailyUpdates(totalProfit: number, rangeStart: Date, rangeEnd: Date): { amount: number, timestamp: Date }[] {
   const updates: { amount: number, timestamp: Date }[] = []
   const numUpdates = Math.floor(Math.random() * 8) + 4 // 4-11 updates
   
@@ -3600,14 +3607,12 @@ function generateDailyUpdates(totalProfit: number): { amount: number, timestamp:
   // Normalize percentages
   const normalizedPercentages = percentages.map(p => p / sum)
   
-  // Generate random timestamps spread across NEXT 24 hours
-  const now = new Date()
-  const startTime = now.getTime()
-  const twentyFourHoursInMs = 24 * 60 * 60 * 1000
+  const startTime = rangeStart.getTime()
+  const endTime = rangeEnd.getTime()
+  const rangeMs = Math.max(1, endTime - startTime)
   
   for (let i = 0; i < numUpdates; i++) {
-    // Generate timestamps spread across the NEXT 24 hours
-    const randomOffset = Math.random() * twentyFourHoursInMs
+    const randomOffset = Math.random() * rangeMs
     const timestamp = new Date(startTime + randomOffset)
     let amount = totalProfit * normalizedPercentages[i]
     
@@ -3641,10 +3646,12 @@ async function checkAndRunProfitAccrual() {
 
     const now = new Date()
     const lastAccrual = mostRecentUpdate?.lastProfitUpdate
-    
-    // If never ran or last ran more than 24 hours ago, run it
-    if (!lastAccrual || (now.getTime() - lastAccrual.getTime()) >= 24 * 60 * 60 * 1000) {
-      console.log(`⏰ Time for profit accrual (last: ${lastAccrual ? lastAccrual.toISOString() : 'never'})`)
+    const todayKey = getLocalDateKey(now)
+    const lastKey = lastAccrual ? getLocalDateKey(lastAccrual) : null
+
+    // Run once per calendar day
+    if (!lastKey || lastKey !== todayKey) {
+      console.log(`⏰ Time to generate today's profit schedule (last: ${lastAccrual ? lastAccrual.toISOString() : 'never'})`)
       await accrueDailyProfit()
     }
   } catch (error) {
@@ -3656,6 +3663,13 @@ async function checkAndRunProfitAccrual() {
 async function accrueDailyProfit() {
   try {
     console.log(`🔄 Starting daily profit accrual at ${new Date().toISOString()}`)
+
+    const now = new Date()
+    const startOfToday = new Date(now)
+    startOfToday.setHours(0, 0, 0, 0)
+    const startOfTomorrow = new Date(startOfToday)
+    startOfTomorrow.setDate(startOfToday.getDate() + 1)
+    const endOfToday = new Date(startOfTomorrow.getTime() - 1)
     
     const users = await prisma.user.findMany({
       where: {
@@ -3675,16 +3689,17 @@ async function accrueDailyProfit() {
       const bonusProfit = ((user.bonusTokens || 0) * 0.5) / 100
       const totalDailyProfit = dailyProfit + bonusProfit
 
+      // Mark that today's schedule has been generated
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          profit: user.profit + totalDailyProfit,
-          lastProfitUpdate: new Date()
+          lastProfitUpdate: startOfToday
         }
       })
 
-      // Generate random daily updates (use total profit including bonus)
-      const updates = generateDailyUpdates(totalDailyProfit)
+      // Generate random daily updates for today (00:00–23:59). If generated late, don't backfill past times.
+      const scheduleStart = now.getTime() > startOfToday.getTime() ? now : startOfToday
+      const updates = generateDailyUpdates(totalDailyProfit, scheduleStart, endOfToday)
       
       // Delete old daily updates for this user
       await prisma.dailyProfitUpdate.deleteMany({
@@ -3836,23 +3851,35 @@ async function sendScheduledNotifications() {
     
     for (const update of pendingUpdates) {
       try {
-        const planInfo = calculateTariffPlan(update.user.totalDeposit)
-        
-        await bot.api.sendMessage(
-          update.user.telegramId,
-          `💰 *Daily Profit Update*\n\n` +
-          `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
-          `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)`,
-          { parse_mode: 'Markdown' }
-        )
-        
-        console.log(`📤 Sent profit notification to user ${update.user.telegramId}: $${update.amount.toFixed(2)}`)
-        
-        // Mark as notified
-        await prisma.dailyProfitUpdate.update({
-          where: { id: update.id },
-          data: { notified: true }
-        })
+        // Apply profit accrual and mark update as notified first.
+        // This ensures profit keeps accumulating even if Telegram delivery fails.
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: update.userId },
+            data: {
+              profit: { increment: update.amount }
+            }
+          }),
+          prisma.dailyProfitUpdate.update({
+            where: { id: update.id },
+            data: { notified: true }
+          })
+        ])
+
+        // Best-effort Telegram notification
+        try {
+          const planInfo = calculateTariffPlan(update.user.totalDeposit)
+          await bot.api.sendMessage(
+            update.user.telegramId,
+            `💰 *Daily Profit Update*\n\n` +
+            `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
+            `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)`,
+            { parse_mode: 'Markdown' }
+          )
+          console.log(`📤 Sent profit notification to user ${update.user.telegramId}: $${update.amount.toFixed(2)}`)
+        } catch (err) {
+          console.error(`Failed to send notification to user ${update.user.telegramId}:`, err)
+        }
         
         successCount++
         

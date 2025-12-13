@@ -78,6 +78,11 @@ function calculateTariffPlan(balance: number) {
 // Configure CORS with allowed origins
 const allowedOrigins = [
   'https://syntrix.website',
+  'https://www.syntrix.website',
+  'https://crypto.syntrix.website',
+  'https://trade.syntrix.website',
+  'https://invest.syntrix.website',
+  'https://official.syntrix.website',
   'https://app.syntrix.website',
   'https://admin.syntrix.website',
   'https://syntrix-crm.onrender.com',
@@ -1408,18 +1413,29 @@ app.get('/api/user/:telegramId/daily-updates', requireUserAuth, async (req, res)
       return res.status(404).json({ error: 'User not found' })
     }
 
+    const now = new Date()
+    const startOfToday = new Date(now)
+    startOfToday.setHours(0, 0, 0, 0)
+    const startOfTomorrow = new Date(startOfToday)
+    startOfTomorrow.setDate(startOfToday.getDate() + 1)
+
     const updates = await prisma.dailyProfitUpdate.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        timestamp: {
+          gte: startOfToday,
+          lt: startOfTomorrow
+        }
+      },
       orderBy: { timestamp: 'asc' }
     })
 
-    // Filter updates that are in the past (up to current time)
-    const now = new Date()
-    const visibleUpdates = updates.filter((update: any) => new Date(update.timestamp) <= now)
+    // Show only updates that have already been applied/notified
+    const visibleUpdates = updates.filter((update: any) => update.notified)
 
     // Calculate total daily profit from visible updates (sum of amounts shown so far)
     const visibleProfit = visibleUpdates.reduce((sum: number, u: any) => sum + u.amount, 0)
-    
+
     // Get full daily total from any update (all updates have same dailyTotal)
     const fullDailyTotal = updates.length > 0 ? updates[0].dailyTotal : 0
 
@@ -2105,6 +2121,29 @@ const buildMarketingLinkUrl = (domain: string | null | undefined, linkId: string
   const cleanDomain = normalizeDomain(domain)
   return `https://${cleanDomain}/?ref=${linkId}`
 }
+
+// Public: fetch tracking pixel HTML for a marketing link.
+// Used by the landing page to inject per-link pixels (Google Tag, Meta Pixel, etc.).
+app.get('/api/marketing-links/:linkId/pixel', async (req, res) => {
+  try {
+    const { linkId } = req.params
+    if (!linkId) return res.status(400).json({ error: 'linkId is required' })
+
+    const link = await prisma.marketingLink.findUnique({
+      where: { linkId }
+    })
+
+    if (!link || !link.isActive) {
+      return res.json({ trackingPixel: null })
+    }
+
+    const trackingPixel = (link.trackingPixel || '').trim()
+    return res.json({ trackingPixel: trackingPixel.length > 0 ? trackingPixel : null })
+  } catch (error) {
+    console.error('Get marketing link pixel error:', error)
+    return res.status(500).json({ error: 'Failed to load tracking pixel' })
+  }
+})
 
 // Create marketing link
 app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +35,9 @@ function App() {
   const [depositAmountInput, setDepositAmountInput] = useState('')
   const [withdrawWalletAddress, setWithdrawWalletAddress] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
-  const [selectedLanguage, setSelectedLanguage] = useKV<Language>('app-language', 'ENGLISH')
+  const [storedLanguage, setStoredLanguage] = useKV<Language>('app-language', 'ENGLISH')
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(storedLanguage || 'ENGLISH')
+  const didApplyRefLanguage = useRef(false)
   const [referrals, setReferrals] = useState<any[]>([])
   const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [dailyUpdates, setDailyUpdates] = useState<any[]>([])
@@ -51,6 +53,14 @@ function App() {
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(25)
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
+
+  // Sync local language from persisted storage (useKV can be async depending on environment).
+  useEffect(() => {
+    if (!storedLanguage) return
+    if (storedLanguage !== selectedLanguage) {
+      setSelectedLanguage(storedLanguage)
+    }
+  }, [storedLanguage])
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -197,13 +207,26 @@ function App() {
   // If the user arrived via a marketing/ref link with a forced language, the bot stores it in user.languageCode.
   // Apply it only when the app is still on default language (don't override user's manual choice).
   useEffect(() => {
+    if (didApplyRefLanguage.current) return
     if (!userData?.languageCode) return
-    if (selectedLanguage !== 'ENGLISH') return
+
+    // If user has ever manually selected a language, don't override.
+    try {
+      if (localStorage.getItem('app-language-manual') === '1') return
+    } catch {
+      // ignore
+    }
+
+    // Apply only when persisted language is still default.
+    if ((storedLanguage || 'ENGLISH') !== 'ENGLISH') return
+
     const mapped = mapLanguageCodeToAppLanguage(userData.languageCode)
     if (mapped !== 'ENGLISH') {
       setSelectedLanguage(mapped)
+      setStoredLanguage(mapped)
+      didApplyRefLanguage.current = true
     }
-  }, [userData?.languageCode, selectedLanguage, setSelectedLanguage])
+  }, [userData?.languageCode, storedLanguage, setStoredLanguage])
 
   // Helper function to create authenticated headers
   const getAuthHeaders = () => {
@@ -277,7 +300,7 @@ function App() {
       if (response.ok) {
         const data = await response.json()
         setDailyUpdates(data.updates || [])
-        setDailyProfitTotal(data.totalProfit || 0)
+        setDailyProfitTotal((data.accruedProfit ?? data.totalProfit) || 0)
       }
     } catch (error) {
       console.error('Error fetching daily updates:', error)
@@ -291,7 +314,7 @@ function App() {
     if (activeTab === 'invite') {
       fetchReferrals()
     }
-  }, [activeTab])
+  }, [activeTab, authToken, telegramUserId])
 
   // Fetch transactions
   const fetchTransactions = async () => {
@@ -422,14 +445,14 @@ function App() {
       const interval = setInterval(fetchDailyUpdates, 60000) // Update every minute
       return () => clearInterval(interval)
     }
-  }, [activeTab])
+  }, [activeTab, authToken, telegramUserId])
 
   // Fetch transactions when wallet tab is opened
   useEffect(() => {
     if (activeTab === 'wallet') {
       fetchTransactions()
     }
-  }, [activeTab])
+  }, [activeTab, authToken, telegramUserId])
 
   // Reinvest profit to balance
   const handleReinvest = async () => {
@@ -500,7 +523,8 @@ function App() {
       
       try {
         // Fetch global settings
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/settings/contact-support`)
+        const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+        const response = await fetch(`${API_URL}/api/settings/contact-support`)
         const settings = await response.json()
         console.log('Contact Support Settings:', settings)
         
@@ -998,6 +1022,12 @@ function App() {
                 }`}
                 onClick={() => {
                   setSelectedLanguage(language)
+                  setStoredLanguage(language)
+                  try {
+                    localStorage.setItem('app-language-manual', '1')
+                  } catch {
+                    // ignore
+                  }
                   toast.success(`${t.languageChanged} ${getLanguageDisplayName(language)}`, {
                     style: {
                       background: 'oklch(0.16 0.05 250)',
@@ -2219,18 +2249,33 @@ function App() {
             <Button 
               className="relative w-full bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary text-white font-black py-4 text-lg uppercase rounded-2xl shadow-2xl transition-all tracking-wider"
               onClick={async () => {
-                // Mark as seen
-                try {
-                  await fetch(`${import.meta.env.VITE_API_URL}/api/users/${telegramUserId}/contact-support-claim`, {
-                    method: 'POST'
-                  })
-                } catch (error) {
-                  console.error('Error marking contact support as seen:', error)
-                }
-                
                 // Open support chat
                 window.open('https://t.me/SyntrixSupport', '_blank')
-                setContactSupportOpen(false)
+
+                if (!telegramUserId || !authToken) {
+                  toast.error('Please wait for authentication to complete')
+                  return
+                }
+
+                // Claim bonus + mark as seen (requires auth)
+                try {
+                  const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+                  const response = await fetch(`${API_URL}/api/users/${telegramUserId}/contact-support-claim`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                  })
+
+                  if (!response.ok) {
+                    const text = await response.text()
+                    throw new Error(text || `Request failed with status ${response.status}`)
+                  }
+
+                  await refreshData()
+                  setContactSupportOpen(false)
+                } catch (error) {
+                  console.error('Error claiming contact support bonus:', error)
+                  toast.error('Failed to claim bonus. Please try again.')
+                }
               }}
             >
               SEND
