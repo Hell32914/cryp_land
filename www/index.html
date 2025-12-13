@@ -15,12 +15,27 @@
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1356561989350736');
-    fbq('track', 'PageView');
+    // Pick Pixel ID by hostname
+    (function () {
+        var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
+        var pixelByHost = {
+            'trade.syntrix.website': '1121382239874465',
+            'crypto.syntrix.website': '25258398163810043'
+        };
+        // Fallback to existing pixel for other mapped hostnames served by the same vhost
+        var pixelId = pixelByHost[host] || '1356561989350736';
+        fbq('init', pixelId);
+        fbq('track', 'PageView');
+    })();
     </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=1356561989350736&ev=PageView&noscript=1"
-    /></noscript>
+    <noscript>
+        <img height="1" width="1" style="display:none"
+        src="https://www.facebook.com/tr?id=1121382239874465&ev=PageView&noscript=1"
+        />
+        <img height="1" width="1" style="display:none"
+        src="https://www.facebook.com/tr?id=25258398163810043&ev=PageView&noscript=1"
+        />
+    </noscript>
     <!-- End Meta Pixel Code -->
     
     <link rel="icon" type="image/svg+xml" href="//telegram.org/img/website_icon.svg?4">
