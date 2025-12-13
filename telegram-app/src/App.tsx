@@ -2249,9 +2249,6 @@ function App() {
             <Button 
               className="relative w-full bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary text-white font-black py-4 text-lg uppercase rounded-2xl shadow-2xl transition-all tracking-wider"
               onClick={async () => {
-                // Open support chat
-                window.open('https://t.me/SyntrixSupport', '_blank')
-
                 if (!telegramUserId || !authToken) {
                   toast.error('Please wait for authentication to complete')
                   return
@@ -2269,9 +2266,19 @@ function App() {
                     const text = await response.text()
                     throw new Error(text || `Request failed with status ${response.status}`)
                   }
-
-                  await refreshData()
                   setContactSupportOpen(false)
+
+                  // Best-effort: refresh state, but don't block UX on it
+                  void refreshData()
+
+                  // Open support chat AFTER successful claim
+                  const url = 'https://t.me/SyntrixSupport'
+                  const tg = (window as any).Telegram?.WebApp
+                  if (tg?.openTelegramLink) {
+                    tg.openTelegramLink(url)
+                  } else {
+                    window.open(url, '_blank')
+                  }
                 } catch (error) {
                   console.error('Error claiming contact support bonus:', error)
                   toast.error('Failed to claim bonus. Please try again.')
