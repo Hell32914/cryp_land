@@ -327,7 +327,7 @@ export async function renderTradingCardNewDesign(payload: RenderNewCardPayload):
   if (sign) {
     drawText(ctx, sign, ROE_X - 4, roeY + 3, {
       size: 90,
-      weight: 400,
+      weight: 700,
       color: roeColor,
       align: 'left'
     })
@@ -335,7 +335,7 @@ export async function renderTradingCardNewDesign(payload: RenderNewCardPayload):
 
   drawText(ctx, value, ROE_X + 35, roeY, {
     size: 96,
-    weight: 400,
+    weight: 700,
     color: roeColor,
     align: 'left'
   })
@@ -388,7 +388,7 @@ export async function renderTradingCardNewDesign(payload: RenderNewCardPayload):
 
   if (fs.existsSync(markPath)) {
     const mark: any = await loadImage(markPath)
-    const size = 33
+    const size = 42
     ctx.drawImage(mark, binanceX, binanceY - 1.3, size, size)
     markW = size + 8
   }
