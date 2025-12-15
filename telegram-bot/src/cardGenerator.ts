@@ -2,6 +2,7 @@ import { createCanvas, loadImage as canvasLoadImage, CanvasRenderingContext2D, I
 import QRCode from 'qrcode'
 import { prisma } from './db.js'
 import { generateTradingData } from './binanceApi.js'
+import { renderTradingCardNewDesign } from './cardRendererNew.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -89,45 +90,31 @@ export async function generateTradingCard(data?: Partial<TradingCardData>): Prom
       postedAt: cardData.timestamp
     }
   })
-  
-  // Create canvas (matching reference dimensions)
-  const width = 768
-  const height = 1024
-  const canvas = createCanvas(width, height)
-  const ctx = canvas.getContext('2d')
-  
-  // Draw background
-  await drawBackground(ctx, width, height)
-  
-  const layout = {
-    marginLeft: 47,
-    avatarY: 75,
-    pairY: 315,
-    positionY: 383,
-    profitY: 465,
-    priceBlockY: 620,
-    footerY: 900
-  }
-  
-  // Draw header
-  drawHeader(ctx, cardData, layout)
-  
-  // Draw pair name
-  drawPairName(ctx, cardData.pair, layout, width)
-  
-  // Draw position and leverage
-  drawPositionBadge(ctx, cardData.position, cardData.leverage, layout)
-  
-  // Draw profit
-  drawProfit(ctx, cardData.profit, layout, width)
-  
-  // Draw prices
-  drawPrices(ctx, cardData.entryPrice, cardData.lastPrice, layout)
-  
-  // Draw footer with QR code
-  await drawFooter(ctx, width, cardData.referralCode, layout)
-  
-  return canvas.toBuffer('image/png')
+
+  // Render with the new design (gencard), while keeping values/formatting from the existing system.
+  const symbol = cardData.pair.replace('/', '')
+  const createdAt = cardData.timestamp.toISOString().replace('T', ' ').substring(0, 19)
+  const roePositive = cardData.profit >= 0
+  const roePercent = `${roePositive ? '+' : ''}${formatPercent(cardData.profit)}%`
+
+  return renderTradingCardNewDesign({
+    userConfig: {
+      username: cardData.botName,
+      referralCode: cardData.referralCode,
+      qrLink: 'https://www.binance.com'
+    },
+    tradeData: {
+      symbol,
+      type: 'Perpetual',
+      side: cardData.position === 'Long' ? 'LONG' : 'SHORT',
+      leverage: cardData.leverage,
+      entryPrice: formatPrice(cardData.entryPrice),
+      lastPrice: formatPrice(cardData.lastPrice),
+      roePercent,
+      roePositive,
+      createdAt
+    }
+  })
 }
 
 /**
