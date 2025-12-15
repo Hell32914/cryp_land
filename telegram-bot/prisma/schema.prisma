@@ -70,6 +70,7 @@ model DailyProfitUpdate {
   userId      Int
   user        User     @relation("UserDailyUpdates", fields: [userId], references: [id])
   amount      Float
+  source      String   @default("DEPOSIT")
   timestamp   DateTime
   dailyTotal  Float
   notified    Boolean  @default(false)

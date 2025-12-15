@@ -871,9 +871,10 @@ bot.callbackQuery('admin_users_search', async (ctx) => {
   await safeEditMessage(
     ctx,
     '🔎 Search Users\n\n' +
-      'Send the username to search:\n' +
+      'Send a username or Telegram ID to search:\n' +
       '• `@username`\n' +
-      '• `username`\n\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
       '⚠️ Send /cancel to abort',
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
@@ -905,10 +906,16 @@ bot.callbackQuery(/^admin_users_search_page_(\d+)$/, async (ctx) => {
   const perPage = 10
   const skip = (page - 1) * perPage
 
-  const where = {
-    isHidden: false,
-    username: { contains: searchQuery, mode: 'insensitive' as const },
-  }
+  const isNumericQuery = /^\d+$/.test(searchQuery)
+  const where = isNumericQuery
+    ? {
+        isHidden: false,
+        telegramId: { contains: searchQuery },
+      }
+    : {
+        isHidden: false,
+        username: { contains: searchQuery, mode: 'insensitive' as const },
+      }
 
   const totalUsers = await prisma.user.count({ where })
   const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
@@ -2210,13 +2217,13 @@ bot.on('message:text', async (ctx) => {
 
     const raw = ctx.message?.text?.trim()
     if (!raw || raw.startsWith('/')) {
-      await ctx.reply('❌ Please provide a username (e.g., @username)')
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)')
       return
     }
 
     const query = raw.replace(/^@+/, '').trim()
     if (!query) {
-      await ctx.reply('❌ Please provide a username (e.g., @username)')
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)')
       return
     }
 
@@ -2225,10 +2232,16 @@ bot.on('message:text', async (ctx) => {
     const skip = 0
 
     try {
-      const where = {
-        isHidden: false,
-        username: { contains: query, mode: 'insensitive' as const },
-      }
+      const isNumericQuery = /^\d+$/.test(query)
+      const where = isNumericQuery
+        ? {
+            isHidden: false,
+            telegramId: { contains: query },
+          }
+        : {
+            isHidden: false,
+            username: { contains: query, mode: 'insensitive' as const },
+          }
 
       const totalUsers = await prisma.user.count({ where })
       const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
@@ -3674,7 +3687,10 @@ async function accrueDailyProfit() {
     const users = await prisma.user.findMany({
       where: {
         status: 'ACTIVE',
-        totalDeposit: { gt: 0 },
+        OR: [
+          { totalDeposit: { gt: 0 } },
+          { bonusTokens: { gt: 0 } }
+        ],
         // Exclude users with KYC required or blocked
         kycRequired: false,
         isBlocked: false
@@ -3689,6 +3705,10 @@ async function accrueDailyProfit() {
       const bonusProfit = ((user.bonusTokens || 0) * 0.5) / 100
       const totalDailyProfit = dailyProfit + bonusProfit
 
+      if (totalDailyProfit <= 0) {
+        continue
+      }
+
       // Mark that today's schedule has been generated
       await prisma.user.update({
         where: { id: user.id },
@@ -3699,7 +3719,19 @@ async function accrueDailyProfit() {
 
       // Generate random daily updates for today (00:00–23:59). If generated late, don't backfill past times.
       const scheduleStart = now.getTime() > startOfToday.getTime() ? now : startOfToday
-      const updates = generateDailyUpdates(totalDailyProfit, scheduleStart, endOfToday)
+      const depositUpdates = dailyProfit > 0 ? generateDailyUpdates(dailyProfit, scheduleStart, endOfToday) : []
+
+      // Create exactly one token accrual per day (clear labeling, avoids spam)
+      const tokenUpdates: { amount: number, timestamp: Date }[] = []
+      if (bonusProfit >= 0.01) {
+        const startTime = scheduleStart.getTime()
+        const endTime = endOfToday.getTime()
+        const rangeMs = Math.max(1, endTime - startTime)
+        const randomOffset = Math.random() * rangeMs
+        tokenUpdates.push({ amount: bonusProfit, timestamp: new Date(startTime + randomOffset) })
+      }
+
+      const updates = [...depositUpdates, ...tokenUpdates].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
       
       // Delete old daily updates for this user
       await prisma.dailyProfitUpdate.deleteMany({
@@ -3708,18 +3740,20 @@ async function accrueDailyProfit() {
       
       // Create new daily updates (notifications will be sent by scheduler)
       for (const update of updates) {
+        const isTokenUpdate = tokenUpdates.includes(update)
         await prisma.dailyProfitUpdate.create({
           data: {
             userId: user.id,
             amount: update.amount,
+            source: isTokenUpdate ? 'TOKEN' : 'DEPOSIT',
             timestamp: update.timestamp,
             dailyTotal: totalDailyProfit
           }
         })
       }
 
-      const bonusInfo = bonusProfit > 0 ? ` + $${bonusProfit.toFixed(4)} bonus` : ''
-      console.log(`💰 Accrued $${totalDailyProfit.toFixed(2)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%${bonusInfo}) - ${updates.length} updates`)
+      const bonusInfo = bonusProfit > 0 ? ` + $${bonusProfit.toFixed(4)} token` : ''
+      console.log(`💰 Accrued $${totalDailyProfit.toFixed(4)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%${bonusInfo}) - ${updates.length} updates`)
 
       // Distribute referral earnings (3-level cascade: 4%, 3%, 2%)
       // Only if user is active referral (totalDeposit >= $1000)
@@ -3868,14 +3902,24 @@ async function sendScheduledNotifications() {
 
         // Best-effort Telegram notification
         try {
-          const planInfo = calculateTariffPlan(update.user.totalDeposit)
-          await bot.api.sendMessage(
-            update.user.telegramId,
-            `💰 *Daily Profit Update*\n\n` +
-            `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
-            `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)`,
-            { parse_mode: 'Markdown' }
-          )
+          if (update.source === 'TOKEN') {
+            await bot.api.sendMessage(
+              update.user.telegramId,
+              `🎁 *Syntrix Token Income*\n\n` +
+              `✅ Начисление за токен: $${update.amount.toFixed(2)}\n` +
+              `📌 0.5% daily`,
+              { parse_mode: 'Markdown' }
+            )
+          } else {
+            const planInfo = calculateTariffPlan(update.user.totalDeposit)
+            await bot.api.sendMessage(
+              update.user.telegramId,
+              `💰 *Daily Profit Update*\n\n` +
+              `✅ Profit accrued: $${update.amount.toFixed(2)}\n` +
+              `📊 Plan: ${planInfo.currentPlan} (${planInfo.dailyPercent}%)`,
+              { parse_mode: 'Markdown' }
+            )
+          }
           console.log(`📤 Sent profit notification to user ${update.user.telegramId}: $${update.amount.toFixed(2)}`)
         } catch (err) {
           console.error(`Failed to send notification to user ${update.user.telegramId}:`, err)

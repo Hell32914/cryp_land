@@ -391,8 +391,9 @@ function App() {
       return
     }
 
-    if (!userData || amount > userData.totalDeposit) {
-      toast.error('Insufficient balance')
+    const availableBalance = (userData?.totalDeposit || 0) + (userData?.profit || 0)
+    if (!userData || amount > availableBalance) {
+      toast.error('Insufficient balance. Bonus tokens cannot be withdrawn.')
       return
     }
 
@@ -770,7 +771,8 @@ function App() {
             </h2>
 
             <p className="text-foreground text-sm sm:text-base">
-              {t.availableBalance} <span className="font-bold text-primary">${(userData?.totalDeposit || 0).toFixed(2)}</span>
+              {t.availableBalance}{' '}
+              <span className="font-bold text-primary">${(((userData?.totalDeposit || 0) + (userData?.profit || 0)) || 0).toFixed(2)}</span>
             </p>
 
             <div className="space-y-2">
@@ -1446,7 +1448,9 @@ function App() {
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground">
-                            {userData?.planProgress?.currentPlan}
+                            {update.source === 'TOKEN'
+                              ? 'Syntrix Token (0.5%)'
+                              : userData?.planProgress?.currentPlan}
                           </p>
                         </div>
                       </div>
@@ -1520,7 +1524,10 @@ function App() {
                   </h2>
 
                   <div className="space-y-4">
-                    <p className="text-foreground text-lg">{t.availableBalance} <span className="font-bold">${(userData?.totalDeposit || 0).toFixed(2)}</span></p>
+                    <p className="text-foreground text-lg">
+                      {t.availableBalance}{' '}
+                      <span className="font-bold">${(((userData?.totalDeposit || 0) + (userData?.profit || 0)) || 0).toFixed(2)}</span>
+                    </p>
                     
                     <Button 
                       className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6 text-base"
