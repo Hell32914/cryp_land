@@ -327,7 +327,7 @@ export async function renderTradingCardNewDesign(payload: RenderNewCardPayload):
   if (sign) {
     drawText(ctx, sign, ROE_X - 4, roeY + 3, {
       size: 90,
-      weight: 700,
+      weight: 500,
       color: roeColor,
       align: 'left'
     })
@@ -335,7 +335,7 @@ export async function renderTradingCardNewDesign(payload: RenderNewCardPayload):
 
   drawText(ctx, value, ROE_X + 35, roeY, {
     size: 96,
-    weight: 700,
+    weight: 500,
     color: roeColor,
     align: 'left'
   })
