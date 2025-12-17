@@ -83,6 +83,7 @@ model Deposit {
   user        User           @relation(fields: [userId], references: [id])
   amount      Float
   status      String         @default("PENDING")
+  paymentMethod String       @default("OXAPAY")
   currency    String         @default("USDT")
   network     String?
   txHash      String?
@@ -97,9 +98,11 @@ model Withdrawal {
   user              User           @relation(fields: [userId], references: [id])
   amount            Float
   status            String         @default("PENDING")
+  paymentMethod     String         @default("OXAPAY")
   currency          String         @default("USDT")
   network           String?
   address           String
+  paypalEmail       String?
   txHash            String?
   ipAddress         String?
   userAgent         String?

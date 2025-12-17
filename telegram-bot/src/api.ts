@@ -972,6 +972,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       return {
         id: deposit.id,
         status: deposit.status,
+        paymentMethod: (deposit as any).paymentMethod,
         amount: deposit.amount,
         currency: deposit.currency,
         network: deposit.network,
@@ -1013,6 +1014,7 @@ app.get('/api/admin/withdrawals', requireAdminAuth, async (req, res) => {
     const payload = withdrawals.map((withdrawal) => ({
       id: withdrawal.id,
       status: withdrawal.status,
+      paymentMethod: (withdrawal as any).paymentMethod,
       amount: withdrawal.amount,
       currency: withdrawal.currency,
       network: withdrawal.network,
@@ -1510,7 +1512,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
   try {
     // SECURITY: Use verified telegramId from JWT, not from URL params
     const telegramId = (req as any).verifiedTelegramId
-    const { amount, currency } = req.body
+    const { amount, currency, method } = req.body
 
     const user = await prisma.user.findUnique({
       where: { telegramId }
@@ -1524,6 +1526,55 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
       return res.status(400).json({ error: 'Minimum deposit amount is $10' })
     }
 
+    const paymentMethod = String(method || 'OXAPAY').toUpperCase()
+
+    if (paymentMethod !== 'OXAPAY' && paymentMethod !== 'PAYPAL') {
+      return res.status(400).json({ error: 'Invalid payment method' })
+    }
+
+    if (paymentMethod === 'PAYPAL') {
+      // PayPal flow: create deposit record, then create PayPal order.
+      const deposit = await prisma.deposit.create({
+        data: {
+          userId: user.id,
+          amount,
+          status: 'PENDING',
+          currency: 'USD',
+          paymentMethod: 'PAYPAL',
+        }
+      })
+
+      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || 'https://syntrix.website'
+      const cancelUrl = process.env.PAYPAL_CANCEL_URL || returnUrl
+
+      const { createPayPalOrder } = await import('./paypal.js')
+      const order = await createPayPalOrder({
+        amount,
+        currency: 'USD',
+        returnUrl,
+        cancelUrl,
+        customId: String(deposit.id),
+        description: `Deposit for ${user.username || user.telegramId}`
+      })
+
+      await prisma.deposit.update({
+        where: { id: deposit.id },
+        data: {
+          txHash: order.id,
+          trackId: order.id,
+        }
+      })
+
+      return res.json({
+        success: true,
+        depositId: deposit.id,
+        method: 'PAYPAL',
+        paypalOrderId: order.id,
+        paymentUrl: order.approveUrl,
+      })
+    }
+
+    // OxaPay flow (existing)
     if (!currency) {
       return res.status(400).json({ error: 'Currency is required' })
     }
@@ -1550,13 +1601,15 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
         amount,
         status: 'PENDING',
         currency,
+        paymentMethod: 'OXAPAY',
         txHash: invoice.trackId
       }
     })
 
-    res.json({
+    return res.json({
       success: true,
       depositId: deposit.id,
+      method: 'OXAPAY',
       trackId: invoice.trackId,
       payLink: invoice.payLink,
       paymentUrl: invoice.payLink,
@@ -1570,12 +1623,103 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
   }
 })
 
+// Capture PayPal order and complete deposit
+app.post('/api/user/:telegramId/paypal-capture', depositLimiter, requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId
+    const { orderId } = req.body
+
+    if (!orderId) return res.status(400).json({ error: 'orderId is required' })
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const deposit = await prisma.deposit.findFirst({
+      where: {
+        userId: user.id,
+        paymentMethod: 'PAYPAL',
+        txHash: String(orderId),
+      },
+      include: { user: true },
+    })
+
+    if (!deposit) return res.status(404).json({ error: 'Deposit not found' })
+    if (deposit.status === 'COMPLETED') return res.json({ success: true, status: 'COMPLETED' })
+
+    const { capturePayPalOrder } = await import('./paypal.js')
+    const capture = await capturePayPalOrder(String(orderId))
+
+    if (capture.status !== 'COMPLETED') {
+      return res.status(400).json({ error: `Payment not completed. PayPal status: ${capture.status}` })
+    }
+
+    // Optional amount validation (best-effort)
+    if (typeof capture.amountValue === 'number' && Math.abs(capture.amountValue - deposit.amount) > 0.01) {
+      return res.status(400).json({ error: 'Amount mismatch' })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.deposit.update({
+        where: { id: deposit.id },
+        data: { status: 'COMPLETED' },
+      })
+
+      await tx.user.update({
+        where: { id: deposit.userId },
+        data: {
+          totalDeposit: { increment: deposit.amount },
+          lifetimeDeposit: { increment: deposit.amount },
+          status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined,
+        },
+      })
+    })
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: deposit.userId } })
+    if (!updatedUser) return res.status(500).json({ error: 'Failed to update user' })
+
+    // Reuse the same notification logic as OxaPay callback (simplified)
+    try {
+      const { bot: botInstance } = await import('./index.js')
+      const planInfo = calculateTariffPlan(updatedUser.totalDeposit)
+      await botInstance.api.sendMessage(
+        deposit.user.telegramId,
+        `✅ *Deposit Successful!*\n\n` +
+          `💰 Amount: $${deposit.amount.toFixed(2)} USD\n` +
+          `💳 New Deposit: $${updatedUser.totalDeposit.toFixed(2)}\n\n` +
+          `📈 *Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)`,
+        { parse_mode: 'Markdown' }
+      )
+    } catch (err) {
+      console.error('Failed to notify user about PayPal deposit:', err)
+    }
+
+    try {
+      const { notifySupport } = await import('./index.js')
+      const escapedUsername = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
+      await notifySupport(
+        `💰 *New Deposit Received (PayPal)*\n\n` +
+          `👤 User: @${escapedUsername} (ID: ${deposit.user.telegramId})\n` +
+          `💵 Amount: $${deposit.amount.toFixed(2)} USD\n` +
+          `🧾 Order ID: ${deposit.txHash}`,
+        { parse_mode: 'Markdown' }
+      )
+    } catch (err) {
+      console.error('Failed to notify support team about PayPal deposit:', err)
+    }
+
+    return res.json({ success: true, status: 'COMPLETED' })
+  } catch (error: any) {
+    console.error('PayPal capture error:', error)
+    return res.status(500).json({ error: error.message || 'Internal server error' })
+  }
+})
+
 // Create withdrawal request
 app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUserAuth, async (req, res) => {
   try {
     // SECURITY: Use verified telegramId from JWT, not from URL params
     const telegramId = (req as any).verifiedTelegramId
-    const { amount, currency, address, network } = req.body
+    const { amount, currency, address, network, method, paypalEmail } = req.body
 
     // Check for duplicate request (race condition protection)
     const requestKey = `${telegramId}_${amount}_${address}`
@@ -1613,9 +1757,34 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
       return res.status(400).json({ error: 'Insufficient balance. Bonus tokens cannot be withdrawn.' })
     }
 
-    if (!address || !currency) {
+    const paymentMethod = String(method || 'OXAPAY').toUpperCase()
+    if (paymentMethod !== 'OXAPAY' && paymentMethod !== 'PAYPAL') {
       pendingWithdrawalRequests.delete(requestKey)
-      return res.status(400).json({ error: 'Address and currency are required' })
+      return res.status(400).json({ error: 'Invalid payment method' })
+    }
+
+    // Normalize required fields per method
+    let normalizedCurrency = currency
+    let normalizedNetwork = network
+    let normalizedAddress = address
+    let normalizedPaypalEmail: string | null = null
+
+    if (paymentMethod === 'PAYPAL') {
+      const email = String(paypalEmail || '').trim()
+      if (!email || !email.includes('@')) {
+        pendingWithdrawalRequests.delete(requestKey)
+        return res.status(400).json({ error: 'PayPal email is required' })
+      }
+      normalizedPaypalEmail = email
+      normalizedCurrency = 'USD'
+      normalizedNetwork = 'PAYPAL'
+      normalizedAddress = email
+    } else {
+      if (!normalizedAddress || !normalizedCurrency) {
+        pendingWithdrawalRequests.delete(requestKey)
+        return res.status(400).json({ error: 'Address and currency are required' })
+      }
+      normalizedNetwork = normalizedNetwork || 'TRC20'
     }
 
     // Get client IP address from request
@@ -1666,9 +1835,11 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
         userId: user.id,
         amount,
         status: 'PENDING',
-        currency,
-        address,
-        network: network || 'TRC20',
+        paymentMethod,
+        currency: normalizedCurrency,
+        address: normalizedAddress,
+        network: normalizedNetwork,
+        paypalEmail: normalizedPaypalEmail,
         ipAddress: clientIp,
         userAgent,
         country: geoData.country,
@@ -1722,9 +1893,10 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
     const adminMessage = `🔔 *Withdrawal Request - Requires Approval*\n\n` +
       `👤 User: @${username} (ID: ${user.telegramId})\n` +
       `💰 Amount: $${amount.toFixed(2)}\n` +
-      `💎 Currency: ${currency}\n` +
-      `🌐 Network: ${network || 'TRC20'}\n` +
-      `📍 Address: \`${address}\`\n\n` +
+      `💳 Method: ${paymentMethod}\n` +
+      `💎 Currency: ${normalizedCurrency}\n` +
+      `🌐 Network: ${normalizedNetwork}\n` +
+      `📍 Address: \`${normalizedAddress}\`\n\n` +
       `💳 Previous Deposit: $${user.totalDeposit.toFixed(2)}\n` +
       `💳 New Deposit: $${newDeposit.toFixed(2)}\n` +
       `✅ Funds have been reserved\n\n` +
@@ -1783,9 +1955,10 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
         user.telegramId,
         `⏳ *Withdrawal Pending Approval*\n\n` +
         `💰 Amount: $${amount.toFixed(2)}\n` +
-        `💎 Currency: ${currency}\n` +
-        `🌐 Network: ${network || 'TRC20'}\n` +
-        `📍 Address: \`${address}\`\n\n` +
+        `💳 Method: ${paymentMethod}\n` +
+        `💎 Currency: ${normalizedCurrency}\n` +
+        `🌐 Network: ${normalizedNetwork}\n` +
+        `📍 Address: \`${normalizedAddress}\`\n\n` +
         `📋 Your withdrawal request has been sent to admin for approval.\n` +
         `⏱ This usually takes a few minutes.\n\n` +
         `✅ Funds have been reserved from your deposit\n` +
@@ -1811,7 +1984,7 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
     console.error('❌ Withdrawal API Error:', error)
     
     // Clear pending request key on error
-    const requestKey = `${req.params.telegramId}_${req.body.amount}_${req.body.address}`
+    const requestKey = `${req.params.telegramId}_${req.body.amount}_${req.body.address || req.body.paypalEmail || ''}`
     pendingWithdrawalRequests.delete(requestKey)
     
     // If response already sent, don't try to send again
@@ -1860,6 +2033,7 @@ app.get('/api/user/:telegramId/transactions', requireUserAuth, async (req, res) 
         currency: d.currency,
         network: d.network,
         status: d.status,
+        paymentMethod: d.paymentMethod,
         address: d.txHash,
         txHash: d.txHash,
         trackId: d.trackId,
@@ -1872,6 +2046,7 @@ app.get('/api/user/:telegramId/transactions', requireUserAuth, async (req, res) 
         currency: w.currency,
         network: w.network,
         status: w.status,
+        paymentMethod: w.paymentMethod,
         address: w.address,
         txHash: w.txHash,
         trackId: w.trackId,

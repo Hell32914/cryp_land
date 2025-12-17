@@ -3326,6 +3326,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
         withdrawal.user.telegramId,
         `✅ *Withdrawal Completed*\n\n` +
         `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💳 Method: ${(withdrawal as any).paymentMethod || 'OXAPAY'}\n` +
         `💎 Currency: ${withdrawal.currency}\n` +
         `🌐 Network: ${withdrawal.network}\n` +
         `📍 Address: \`${withdrawal.address}\`\n\n` +
@@ -3346,7 +3347,83 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
       console.log(`💸 Approving PROCESSING withdrawal ${withdrawal.id} for user ${withdrawal.user.telegramId}`)
       console.log(`ℹ️ Balance already deducted (reserved). Current balance: $${withdrawal.user.balance.toFixed(2)}`)
       
-      // Try to process via OxaPay
+      const paymentMethod = String((withdrawal as any).paymentMethod || 'OXAPAY').toUpperCase()
+
+      // PayPal payout
+      if (paymentMethod === 'PAYPAL') {
+        try {
+          const receiverEmail = (withdrawal as any).paypalEmail || withdrawal.address
+          const { createPayPalPayout } = await import('./paypal.js')
+          const payout = await createPayPalPayout({
+            receiverEmail,
+            amount: withdrawal.amount,
+            currency: 'USD',
+            note: `Withdrawal #${withdrawal.id}`,
+            senderItemId: `wd_${withdrawal.id}`
+          })
+
+          await prisma.withdrawal.update({
+            where: { id: withdrawalId },
+            data: {
+              txHash: payout.batchId,
+              status: 'COMPLETED'
+            }
+          })
+
+          await bot.api.sendMessage(
+            withdrawal.user.telegramId,
+            `✅ *Withdrawal Approved*\n\n` +
+              `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+              `💳 Method: PAYPAL\n` +
+              `📧 PayPal: \`${receiverEmail}\`\n\n` +
+              `🧾 Payout Batch: ${payout.batchId}\n` +
+              `✅ Processing initiated by admin.`,
+            { parse_mode: 'Markdown' }
+          )
+
+          await safeEditMessage(
+            ctx,
+            ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO PAYPAL*\n' +
+              `🧾 Batch ID: ${payout.batchId}`,
+            { parse_mode: 'Markdown' }
+          )
+          await safeAnswerCallback(ctx, '✅ Withdrawal approved and sent to PayPal')
+          return
+        } catch (error: any) {
+          console.error('PayPal payout error:', error.response?.data || error.message)
+
+          await prisma.withdrawal.update({
+            where: { id: withdrawalId },
+            data: {
+              txHash: 'MANUAL_PROCESSING_REQUIRED'
+            }
+          })
+
+          await bot.api.sendMessage(
+            withdrawal.user.telegramId,
+            `✅ *Withdrawal Approved*\n\n` +
+              `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+              `💳 Method: PAYPAL\n` +
+              `📧 PayPal: \`${(withdrawal as any).paypalEmail || withdrawal.address}\`\n\n` +
+              `⏳ Your withdrawal is being processed manually by admin.`,
+            { parse_mode: 'Markdown' }
+          )
+
+          await safeAnswerCallback(ctx, '✅ Approved - Manual processing required')
+          await safeEditMessage(
+            ctx,
+            ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
+              `⚠️ PayPal Error: ${error.message}\n` +
+              `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
+              `⚡ Status: PROCESSING\n\n` +
+              `🔴 ACTION REQUIRED: Process payout manually in PayPal dashboard`,
+            { parse_mode: 'Markdown' }
+          )
+          return
+        }
+      }
+
+      // Default: process via OxaPay
       try {
         const { createPayout } = await import('./oxapay.js')
         

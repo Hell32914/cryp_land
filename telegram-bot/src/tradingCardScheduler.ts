@@ -6,6 +6,66 @@ import { getCardSettings } from './cardSettings.js'
 // Current scheduled jobs
 let scheduledJobs: ScheduledTask[] = []
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+function getRetryAfterSeconds(error: any): number | null {
+  // Grammy wraps Telegram API errors; `parameters.retry_after` is commonly present on 429.
+  const retryAfter = error?.parameters?.retry_after ??
+    error?.payload?.parameters?.retry_after ??
+    error?.response?.parameters?.retry_after
+  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter
+  return null
+}
+
+function getTelegramErrorCode(error: any): number | null {
+  const code = error?.error_code ?? error?.payload?.error_code ?? error?.response?.error_code
+  if (typeof code === 'number' && Number.isFinite(code)) return code
+  return null
+}
+
+function isBlockedError(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase()
+  const code = getTelegramErrorCode(error)
+  return code === 403 || message.includes('bot was blocked') || message.includes('user is deactivated')
+}
+
+async function sendPhotoWithRetry(
+  bot: Bot,
+  chatId: number | string,
+  photo: string | InputFile,
+  options: { caption: string; parse_mode: 'Markdown' },
+  maxAttempts = 4
+): Promise<any> {
+  let attempt = 0
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    attempt++
+    try {
+      return await bot.api.sendPhoto(chatId, photo as any, options as any)
+    } catch (error: any) {
+      if (isBlockedError(error)) throw error
+
+      const code = getTelegramErrorCode(error)
+      const retryAfterSeconds = getRetryAfterSeconds(error)
+
+      if (attempt >= maxAttempts) throw error
+
+      // 429 / flood control: respect retry_after when available.
+      if (code === 429 || retryAfterSeconds) {
+        const waitMs = (retryAfterSeconds ?? Math.min(60, 2 ** attempt)) * 1000
+        console.warn(`⏳ Flood control when sending to ${chatId}; waiting ${Math.round(waitMs / 1000)}s (attempt ${attempt}/${maxAttempts})`)
+        await sleep(waitMs + 250)
+        continue
+      }
+
+      // Transient network-ish failures: small backoff.
+      await sleep(Math.min(15_000, 750 * attempt))
+    }
+  }
+}
+
 /**
  * Schedule trading card posts throughout the day
  * Posts configurable times per day between configurable hours (Kyiv time UTC+2)
@@ -19,12 +79,12 @@ export async function scheduleTradingCards(bot: Bot, channelId: string) {
   // Schedule initial calculation of today's posts
   await scheduleRandomPosts(bot, channelId)
   
-  // Reschedule at midnight Kyiv time (22:00 UTC)
-  cron.schedule('0 22 * * *', async () => {
+  // Reschedule at midnight Kyiv time (handles DST)
+  cron.schedule('0 0 * * *', async () => {
     console.log('🔄 Rescheduling trading cards for new day')
     await scheduleRandomPosts(bot, channelId)
   }, {
-    timezone: 'UTC'
+    timezone: 'Europe/Kyiv'
   })
 }
 
@@ -166,23 +226,49 @@ export async function postTradingCard(bot: Bot, channelId: string) {
       where: { status: 'ACTIVE' },
       select: { telegramId: true }
     })
+
+    console.log(`👥 Broadcasting trading card to ${users.length} active users`)
     
     // Send to all users
     let successCount = 0
+    let skippedCount = 0
+    let cachedFileId: string | null = null
+
+    const perMessageDelayMs = parseInt(process.env.CARD_SEND_DELAY_MS || '55', 10)
     for (const user of users) {
       try {
-        await bot.api.sendPhoto(user.telegramId, new InputFile(imageBuffer), {
-          caption: caption,
-          parse_mode: 'Markdown'
-        })
+        const photo = cachedFileId ? cachedFileId : new InputFile(imageBuffer)
+        const result = await sendPhotoWithRetry(
+          bot,
+          user.telegramId,
+          photo,
+          {
+            caption: caption,
+            parse_mode: 'Markdown'
+          }
+        )
+
+        if (!cachedFileId && result?.photo?.length) {
+          cachedFileId = result.photo[result.photo.length - 1]?.file_id ?? null
+        }
         successCount++
+
+        if (perMessageDelayMs > 0) {
+          await sleep(perMessageDelayMs)
+        }
       } catch (error: any) {
-        // Skip if user blocked the bot or other error
-        console.error(`Failed to send card to ${user.telegramId}:`, error.message)
+        if (isBlockedError(error)) {
+          skippedCount++
+        } else {
+          console.error(`Failed to send card to ${user.telegramId}:`, error?.message || error)
+        }
       }
     }
     
-    console.log(`✅ Trading card #${cardData.orderNumber} sent to ${successCount}/${users.length} users`)
+    console.log(
+      `✅ Trading card #${cardData.orderNumber} sent to ${successCount}/${users.length} users` +
+      (skippedCount ? ` (skipped blocked/deactivated: ${skippedCount})` : '')
+    )
   } catch (error) {
     console.error('❌ Failed to post trading card:', error)
   }

@@ -48,6 +48,10 @@ function App() {
   const [depositQrCode, setDepositQrCode] = useState<string>('')
   const [depositAddress, setDepositAddress] = useState<string>('')
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
+  const [depositMethod, setDepositMethod] = useState<'OXAPAY' | 'PAYPAL'>('OXAPAY')
+  const [depositPaypalOrderId, setDepositPaypalOrderId] = useState<string>('')
+  const [withdrawMethod, setWithdrawMethod] = useState<'OXAPAY' | 'PAYPAL'>('OXAPAY')
+  const [withdrawPaypalEmail, setWithdrawPaypalEmail] = useState<string>('')
   const [contactSupportOpen, setContactSupportOpen] = useState(false)
   const [contactSupportTimeLeft, setContactSupportTimeLeft] = useState(0)
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(25)
@@ -340,8 +344,8 @@ function App() {
 
   // Handle deposit
   const handleDepositSubmit = async () => {
-    if (!selectedCurrency || !depositAmountInput) {
-      toast.error('Please select currency and enter amount')
+    if (!depositAmountInput) {
+      toast.error('Please enter amount')
       return
     }
 
@@ -358,16 +362,28 @@ function App() {
         headers: getAuthHeaders(),
         body: JSON.stringify({
           amount,
-          currency: selectedCurrency
+          ...(depositMethod === 'OXAPAY' ? { currency: selectedCurrency } : {}),
+          method: depositMethod
         })
       })
 
       if (response.ok) {
         const data = await response.json()
-        setDepositQrCode(data.qrCode)
-        setDepositAddress(data.address)
-        setDepositPaymentUrl(data.paymentUrl)
-        toast.success('Deposit invoice created! Please scan QR code or use the address.')
+        // Reset previous UI artifacts
+        setDepositQrCode('')
+        setDepositAddress('')
+        setDepositPaypalOrderId('')
+
+        setDepositPaymentUrl(data.paymentUrl || '')
+
+        if ((data.method || '').toString().toUpperCase() === 'PAYPAL') {
+          setDepositPaypalOrderId(data.paypalOrderId || '')
+          toast.success('PayPal payment created. Continue to PayPal to complete payment.')
+        } else {
+          setDepositQrCode(data.qrCode)
+          setDepositAddress(data.address)
+          toast.success('Deposit invoice created! Please scan QR code or use the address.')
+        }
       } else {
         const error = await response.json()
         toast.error(error.error || 'Failed to create deposit')
@@ -378,11 +394,58 @@ function App() {
     }
   }
 
+  const handlePayPalDepositConfirm = async () => {
+    if (!depositPaypalOrderId) {
+      toast.error('Missing PayPal order id')
+      return
+    }
+
+    try {
+      const API_URL = 'https://api.syntrix.website'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/paypal-capture`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          orderId: depositPaypalOrderId
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.status === 'COMPLETED') {
+          toast.success('✅ Deposit completed successfully!')
+        } else {
+          toast.success('Deposit confirmed.')
+        }
+        await refreshData()
+        await fetchTransactions()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Payment not completed yet')
+      }
+    } catch (error) {
+      console.error('Error capturing PayPal order:', error)
+      toast.error('Network error')
+    }
+  }
+
   // Handle withdrawal
   const handleWithdrawalSubmit = async () => {
-    if (!selectedCurrency || !selectedNetwork || !withdrawWalletAddress || !withdrawAmount) {
-      toast.error('Please fill all fields')
+    if (!withdrawAmount) {
+      toast.error('Please enter amount')
       return
+    }
+
+    if (withdrawMethod === 'OXAPAY') {
+      if (!selectedCurrency || !selectedNetwork || !withdrawWalletAddress) {
+        toast.error('Please fill all fields')
+        return
+      }
+    } else {
+      if (!withdrawPaypalEmail) {
+        toast.error('Please enter your PayPal email')
+        return
+      }
     }
 
     const amount = parseFloat(withdrawAmount)
@@ -404,9 +467,16 @@ function App() {
         headers: getAuthHeaders(),
         body: JSON.stringify({
           amount,
-          currency: selectedCurrency,
-          address: withdrawWalletAddress,
-          network: selectedNetwork
+          method: withdrawMethod,
+          ...(withdrawMethod === 'OXAPAY'
+            ? {
+                currency: selectedCurrency,
+                address: withdrawWalletAddress,
+                network: selectedNetwork
+              }
+            : {
+                paypalEmail: withdrawPaypalEmail
+              })
         })
       })
 
@@ -427,6 +497,7 @@ function App() {
         setWithdrawOpen(false)
         setWithdrawWalletAddress('')
         setWithdrawAmount('')
+        setWithdrawPaypalEmail('')
         await refreshData()
         await fetchTransactions()
       } else {
@@ -777,52 +848,87 @@ function App() {
 
             <div className="space-y-2">
               <label className="text-xs sm:text-sm text-muted-foreground font-medium">
-                Select Currency
+                Withdrawal Method
               </label>
-              <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+              <Select value={withdrawMethod} onValueChange={(v) => setWithdrawMethod(v as any)}>
                 <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
-                  <SelectValue placeholder="Select Currency" />
+                  <SelectValue placeholder="Select Method" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
-                  <SelectItem value="usdt">USDT</SelectItem>
-                  <SelectItem value="usdc">USDC</SelectItem>
+                  <SelectItem value="OXAPAY">OxaPay</SelectItem>
+                  <SelectItem value="PAYPAL">PayPal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs sm:text-sm text-muted-foreground font-medium">
-                Select Network
-              </label>
-              <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
-                  <SelectValue placeholder="Select Network" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border/50 rounded-lg">
-                  <SelectItem value="bep20">BEP20 (BSC)</SelectItem>
-                  <SelectItem value="erc20">ERC20 (Ethereum)</SelectItem>
-                  <SelectItem value="trc20">TRC20 (Tron)</SelectItem>
-                  <SelectItem value="polygon">Polygon</SelectItem>
-                  <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                  <SelectItem value="solana">Solana</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {withdrawMethod === 'OXAPAY' && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm text-muted-foreground font-medium">
+                    Select Currency
+                  </label>
+                  <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                    <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
+                      <SelectValue placeholder="Select Currency" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border/50 rounded-lg">
+                      <SelectItem value="usdt">USDT</SelectItem>
+                      <SelectItem value="usdc">USDC</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm text-muted-foreground font-medium">
+                    Select Network
+                  </label>
+                  <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
+                    <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
+                      <SelectValue placeholder="Select Network" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border/50 rounded-lg">
+                      <SelectItem value="bep20">BEP20 (BSC)</SelectItem>
+                      <SelectItem value="erc20">ERC20 (Ethereum)</SelectItem>
+                      <SelectItem value="trc20">TRC20 (Tron)</SelectItem>
+                      <SelectItem value="polygon">Polygon</SelectItem>
+                      <SelectItem value="arbitrum">Arbitrum</SelectItem>
+                      <SelectItem value="solana">Solana</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <div className="bg-secondary/30 rounded-xl p-3 sm:p-5 space-y-3 sm:space-y-4 border border-border/30">
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm text-muted-foreground font-medium">
-                  Wallet Address
-                </label>
-                <Input
-                  id="wallet-address"
-                  type="text"
-                  value={withdrawWalletAddress}
-                  onChange={(e) => setWithdrawWalletAddress(e.target.value)}
-                  placeholder="Enter wallet address"
-                  className="h-10 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg"
-                />
-              </div>
+              {withdrawMethod === 'PAYPAL' ? (
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm text-muted-foreground font-medium">
+                    PayPal Email
+                  </label>
+                  <Input
+                    id="paypal-email"
+                    type="email"
+                    value={withdrawPaypalEmail}
+                    onChange={(e) => setWithdrawPaypalEmail(e.target.value)}
+                    placeholder="Enter your PayPal email"
+                    className="h-10 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm text-muted-foreground font-medium">
+                    Wallet Address
+                  </label>
+                  <Input
+                    id="wallet-address"
+                    type="text"
+                    value={withdrawWalletAddress}
+                    onChange={(e) => setWithdrawWalletAddress(e.target.value)}
+                    placeholder="Enter wallet address"
+                    className="h-10 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg"
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-xs sm:text-sm text-muted-foreground font-medium">
@@ -847,7 +953,12 @@ function App() {
 
               <Button
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-4 sm:py-5 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
-                disabled={!selectedCurrency || !selectedNetwork || !withdrawWalletAddress || !withdrawAmount}
+                disabled={
+                  !withdrawAmount ||
+                  (withdrawMethod === 'OXAPAY'
+                    ? !selectedCurrency || !selectedNetwork || !withdrawWalletAddress
+                    : !withdrawPaypalEmail)
+                }
                 onClick={handleWithdrawalSubmit}
               >
                 CONFIRM WITHDRAW
@@ -881,21 +992,48 @@ function App() {
 
             <div className="space-y-2">
               <label className="text-xs sm:text-sm text-muted-foreground font-medium">
-                {t.selectCurrency}
+                Payment Method
               </label>
-              <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+              <Select
+                value={depositMethod}
+                onValueChange={(v) => {
+                  setDepositMethod(v as any)
+                  // Clear previous results when switching method
+                  setDepositQrCode('')
+                  setDepositAddress('')
+                  setDepositPaymentUrl('')
+                  setDepositPaypalOrderId('')
+                }}
+              >
                 <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
-                  <SelectValue placeholder={t.selectCurrency} />
+                  <SelectValue placeholder="Select Method" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
-                  <SelectItem value="usdt">USDT</SelectItem>
-                  <SelectItem value="usdc">USDC</SelectItem>
-                  <SelectItem value="btc">Bitcoin</SelectItem>
-                  <SelectItem value="eth">Ethereum</SelectItem>
-                  <SelectItem value="sol">Solana</SelectItem>
+                  <SelectItem value="OXAPAY">OxaPay</SelectItem>
+                  <SelectItem value="PAYPAL">PayPal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {depositMethod === 'OXAPAY' && (
+              <div className="space-y-2">
+                <label className="text-xs sm:text-sm text-muted-foreground font-medium">
+                  {t.selectCurrency}
+                </label>
+                <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
+                  <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
+                    <SelectValue placeholder={t.selectCurrency} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border/50 rounded-lg">
+                    <SelectItem value="usdt">USDT</SelectItem>
+                    <SelectItem value="usdc">USDC</SelectItem>
+                    <SelectItem value="btc">Bitcoin</SelectItem>
+                    <SelectItem value="eth">Ethereum</SelectItem>
+                    <SelectItem value="sol">Solana</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-xs sm:text-sm text-muted-foreground font-medium">
@@ -913,13 +1051,38 @@ function App() {
 
             <Button
               className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-4 sm:py-5 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
-              disabled={!selectedCurrency || !depositAmountInput}
+              disabled={
+                !depositAmountInput ||
+                (depositMethod === 'OXAPAY' ? !selectedCurrency : false)
+              }
               onClick={handleDepositSubmit}
             >
               {t.continue}
             </Button>
 
-            {depositQrCode && (
+            {depositMethod === 'PAYPAL' && depositPaymentUrl && (
+              <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-3">
+                <h3 className="text-sm font-bold text-foreground">PayPal Payment</h3>
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                  onClick={() => window.open(depositPaymentUrl, '_blank')}
+                >
+                  Continue to PayPal
+                </Button>
+                <Button
+                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
+                  disabled={!depositPaypalOrderId}
+                  onClick={handlePayPalDepositConfirm}
+                >
+                  I paid — Confirm
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  After payment, tap “Confirm” to finalize your balance update.
+                </p>
+              </div>
+            )}
+
+            {depositMethod === 'OXAPAY' && depositQrCode && (
               <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-4">
                 <h3 className="text-sm font-bold text-foreground">Scan QR Code to Pay</h3>
                 <div className="flex justify-center p-4 bg-white rounded-lg">
