@@ -855,7 +855,7 @@ function App() {
                   <SelectValue placeholder="Select Method" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
-                  <SelectItem value="OXAPAY">OxaPay</SelectItem>
+                  <SelectItem value="OXAPAY">Crypto</SelectItem>
                   <SelectItem value="PAYPAL">PayPal</SelectItem>
                 </SelectContent>
               </Select>
@@ -1009,7 +1009,7 @@ function App() {
                   <SelectValue placeholder="Select Method" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
-                  <SelectItem value="OXAPAY">OxaPay</SelectItem>
+                  <SelectItem value="OXAPAY">Crypto</SelectItem>
                   <SelectItem value="PAYPAL">PayPal</SelectItem>
                 </SelectContent>
               </Select>

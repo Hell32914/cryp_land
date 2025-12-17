@@ -2,7 +2,7 @@
 # SSH: ssh root@45.147.248.134
 
 # 1. Перейти в папку проекта
-cd ~/cryp_land/telegram-bot
+cd ~/cryp_land
 
 # 2. Обновить код с GitHub
 git pull origin main
@@ -15,9 +15,18 @@ nano .env
 
 # 4. Установить зависимости (если нужно)
 npm install
+cd telegram-bot
+npm install
+cd ..
 
-# 5. Пересобрать TypeScript
+# 5. Применить изменения Prisma схемы (PostgreSQL)
+# ВАЖНО: команда "db push" сама по себе не существует — это Prisma.
+cd telegram-bot
+npm run db:push
+
+# 6. Пересобрать TypeScript
 npm run build
+cd ..
 
 # 6. Проверить конфигурацию админов
 node check-admins.cjs
@@ -25,13 +34,14 @@ node check-admins.cjs
 # 7. Проверить daily updates в базе
 node check-updates-simple.cjs
 
-# 8. Перезапустить бот
-pm2 restart syntrix
+# 9. Перезапустить сервисы (PM2)
+pm2 list
+pm2 restart syntrix-bot --update-env
 
-# 9. Проверить логи
-pm2 logs syntrix --lines 50
+# 10. Проверить логи
+pm2 logs syntrix-bot --lines 50
 
-# 10. Проверить статус
+# 11. Проверить статус
 pm2 status
 
 # ЕСЛИ НУЖНО ЗАПУСТИТЬ НАЧИСЛЕНИЕ ПРОФИТА ВРУЧНУЮ:
