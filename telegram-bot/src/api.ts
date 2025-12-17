@@ -1544,7 +1544,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
         }
       })
 
-      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || 'https://syntrix.website'
+      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://syntrix.website'
       const cancelUrl = process.env.PAYPAL_CANCEL_URL || returnUrl
 
       const { createPayPalOrder } = await import('./paypal.js')
