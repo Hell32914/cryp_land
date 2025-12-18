@@ -1987,18 +1987,119 @@ bot.on('message:text', async (ctx) => {
 
       console.log('[Add Bonus] Updating user bonus tokens:', { userId: targetUserId, currentBonus: currentUser.bonusTokens, addAmount: amount })
 
-      // Update user bonus tokens
+      // Check if user was inactive before
+      const wasInactive = currentUser.status === 'INACTIVE'
+      
+      // Update user bonus tokens and activate if inactive
+      const updateData: any = {
+        bonusTokens: { increment: amount }
+      }
+      
+      if (wasInactive) {
+        updateData.status = 'ACTIVE'
+        console.log('[Add Bonus] Activating inactive account')
+      }
+      
       const user = await prisma.user.update({
         where: { id: targetUserId },
-        data: {
-          bonusTokens: { increment: amount }
-        }
+        data: updateData
       })
 
-      console.log('[Add Bonus] Successfully updated. New bonus:', user.bonusTokens)
+      console.log('[Add Bonus] Successfully updated. New bonus:', user.bonusTokens, 'Status:', user.status)
+
+      // Generate profit updates if user has bonus tokens and was reactivated or didn't have updates yet
+      if (user.bonusTokens > 0) {
+        const now = new Date()
+        const startOfToday = new Date(now)
+        startOfToday.setHours(0, 0, 0, 0)
+        const endOfToday = new Date(startOfToday)
+        endOfToday.setHours(23, 59, 59, 999)
+        
+        // Check if user already has profit updates for today
+        const existingUpdates = await prisma.dailyProfitUpdate.findFirst({
+          where: {
+            userId: user.id,
+            timestamp: {
+              gte: startOfToday,
+              lte: endOfToday
+            }
+          }
+        })
+        
+        // Generate new profit schedule if no updates exist for today
+        if (!existingUpdates) {
+          const planInfo = calculateTariffPlan(user.totalDeposit)
+          const dailyProfit = (user.totalDeposit * planInfo.dailyPercent) / 100
+          const bonusProfit = ((user.bonusTokens || 0) * 0.5) / 100
+          const totalDailyProfit = dailyProfit + bonusProfit
+          
+          if (totalDailyProfit > 0) {
+            // Update last profit update timestamp
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { lastProfitUpdate: startOfToday }
+            })
+            
+            const scheduleStart = now.getTime() > startOfToday.getTime() ? now : startOfToday
+            const depositUpdates = dailyProfit > 0 ? generateDailyUpdates(dailyProfit, scheduleStart, endOfToday) : []
+            
+            // Create token accrual
+            const tokenUpdates: { amount: number, timestamp: Date }[] = []
+            if (bonusProfit >= 0.01) {
+              const startTime = scheduleStart.getTime()
+              const endTime = endOfToday.getTime()
+              const rangeMs = Math.max(1, endTime - startTime)
+              const randomOffset = Math.random() * rangeMs
+              tokenUpdates.push({ amount: bonusProfit, timestamp: new Date(startTime + randomOffset) })
+            }
+            
+            const updates = [...depositUpdates, ...tokenUpdates].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+            
+            // Create daily updates
+            for (const update of updates) {
+              const isTokenUpdate = tokenUpdates.includes(update)
+              await prisma.dailyProfitUpdate.create({
+                data: {
+                  userId: user.id,
+                  amount: update.amount,
+                  source: isTokenUpdate ? 'TOKEN' : 'DEPOSIT',
+                  timestamp: update.timestamp,
+                  dailyTotal: totalDailyProfit
+                }
+              })
+            }
+            
+            console.log(`[Add Bonus] Generated ${updates.length} profit updates for today`)
+          }
+        }
+      }
+      
+      // Send trading card to user if they were inactive
+      if (wasInactive) {
+        try {
+          const imageBuffer = await generateTradingCard()
+          const cardData = await getLastTradingPostData()
+          const caption = formatCardCaption(cardData)
+          
+          await bot.api.sendPhoto(
+            user.telegramId,
+            new InputFile(imageBuffer),
+            {
+              caption: caption,
+              parse_mode: 'Markdown'
+            }
+          )
+          
+          console.log(`[Add Bonus] Sent trading card to reactivated user ${user.telegramId}`)
+        } catch (cardError) {
+          console.error('[Add Bonus] Failed to send trading card:', cardError)
+        }
+      }
 
       // Notify user
+      const statusInfo = wasInactive ? '\n✅ *Account Activated!*\n' : ''
       const userMessage = `🎁 *Syntrix Token Added!*\n\n` +
+        statusInfo +
         `+$${amount.toFixed(2)} Syntrix Token\n` +
         `New Balance: $${user.bonusTokens.toFixed(2)}\n\n` +
         `💡 *How it works:*\n` +
@@ -2018,12 +2119,14 @@ bot.on('message:text', async (ctx) => {
       })
 
       // Confirm to admin
+      const activationInfo = wasInactive ? `\n✅ Account Activated: INACTIVE → ACTIVE\n` : ''
       await ctx.reply(
         `✅ *Bonus Tokens Added Successfully*\n\n` +
         `User: ${formatUserDisplay(user)}\n` +
         `Amount: +$${amount.toFixed(2)}\n` +
         `Previous Bonus: $${currentUser.bonusTokens.toFixed(2)}\n` +
-        `New Bonus: $${user.bonusTokens.toFixed(2)}`,
+        `New Bonus: $${user.bonusTokens.toFixed(2)}` +
+        activationInfo,
         { parse_mode: 'Markdown' }
       )
 
