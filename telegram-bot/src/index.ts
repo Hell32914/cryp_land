@@ -1985,19 +1985,21 @@ bot.on('message:text', async (ctx) => {
         return
       }
 
-      console.log('[Add Bonus] Updating user bonus tokens:', { userId: targetUserId, currentBonus: currentUser.bonusTokens, addAmount: amount })
+      console.log('[Add Bonus] Updating user bonus tokens:', { userId: targetUserId, currentBonus: currentUser.bonusTokens, currentStatus: currentUser.status, addAmount: amount })
 
       // Check if user was inactive before
       const wasInactive = currentUser.status === 'INACTIVE'
+      console.log('[Add Bonus] Was inactive check:', wasInactive, 'Current status:', currentUser.status)
       
-      // Update user bonus tokens and activate if inactive
+      // Always activate account when adding Syntrix token (if not already active)
       const updateData: any = {
         bonusTokens: { increment: amount }
       }
       
-      if (wasInactive) {
+      // Activate if user is INACTIVE
+      if (currentUser.status === 'INACTIVE') {
         updateData.status = 'ACTIVE'
-        console.log('[Add Bonus] Activating inactive account')
+        console.log('[Add Bonus] ✅ Activating INACTIVE account → ACTIVE')
       }
       
       const user = await prisma.user.update({
@@ -2005,7 +2007,7 @@ bot.on('message:text', async (ctx) => {
         data: updateData
       })
 
-      console.log('[Add Bonus] Successfully updated. New bonus:', user.bonusTokens, 'Status:', user.status)
+      console.log('[Add Bonus] ✅ Successfully updated. New bonus:', user.bonusTokens, 'New Status:', user.status, 'Was inactive:', wasInactive)
 
       // Generate profit updates if user has bonus tokens and was reactivated or didn't have updates yet
       if (user.bonusTokens > 0) {
@@ -2075,12 +2077,15 @@ bot.on('message:text', async (ctx) => {
       }
       
       // Send trading card to user if they were inactive
+      console.log('[Add Bonus] Checking if should send card. wasInactive:', wasInactive)
       if (wasInactive) {
         try {
+          console.log('[Add Bonus] 📸 Generating trading card for reactivated user...')
           const imageBuffer = await generateTradingCard()
           const cardData = await getLastTradingPostData()
           const caption = formatCardCaption(cardData)
           
+          console.log('[Add Bonus] 📤 Sending trading card to user', user.telegramId)
           await bot.api.sendPhoto(
             user.telegramId,
             new InputFile(imageBuffer),
@@ -2090,10 +2095,12 @@ bot.on('message:text', async (ctx) => {
             }
           )
           
-          console.log(`[Add Bonus] Sent trading card to reactivated user ${user.telegramId}`)
+          console.log(`[Add Bonus] ✅ Successfully sent trading card to reactivated user ${user.telegramId}`)
         } catch (cardError) {
-          console.error('[Add Bonus] Failed to send trading card:', cardError)
+          console.error('[Add Bonus] ❌ Failed to send trading card:', cardError)
         }
+      } else {
+        console.log('[Add Bonus] ℹ️ Not sending card - user was not inactive')
       }
 
       // Notify user
