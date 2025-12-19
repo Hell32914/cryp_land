@@ -4093,7 +4093,7 @@ async function sendScheduledNotifications() {
             await bot.api.sendMessage(
               update.user.telegramId,
               `🎁 *Syntrix Token Income*\n\n` +
-              `✅ Начисление за токен: $${update.amount.toFixed(2)}\n` +
+              `✅ Token accrual: $${update.amount.toFixed(2)}\n` +
               `📌 0.5% daily`,
               { parse_mode: 'Markdown' }
             )
