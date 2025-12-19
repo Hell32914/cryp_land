@@ -97,6 +97,11 @@ export async function createPayPalOrder(params: {
         cancel_url: params.cancelUrl,
         shipping_preference: 'NO_SHIPPING',
         user_action: 'PAY_NOW',
+        brand_name: 'Syntrix',
+        landing_page: 'LOGIN',
+        payment_method: {
+          payee_preferred: 'IMMEDIATE_PAYMENT_REQUIRED'
+        }
       },
     }
 
