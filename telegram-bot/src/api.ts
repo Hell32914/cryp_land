@@ -1619,6 +1619,19 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
     })
   } catch (error: any) {
     console.error('API Error:', error)
+    
+    // Enhanced PayPal error logging
+    if (error.response?.data) {
+      const paypalError = error.response.data
+      console.error('PayPal Error Details:', {
+        name: paypalError.name,
+        message: paypalError.message,
+        debug_id: paypalError.debug_id,
+        details: paypalError.details,
+        headers: error.response.headers?.['paypal-debug-id']
+      })
+    }
+    
     res.status(500).json({ error: error.message || 'Internal server error' })
   }
 })
@@ -1710,6 +1723,19 @@ app.post('/api/user/:telegramId/paypal-capture', depositLimiter, requireUserAuth
     return res.json({ success: true, status: 'COMPLETED' })
   } catch (error: any) {
     console.error('PayPal capture error:', error)
+    
+    // Enhanced PayPal error logging
+    if (error.response?.data) {
+      const paypalError = error.response.data
+      console.error('PayPal Capture Error Details:', {
+        name: paypalError.name,
+        message: paypalError.message,
+        debug_id: paypalError.debug_id,
+        details: paypalError.details,
+        headers: error.response.headers?.['paypal-debug-id']
+      })
+    }
+    
     return res.status(500).json({ error: error.message || 'Internal server error' })
   }
 })

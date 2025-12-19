@@ -69,51 +69,66 @@ export async function createPayPalOrder(params: {
   customId?: string
   description?: string
 }): Promise<PayPalCreateOrderResult> {
-  assertConfigured()
+  try {
+    assertConfigured()
 
-  const currency = (params.currency || 'USD').toUpperCase()
-  if (!Number.isFinite(params.amount) || params.amount <= 0) {
-    throw new Error('Invalid amount')
-  }
+    const currency = (params.currency || 'USD').toUpperCase()
+    if (!Number.isFinite(params.amount) || params.amount <= 0) {
+      throw new Error('Invalid amount')
+    }
 
-  const token = await getAccessToken()
-  const baseUrl = getBaseUrl()
+    const token = await getAccessToken()
+    const baseUrl = getBaseUrl()
 
-  const body = {
-    intent: 'CAPTURE',
-    purchase_units: [
-      {
-        amount: {
-          currency_code: currency,
-          value: params.amount.toFixed(2),
+    const body = {
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          amount: {
+            currency_code: currency,
+            value: params.amount.toFixed(2),
+          },
+          custom_id: params.customId,
+          description: params.description || 'Syntrix Deposit',
         },
-        custom_id: params.customId,
-        description: params.description || 'Syntrix Deposit',
+      ],
+      application_context: {
+        return_url: params.returnUrl,
+        cancel_url: params.cancelUrl,
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'PAY_NOW',
       },
-    ],
-    application_context: {
-      return_url: params.returnUrl,
-      cancel_url: params.cancelUrl,
-      shipping_preference: 'NO_SHIPPING',
-      user_action: 'PAY_NOW',
-    },
+    }
+
+    const r = await axios.post(`${baseUrl}/v2/checkout/orders`, body, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10_000,
+    })
+
+    const id = r.data?.id
+    const approveUrl = (r.data?.links || []).find((l: any) => l?.rel === 'approve')?.href
+    if (!id || !approveUrl) {
+      throw new Error('PayPal order creation failed')
+    }
+
+    return { id, approveUrl }
+  } catch (error: any) {
+    // Log PayPal-specific error details
+    if (error.response?.data) {
+      const paypalError = error.response.data
+      console.error('PayPal createOrder Error:', {
+        name: paypalError.name,
+        message: paypalError.message,
+        debug_id: paypalError.debug_id,
+        details: paypalError.details,
+        'paypal-debug-id': error.response.headers?.['paypal-debug-id']
+      })
+    }
+    throw error
   }
-
-  const r = await axios.post(`${baseUrl}/v2/checkout/orders`, body, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    timeout: 10_000,
-  })
-
-  const id = r.data?.id
-  const approveUrl = (r.data?.links || []).find((l: any) => l?.rel === 'approve')?.href
-  if (!id || !approveUrl) {
-    throw new Error('PayPal order creation failed')
-  }
-
-  return { id, approveUrl }
 }
 
 export type PayPalCaptureResult = {
@@ -125,35 +140,50 @@ export type PayPalCaptureResult = {
 }
 
 export async function capturePayPalOrder(orderId: string): Promise<PayPalCaptureResult> {
-  assertConfigured()
-  if (!orderId) throw new Error('Missing orderId')
+  try {
+    assertConfigured()
+    if (!orderId) throw new Error('Missing orderId')
 
-  const token = await getAccessToken()
-  const baseUrl = getBaseUrl()
+    const token = await getAccessToken()
+    const baseUrl = getBaseUrl()
 
-  const r = await axios.post(`${baseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    timeout: 15_000,
-  })
+    const r = await axios.post(`${baseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 15_000,
+    })
 
-  const status = r.data?.status
-  const payerEmail = r.data?.payer?.email_address
+    const status = r.data?.status
+    const payerEmail = r.data?.payer?.email_address
 
-  // Attempt to read captured amount
-  const pu = r.data?.purchase_units?.[0]
-  const capture = pu?.payments?.captures?.[0]
-  const amountValue = capture?.amount?.value ? Number(capture.amount.value) : undefined
-  const currency = capture?.amount?.currency_code
+    // Attempt to read captured amount
+    const pu = r.data?.purchase_units?.[0]
+    const capture = pu?.payments?.captures?.[0]
+    const amountValue = capture?.amount?.value ? Number(capture.amount.value) : undefined
+    const currency = capture?.amount?.currency_code
 
-  return {
-    id: r.data?.id || orderId,
-    status: status || 'UNKNOWN',
-    payerEmail,
-    amountValue,
-    currency,
+    return {
+      id: r.data?.id || orderId,
+      status: status || 'UNKNOWN',
+      payerEmail,
+      amountValue,
+      currency,
+    }
+  } catch (error: any) {
+    // Log PayPal-specific error details
+    if (error.response?.data) {
+      const paypalError = error.response.data
+      console.error('PayPal captureOrder Error:', {
+        name: paypalError.name,
+        message: paypalError.message,
+        debug_id: paypalError.debug_id,
+        details: paypalError.details,
+        'paypal-debug-id': error.response.headers?.['paypal-debug-id']
+      })
+    }
+    throw error
   }
 }
 
@@ -169,51 +199,66 @@ export async function createPayPalPayout(params: {
   note?: string
   senderItemId?: string
 }): Promise<PayPalPayoutResult> {
-  assertConfigured()
+  try {
+    assertConfigured()
 
-  const currency = (params.currency || 'USD').toUpperCase()
-  if (!params.receiverEmail || !params.receiverEmail.includes('@')) {
-    throw new Error('Invalid PayPal receiver email')
-  }
-  if (!Number.isFinite(params.amount) || params.amount <= 0) {
-    throw new Error('Invalid payout amount')
-  }
+    const currency = (params.currency || 'USD').toUpperCase()
+    if (!params.receiverEmail || !params.receiverEmail.includes('@')) {
+      throw new Error('Invalid PayPal receiver email')
+    }
+    if (!Number.isFinite(params.amount) || params.amount <= 0) {
+      throw new Error('Invalid payout amount')
+    }
 
-  const token = await getAccessToken()
-  const baseUrl = getBaseUrl()
+    const token = await getAccessToken()
+    const baseUrl = getBaseUrl()
 
-  const body = {
-    sender_batch_header: {
-      sender_batch_id: params.senderItemId || `syntrix_${Date.now()}`,
-      email_subject: 'Syntrix payout',
-    },
-    items: [
-      {
-        recipient_type: 'EMAIL',
-        amount: {
-          value: params.amount.toFixed(2),
-          currency,
-        },
-        receiver: params.receiverEmail,
-        note: params.note || 'Withdrawal payout',
-        sender_item_id: params.senderItemId || `item_${Date.now()}`,
+    const body = {
+      sender_batch_header: {
+        sender_batch_id: params.senderItemId || `syntrix_${Date.now()}`,
+        email_subject: 'Syntrix payout',
       },
-    ],
+      items: [
+        {
+          recipient_type: 'EMAIL',
+          amount: {
+            value: params.amount.toFixed(2),
+            currency,
+          },
+          receiver: params.receiverEmail,
+          note: params.note || 'Withdrawal payout',
+          sender_item_id: params.senderItemId || `item_${Date.now()}`,
+        },
+      ],
+    }
+
+    const r = await axios.post(`${baseUrl}/v1/payments/payouts`, body, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 15_000,
+    })
+
+    const batchId = r.data?.batch_header?.payout_batch_id
+    const batchStatus = r.data?.batch_header?.batch_status
+    if (!batchId) {
+      throw new Error('PayPal payout creation failed')
+    }
+
+    return { batchId, batchStatus }
+  } catch (error: any) {
+    // Log PayPal-specific error details
+    if (error.response?.data) {
+      const paypalError = error.response.data
+      console.error('PayPal createPayout Error:', {
+        name: paypalError.name,
+        message: paypalError.message,
+        debug_id: paypalError.debug_id,
+        details: paypalError.details,
+        'paypal-debug-id': error.response.headers?.['paypal-debug-id']
+      })
+    }
+    throw error
   }
-
-  const r = await axios.post(`${baseUrl}/v1/payments/payouts`, body, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    timeout: 15_000,
-  })
-
-  const batchId = r.data?.batch_header?.payout_batch_id
-  const batchStatus = r.data?.batch_header?.batch_status
-  if (!batchId) {
-    throw new Error('PayPal payout creation failed')
-  }
-
-  return { batchId, batchStatus }
 }
