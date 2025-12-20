@@ -386,7 +386,14 @@ function App() {
         }
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to create deposit')
+        const errorMessage = error.error || 'Failed to create deposit'
+        
+        // Show specific message if PayPal is not configured
+        if (error.code === 'PAYPAL_NOT_CONFIGURED') {
+          toast.error('PayPal is temporarily unavailable. Please use crypto payment.')
+        } else {
+          toast.error(errorMessage)
+        }
       }
     } catch (error) {
       console.error('Error creating deposit:', error)

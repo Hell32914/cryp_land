@@ -1533,6 +1533,15 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
     }
 
     if (paymentMethod === 'PAYPAL') {
+      // Check if PayPal is configured
+      if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+        console.error('❌ PayPal payment method requested but credentials not configured')
+        return res.status(503).json({ 
+          error: 'PayPal is temporarily unavailable. Please use another payment method or contact support.',
+          code: 'PAYPAL_NOT_CONFIGURED'
+        })
+      }
+
       // PayPal flow: create deposit record, then create PayPal order.
       const deposit = await prisma.deposit.create({
         data: {
@@ -2859,6 +2868,16 @@ export function startApiServer(bot?: Bot) {
   
   server = app.listen(Number(PORT), BIND_HOST, () => {
     console.log(`🌐 API Server running on http://${BIND_HOST}:${PORT}`)
+    
+    // Check PayPal configuration
+    if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+      console.warn('⚠️  PayPal is NOT configured - PayPal deposits will be unavailable')
+      console.warn('   Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in .env to enable PayPal payments')
+      console.warn('   See PAYPAL_SETUP.md for setup instructions')
+    } else {
+      const env = (process.env.PAYPAL_ENV || 'live').toLowerCase()
+      console.log(`✅ PayPal configured (${env} mode)`)
+    }
   })
   return server
 }

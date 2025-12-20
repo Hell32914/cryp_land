@@ -73,12 +73,36 @@ export async function createPayPalOrder(params: {
     assertConfigured()
 
     const currency = (params.currency || 'USD').toUpperCase()
+    
+    // Validate amount
     if (!Number.isFinite(params.amount) || params.amount <= 0) {
-      throw new Error('Invalid amount')
+      throw new Error('Invalid amount: must be positive number')
+    }
+    
+    // PayPal minimum amounts by currency
+    const minAmounts: Record<string, number> = {
+      'USD': 0.01,
+      'EUR': 0.01,
+      'GBP': 0.01,
+      'CAD': 0.01,
+      'AUD': 0.01
+    }
+    
+    const minAmount = minAmounts[currency] || 1.00
+    if (params.amount < minAmount) {
+      throw new Error(`Amount too small: minimum ${minAmount} ${currency}`)
     }
 
     const token = await getAccessToken()
     const baseUrl = getBaseUrl()
+
+    // Validate URLs
+    if (!params.returnUrl || !params.returnUrl.startsWith('http')) {
+      throw new Error(`Invalid return_url: ${params.returnUrl}`)
+    }
+    if (!params.cancelUrl || !params.cancelUrl.startsWith('http')) {
+      throw new Error(`Invalid cancel_url: ${params.cancelUrl}`)
+    }
 
     const body = {
       intent: 'CAPTURE',
@@ -98,12 +122,18 @@ export async function createPayPalOrder(params: {
         shipping_preference: 'NO_SHIPPING',
         user_action: 'PAY_NOW',
         brand_name: 'Syntrix',
-        landing_page: 'LOGIN',
-        payment_method: {
-          payee_preferred: 'IMMEDIATE_PAYMENT_REQUIRED'
-        }
+        landing_page: 'LOGIN'
       },
     }
+
+    console.log('PayPal Order Request:', JSON.stringify({
+      env: PAYPAL_ENV,
+      baseUrl,
+      amount: params.amount,
+      currency,
+      return_url: params.returnUrl,
+      cancel_url: params.cancelUrl
+    }, null, 2))
 
     const r = await axios.post(`${baseUrl}/v2/checkout/orders`, body, {
       headers: {
@@ -124,13 +154,21 @@ export async function createPayPalOrder(params: {
     // Log PayPal-specific error details
     if (error.response?.data) {
       const paypalError = error.response.data
-      console.error('PayPal createOrder Error:', {
+      console.error('❌ PayPal createOrder Error:', {
+        status: error.response.status,
         name: paypalError.name,
         message: paypalError.message,
         debug_id: paypalError.debug_id,
-        details: paypalError.details,
+        details: JSON.stringify(paypalError.details, null, 2),
         'paypal-debug-id': error.response.headers?.['paypal-debug-id']
       })
+      
+      // Throw more descriptive error
+      const errorDetails = paypalError.details?.[0]
+      if (errorDetails) {
+        throw new Error(`PayPal Error: ${errorDetails.issue || paypalError.message} - ${errorDetails.description || ''}`.trim())
+      }
+      throw new Error(`PayPal Error: ${paypalError.message || 'Unknown error'}`)
     }
     throw error
   }
