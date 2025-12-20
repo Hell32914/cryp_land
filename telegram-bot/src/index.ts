@@ -400,6 +400,10 @@ bot.command('start', async (ctx) => {
         // Get language from marketing link
         preferredLanguage = marketingLink.language
       }
+    } else if (startPayload === 'channel') {
+      // Channel link: https://t.me/bot?start=channel
+      marketingSource = 'Channel'
+      utmParams = 'channel'
     } else {
       // Try to parse URL params: source=<name>&param1=value1&param2=value2
       try {
@@ -443,6 +447,17 @@ bot.command('start', async (ctx) => {
     user = await prisma.user.update({
       where: { telegramId },
       data: { languageCode: preferredLanguage }
+    })
+  }
+
+  // Update marketing source for existing users if they came via channel link and don't have a source yet
+  if (user && marketingSource === 'Channel' && !user.marketingSource) {
+    user = await prisma.user.update({
+      where: { telegramId },
+      data: { 
+        marketingSource,
+        utmParams 
+      }
     })
   }
 
