@@ -840,9 +840,9 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
   users.forEach((user, index) => {
     const num = skip + index + 1
     if (index % 2 === 0) {
-      keyboard.text(`${num}`, `manage_${user.id}`)
+      keyboard.text(`${num}`, `manage_${user.id}_${page}`)
     } else {
-      keyboard.text(`${num}`, `manage_${user.id}`).row()
+      keyboard.text(`${num}`, `manage_${user.id}_${page}`).row()
     }
   })
   if (users.length % 2 === 1) keyboard.row()
@@ -986,7 +986,7 @@ bot.callbackQuery(/^admin_users_search_page_(\d+)$/, async (ctx) => {
 })
 
 // View user from deposit list
-bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
+bot.callbackQuery(/^view_deposit_user_(\d+)(?:_(\d+))?$/, async (ctx) => {
   const visitorId = ctx.from?.id.toString()
   if (!visitorId || !(await isSupport(visitorId))) {
     await safeAnswerCallback(ctx, 'Access denied')
@@ -995,6 +995,13 @@ bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
 
   const isAdminUser = await isAdmin(visitorId)
   const userId = parseInt(ctx.match![1])
+  const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
+  
+  // Save the page we came from
+  if (fromPage) {
+    const currentState = adminState.get(visitorId) || {}
+    adminState.set(visitorId, { ...currentState, currentDepositsPage: fromPage })
+  }
   const user = await prisma.user.findUnique({ 
     where: { id: userId },
     include: {
@@ -1046,7 +1053,7 @@ bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
-bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
+bot.callbackQuery(/^manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
   const visitorId = ctx.from?.id.toString()
   if (!visitorId || !(await isSupport(visitorId))) {
     await safeAnswerCallback(ctx, 'Access denied')
@@ -1056,6 +1063,13 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
   const isAdminUser = await isAdmin(visitorId)
   const isSupportUser = await isSupport(visitorId)
   const userId = parseInt(ctx.match![1])
+  const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
+  
+  // Save the page we came from
+  if (fromPage) {
+    const currentState = adminState.get(visitorId) || {}
+    adminState.set(visitorId, { ...currentState, currentUsersListPage: fromPage })
+  }
   const user = await prisma.user.findUnique({ 
     where: { id: userId },
     include: {
@@ -2768,9 +2782,9 @@ bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   deposits.forEach((deposit, index) => {
     const num = skip + index + 1
     if (index % 2 === 0) {
-      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}`)
+      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}_${page}`)
     } else {
-      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}`).row()
+      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}_${page}`).row()
     }
   })
   if (deposits.length % 2 === 1) keyboard.row()
@@ -2911,8 +2925,8 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   for (let i = 0; i < displayCount; i++) {
     const w = pendingWithdrawals[i]
     keyboard
-      .text(`✅ #${skip + i + 1}`, `approve_withdrawal_${w.id}`)
-      .text(`❌ #${skip + i + 1}`, `reject_withdrawal_${w.id}`)
+      .text(`✅ #${skip + i + 1}`, `approve_withdrawal_${w.id}_${page}`)
+      .text(`❌ #${skip + i + 1}`, `reject_withdrawal_${w.id}_${page}`)
       .row()
   }
   
@@ -3528,7 +3542,7 @@ bot.callbackQuery('confirm_activate_token_accounts', async (ctx) => {
 })
 
 // Approve withdrawal
-bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
+bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isSupport(adminId))) {
     await safeAnswerCallback(ctx, 'Access denied')
@@ -3536,6 +3550,13 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
   }
 
   const withdrawalId = parseInt(ctx.match![1])
+  const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
+  
+  // Save the page we came from
+  if (fromPage) {
+    const currentState = adminState.get(adminId) || {}
+    adminState.set(adminId, { ...currentState, currentPendingWithdrawalsPage: fromPage })
+  }
   
   try {
     const withdrawal = await prisma.withdrawal.findUnique({
@@ -3776,7 +3797,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
 })
 
 // Reject withdrawal
-bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
+bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
     await safeAnswerCallback(ctx, 'Access denied')
@@ -3784,6 +3805,13 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
   }
 
   const withdrawalId = parseInt(ctx.match![1])
+  const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
+  
+  // Save the page we came from
+  if (fromPage) {
+    const currentState = adminState.get(userId) || {}
+    adminState.set(userId, { ...currentState, currentPendingWithdrawalsPage: fromPage })
+  }
   
   try {
     const withdrawal = await prisma.withdrawal.findUnique({
