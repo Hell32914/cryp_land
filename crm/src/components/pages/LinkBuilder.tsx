@@ -96,14 +96,14 @@ export function LinkBuilder() {
     { value: 'www.syntrix.website', label: 'www.syntrix.website', color: 'bg-blue-400' },
     { value: 'crypto.syntrix.website', label: 'crypto.syntrix.website', color: 'bg-amber-400' },
     { value: 'trade.syntrix.website', label: 'trade.syntrix.website', color: 'bg-pink-400' },
-    { value: 'invest.syntrix.website', label: 'invest.syntrix.website', color: 'bg-cyan-400' },
-    { value: 'official.syntrix.website', label: 'official.syntrix.website', color: 'bg-lime-400' },
   ]
 
   const channelDomains = [
     { value: 'info.syntrix.website', label: 'info.syntrix.website', color: 'bg-purple-400' },
     { value: 'ss.syntrix.website', label: 'ss.syntrix.website', color: 'bg-orange-400' },
     { value: 'road.syntrix.website', label: 'road.syntrix.website', color: 'bg-rose-400' },
+    { value: 'invest.syntrix.website', label: 'invest.syntrix.website', color: 'bg-cyan-400' },
+    { value: 'official.syntrix.website', label: 'official.syntrix.website', color: 'bg-lime-400' },
   ]
 
   const domains = linkType === 'bot' ? botDomains : channelDomains
