@@ -2683,16 +2683,24 @@ async function claimContactSupportBonus(telegramId: string) {
     return user
   }
 
+  // Prepare update data
+  const updateData: any = {
+    contactSupportSeen: true,
+    bonusTokens: { increment: bonusAmount },
+    contactSupportBonusGrantedAt: now,
+    // Bonus becomes permanent after claim; no auto-expiry.
+    contactSupportBonusExpiresAt: null,
+    contactSupportBonusAmountGranted: bonusAmount,
+  }
+
+  // Activate account if it's INACTIVE (bonus token activates the account)
+  if (user.status === 'INACTIVE') {
+    updateData.status = 'ACTIVE'
+  }
+
   return prisma.user.update({
     where: { telegramId },
-    data: {
-      contactSupportSeen: true,
-      bonusTokens: { increment: bonusAmount },
-      contactSupportBonusGrantedAt: now,
-      // Bonus becomes permanent after claim; no auto-expiry.
-      contactSupportBonusExpiresAt: null,
-      contactSupportBonusAmountGranted: bonusAmount,
-    },
+    data: updateData,
   })
 }
 

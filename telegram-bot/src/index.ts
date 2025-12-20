@@ -761,6 +761,11 @@ bot.callbackQuery('admin_menu', async (ctx) => {
     keyboard.text('📞 Global Contact Support', 'admin_global_contact_support').row()
   }
 
+  // Only admins can activate accounts with tokens
+  if (isAdminUser) {
+    keyboard.text('✅ Activate Accounts with Tokens', 'admin_activate_token_accounts').row()
+  }
+
   keyboard.text('🔄 Refresh', 'admin_menu')
 
   const roleText = isSuperAdmin ? 'Super Admin' : isAdminUser ? 'Admin' : 'Support'
@@ -3390,6 +3395,106 @@ bot.callbackQuery('cs_disable', async (ctx) => {
   } catch (error) {
     console.error('Disable contact support error:', error)
     await ctx.reply('❌ Failed to disable')
+  }
+})
+
+// Activate accounts with bonus tokens
+bot.callbackQuery('admin_activate_token_accounts', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  try {
+    // Find all INACTIVE users with bonusTokens > 0
+    const inactiveUsersWithTokens = await prisma.user.findMany({
+      where: {
+        status: 'INACTIVE',
+        bonusTokens: { gt: 0 }
+      },
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        bonusTokens: true
+      }
+    })
+
+    if (inactiveUsersWithTokens.length === 0) {
+      await safeEditMessage(ctx,
+        `✅ *No Accounts to Activate*\n\n` +
+        `All accounts with bonus tokens are already active.`,
+        { 
+          reply_markup: new InlineKeyboard().text('◀️ Back to Admin', 'admin_menu'),
+          parse_mode: 'Markdown'
+        }
+      )
+      await safeAnswerCallback(ctx)
+      return
+    }
+
+    // Show confirmation
+    const usersList = inactiveUsersWithTokens.slice(0, 5).map((u, i) => 
+      `${i + 1}. @${u.username || u.telegramId} ($${u.bonusTokens.toFixed(2)})`
+    ).join('\n')
+    
+    const moreText = inactiveUsersWithTokens.length > 5 
+      ? `\n...and ${inactiveUsersWithTokens.length - 5} more` 
+      : ''
+
+    const keyboard = new InlineKeyboard()
+      .text('✅ Yes, Activate All', 'confirm_activate_token_accounts')
+      .text('❌ Cancel', 'admin_menu')
+
+    await safeEditMessage(ctx,
+      `⚠️ *Activate Accounts with Tokens*\n\n` +
+      `Found ${inactiveUsersWithTokens.length} INACTIVE accounts with bonus tokens:\n\n` +
+      usersList + moreText + '\n\n' +
+      `Do you want to activate all of them?`,
+      { 
+        reply_markup: keyboard,
+        parse_mode: 'Markdown'
+      }
+    )
+    await safeAnswerCallback(ctx)
+  } catch (error) {
+    console.error('Activate token accounts error:', error)
+    await ctx.reply('❌ Failed to check accounts')
+  }
+})
+
+bot.callbackQuery('confirm_activate_token_accounts', async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  try {
+    // Activate all INACTIVE accounts with bonusTokens > 0
+    const result = await prisma.user.updateMany({
+      where: {
+        status: 'INACTIVE',
+        bonusTokens: { gt: 0 }
+      },
+      data: {
+        status: 'ACTIVE'
+      }
+    })
+
+    await safeEditMessage(ctx,
+      `✅ *Accounts Activated*\n\n` +
+      `Successfully activated ${result.count} accounts with bonus tokens.`,
+      { 
+        reply_markup: new InlineKeyboard().text('◀️ Back to Admin', 'admin_menu'),
+        parse_mode: 'Markdown'
+      }
+    )
+    await safeAnswerCallback(ctx, 'Activated!')
+  } catch (error) {
+    console.error('Confirm activate error:', error)
+    await ctx.reply('❌ Failed to activate accounts')
   }
 })
 
