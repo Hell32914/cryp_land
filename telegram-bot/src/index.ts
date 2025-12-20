@@ -40,6 +40,10 @@ const adminState = new Map<string, {
   csBonusAmount?: number,
   usersSearchQuery?: string,
   usersSearchPage?: number,
+  currentUsersListPage?: number,
+  currentPendingWithdrawalsPage?: number,
+  currentDepositsPage?: number,
+  currentWithdrawalsPage?: number,
 }>()
 
 // Middleware to check if user is blocked (blocks all bot interactions)
@@ -791,10 +795,11 @@ bot.callbackQuery(/^admin_users(?:_(\d+))?$/, async (ctx) => {
     return
   }
 
-  // Clear any pending input state
-  adminState.delete(userId)
-
   const page = parseInt(ctx.match?.[1] || '1')
+  
+  // Save current page in state (preserve existing state but update page)
+  const currentState = adminState.get(userId) || {}
+  adminState.set(userId, { ...currentState, currentUsersListPage: page })
   const perPage = 10
   const skip = (page - 1) * perPage
 
@@ -1030,7 +1035,11 @@ bot.callbackQuery(/^view_deposit_user_(\d+)$/, async (ctx) => {
     `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`\n` : ''}` +
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
     { 
-      reply_markup: new InlineKeyboard().text('◀️ Back to Deposits', 'admin_deposits'),
+      reply_markup: (() => {
+        const backState = adminState.get(visitorId)
+        const savedPage = backState?.currentDepositsPage || 1
+        return new InlineKeyboard().text('◀️ Back to Deposits', `admin_deposits_${savedPage}`)
+      })(),
       parse_mode: 'Markdown'
     }
   )
@@ -1090,7 +1099,9 @@ bot.callbackQuery(/^manage_(\d+)$/, async (ctx) => {
     const backPage = backState.usersSearchPage || 1
     keyboard.text('◀️ Back to Search', `admin_users_search_page_${backPage}`)
   } else {
-    keyboard.text('◀️ Back to Users', 'admin_users')
+    // Return to saved page or default to page 1
+    const savedPage = backState?.currentUsersListPage || 1
+    keyboard.text('◀️ Back to Users', `admin_users_${savedPage}`)
   }
 
   // Get country flag from language code
@@ -1204,7 +1215,10 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
       .text('🗑 Remove Bonus Token', `remove_bonus_${userId}`).row()
   }
   
-  keyboard.text('◀️ Back to Users', 'admin_users')
+  // Return to saved page or default to page 1
+  const backState = adminState.get(visitorId)
+  const savedPage = backState?.currentUsersListPage || 1
+  keyboard.text('◀️ Back to Users', `admin_users_${savedPage}`)
 
   let displayName = ''
   if (user.username) {
@@ -2713,6 +2727,11 @@ bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   }
 
   const page = parseInt(ctx.match?.[1] || '1')
+  
+  // Save current page in state (preserve existing state but update page)
+  const currentState = adminState.get(userId) || {}
+  adminState.set(userId, { ...currentState, currentDepositsPage: page })
+  
   const perPage = 10
   const skip = (page - 1) * perPage
 
@@ -2778,6 +2797,11 @@ bot.callbackQuery(/^admin_withdrawals(?:_(\d+))?$/, async (ctx) => {
   }
 
   const page = parseInt(ctx.match?.[1] || '1')
+  
+  // Save current page in state (preserve existing state but update page)
+  const currentState = adminState.get(userId) || {}
+  adminState.set(userId, { ...currentState, currentWithdrawalsPage: page })
+  
   const perPage = 10
   const skip = (page - 1) * perPage
 
@@ -2839,6 +2863,11 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   }
 
   const page = parseInt(ctx.match?.[1] || '1')
+  
+  // Save current page in state (preserve existing state but update page)
+  const currentState = adminState.get(userId) || {}
+  adminState.set(userId, { ...currentState, currentPendingWithdrawalsPage: page })
+  
   const perPage = 10
   const skip = (page - 1) * perPage
 
@@ -3596,11 +3625,16 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
             { parse_mode: 'Markdown' }
           )
 
+          const backState = adminState.get(adminId)
+          const savedPage = backState?.currentPendingWithdrawalsPage || 1
+          const backKeyboard = new InlineKeyboard()
+            .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+
           await safeEditMessage(
             ctx,
             ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO PAYPAL*\n' +
               `🧾 Batch ID: ${payout.batchId}`,
-            { parse_mode: 'Markdown' }
+            { parse_mode: 'Markdown', reply_markup: backKeyboard }
           )
           await safeAnswerCallback(ctx, '✅ Withdrawal approved and sent to PayPal')
           return
@@ -3624,6 +3658,11 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
             { parse_mode: 'Markdown' }
           )
 
+          const backState = adminState.get(adminId)
+          const savedPage = backState?.currentPendingWithdrawalsPage || 1
+          const backKeyboard = new InlineKeyboard()
+            .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+
           await safeAnswerCallback(ctx, '✅ Approved - Manual processing required')
           await safeEditMessage(
             ctx,
@@ -3632,7 +3671,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
               `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
               `⚡ Status: PROCESSING\n\n` +
               `🔴 ACTION REQUIRED: Process payout manually in PayPal dashboard`,
-            { parse_mode: 'Markdown' }
+            { parse_mode: 'Markdown', reply_markup: backKeyboard }
           )
           return
         }
@@ -3673,10 +3712,15 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           { parse_mode: 'Markdown' }
         )
 
+        const backState = adminState.get(adminId)
+        const savedPage = backState?.currentPendingWithdrawalsPage || 1
+        const backKeyboard = new InlineKeyboard()
+          .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+
         await safeEditMessage(ctx, 
           ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO OXAPAY*\n' +
           `🔗 Track ID: ${payout.trackId}`,
-          { parse_mode: 'Markdown' }
+          { parse_mode: 'Markdown', reply_markup: backKeyboard }
         )
         await safeAnswerCallback(ctx, '✅ Withdrawal approved and sent to OxaPay')
 
@@ -3705,6 +3749,11 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           { parse_mode: 'Markdown' }
         )
         
+        const backState = adminState.get(adminId)
+        const savedPage = backState?.currentPendingWithdrawalsPage || 1
+        const backKeyboard = new InlineKeyboard()
+          .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+        
         await safeAnswerCallback(ctx, '✅ Approved - Manual processing required')
         await safeEditMessage(ctx, 
           ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
@@ -3712,7 +3761,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)$/, async (ctx) => {
           `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
           `⚡ Status: PROCESSING\n\n` +
           `🔴 ACTION REQUIRED: Process payout manually on OxaPay dashboard`,
-          { parse_mode: 'Markdown' }
+          { parse_mode: 'Markdown', reply_markup: backKeyboard }
         )
       }
     } else if (withdrawal.status === 'PENDING') {
@@ -3801,9 +3850,14 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)$/, async (ctx) => {
       { parse_mode: 'Markdown' }
     )
 
+    const backState = adminState.get(userId)
+    const savedPage = backState?.currentPendingWithdrawalsPage || 1
+    const backKeyboard = new InlineKeyboard()
+      .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+
     await safeEditMessage(ctx, 
       ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED* (Balance restored)',
-      { parse_mode: 'Markdown' }
+      { parse_mode: 'Markdown', reply_markup: backKeyboard }
     )
     await safeAnswerCallback(ctx, '❌ Withdrawal rejected, balance restored')
   } catch (error) {
