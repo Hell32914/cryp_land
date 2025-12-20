@@ -102,13 +102,42 @@
     </div>
 
     <script>
+        // Определяем домены, которые должны вести на канал вместо бота
+        const channelDomains = [
+            'info.syntrix.website',
+            'ss.syntrix.website',
+            'road.syntrix.website',
+            'invest.syntrix.website',
+            'official.syntrix.website'
+        ];
+        
+        // Получаем текущий домен
+        const currentHost = window.location.hostname.toLowerCase();
+        const isChannelDomain = channelDomains.includes(currentHost);
+        
         // Получаем параметр ref из URL
         const urlParams = new URLSearchParams(window.location.search);
         const refParam = urlParams.get('ref');
         
-        // Обновляем ссылку с параметром start
-        if (refParam) {
-            const startBtn = document.getElementById('startBtn');
+        // Обновляем ссылку в зависимости от домена
+        const startBtn = document.getElementById('startBtn');
+        
+        if (isChannelDomain) {
+            // Для доменов канала - переход на группу
+            startBtn.href = 'https://t.me/+tvQ2u0yoEJRhOTBi';
+            startBtn.textContent = 'Join Channel';
+            
+            // Обновляем заголовок и описание для канала
+            const title = document.querySelector('.tgme_page_title span');
+            if (title) title.textContent = 'Crypto Syntrix';
+            
+            const extra = document.querySelector('.tgme_page_extra');
+            if (extra) extra.textContent = 't.me/SyntrixAI';
+            
+            const description = document.querySelector('.tgme_page_description');
+            if (description) description.innerHTML = 'The first auto-trading bot that uses real-time AI to trade crypto for you!<br/><br/>Maximum profit — minimum time<br/><br/>SyntrixtBot: <a href="https://t.me/AiSyntrixTrade_bot">@AiSyntrixTrade_bot</a><br/>Website: <a href="https://syntrix.website/">https://syntrix.website/</a><br/><br/>Support: <a href="https://t.me/SyntrixSupport">@SyntrixSupport</a>';
+        } else if (refParam) {
+            // Для доменов бота - переход на бота с ref
             startBtn.href = `tg://resolve?domain=AiSyntrixTrade_bot&start=${refParam}`;
             
             // Track Facebook Pixel event с параметром
