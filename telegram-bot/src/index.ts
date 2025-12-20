@@ -43,6 +43,7 @@ const adminState = new Map<string, {
   currentUsersListPage?: number,
   currentPendingWithdrawalsPage?: number,
   currentDepositsPage?: number,
+  currentPendingDepositsPage?: number,
   currentWithdrawalsPage?: number,
 }>()
 
@@ -555,15 +556,17 @@ bot.command('admin', async (ctx) => {
   const isSuperAdmin = ADMIN_IDS.includes(userId)
 
   const usersCount = await prisma.user.count()
-  const depositsCount = await prisma.deposit.count()
+  const completedDepositsCount = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
+  const pendingDepositsCount = await prisma.deposit.count({ where: { status: 'PENDING' } })
   const withdrawalsCount = await prisma.withdrawal.count()
   const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } })
 
   const keyboard = new InlineKeyboard()
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
-    .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
+    .text(`📥 Deposits (${completedDepositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
-    .text(`⏳ Pending (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals')
+    .text(`⏳ Pending Deposits (${pendingDepositsCount})`, 'admin_pending_deposits')
+    .text(`⏳ Pending Withdrawals (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals').row()
 
   // Only admins can manage balance
   if (isAdminUser) {
@@ -590,7 +593,8 @@ bot.command('admin', async (ctx) => {
   await ctx.reply(
     `🔐 *${roleText} Panel*\n\n` +
     `Total Users: ${usersCount}\n` +
-    `Total Deposits: ${depositsCount}\n` +
+    `📥 Completed Deposits: ${completedDepositsCount}\n` +
+    `⏳ Pending Deposits: ${pendingDepositsCount}\n` +
     `Total Withdrawals: ${withdrawalsCount}\n` +
     `⏳ Pending Withdrawals: ${pendingWithdrawalsCount}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -727,15 +731,17 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   const isSuperAdmin = ADMIN_IDS.includes(userId)
 
   const usersCount = await prisma.user.count()
-  const depositsCount = await prisma.deposit.count()
+  const completedDepositsCount = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
+  const pendingDepositsCount = await prisma.deposit.count({ where: { status: 'PENDING' } })
   const withdrawalsCount = await prisma.withdrawal.count()
   const pendingWithdrawalsCount = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } })
 
   const keyboard = new InlineKeyboard()
     .text(`📊 Users (${usersCount})`, 'admin_users').row()
-    .text(`📥 Deposits (${depositsCount})`, 'admin_deposits')
+    .text(`📥 Deposits (${completedDepositsCount})`, 'admin_deposits')
     .text(`📤 Withdrawals (${withdrawalsCount})`, 'admin_withdrawals').row()
-    .text(`⏳ Pending (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals')
+    .text(`⏳ Pending Deposits (${pendingDepositsCount})`, 'admin_pending_deposits')
+    .text(`⏳ Pending Withdrawals (${pendingWithdrawalsCount})`, 'admin_pending_withdrawals').row()
 
   // Only admins can manage balance
   if (isAdminUser) {
@@ -780,7 +786,8 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   await safeEditMessage(ctx,
     `🔐 *${roleText} Panel*\n\n` +
     `Total Users: ${usersCount}\n` +
-    `Total Deposits: ${depositsCount}\n` +
+    `📥 Completed Deposits: ${completedDepositsCount}\n` +
+    `⏳ Pending Deposits: ${pendingDepositsCount}\n` +
     `Total Withdrawals: ${withdrawalsCount}\n` +
     `⏳ Pending Withdrawals: ${pendingWithdrawalsCount}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -2749,10 +2756,11 @@ bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   const perPage = 10
   const skip = (page - 1) * perPage
 
-  const totalDeposits = await prisma.deposit.count()
+  const totalDeposits = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
   const totalPages = Math.ceil(totalDeposits / perPage)
 
   const deposits = await prisma.deposit.findMany({
+    where: { status: 'COMPLETED' },
     include: { user: true },
     orderBy: { createdAt: 'desc' },
     take: perPage,
@@ -2762,12 +2770,12 @@ bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   if (deposits.length === 0 && page === 1) {
     const keyboard = new InlineKeyboard()
       .text('◀️ Back to Admin', 'admin_menu')
-    await safeEditMessage(ctx, '📥 No deposits yet', { reply_markup: keyboard })
+    await safeEditMessage(ctx, '📥 No completed deposits yet', { reply_markup: keyboard })
     await safeAnswerCallback(ctx)
     return
   }
 
-  let message = `📥 *Recent Deposits* (Page ${page}/${totalPages}, Total: ${totalDeposits}):\n\n`
+  let message = `📥 *Completed Deposits* (Page ${page}/${totalPages}, Total: ${totalDeposits}):\n\n`
   
   deposits.forEach((deposit, index) => {
     const statusEmoji = deposit.status === 'COMPLETED' ? '✅' : deposit.status === 'PENDING' ? '⏳' : '❌'
@@ -2794,6 +2802,77 @@ bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
   }
   if (page < totalPages) {
     keyboard.text('Next ▶️', `admin_deposits_${page + 1}`)
+  }
+  if (page > 1 || page < totalPages) keyboard.row()
+  
+  keyboard.text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
+})
+
+// Pending Deposits
+bot.callbackQuery(/^admin_pending_deposits(?:_(\d+))?$/, async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isSupport(userId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const page = parseInt(ctx.match?.[1] || '1')
+  
+  // Save current page in state (preserve existing state but update page)
+  const currentState = adminState.get(userId) || {}
+  adminState.set(userId, { ...currentState, currentPendingDepositsPage: page })
+  
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const totalPending = await prisma.deposit.count({ where: { status: 'PENDING' } })
+  const totalPages = Math.ceil(totalPending / perPage)
+
+  const pendingDeposits = await prisma.deposit.findMany({
+    where: { status: 'PENDING' },
+    include: { user: true },
+    orderBy: { createdAt: 'desc' },
+    take: perPage,
+    skip
+  })
+
+  if (pendingDeposits.length === 0 && page === 1) {
+    const keyboard = new InlineKeyboard()
+      .text('◀️ Back to Admin', 'admin_menu')
+    await safeEditMessage(ctx, '⏳ No pending deposits', { reply_markup: keyboard })
+    await safeAnswerCallback(ctx)
+    return
+  }
+
+  let message = `⏳ *Pending Deposits* (Page ${page}/${totalPages}, Total: ${totalPending}):\n\n`
+  
+  pendingDeposits.forEach((deposit, index) => {
+    const username = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
+    const num = skip + index + 1
+    message += `${num}. @${username}\n`
+    message += `   💵 $${deposit.amount.toFixed(2)} | ⏳ PENDING\n`
+    message += `   🆔 ${deposit.user.telegramId} | 📅 ${deposit.createdAt.toLocaleDateString()}\n\n`
+  })
+
+  const keyboard = new InlineKeyboard()
+  pendingDeposits.forEach((deposit, index) => {
+    const num = skip + index + 1
+    if (index % 2 === 0) {
+      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}_${page}`)
+    } else {
+      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}_${page}`).row()
+    }
+  })
+  if (pendingDeposits.length % 2 === 1) keyboard.row()
+  
+  if (page > 1) {
+    keyboard.text('◀️ Prev', `admin_pending_deposits_${page - 1}`)
+  }
+  if (page < totalPages) {
+    keyboard.text('Next ▶️', `admin_pending_deposits_${page + 1}`)
   }
   if (page > 1 || page < totalPages) keyboard.row()
   
