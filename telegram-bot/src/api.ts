@@ -1750,12 +1750,12 @@ app.post('/api/user/:telegramId/paypal-capture', depositLimiter, requireUserAuth
 })
 
 // PayPal Webhook Handler - автоматическое пополнение без кнопки Confirm
-app.post('/api/paypal-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/api/paypal-webhook', async (req, res) => {
   try {
     console.log('📨 PayPal Webhook received')
     
-    // Parse the webhook body
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
+    // Body is already parsed by express.json()
+    const body = req.body
     
     const eventType = body.event_type
     const resource = body.resource
