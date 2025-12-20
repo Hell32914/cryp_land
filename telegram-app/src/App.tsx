@@ -436,6 +436,62 @@ function App() {
     }
   }
 
+  // Auto-check PayPal deposit status
+  const checkPayPalDepositStatus = async (orderId: string) => {
+    try {
+      const API_URL = 'https://api.syntrix.website'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/deposits`, {
+        headers: getAuthHeaders()
+      })
+
+      if (response.ok) {
+        const deposits = await response.json()
+        const deposit = deposits.find((d: any) => d.txHash === orderId)
+        
+        if (deposit && deposit.status === 'COMPLETED') {
+          toast.success('✅ Payment received! Your balance has been updated.')
+          await refreshData()
+          await fetchTransactions()
+          setDepositPaypalOrderId('') // Clear the order
+          setDepositPaymentUrl('')
+          return true
+        }
+      }
+      return false
+    } catch (error) {
+      console.error('Error checking deposit status:', error)
+      return false
+    }
+  }
+
+  // Auto-check PayPal deposit status
+  const checkPayPalDepositStatus = async (orderId: string) => {
+    try {
+      const API_URL = 'https://api.syntrix.website'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/deposits`, {
+        headers: getAuthHeaders()
+      })
+
+      if (response.ok) {
+        const deposits = await response.json()
+        const deposit = deposits.find((d: any) => d.txHash === orderId)
+        
+        if (deposit && deposit.status === 'COMPLETED') {
+          toast.success('✅ Payment received! Your balance has been updated.')
+          await refreshData()
+          await fetchTransactions()
+          setDepositPaypalOrderId('') // Clear the order
+          setDepositPaymentUrl('')
+          return true
+        }
+      }
+      return false
+    } catch (error) {
+      console.error('Error checking deposit status:', error)
+      return false
+    }
+  }
+
   // Handle withdrawal
   const handleWithdrawalSubmit = async () => {
     if (!withdrawAmount) {

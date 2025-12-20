@@ -1749,6 +1749,156 @@ app.post('/api/user/:telegramId/paypal-capture', depositLimiter, requireUserAuth
   }
 })
 
+// PayPal Webhook Handler - автоматическое пополнение без кнопки Confirm
+app.post('/api/paypal-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    console.log('📨 PayPal Webhook received')
+    
+    // Parse the webhook body
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
+    
+    const eventType = body.event_type
+    const resource = body.resource
+    
+    console.log('Webhook event type:', eventType)
+    console.log('Webhook resource ID:', resource?.id)
+    
+    // Handle order approval and capture
+    if (eventType === 'CHECKOUT.ORDER.APPROVED') {
+      const orderId = resource?.id
+      
+      if (!orderId) {
+        console.error('❌ No order ID in webhook')
+        return res.sendStatus(400)
+      }
+      
+      console.log(`✅ Order ${orderId} approved, attempting auto-capture...`)
+      
+      // Find the deposit by order ID
+      const deposit = await prisma.deposit.findFirst({
+        where: {
+          paymentMethod: 'PAYPAL',
+          txHash: orderId,
+          status: 'PENDING'
+        },
+        include: { user: true }
+      })
+      
+      if (!deposit) {
+        console.log(`⚠️  No pending deposit found for order ${orderId}`)
+        return res.sendStatus(200) // Still return 200 to acknowledge webhook
+      }
+      
+      // Auto-capture the payment
+      try {
+        const { capturePayPalOrder } = await import('./paypal.js')
+        const capture = await capturePayPalOrder(orderId)
+        
+        if (capture.status === 'COMPLETED') {
+          console.log(`✅ Payment captured successfully for order ${orderId}`)
+          
+          // Update deposit and user balance
+          await prisma.$transaction(async (tx) => {
+            await tx.deposit.update({
+              where: { id: deposit.id },
+              data: { status: 'COMPLETED' }
+            })
+            
+            await tx.user.update({
+              where: { id: deposit.userId },
+              data: {
+                totalDeposit: { increment: deposit.amount },
+                lifetimeDeposit: { increment: deposit.amount },
+                status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
+              }
+            })
+          })
+          
+          const updatedUser = await prisma.user.findUnique({ where: { id: deposit.userId } })
+          
+          // Notify user
+          try {
+            const { bot: botInstance } = await import('./index.js')
+            const planInfo = calculateTariffPlan(updatedUser!.totalDeposit)
+            await botInstance.api.sendMessage(
+              deposit.user.telegramId,
+              `✅ *Deposit Successful!*\n\n` +
+                `💰 Amount: $${deposit.amount.toFixed(2)} USD\n` +
+                `💳 New Balance: $${updatedUser!.totalDeposit.toFixed(2)}\n\n` +
+                `📈 *Plan:* ${planInfo.currentPlan} (${planInfo.dailyPercent}% daily)`,
+              { parse_mode: 'Markdown' }
+            )
+          } catch (err) {
+            console.error('Failed to notify user:', err)
+          }
+          
+          // Notify support
+          try {
+            const { notifySupport } = await import('./index.js')
+            const escapedUsername = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
+            await notifySupport(
+              `💰 *New Deposit (PayPal - Auto)*\n\n` +
+                `👤 User: @${escapedUsername} (ID: ${deposit.user.telegramId})\n` +
+                `💵 Amount: $${deposit.amount.toFixed(2)} USD\n` +
+                `🧾 Order ID: ${orderId}`,
+              { parse_mode: 'Markdown' }
+            )
+          } catch (err) {
+            console.error('Failed to notify support:', err)
+          }
+          
+          console.log(`🎉 Deposit completed automatically for user ${deposit.user.telegramId}`)
+        }
+      } catch (captureError) {
+        console.error('❌ Failed to auto-capture payment:', captureError)
+      }
+    }
+    
+    // Also handle PAYMENT.CAPTURE.COMPLETED as backup
+    if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
+      const orderId = resource?.supplementary_data?.related_ids?.order_id
+      
+      if (orderId) {
+        console.log(`✅ Payment capture completed for order ${orderId}`)
+        
+        const deposit = await prisma.deposit.findFirst({
+          where: {
+            paymentMethod: 'PAYPAL',
+            txHash: orderId,
+            status: 'PENDING'
+          },
+          include: { user: true }
+        })
+        
+        if (deposit) {
+          await prisma.$transaction(async (tx) => {
+            await tx.deposit.update({
+              where: { id: deposit.id },
+              data: { status: 'COMPLETED' }
+            })
+            
+            await tx.user.update({
+              where: { id: deposit.userId },
+              data: {
+                totalDeposit: { increment: deposit.amount },
+                lifetimeDeposit: { increment: deposit.amount },
+                status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
+              }
+            })
+          })
+          
+          console.log(`🎉 Deposit completed via CAPTURE event for user ${deposit.user.telegramId}`)
+        }
+      }
+    }
+    
+    res.sendStatus(200)
+  } catch (error) {
+    console.error('❌ PayPal webhook error:', error)
+    res.sendStatus(500)
+  }
+})
+
 // Create withdrawal request
 app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUserAuth, async (req, res) => {
   try {
