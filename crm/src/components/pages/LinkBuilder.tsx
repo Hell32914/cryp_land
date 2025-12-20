@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ export function LinkBuilder() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const [source, setSource] = useState('')
+  const [linkType, setLinkType] = useState<'bot' | 'channel'>('bot')
   const [selectedDomain, setSelectedDomain] = useState('syntrix.website')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
@@ -89,7 +91,7 @@ export function LinkBuilder() {
     return `https://${normalizedDomain}/?ref=${linkId}`
   }
 
-  const domains = [
+  const botDomains = [
     { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-emerald-400' },
     { value: 'www.syntrix.website', label: 'www.syntrix.website', color: 'bg-blue-400' },
     { value: 'crypto.syntrix.website', label: 'crypto.syntrix.website', color: 'bg-amber-400' },
@@ -97,6 +99,14 @@ export function LinkBuilder() {
     { value: 'invest.syntrix.website', label: 'invest.syntrix.website', color: 'bg-cyan-400' },
     { value: 'official.syntrix.website', label: 'official.syntrix.website', color: 'bg-lime-400' },
   ]
+
+  const channelDomains = [
+    { value: 'info.syntrix.website', label: 'info.syntrix.website', color: 'bg-purple-400' },
+    { value: 'ss.syntrix.website', label: 'ss.syntrix.website', color: 'bg-orange-400' },
+    { value: 'road.syntrix.website', label: 'road.syntrix.website', color: 'bg-rose-400' },
+  ]
+
+  const domains = linkType === 'bot' ? botDomains : channelDomains
 
   const sources = [
     { value: 'telegram', label: 'Telegram' },
@@ -315,6 +325,24 @@ export function LinkBuilder() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('linkBuilder.linkType')}</Label>
+              <Tabs value={linkType} onValueChange={(value) => {
+                const newType = value as 'bot' | 'channel'
+                setLinkType(newType)
+                // Update domain to first domain of new type
+                const newDomains = newType === 'bot' ? botDomains : channelDomains
+                if (newDomains.length > 0) {
+                  setSelectedDomain(newDomains[0].value)
+                }
+              }}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="bot">{t('linkBuilder.bot')}</TabsTrigger>
+                  <TabsTrigger value="channel">{t('linkBuilder.channel')}</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
             <div className="space-y-2">

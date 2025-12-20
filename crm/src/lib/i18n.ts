@@ -110,6 +110,9 @@ const resources = {
       linkBuilder: {
         title: 'Link Builder',
         selectSource: 'Select Source',
+        linkType: 'Link Type',
+        bot: 'Bot',
+        channel: 'Channel',
         addSubId: 'Add SubID Parameter',
         parameter: 'Parameter',
         value: 'Value',
@@ -236,6 +239,9 @@ const resources = {
       linkBuilder: {
         title: 'Конструктор ссылок',
         selectSource: 'Выбрать источник',
+        linkType: 'Тип ссылки',
+        bot: 'Бот',
+        channel: 'Канал',
         addSubId: 'Добавить параметр SubID',
         parameter: 'Параметр',
         value: 'Значение',
@@ -362,6 +368,9 @@ const resources = {
       linkBuilder: {
         title: 'Конструктор посилань',
         selectSource: 'Оберіть джерело',
+        linkType: 'Тип посилання',
+        bot: 'Бот',
+        channel: 'Канал',
         addSubId: 'Додати параметр SubID',
         parameter: 'Параметр',
         value: 'Значення',
