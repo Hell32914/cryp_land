@@ -149,6 +149,45 @@ function App() {
     }
   }, [telegramUserId])
 
+  // Handle PayPal return after payment
+  useEffect(() => {
+    const handlePayPalReturn = async () => {
+      // Check if we have PayPal return parameters in URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const token = urlParams.get('token') // PayPal order token
+      
+      if (!token || !authToken) return
+      
+      console.log('PayPal return detected with token:', token)
+      
+      // Open deposit modal
+      setDepositOpen(true)
+      setDepositMethod('PAYPAL')
+      setDepositPaypalOrderId(token)
+      
+      // Auto-check payment status
+      try {
+        const completed = await checkPayPalDepositStatus(token)
+        if (!completed) {
+          // If not completed automatically, show confirm button
+          toast.info('Please confirm your PayPal payment to complete the deposit.')
+        }
+      } catch (error) {
+        console.error('Error checking PayPal status:', error)
+        toast.info('Please confirm your PayPal payment to complete the deposit.')
+      }
+      
+      // Clean URL parameters
+      const cleanUrl = window.location.pathname + window.location.hash
+      window.history.replaceState({}, document.title, cleanUrl)
+    }
+    
+    // Wait for auth token before handling return
+    if (authToken) {
+      handlePayPalReturn()
+    }
+  }, [authToken])
+
   const renderWhitepaperParagraph = (paragraph: WhitepaperParagraph, key: string) => {
     const classes = ['text-muted-foreground', 'mb-1']
     if (typeof paragraph !== 'string') {
@@ -433,34 +472,6 @@ function App() {
     } catch (error) {
       console.error('Error capturing PayPal order:', error)
       toast.error('Network error')
-    }
-  }
-
-  // Auto-check PayPal deposit status
-  const checkPayPalDepositStatus = async (orderId: string) => {
-    try {
-      const API_URL = 'https://api.syntrix.website'
-      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/deposits`, {
-        headers: getAuthHeaders()
-      })
-
-      if (response.ok) {
-        const deposits = await response.json()
-        const deposit = deposits.find((d: any) => d.txHash === orderId)
-        
-        if (deposit && deposit.status === 'COMPLETED') {
-          toast.success('✅ Payment received! Your balance has been updated.')
-          await refreshData()
-          await fetchTransactions()
-          setDepositPaypalOrderId('') // Clear the order
-          setDepositPaymentUrl('')
-          return true
-        }
-      }
-      return false
-    } catch (error) {
-      console.error('Error checking deposit status:', error)
-      return false
     }
   }
 
@@ -1123,15 +1134,17 @@ function App() {
               {t.continue}
             </Button>
 
-            {depositMethod === 'PAYPAL' && depositPaymentUrl && (
+            {depositMethod === 'PAYPAL' && (depositPaymentUrl || depositPaypalOrderId) && (
               <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-3">
                 <h3 className="text-sm font-bold text-foreground">PayPal Payment</h3>
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                  onClick={() => window.open(depositPaymentUrl, '_blank')}
-                >
-                  Continue to PayPal
-                </Button>
+                {depositPaymentUrl && (
+                  <Button
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                    onClick={() => window.open(depositPaymentUrl, '_blank')}
+                  >
+                    Continue to PayPal
+                  </Button>
+                )}
                 <Button
                   className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
                   disabled={!depositPaypalOrderId}
