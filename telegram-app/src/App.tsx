@@ -149,7 +149,7 @@ function App() {
     }
   }, [telegramUserId])
 
-  // Handle PayPal return after payment
+  // Handle PayPal return after payment - automatic confirmation
   useEffect(() => {
     const handlePayPalReturn = async () => {
       // Check if we have PayPal return parameters in URL
@@ -159,22 +159,50 @@ function App() {
       if (!token || !authToken) return
       
       console.log('PayPal return detected with token:', token)
+      toast.loading('Processing your PayPal payment...')
       
-      // Open deposit modal
-      setDepositOpen(true)
-      setDepositMethod('PAYPAL')
-      setDepositPaypalOrderId(token)
-      
-      // Auto-check payment status
+      // Auto-check payment status first
       try {
         const completed = await checkPayPalDepositStatus(token)
-        if (!completed) {
-          // If not completed automatically, show confirm button
-          toast.info('Please confirm your PayPal payment to complete the deposit.')
+        if (completed) {
+          // Payment already captured, success!
+          return
         }
       } catch (error) {
         console.error('Error checking PayPal status:', error)
-        toast.info('Please confirm your PayPal payment to complete the deposit.')
+      }
+      
+      // If not completed, capture it automatically
+      try {
+        const API_URL = 'https://api.syntrix.website'
+        const response = await fetch(`${API_URL}/api/user/${telegramUserId}/paypal-capture`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            orderId: token
+          })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.status === 'COMPLETED') {
+            toast.dismiss()
+            toast.success('✅ Payment successful! Your balance has been updated.')
+            await refreshData()
+            await fetchTransactions()
+          } else {
+            toast.dismiss()
+            toast.info('Payment is being processed. Please wait...')
+          }
+        } else {
+          const error = await response.json()
+          toast.dismiss()
+          toast.error(error.error || 'Payment verification failed. Please contact support.')
+        }
+      } catch (error) {
+        console.error('Error capturing PayPal order:', error)
+        toast.dismiss()
+        toast.error('Network error. Please contact support if payment was deducted.')
       }
       
       // Clean URL parameters
@@ -436,41 +464,6 @@ function App() {
       }
     } catch (error) {
       console.error('Error creating deposit:', error)
-      toast.error('Network error')
-    }
-  }
-
-  const handlePayPalDepositConfirm = async () => {
-    if (!depositPaypalOrderId) {
-      toast.error('Missing PayPal order id')
-      return
-    }
-
-    try {
-      const API_URL = 'https://api.syntrix.website'
-      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/paypal-capture`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          orderId: depositPaypalOrderId
-        })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.status === 'COMPLETED') {
-          toast.success('✅ Deposit completed successfully!')
-        } else {
-          toast.success('Deposit confirmed.')
-        }
-        await refreshData()
-        await fetchTransactions()
-      } else {
-        const error = await response.json()
-        toast.error(error.error || 'Payment not completed yet')
-      }
-    } catch (error) {
-      console.error('Error capturing PayPal order:', error)
       toast.error('Network error')
     }
   }
@@ -1134,26 +1127,16 @@ function App() {
               {t.continue}
             </Button>
 
-            {depositMethod === 'PAYPAL' && (depositPaymentUrl || depositPaypalOrderId) && (
+            {depositMethod === 'PAYPAL' && depositPaymentUrl && (
               <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-3">
                 <h3 className="text-sm font-bold text-foreground">PayPal Payment</h3>
-                {depositPaymentUrl && (
-                  <Button
+                <Button
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
                     onClick={() => window.open(depositPaymentUrl, '_blank')}
                   >
                     Continue to PayPal
-                  </Button>
-                )}
-                <Button
-                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
-                  disabled={!depositPaypalOrderId}
-                  onClick={handlePayPalDepositConfirm}
-                >
-                  I paid — Confirm
-                </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  After payment, tap “Confirm” to finalize your balance update.
+                  </Button>                <p className="text-xs text-muted-foreground text-center">
+                  You will be redirected to PayPal. After payment, you will be automatically returned and your balance will be updated.
                 </p>
               </div>
             )}
