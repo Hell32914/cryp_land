@@ -49,7 +49,6 @@ function App() {
   const [depositAddress, setDepositAddress] = useState<string>('')
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
   const [depositMethod, setDepositMethod] = useState<'OXAPAY' | 'PAYPAL'>('OXAPAY')
-  const [depositPaypalOrderId, setDepositPaypalOrderId] = useState<string>('')
   const [withdrawMethod, setWithdrawMethod] = useState<'OXAPAY' | 'PAYPAL'>('OXAPAY')
   const [withdrawPaypalEmail, setWithdrawPaypalEmail] = useState<string>('')
   const [contactSupportOpen, setContactSupportOpen] = useState(false)
@@ -439,12 +438,10 @@ function App() {
         // Reset previous UI artifacts
         setDepositQrCode('')
         setDepositAddress('')
-        setDepositPaypalOrderId('')
 
         setDepositPaymentUrl(data.paymentUrl || '')
 
         if ((data.method || '').toString().toUpperCase() === 'PAYPAL') {
-          setDepositPaypalOrderId(data.paypalOrderId || '')
           toast.success('PayPal payment created. Continue to PayPal to complete payment.')
         } else {
           setDepositQrCode(data.qrCode)
@@ -484,7 +481,6 @@ function App() {
           toast.success('✅ Payment received! Your balance has been updated.')
           await refreshData()
           await fetchTransactions()
-          setDepositPaypalOrderId('') // Clear the order
           setDepositPaymentUrl('')
           return true
         }
@@ -1069,7 +1065,6 @@ function App() {
                   setDepositQrCode('')
                   setDepositAddress('')
                   setDepositPaymentUrl('')
-                  setDepositPaypalOrderId('')
                 }}
               >
                 <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
