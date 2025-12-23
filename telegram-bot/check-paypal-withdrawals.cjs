@@ -7,7 +7,7 @@ async function main() {
   // Get recent PayPal withdrawals
   const recentWithdrawals = await prisma.withdrawal.findMany({
     where: {
-      method: 'PAYPAL'
+      paymentMethod: 'PAYPAL'
     },
     include: {
       user: {
@@ -43,7 +43,7 @@ async function main() {
   // Check pending withdrawals
   const pendingWithdrawals = await prisma.withdrawal.findMany({
     where: {
-      method: 'PAYPAL',
+      paymentMethod: 'PAYPAL',
       status: 'PENDING'
     },
     include: {
@@ -73,9 +73,9 @@ async function main() {
 
   // Check all statuses
   const statusCounts = await prisma.withdrawal.groupBy({
-    by: ['status', 'method'],
+    by: ['status', 'paymentMethod'],
     where: {
-      method: 'PAYPAL'
+      paymentMethod: 'PAYPAL'
     },
     _count: true
   });
