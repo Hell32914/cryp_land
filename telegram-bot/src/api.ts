@@ -1596,9 +1596,11 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
       ? `${process.env.WEBHOOK_URL.startsWith('http') ? process.env.WEBHOOK_URL : `https://${process.env.WEBHOOK_URL}`}/api/oxapay-callback`
       : 'https://api.syntrix.website/api/oxapay-callback'
     
+    // Create invoice with amount in USD and selected crypto as payCurrency
     const invoice = await createInvoice({
       amount,
-      currency,
+      currency: 'USD', // Amount is always in USD
+      payCurrency: currency, // BTC, ETH, USDT, etc. - crypto to pay with
       description: `Deposit for ${user.username || user.telegramId}`,
       callbackUrl
     })

@@ -21,7 +21,8 @@ const MAX_DAILY_AMOUNT_USD = 10000 // $10k daily limit per address
 
 export interface CreateInvoiceParams {
   amount: number
-  currency: string // BTC, ETH, USDT, etc.
+  currency: string // USD - currency for amount
+  payCurrency?: string // BTC, ETH, USDT, etc. - crypto to pay with
   callbackUrl?: string
   description?: string
 }
@@ -56,17 +57,24 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<Create
   }
 
   try {
-    const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/request`, {
+    const requestBody: any = {
       merchant: OXAPAY_API_KEY,
       amount: params.amount,
-      currency: params.currency,
+      currency: params.currency, // Should be USD
       callbackUrl: params.callbackUrl || '',
       description: params.description || 'Syntrix Deposit',
       lifeTime: 30, // 30 minutes
       feePaidByPayer: 0,
       underPaidCover: 2,
       returnUrl: ''
-    })
+    }
+
+    // Add payCurrency if specified (BTC, ETH, etc.)
+    if (params.payCurrency) {
+      requestBody.payCurrency = params.payCurrency.toUpperCase()
+    }
+
+    const response = await axios.post(`${OXAPAY_BASE_URL}/merchants/request`, requestBody)
 
     if (response.data.result === 100) {
       // Generate QR code image URL using QR Server API
