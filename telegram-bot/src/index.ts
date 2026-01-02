@@ -2979,11 +2979,11 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   const perPage = 10
   const skip = (page - 1) * perPage
 
-  const totalPending = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } })
+  const totalPending = await prisma.withdrawal.count({ where: { status: { in: ['PENDING', 'PROCESSING', 'APPROVED'] } } })
   const totalPages = Math.ceil(totalPending / perPage)
 
   const pendingWithdrawals = await prisma.withdrawal.findMany({
-    where: { status: { in: ['PENDING', 'PROCESSING'] } },
+    where: { status: { in: ['PENDING', 'PROCESSING', 'APPROVED'] } },
     include: { user: true },
     orderBy: { createdAt: 'desc' },
     take: perPage,
@@ -3002,7 +3002,10 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   
   pendingWithdrawals.forEach((withdrawal, index) => {
     const username = (withdrawal.user.username || 'no_username').replace(/_/g, '\\_')
-    const statusEmoji = withdrawal.status === 'PROCESSING' ? '🔄' : '⏳'
+    let statusEmoji = '⏳'
+    if (withdrawal.status === 'PROCESSING') statusEmoji = '🔄'
+    if (withdrawal.status === 'APPROVED') statusEmoji = '✅'
+    
     const num = skip + index + 1
     message += `${num}. @${username} ${statusEmoji}\n`
     message += `   💵 $${withdrawal.amount.toFixed(2)} | 💎 ${withdrawal.currency}\n`
@@ -3014,14 +3017,22 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
 
   const keyboard = new InlineKeyboard()
   
-  // Add approve/reject buttons for each withdrawal (max 5 to avoid message overflow)
+  // Add approve/reject/complete buttons for each withdrawal (max 5 to avoid message overflow)
   const displayCount = Math.min(pendingWithdrawals.length, 5)
   for (let i = 0; i < displayCount; i++) {
     const w = pendingWithdrawals[i]
-    keyboard
-      .text(`✅ #${skip + i + 1}`, `approve_withdrawal_${w.id}_${page}`)
-      .text(`❌ #${skip + i + 1}`, `reject_withdrawal_${w.id}_${page}`)
-      .row()
+    if (w.status === 'APPROVED') {
+      // For approved withdrawals, show only "Mark as Completed" button
+      keyboard
+        .text(`✅ Complete #${skip + i + 1}`, `complete_withdrawal_${w.id}`)
+        .row()
+    } else {
+      // For pending/processing withdrawals, show approve/reject buttons
+      keyboard
+        .text(`✅ #${skip + i + 1}`, `approve_withdrawal_${w.id}_${page}`)
+        .text(`❌ #${skip + i + 1}`, `reject_withdrawal_${w.id}_${page}`)
+        .row()
+    }
   }
   
   if (page > 1) {
@@ -3708,177 +3719,93 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
       
       const paymentMethod = String((withdrawal as any).paymentMethod || 'OXAPAY').toUpperCase()
 
-      // PayPal payout
+      // PayPal payout - MANUAL PROCESSING ONLY
       if (paymentMethod === 'PAYPAL') {
-        try {
-          const receiverEmail = (withdrawal as any).paypalEmail || withdrawal.address
-          const { createPayPalPayout } = await import('./paypal.js')
-          const payout = await createPayPalPayout({
-            receiverEmail,
-            amount: withdrawal.amount,
-            currency: 'USD',
-            note: `Withdrawal #${withdrawal.id}`,
-            senderItemId: `wd_${withdrawal.id}`
-          })
+        const receiverEmail = (withdrawal as any).paypalEmail || withdrawal.address
+        
+        // Update status to APPROVED (not COMPLETED) - waiting for manual transfer
+        await prisma.withdrawal.update({
+          where: { id: withdrawalId },
+          data: {
+            status: 'APPROVED',
+            txHash: 'AWAITING_MANUAL_TRANSFER'
+          }
+        })
 
-          await prisma.withdrawal.update({
-            where: { id: withdrawalId },
-            data: {
-              txHash: payout.batchId,
-              status: 'COMPLETED'
-            }
-          })
+        // Notify user that withdrawal was approved and will be processed manually
+        await bot.api.sendMessage(
+          withdrawal.user.telegramId,
+          `✅ *Withdrawal Approved*\n\n` +
+            `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+            `💳 Method: PAYPAL\n` +
+            `📧 PayPal: \`${receiverEmail}\`\n\n` +
+            `⏳ Admin will process your transfer manually.\n` +
+            `📱 You will be notified once the transfer is completed.`,
+          { parse_mode: 'Markdown' }
+        )
 
-          await bot.api.sendMessage(
-            withdrawal.user.telegramId,
-            `✅ *Withdrawal Approved*\n\n` +
-              `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-              `💳 Method: PAYPAL\n` +
-              `📧 PayPal: \`${receiverEmail}\`\n\n` +
-              `🧾 Payout Batch: ${payout.batchId}\n` +
-              `✅ Processing initiated by admin.`,
-            { parse_mode: 'Markdown' }
-          )
+        const backState = adminState.get(adminId)
+        const savedPage = backState?.currentPendingWithdrawalsPage || 1
+        const backKeyboard = new InlineKeyboard()
+          .text('✅ Mark as Completed', `complete_withdrawal_${withdrawalId}`)
+          .text('◀️ Back', `admin_pending_withdrawals_${savedPage}`)
 
-          const backState = adminState.get(adminId)
-          const savedPage = backState?.currentPendingWithdrawalsPage || 1
-          const backKeyboard = new InlineKeyboard()
-            .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+        await safeEditMessage(
+          ctx,
+          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED - Manual Transfer Required*\n' +
+            `💳 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+            `📧 PayPal: ${receiverEmail}\n\n` +
+            `🔴 ACTION REQUIRED:\n` +
+            `1. Transfer $${withdrawal.amount.toFixed(2)} to ${receiverEmail}\n` +
+            `2. Click "Mark as Completed" below after transfer`,
+          { parse_mode: 'Markdown', reply_markup: backKeyboard }
+        )
+        await safeAnswerCallback(ctx, '✅ Approved - Please transfer manually')
+        return
+      }
 
-          await safeEditMessage(
-            ctx,
-            ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO PAYPAL*\n' +
-              `🧾 Batch ID: ${payout.batchId}`,
-            { parse_mode: 'Markdown', reply_markup: backKeyboard }
-          )
-          await safeAnswerCallback(ctx, '✅ Withdrawal approved and sent to PayPal')
-          return
-        } catch (error: any) {
-          console.error('PayPal payout error:', error.response?.data || error.message)
-
-          await prisma.withdrawal.update({
-            where: { id: withdrawalId },
-            data: {
-              txHash: 'MANUAL_PROCESSING_REQUIRED'
-            }
-          })
-
-          await bot.api.sendMessage(
-            withdrawal.user.telegramId,
-            `✅ *Withdrawal Approved*\n\n` +
-              `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-              `💳 Method: PAYPAL\n` +
-              `📧 PayPal: \`${(withdrawal as any).paypalEmail || withdrawal.address}\`\n\n` +
-              `⏳ Your withdrawal is being processed manually by admin.`,
-            { parse_mode: 'Markdown' }
-          )
-
-          const backState = adminState.get(adminId)
-          const savedPage = backState?.currentPendingWithdrawalsPage || 1
-          const backKeyboard = new InlineKeyboard()
-            .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
-
-          await safeAnswerCallback(ctx, '✅ Approved - Manual processing required')
-          await safeEditMessage(
-            ctx,
-            ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
-              `⚠️ PayPal Error: ${error.message}\n` +
-              `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
-              `⚡ Status: PROCESSING\n\n` +
-              `🔴 ACTION REQUIRED: Process payout manually in PayPal dashboard`,
-            { parse_mode: 'Markdown', reply_markup: backKeyboard }
-          )
-          return
+      // OxaPay/Crypto payout - MANUAL PROCESSING ONLY
+      // Update status to APPROVED (not COMPLETED) - waiting for manual transfer
+      await prisma.withdrawal.update({
+        where: { id: withdrawalId },
+        data: {
+          status: 'APPROVED',
+          txHash: 'AWAITING_MANUAL_TRANSFER'
         }
-      }
+      })
 
-      // Default: process via OxaPay
-      try {
-        const { createPayout } = await import('./oxapay.js')
-        
-        const payout = await createPayout({
-          address: withdrawal.address,
-          amount: withdrawal.amount,
-          currency: withdrawal.currency,
-          network: withdrawal.network || 'TRC20'
-        })
+      console.log(`✅ Withdrawal ${withdrawalId} approved for manual processing`)
 
-        // Update withdrawal with track ID and set status to COMPLETED
-        await prisma.withdrawal.update({
-          where: { id: withdrawalId },
-          data: {
-            txHash: payout.trackId,
-            status: 'COMPLETED'
-          }
-        })
-
-        console.log(`✅ OxaPay payout created: Track ID ${payout.trackId}, status set to COMPLETED`)
-
-        // Notify user
-        await bot.api.sendMessage(
-          withdrawal.user.telegramId,
-          `✅ *Withdrawal Approved*\n\n` +
-          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-          `💎 Currency: ${withdrawal.currency}\n` +
-          `🌐 Network: ${withdrawal.network}\n` +
-          `📍 Address: \`${withdrawal.address}\`\n\n` +
-          `⏳ Processing... Track ID: ${payout.trackId}\n` +
-          `💳 Current balance: $${withdrawal.user.balance.toFixed(2)}`,
-          { parse_mode: 'Markdown' }
-        )
-
-        const backState = adminState.get(adminId)
-        const savedPage = backState?.currentPendingWithdrawalsPage || 1
-        const backKeyboard = new InlineKeyboard()
-          .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
-
-        await safeEditMessage(ctx, 
-          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED & SENT TO OXAPAY*\n' +
-          `🔗 Track ID: ${payout.trackId}`,
-          { parse_mode: 'Markdown', reply_markup: backKeyboard }
-        )
-        await safeAnswerCallback(ctx, '✅ Withdrawal approved and sent to OxaPay')
-
-      } catch (error: any) {
-        // If OxaPay fails, keep status as PROCESSING but mark for manual processing
-        console.error('OxaPay payout error:', error.response?.data || error.message)
-        console.log('⚠️ OxaPay failed - balance already deducted, manual processing required')
-        
-        await prisma.withdrawal.update({
-          where: { id: withdrawalId },
-          data: {
-            txHash: 'MANUAL_PROCESSING_REQUIRED'
-          }
-        })
-
-        // Notify user
-        await bot.api.sendMessage(
-          withdrawal.user.telegramId,
-          `✅ *Withdrawal Approved*\n\n` +
-          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-          `💎 Currency: ${withdrawal.currency}\n` +
-          `🌐 Network: ${withdrawal.network}\n` +
-          `📍 Address: \`${withdrawal.address}\`\n\n` +
-          `⏳ Your withdrawal is being processed manually by admin.\n` +
-          `💳 Current balance: $${withdrawal.user.balance.toFixed(2)}`,
-          { parse_mode: 'Markdown' }
-        )
-        
-        const backState = adminState.get(adminId)
-        const savedPage = backState?.currentPendingWithdrawalsPage || 1
-        const backKeyboard = new InlineKeyboard()
-          .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
-        
-        await safeAnswerCallback(ctx, '✅ Approved - Manual processing required')
-        await safeEditMessage(ctx, 
-          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED (Manual Processing Required)*\n' +
-          `⚠️ OxaPay Error: ${error.message}\n` +
-          `💳 Balance already deducted: $${withdrawal.amount.toFixed(2)}\n` +
-          `⚡ Status: PROCESSING\n\n` +
-          `🔴 ACTION REQUIRED: Process payout manually on OxaPay dashboard`,
-          { parse_mode: 'Markdown', reply_markup: backKeyboard }
-        )
-      }
+      // Notify user
+      await bot.api.sendMessage(
+        withdrawal.user.telegramId,
+        `✅ *Withdrawal Approved*\n\n` +
+        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💎 Currency: ${withdrawal.currency}\n` +
+        `🌐 Network: ${withdrawal.network}\n` +
+        `📍 Address: \`${withdrawal.address}\`\n\n` +
+        `⏳ Admin will process your transfer manually.\n` +
+        `📱 You will be notified once the transfer is completed.`,
+        { parse_mode: 'Markdown' }
+      )
+      
+      const backState = adminState.get(adminId)
+      const savedPage = backState?.currentPendingWithdrawalsPage || 1
+      const backKeyboard = new InlineKeyboard()
+        .text('✅ Mark as Completed', `complete_withdrawal_${withdrawalId}`)
+        .text('◀️ Back', `admin_pending_withdrawals_${savedPage}`)
+      
+      await safeEditMessage(ctx, 
+        ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED - Manual Transfer Required*\n' +
+        `💳 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💎 ${withdrawal.currency} (${withdrawal.network})\n` +
+        `📍 Address: \`${withdrawal.address}\`\n\n` +
+        `🔴 ACTION REQUIRED:\n` +
+        `1. Send $${withdrawal.amount.toFixed(2)} (${withdrawal.currency}) to address above\n` +
+        `2. Click "Mark as Completed" below after transfer`,
+        { parse_mode: 'Markdown', reply_markup: backKeyboard }
+      )
+      await safeAnswerCallback(ctx, '✅ Approved - Please transfer manually')
     } else if (withdrawal.status === 'PENDING') {
       // This should not happen with new logic, but handle legacy pending withdrawals
       await safeAnswerCallback(ctx, '⚠️ Legacy PENDING withdrawal detected. Please reject and ask user to resubmit.')
@@ -3985,6 +3912,95 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
   } catch (error) {
     console.error('Error rejecting withdrawal:', error)
     await safeAnswerCallback(ctx, '❌ Error rejecting withdrawal')
+  }
+})
+
+// Mark withdrawal as completed (after manual transfer by admin)
+bot.callbackQuery(/^complete_withdrawal_(\d+)$/, async (ctx) => {
+  const userId = ctx.from?.id.toString()
+  if (!userId || !(await isSupport(userId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const withdrawalId = parseInt(ctx.match![1])
+  
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      include: { user: true }
+    })
+
+    if (!withdrawal) {
+      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
+      return
+    }
+
+    if (withdrawal.status === 'COMPLETED') {
+      await safeAnswerCallback(ctx, 'ℹ️ Already marked as completed')
+      return
+    }
+
+    if (withdrawal.status === 'FAILED') {
+      await safeAnswerCallback(ctx, '❌ Cannot complete rejected withdrawal')
+      return
+    }
+
+    // Update withdrawal status to COMPLETED
+    await prisma.withdrawal.update({
+      where: { id: withdrawalId },
+      data: {
+        status: 'COMPLETED',
+        txHash: withdrawal.txHash === 'AWAITING_MANUAL_TRANSFER' ? 'MANUAL_TRANSFER_COMPLETED' : withdrawal.txHash
+      }
+    })
+
+    console.log(`✅ Withdrawal ${withdrawalId} marked as COMPLETED by admin ${userId}`)
+
+    const paymentMethod = String((withdrawal as any).paymentMethod || 'OXAPAY').toUpperCase()
+
+    // Notify user about completed withdrawal
+    if (paymentMethod === 'PAYPAL') {
+      const receiverEmail = (withdrawal as any).paypalEmail || withdrawal.address
+      await bot.api.sendMessage(
+        withdrawal.user.telegramId,
+        `✅ *Withdrawal Completed!*\n\n` +
+          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+          `💳 Method: PayPal\n` +
+          `📧 Sent to: \`${receiverEmail}\`\n\n` +
+          `✅ Funds have been transferred to your PayPal account.\n` +
+          `💳 Check your PayPal balance.`,
+        { parse_mode: 'Markdown' }
+      )
+    } else {
+      await bot.api.sendMessage(
+        withdrawal.user.telegramId,
+        `✅ *Withdrawal Completed!*\n\n` +
+          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+          `💎 Currency: ${withdrawal.currency}\n` +
+          `🌐 Network: ${withdrawal.network}\n` +
+          `📍 Address: \`${withdrawal.address}\`\n\n` +
+          `✅ Funds have been sent to your wallet address.`,
+        { parse_mode: 'Markdown' }
+      )
+    }
+
+    const backState = adminState.get(userId)
+    const savedPage = backState?.currentPendingWithdrawalsPage || 1
+    const backKeyboard = new InlineKeyboard()
+      .text('◀️ Back to Pending Withdrawals', `admin_pending_withdrawals_${savedPage}`)
+
+    await safeEditMessage(
+      ctx,
+      ctx.callbackQuery.message!.text + '\n\n✅ *COMPLETED*\n' +
+        `✅ Marked as completed by admin\n` +
+        `📅 ${new Date().toLocaleString()}`,
+      { parse_mode: 'Markdown', reply_markup: backKeyboard }
+    )
+    await safeAnswerCallback(ctx, '✅ Withdrawal marked as completed')
+  } catch (error) {
+    console.error('Error completing withdrawal:', error)
+    await safeAnswerCallback(ctx, '❌ Error marking withdrawal as completed')
   }
 })
 
