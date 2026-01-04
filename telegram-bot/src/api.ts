@@ -459,9 +459,8 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
       confidencePct,
       profitPct,
       message:
-        'Simulation only. Not financial advice.\n' +
-        `Hypothetical setup: ${signal} with ${confidencePct}% confidence. ` +
-        `Illustrative P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`,
+        `Signal: ${signal}. Confidence: ${confidencePct}%. ` +
+        `Estimated P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`,
     }
   })
 }
@@ -491,9 +490,11 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
 
   try {
     const system =
-      'You generate SIMULATED trading analytics for a demo UI. ' +
+      'You generate trading analytics for a demo UI. ' +
+      'Respond in English only. ' +
       'Never imply real trading execution or guaranteed returns. ' +
-      'Always include a clear disclaimer that it is a simulation and not financial advice. ' +
+      'Do not include disclaimers such as "simulation", "simulated", or "not financial advice". ' +
+      'Avoid direct imperatives (e.g., "you should buy"); keep language descriptive and neutral. ' +
       'Return STRICT JSON only. No markdown.'
 
     const user = {

@@ -192,7 +192,6 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-foreground font-bold">{strings.title}</h2>
-          <p className="text-xs text-muted-foreground">{strings.simulated}</p>
         </div>
         <Button
           variant="ghost"
