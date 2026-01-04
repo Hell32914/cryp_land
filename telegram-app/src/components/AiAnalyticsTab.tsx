@@ -79,9 +79,6 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   // 2 updates per hour
   const UPDATE_INTERVAL_MS = 30 * 60_000
 
-  // Keep chart scale comparable and allow negative curves.
-  const Y_DOMAIN: [number, number] = [-25, 50]
-
   const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -227,6 +224,50 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     return data
   }, [itemsById, models])
 
+  const yDomain = useMemo((): [number, number] => {
+    // Dynamic scaling so small % changes don't look flat.
+    // Always include a small negative area to keep the "minus" region visible.
+    let min = Number.POSITIVE_INFINITY
+    let max = Number.NEGATIVE_INFINITY
+
+    for (const row of combinedSeries) {
+      for (const modelId of models) {
+        const v = row[modelId]
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          if (v < min) min = v
+          if (v > max) max = v
+        }
+      }
+    }
+
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      return [-5, 15]
+    }
+
+    const range = Math.max(0.01, max - min)
+    const pad = Math.max(0.8, range * 0.15)
+
+    let lower = Math.min(min - pad, -5)
+    let upper = Math.max(max + pad, 5)
+
+    // Keep within sensible global bounds used by the demo generator.
+    lower = clamp(lower, -25, 50)
+    upper = clamp(upper, -25, 50)
+
+    if (upper - lower < 6) {
+      // Ensure some visual vertical space.
+      const mid = (upper + lower) / 2
+      lower = clamp(mid - 3, -25, 50)
+      upper = clamp(mid + 3, -25, 50)
+    }
+
+    if (lower >= upper) {
+      return [-5, 15]
+    }
+
+    return [Number(lower.toFixed(2)), Number(upper.toFixed(2))]
+  }, [combinedSeries, models])
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -297,7 +338,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
               <LineChart data={combinedSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="t" hide />
-                <YAxis hide domain={Y_DOMAIN} />
+                <YAxis hide domain={yDomain} />
                 <ChartTooltip content={<ChartTooltipContent hideLabel />} />
                 {models.map((modelId) => (
                   <Line
