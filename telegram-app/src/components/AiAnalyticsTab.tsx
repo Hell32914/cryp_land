@@ -86,7 +86,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const timersRef = useRef<Partial<Record<AiModelId, number>>>({})
+  const updateTimerRef = useRef<number | null>(null)
 
   const modelToColor = useMemo(() => {
     return {
@@ -111,7 +111,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
   const models: AiModelId[] = useMemo(() => ['syntrix', 'modelA', 'modelB', 'modelC', 'modelD'], [])
 
-  const fetchAnalyticsModel = async (modelId: AiModelId) => {
+  const fetchAnalyticsAll = async () => {
     if (!telegramUserId) return
 
     try {
@@ -120,7 +120,6 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
         headers: getAuthHeaders(),
         body: JSON.stringify({
           locale: window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || 'en',
-          modelId,
         }),
       })
 
@@ -131,28 +130,34 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
       const data = await res.json()
       const nextItems = Array.isArray(data?.items) ? (data.items as AiAnalyticsItem[]) : []
-      const item = nextItems.find((i) => i?.modelId === modelId) || nextItems[0]
-      if (item) {
-        setItemsById((prev) => ({ ...prev, [modelId]: item }))
+      if (!nextItems.length) {
+        throw new Error(strings.error)
       }
+
+      setItemsById(() => {
+        const next: Partial<Record<AiModelId, AiAnalyticsItem>> = {}
+        nextItems.forEach((item) => {
+          if (item?.modelId) next[item.modelId] = item
+        })
+        return next
+      })
     } catch (e: any) {
       setError(e?.message || strings.error)
     }
   }
 
-  const scheduleModelUpdates = (modelId: AiModelId) => {
+  const scheduleAllUpdates = () => {
     // Update exactly 2 times per hour (every 30 minutes)
     const remainder = Date.now() % UPDATE_INTERVAL_MS
     const delay = remainder === 0 ? UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS - remainder
 
-    const existing = timersRef.current[modelId]
-    if (existing) {
-      window.clearTimeout(existing)
+    if (updateTimerRef.current) {
+      window.clearTimeout(updateTimerRef.current)
     }
 
-    timersRef.current[modelId] = window.setTimeout(async () => {
-      await fetchAnalyticsModel(modelId)
-      scheduleModelUpdates(modelId)
+    updateTimerRef.current = window.setTimeout(async () => {
+      await fetchAnalyticsAll()
+      scheduleAllUpdates()
     }, delay)
   }
 
@@ -160,7 +165,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     setLoading(true)
     setError(null)
     try {
-      await Promise.all(models.map((m) => fetchAnalyticsModel(m)))
+      await fetchAnalyticsAll()
     } finally {
       setLoading(false)
     }
@@ -170,15 +175,14 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     // Initial load
     fetchAllNow()
 
-    // Start independent schedules
-    models.forEach((m) => scheduleModelUpdates(m))
+    // Start schedule (single request for all models)
+    scheduleAllUpdates()
 
     return () => {
-      const timers = timersRef.current
-      Object.values(timers).forEach((id) => {
-        if (id) window.clearTimeout(id)
-      })
-      timersRef.current = {}
+      if (updateTimerRef.current) {
+        window.clearTimeout(updateTimerRef.current)
+      }
+      updateTimerRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken])
