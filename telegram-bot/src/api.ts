@@ -442,7 +442,7 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
   })
 }
 
-app.post('/api/user/:telegramId/ai-analytics', requireUserAuth, aiAnalyticsLimiter, async (req, res) => {
+app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, res) => {
   const parsed = aiAnalyticsRequestSchema.safeParse(req.body ?? {})
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid request' })
