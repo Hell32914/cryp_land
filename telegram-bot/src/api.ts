@@ -396,6 +396,7 @@ const aiAnalyticsRequestSchema = z
     locale: z.string().optional(),
     symbol: z.string().optional(),
     timeframe: z.string().optional(),
+    modelId: z.enum(['syntrix', 'modelA', 'modelB', 'modelC', 'modelD']).optional(),
   })
   .passthrough()
 
@@ -451,15 +452,17 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
   const locale = (parsed.data.locale || 'en').toString().slice(0, 8)
   const symbol = (parsed.data.symbol || 'BTC/USDT').toString().slice(0, 20)
   const timeframe = (parsed.data.timeframe || '1h').toString().slice(0, 10)
+  const requestedModelId = parsed.data.modelId
 
   const openAiKey = process.env.OPENAI_API_KEY
   const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini'
 
   if (!openAiKey) {
+    const all = buildFallbackAiAnalytics()
     return res.json({
       generatedAt: new Date().toISOString(),
       simulated: true,
-      items: buildFallbackAiAnalytics(),
+      items: requestedModelId ? all.filter((i) => i.modelId === requestedModelId) : all,
     })
   }
 
@@ -474,6 +477,7 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
       locale,
       symbol,
       timeframe,
+      requestedModelId: requestedModelId || null,
       models: [
         { modelId: 'syntrix', displayName: 'Syntrix AI' },
         { modelId: 'modelA', displayName: 'Model A' },
@@ -497,6 +501,7 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
         'message must be 2-4 short sentences',
         'confidencePct must be integer 40..95',
         'profitPct must be number -10..+15 (illustrative)',
+        'If requestedModelId is not null, include ONLY that model in items',
       ],
     }
 
@@ -533,7 +538,12 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
     }
 
     // Minimal sanitization
-    const sanitized: AiAnalyticsItem[] = items
+    let filtered = items
+    if (requestedModelId) {
+      filtered = items.filter((i) => i?.modelId === requestedModelId)
+    }
+
+    const sanitized: AiAnalyticsItem[] = filtered
       .filter((it) => it && typeof it === 'object')
       .slice(0, 5)
       .map((it) => {
@@ -553,10 +563,11 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
     })
   } catch (error) {
     console.error('AI analytics generation failed:', error)
+    const all = buildFallbackAiAnalytics()
     res.json({
       generatedAt: new Date().toISOString(),
       simulated: true,
-      items: buildFallbackAiAnalytics(),
+      items: requestedModelId ? all.filter((i) => i.modelId === requestedModelId) : all,
     })
   }
 })

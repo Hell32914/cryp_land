@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -62,9 +62,11 @@ const buildSeries = (targetProfitPct: number): ChartPoint[] => {
 export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiUrl, strings }: Props) {
   const API_URL = apiUrl || (import.meta.env.VITE_API_URL || 'https://api.syntrix.website')
 
-  const [items, setItems] = useState<AiAnalyticsItem[]>([])
+  const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const timersRef = useRef<Partial<Record<AiModelId, number>>>({})
 
   const modelToColor = useMemo(() => {
     return {
@@ -87,19 +89,18 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     return map
   }, [])
 
-  const fetchAnalytics = async () => {
-    if (!telegramUserId) return
+  const models: AiModelId[] = useMemo(() => ['syntrix', 'modelA', 'modelB', 'modelC', 'modelD'], [])
 
-    setLoading(true)
-    setError(null)
+  const fetchAnalyticsModel = async (modelId: AiModelId) => {
+    if (!telegramUserId) return
 
     try {
       const res = await fetch(`${API_URL}/api/user/${telegramUserId}/ai-analytics`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          // Keep request minimal; server can ignore fields.
           locale: window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || 'en',
+          modelId,
         }),
       })
 
@@ -110,27 +111,74 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
       const data = await res.json()
       const nextItems = Array.isArray(data?.items) ? (data.items as AiAnalyticsItem[]) : []
-      setItems(nextItems)
+      const item = nextItems.find((i) => i?.modelId === modelId) || nextItems[0]
+      if (item) {
+        setItemsById((prev) => ({ ...prev, [modelId]: item }))
+      }
     } catch (e: any) {
       setError(e?.message || strings.error)
+    }
+  }
+
+  const randomMs = (minMs: number, maxMs: number) => Math.floor(minMs + Math.random() * (maxMs - minMs + 1))
+
+  const scheduleModelUpdates = (modelId: AiModelId) => {
+    // Independent schedules: each model updates a different number of times per day.
+    // (min/max in minutes)
+    const ranges: Record<AiModelId, { min: number; max: number }> = {
+      syntrix: { min: 25, max: 90 },
+      modelA: { min: 45, max: 180 },
+      modelB: { min: 60, max: 240 },
+      modelC: { min: 90, max: 360 },
+      modelD: { min: 55, max: 300 },
+    }
+
+    const { min, max } = ranges[modelId]
+    const delay = randomMs(min * 60_000, max * 60_000)
+
+    const existing = timersRef.current[modelId]
+    if (existing) {
+      window.clearTimeout(existing)
+    }
+
+    timersRef.current[modelId] = window.setTimeout(async () => {
+      await fetchAnalyticsModel(modelId)
+      scheduleModelUpdates(modelId)
+    }, delay)
+  }
+
+  const fetchAllNow = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      await Promise.all(models.map((m) => fetchAnalyticsModel(m)))
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    // Generate on first open.
-    if (!items.length) {
-      fetchAnalytics()
+    // Initial load
+    fetchAllNow()
+
+    // Start independent schedules
+    models.forEach((m) => scheduleModelUpdates(m))
+
+    return () => {
+      const timers = timersRef.current
+      Object.values(timers).forEach((id) => {
+        if (id) window.clearTimeout(id)
+      })
+      timersRef.current = {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken])
 
   const orderedItems = useMemo(() => {
-    const syntrix = items.find((i) => i.modelId === 'syntrix')
-    const rest = items.filter((i) => i.modelId !== 'syntrix')
-    return syntrix ? [syntrix, ...rest] : rest
-  }, [items])
+    return models
+      .map((m) => itemsById[m])
+      .filter(Boolean) as AiAnalyticsItem[]
+  }, [itemsById, models])
 
   const charts = useMemo(() => {
     return orderedItems.map((item) => {
@@ -149,7 +197,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
         <Button
           variant="ghost"
           className="text-foreground hover:text-accent"
-          onClick={fetchAnalytics}
+          onClick={fetchAllNow}
           disabled={loading}
         >
           {strings.update}
@@ -183,7 +231,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                       <Line
                         type="monotone"
                         dataKey="p"
-                        stroke="var(--color-p)"
+                        stroke={modelToColor[item.modelId]}
                         strokeWidth={2}
                         dot={false}
                       />
@@ -204,7 +252,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
         <div className="min-h-0 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">
           <ScrollArea className="h-full p-3">
             <div className="space-y-3">
-              {items.map((item) => (
+              {orderedItems.map((item) => (
                 <div key={`msg-${item.modelId}`} className="rounded-lg border border-border/50 bg-background/50 p-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">{item.displayName || modelToLabel[item.modelId]}</div>
@@ -222,7 +270,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                 </div>
               ))}
 
-              {!items.length && (
+              {!orderedItems.length && (
                 <div className="p-4 text-sm text-muted-foreground">
                   {loading ? strings.loading : error || strings.error}
                 </div>
@@ -232,7 +280,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
         </div>
       </div>
 
-      {error && items.length ? (
+      {error && orderedItems.length ? (
         <div className="text-sm text-destructive">{error}</div>
       ) : null}
     </div>

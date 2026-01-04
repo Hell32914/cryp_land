@@ -1816,7 +1816,7 @@ export const translations = {
     ai: 'AI',
     profile: 'Profile',
     aiAnalyticsTitle: 'AI Analytics',
-    simulated: 'Simulated data (demo)',
+    simulated: 'Demo',
     update: 'Update',
     loading: 'Loading…',
     errorGeneric: 'Unable to load',
