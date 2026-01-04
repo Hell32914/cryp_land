@@ -126,21 +126,25 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken])
 
+  const orderedItems = useMemo(() => {
+    const syntrix = items.find((i) => i.modelId === 'syntrix')
+    const rest = items.filter((i) => i.modelId !== 'syntrix')
+    return syntrix ? [syntrix, ...rest] : rest
+  }, [items])
+
   const charts = useMemo(() => {
-    return items.map((item) => {
+    return orderedItems.map((item) => {
       const series = buildSeries(item.profitPct)
       return { item, series }
     })
-  }, [items])
+  }, [orderedItems])
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div>
           <h2 className="text-foreground font-bold">{strings.title}</h2>
-          <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10">
-            {strings.simulated}
-          </Badge>
+          <p className="text-xs text-muted-foreground">{strings.simulated}</p>
         </div>
         <Button
           variant="ghost"
@@ -160,13 +164,13 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                 <div key={item.modelId} className="rounded-lg border border-border/50 bg-background/50 p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-semibold text-foreground">{item.displayName || modelToLabel[item.modelId]}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {item.signal} • {item.confidencePct}% • {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
+                    <div className="text-sm font-semibold text-primary">
+                      {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
                     </div>
                   </div>
 
                   <ChartContainer
-                    className="h-[140px] w-full"
+                    className="h-[140px] w-full aspect-auto"
                     config={{
                       p: { label: 'P/L', color: modelToColor[item.modelId] },
                     }}
@@ -204,7 +208,15 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                 <div key={`msg-${item.modelId}`} className="rounded-lg border border-border/50 bg-background/50 p-3">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">{item.displayName || modelToLabel[item.modelId]}</div>
-                    <div className="text-xs text-muted-foreground">{item.signal} • {item.confidencePct}%</div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="border-border/50 bg-background/50 text-muted-foreground">
+                        {item.signal}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{item.confidencePct}%</span>
+                      <span className="text-xs text-primary">
+                        {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
+                      </span>
+                    </div>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{item.message}</p>
                 </div>

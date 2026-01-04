@@ -435,7 +435,7 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
       confidencePct,
       profitPct,
       message:
-        'Imitation only. Not financial advice.\n' +
+        'Simulation only. Not financial advice.\n' +
         `Hypothetical setup: ${signal} with ${confidencePct}% confidence. ` +
         `Illustrative P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`,
     }
