@@ -1816,6 +1816,12 @@ export const translations = {
     ai: 'AI',
     profile: 'Profile',
     aiAnalyticsTitle: 'AI Analytics',
+    aiAnalyticsInfo: 'Info',
+    aiAnalyticsInfoTitle: 'How it works',
+    aiAnalyticsInfoBody:
+      'Syntrix AI compares its market assessment with several independent analytical models in near real time.\n' +
+      'It aggregates consensus and disagreements into a single trading signal (BUY/SELL/HOLD) and explains the key drivers behind it.\n' +
+      'Signals refresh twice per hour.',
     simulated: 'Demo',
     update: 'Update',
     loading: 'Loading…',
@@ -1987,6 +1993,12 @@ export const translations = {
     ai: 'KI',
     profile: 'Profil',
     aiAnalyticsTitle: 'KI-Analytik',
+    aiAnalyticsInfo: 'Info',
+    aiAnalyticsInfoTitle: 'So funktioniert es',
+    aiAnalyticsInfoBody:
+      'Syntrix AI vergleicht seine Markteinschätzung nahezu in Echtzeit mit mehreren unabhängigen Analysemodellen.\n' +
+      'Aus Übereinstimmungen und Abweichungen entsteht ein gemeinsames Signal (BUY/SELL/HOLD) – inklusive kurzer Begründung.\n' +
+      'Die Signale werden zweimal pro Stunde aktualisiert.',
     simulated: 'SIMULATION',
     update: 'Aktualisieren',
     loading: 'Lädt…',
@@ -2143,6 +2155,12 @@ export const translations = {
     ai: 'IA',
     profile: 'Perfil',
     aiAnalyticsTitle: 'Analítica IA',
+    aiAnalyticsInfo: 'Info',
+    aiAnalyticsInfoTitle: 'Cómo funciona',
+    aiAnalyticsInfoBody:
+      'Syntrix AI compara su lectura del mercado casi en tiempo real con varios modelos analíticos independientes.\n' +
+      'Combina coincidencias y diferencias en una sola señal (BUY/SELL/HOLD) y resume los factores clave.\n' +
+      'Las señales se actualizan dos veces por hora.',
     simulated: 'SIMULACIÓN',
     update: 'Actualizar',
     loading: 'Cargando…',
@@ -2251,6 +2269,12 @@ export const translations = {
     ai: 'IA',
     profile: 'Profil',
     aiAnalyticsTitle: 'Analytique IA',
+    aiAnalyticsInfo: 'Info',
+    aiAnalyticsInfoTitle: 'Comment ça marche',
+    aiAnalyticsInfoBody:
+      'Syntrix AI compare son analyse du marché, quasi en temps réel, avec plusieurs modèles indépendants.\n' +
+      'Elle synthétise les convergences et divergences en un seul signal (BUY/SELL/HOLD) et en résume les principaux facteurs.\n' +
+      'Les signaux sont mis à jour deux fois par heure.',
     simulated: 'SIMULATION',
     update: 'Mettre à jour',
     loading: 'Chargement…',
@@ -2407,6 +2431,12 @@ export const translations = {
     ai: 'IA',
     profile: 'Profilo',
     aiAnalyticsTitle: 'Analisi IA',
+    aiAnalyticsInfo: 'Info',
+    aiAnalyticsInfoTitle: 'Come funziona',
+    aiAnalyticsInfoBody:
+      'Syntrix AI confronta la propria lettura del mercato quasi in tempo reale con diversi modelli analitici indipendenti.\n' +
+      'Sintetizza convergenze e differenze in un unico segnale (BUY/SELL/HOLD) e ne riassume i fattori chiave.\n' +
+      'I segnali si aggiornano due volte all’ora.',
     simulated: 'SIMULAZIONE',
     update: 'Aggiorna',
     loading: 'Caricamento…',
@@ -2563,6 +2593,12 @@ export const translations = {
     ai: 'AI',
     profile: 'Profiel',
     aiAnalyticsTitle: 'AI-analytiek',
+    aiAnalyticsInfo: 'Info',
+    aiAnalyticsInfoTitle: 'Hoe het werkt',
+    aiAnalyticsInfoBody:
+      'Syntrix AI vergelijkt zijn marktinschatting vrijwel realtime met meerdere onafhankelijke analysemethoden.\n' +
+      'Het combineert overeenkomsten en verschillen tot één signaal (BUY/SELL/HOLD) en vat de belangrijkste redenen samen.\n' +
+      'Signalen verversen twee keer per uur.',
     simulated: 'SIMULATIE',
     update: 'Bijwerken',
     loading: 'Laden…',

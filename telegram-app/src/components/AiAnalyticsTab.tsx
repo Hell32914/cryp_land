@@ -4,6 +4,14 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   LineChart,
   Line,
   CartesianGrid,
@@ -31,6 +39,9 @@ type Props = {
     title: string
     simulated: string
     update: string
+    info: string
+    infoTitle: string
+    infoBody: string
     loading: string
     error: string
   }
@@ -214,35 +225,55 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
         <div>
           <h2 className="text-foreground font-bold">{strings.title}</h2>
         </div>
-        <Button
-          variant="ghost"
-          className="text-foreground hover:text-accent"
-          onClick={fetchAllNow}
-          disabled={loading}
-        >
-          {strings.update}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="text-foreground hover:text-accent">
+                {strings.info}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{strings.infoTitle}</DialogTitle>
+                <DialogDescription className="whitespace-pre-wrap">
+                  {strings.infoBody}
+                </DialogDescription>
+              </DialogHeader>
+            </DialogContent>
+          </Dialog>
+
+          <Button
+            variant="ghost"
+            className="text-foreground hover:text-accent"
+            onClick={fetchAllNow}
+            disabled={loading}
+          >
+            {strings.update}
+          </Button>
+        </div>
       </div>
 
-      <div className="h-[calc(100vh-220px)] grid grid-rows-2 gap-4">
-        <div className="min-h-0 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">
-          <div className="h-full p-3 space-y-3">
+      <div className="h-[calc(100vh-220px)] flex flex-col gap-4">
+        <div className="h-[300px] bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">
+          <div className="h-full p-3 flex flex-col gap-3">
             {orderedItems.length ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {orderedItems.map((item) => (
-                  <div key={`legend-${item.modelId}`} className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: modelToColor[item.modelId] }}
-                      />
-                      <span className="text-xs font-semibold text-foreground truncate">{item.displayName || modelToLabel[item.modelId]}</span>
+              <div className="max-h-[120px] overflow-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {orderedItems.map((item) => (
+                    <div key={`legend-${item.modelId}`} className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: modelToColor[item.modelId] }}
+                        />
+                        <span className="text-xs font-semibold text-foreground truncate">{item.displayName || modelToLabel[item.modelId]}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-primary shrink-0">
+                        {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold text-primary shrink-0">
-                      {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="p-4 text-sm text-muted-foreground">
@@ -251,7 +282,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
             )}
 
             <ChartContainer
-              className="h-[220px] w-full aspect-auto"
+              className="flex-1 min-h-[160px] w-full aspect-auto"
               config={chartConfig}
             >
               <LineChart data={combinedSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
@@ -276,7 +307,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
           </div>
         </div>
 
-        <div className="min-h-0 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">
+        <div className="min-h-0 flex-1 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">
           <ScrollArea className="h-full p-3">
             <div className="space-y-3">
               {orderedItems.map((item) => (

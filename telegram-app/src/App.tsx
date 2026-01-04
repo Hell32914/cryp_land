@@ -1703,6 +1703,11 @@ function App() {
                 title: (t as any).aiAnalyticsTitle ?? 'AI Analytics',
                 simulated: (t as any).simulated ?? 'IMITATION',
                 update: (t as any).update ?? 'Update',
+                info: (t as any).aiAnalyticsInfo ?? 'Info',
+                infoTitle: (t as any).aiAnalyticsInfoTitle ?? 'About AI Analytics',
+                infoBody:
+                  (t as any).aiAnalyticsInfoBody ??
+                  'Syntrix AI compares its market assessment with multiple independent models and synthesizes the result into a single trading signal.\nSignals update twice per hour.',
                 loading: (t as any).loading ?? 'Loading…',
                 error: (t as any).errorGeneric ?? 'Unable to load',
               }}
