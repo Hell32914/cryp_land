@@ -53,9 +53,9 @@ type CombinedChartPoint = { t: number } & Partial<Record<AiModelId, number>>
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
-const buildSeries = (targetProfitPct: number): ChartPoint[] => {
+const buildSeries = (targetProfitPct: number, modelId: AiModelId): ChartPoint[] => {
   const points = 28
-  const end = clamp(targetProfitPct, -25, 50)
+  const end = modelId === 'syntrix' ? clamp(targetProfitPct, 0, 50) : clamp(targetProfitPct, -25, 50)
 
   const data: ChartPoint[] = []
   let value = 0
@@ -66,6 +66,7 @@ const buildSeries = (targetProfitPct: number): ChartPoint[] => {
     const desiredStep = remaining > 0 ? (end - value) / remaining : 0
     const jitter = (Math.sin(i * 1.7) + Math.cos(i * 0.9)) * 0.15
     value = value + desiredStep + jitter
+    if (modelId === 'syntrix') value = Math.max(0, value)
     data.push({ t: i + 1, p: Number(value.toFixed(2)) })
   }
 
@@ -77,6 +78,9 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
   // 2 updates per hour
   const UPDATE_INTERVAL_MS = 30 * 60_000
+
+  // Keep chart scale comparable and allow negative curves.
+  const Y_DOMAIN: [number, number] = [-25, 50]
 
   const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)
@@ -203,7 +207,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     models.forEach((modelId) => {
       const item = itemsById[modelId]
       if (item) {
-        seriesById[modelId] = buildSeries(item.profitPct)
+        seriesById[modelId] = buildSeries(item.profitPct, modelId)
       }
     })
 
@@ -269,7 +273,8 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                         <span className="text-xs font-semibold text-foreground truncate">{item.displayName || modelToLabel[item.modelId]}</span>
                       </div>
                       <span className="text-xs font-semibold text-primary shrink-0">
-                        {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
+                        {item.modelId === 'syntrix' ? '+' : item.profitPct >= 0 ? '+' : ''}
+                        {item.modelId === 'syntrix' ? Math.max(0, item.profitPct) : item.profitPct}%
                       </span>
                     </div>
                   ))}
@@ -288,7 +293,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
               <LineChart data={combinedSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="t" hide />
-                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <YAxis hide domain={Y_DOMAIN} />
                 <ChartTooltip content={<ChartTooltipContent hideLabel />} />
                 {models.map((modelId) => (
                   <Line

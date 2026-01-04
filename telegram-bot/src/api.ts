@@ -577,8 +577,16 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
         const displayName = typeof it.displayName === 'string' ? it.displayName.slice(0, 40) : 'Model'
         const signal = (it.signal as any) === 'BUY' || (it.signal as any) === 'SELL' || (it.signal as any) === 'HOLD' ? (it.signal as any) : 'HOLD'
         const confidencePct = Math.max(0, Math.min(100, Math.round(Number(it.confidencePct) || 0)))
-        const profitPct = Number((Number(it.profitPct) || 0).toFixed(2))
-        const message = typeof it.message === 'string' ? it.message.slice(0, 700) : ''
+        const rawProfitPct = Number((Number(it.profitPct) || 0).toFixed(2))
+        let profitPct = rawProfitPct
+        let message = typeof it.message === 'string' ? it.message.slice(0, 700) : ''
+
+        // Syntrix AI should be positive (or at least not negative) most of the time.
+        // If OpenAI returns a negative value, clamp it to 0 and ensure the message remains consistent.
+        if (modelId === 'syntrix' && profitPct < 0) {
+          profitPct = 0
+          message = `Signal: ${signal}. Confidence: ${confidencePct}%. Estimated P/L: +${profitPct.toFixed(2)}%.`
+        }
         return { modelId, displayName, signal, confidencePct, profitPct, message }
       })
 
