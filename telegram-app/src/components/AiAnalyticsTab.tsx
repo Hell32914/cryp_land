@@ -70,11 +70,11 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
   const modelToColor = useMemo(() => {
     return {
-      syntrix: 'hsl(var(--primary))',
-      modelA: 'hsl(var(--accent))',
-      modelB: 'hsl(var(--muted-foreground))',
-      modelC: 'hsl(var(--foreground))',
-      modelD: 'hsl(var(--muted-foreground))',
+      syntrix: 'var(--primary)',
+      modelA: 'var(--accent)',
+      modelB: 'var(--muted-foreground)',
+      modelC: 'var(--foreground)',
+      modelD: 'var(--muted-foreground)',
     } satisfies Record<AiModelId, string>
   }, [])
 
@@ -232,8 +232,10 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                         type="monotone"
                         dataKey="p"
                         stroke={modelToColor[item.modelId]}
-                        strokeWidth={2}
+                        strokeWidth={3}
+                        strokeLinecap="round"
                         dot={false}
+                        isAnimationActive={false}
                       />
                     </LineChart>
                   </ChartContainer>
