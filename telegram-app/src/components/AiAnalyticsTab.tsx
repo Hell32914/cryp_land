@@ -38,6 +38,8 @@ type Props = {
 
 type ChartPoint = { t: number; p: number }
 
+type CombinedChartPoint = { t: number } & Partial<Record<AiModelId, number>>
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 const buildSeries = (targetProfitPct: number): ChartPoint[] => {
@@ -62,6 +64,9 @@ const buildSeries = (targetProfitPct: number): ChartPoint[] => {
 export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiUrl, strings }: Props) {
   const API_URL = apiUrl || (import.meta.env.VITE_API_URL || 'https://api.syntrix.website')
 
+  // 2 updates per hour
+  const UPDATE_INTERVAL_MS = 30 * 60_000
+
   const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +77,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     return {
       syntrix: 'var(--primary)',
       modelA: 'var(--accent)',
-      modelB: 'var(--muted-foreground)',
+      modelB: 'var(--secondary)',
       modelC: 'var(--foreground)',
       modelD: 'var(--muted-foreground)',
     } satisfies Record<AiModelId, string>
@@ -120,21 +125,10 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     }
   }
 
-  const randomMs = (minMs: number, maxMs: number) => Math.floor(minMs + Math.random() * (maxMs - minMs + 1))
-
   const scheduleModelUpdates = (modelId: AiModelId) => {
-    // Independent schedules: each model updates a different number of times per day.
-    // (min/max in minutes)
-    const ranges: Record<AiModelId, { min: number; max: number }> = {
-      syntrix: { min: 25, max: 90 },
-      modelA: { min: 45, max: 180 },
-      modelB: { min: 60, max: 240 },
-      modelC: { min: 90, max: 360 },
-      modelD: { min: 55, max: 300 },
-    }
-
-    const { min, max } = ranges[modelId]
-    const delay = randomMs(min * 60_000, max * 60_000)
+    // Update exactly 2 times per hour (every 30 minutes)
+    const remainder = Date.now() % UPDATE_INTERVAL_MS
+    const delay = remainder === 0 ? UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS - remainder
 
     const existing = timersRef.current[modelId]
     if (existing) {
@@ -180,12 +174,39 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
       .filter(Boolean) as AiAnalyticsItem[]
   }, [itemsById, models])
 
-  const charts = useMemo(() => {
-    return orderedItems.map((item) => {
-      const series = buildSeries(item.profitPct)
-      return { item, series }
+  const chartConfig = useMemo(() => {
+    const config: Record<string, { label: string; color: string }> = {}
+    models.forEach((modelId) => {
+      config[modelId] = {
+        label: modelToLabel[modelId],
+        color: modelToColor[modelId],
+      }
     })
-  }, [orderedItems])
+    return config
+  }, [models, modelToColor, modelToLabel])
+
+  const combinedSeries = useMemo((): CombinedChartPoint[] => {
+    const points = 28
+    const seriesById: Partial<Record<AiModelId, ChartPoint[]>> = {}
+
+    models.forEach((modelId) => {
+      const item = itemsById[modelId]
+      if (item) {
+        seriesById[modelId] = buildSeries(item.profitPct)
+      }
+    })
+
+    const data: CombinedChartPoint[] = []
+    for (let i = 0; i < points; i++) {
+      const row: CombinedChartPoint = { t: i + 1 }
+      models.forEach((modelId) => {
+        const series = seriesById[modelId]
+        row[modelId] = series ? series[i]?.p : undefined
+      })
+      data.push(row)
+    }
+    return data
+  }, [itemsById, models])
 
   return (
     <div className="space-y-4">
@@ -205,49 +226,54 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
       <div className="h-[calc(100vh-220px)] grid grid-rows-2 gap-4">
         <div className="min-h-0 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">
-          <ScrollArea className="h-full p-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {charts.map(({ item, series }) => (
-                <div key={item.modelId} className="rounded-lg border border-border/50 bg-background/50 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-semibold text-foreground">{item.displayName || modelToLabel[item.modelId]}</div>
-                    <div className="text-sm font-semibold text-primary">
-                      {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
-                    </div>
-                  </div>
-
-                  <ChartContainer
-                    className="h-[140px] w-full aspect-auto"
-                    config={{
-                      p: { label: 'P/L', color: modelToColor[item.modelId] },
-                    }}
-                  >
-                    <LineChart data={series} margin={{ left: 4, right: 4, top: 8, bottom: 0 }}>
-                      <CartesianGrid vertical={false} />
-                      <XAxis dataKey="t" hide />
-                      <YAxis dataKey="p" hide domain={['dataMin', 'dataMax']} />
-                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                      <Line
-                        type="monotone"
-                        dataKey="p"
-                        stroke={modelToColor[item.modelId]}
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        dot={false}
-                        isAnimationActive={false}
+          <div className="h-full p-3 space-y-3">
+            {orderedItems.length ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {orderedItems.map((item) => (
+                  <div key={`legend-${item.modelId}`} className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: modelToColor[item.modelId] }}
                       />
-                    </LineChart>
-                  </ChartContainer>
-                </div>
-              ))}
+                      <span className="text-xs font-semibold text-foreground truncate">{item.displayName || modelToLabel[item.modelId]}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-primary shrink-0">
+                      {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-sm text-muted-foreground">
+                {loading ? strings.loading : error || strings.error}
+              </div>
+            )}
 
-              {!charts.length && (
-                <div className="col-span-full p-4 text-sm text-muted-foreground">
-                  {loading ? strings.loading : error || strings.error}
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+            <ChartContainer
+              className="h-[220px] w-full aspect-auto"
+              config={chartConfig}
+            >
+              <LineChart data={combinedSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="t" hide />
+                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                {models.map((modelId) => (
+                  <Line
+                    key={modelId}
+                    type="monotone"
+                    dataKey={modelId}
+                    stroke={modelToColor[modelId]}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                ))}
+              </LineChart>
+            </ChartContainer>
+          </div>
         </div>
 
         <div className="min-h-0 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50">

@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/auth'
 import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, type MarketingLink } from '@/lib/api'
 
 const TELEGRAM_LANDING_DOMAIN = 'syntrix.website'
+const TELEGRAM_CHANNEL_INVITE_LINK = 't.me/+GteJd3Lac8lkZTZi'
 
 interface SubIdParam {
   id: number
@@ -99,6 +100,7 @@ export function LinkBuilder() {
   ]
 
   const channelDomains = [
+    { value: TELEGRAM_CHANNEL_INVITE_LINK, label: TELEGRAM_CHANNEL_INVITE_LINK, color: 'bg-blue-400' },
     { value: 'info.syntrix.website', label: 'info.syntrix.website', color: 'bg-purple-400' },
     { value: 'ss.syntrix.website', label: 'ss.syntrix.website', color: 'bg-orange-400' },
     { value: 'road.syntrix.website', label: 'road.syntrix.website', color: 'bg-rose-400' },
