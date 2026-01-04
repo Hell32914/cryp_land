@@ -414,7 +414,15 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
   const base = new Date().getUTCDate()
   const pick = <T,>(items: T[], offset: number) => items[(base + offset) % items.length]
   const signals: Array<'BUY' | 'SELL' | 'HOLD'> = ['BUY', 'SELL', 'HOLD']
-  const profits = [3.2, 1.4, 0.6, -0.8, 2.1]
+  // Profit ranges are illustrative and biased for demo purposes:
+  // Syntrix is typically higher; others are typically lower (with occasional overlap).
+  const profitRanges: Record<AiModelId, { min: number; max: number; overlapChancePct: number }> = {
+    syntrix: { min: 6, max: 18, overlapChancePct: 0 },
+    modelA: { min: -2, max: 5, overlapChancePct: 8 },
+    modelB: { min: -3, max: 4, overlapChancePct: 6 },
+    modelC: { min: -4, max: 4, overlapChancePct: 5 },
+    modelD: { min: -2, max: 6, overlapChancePct: 10 },
+  }
 
   const models: Array<{ modelId: AiModelId; displayName: string; idx: number }> = [
     { modelId: 'syntrix', displayName: 'Syntrix AI', idx: 0 },
@@ -427,7 +435,22 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
   return models.map((m) => {
     const signal = pick(signals, m.idx)
     const confidencePct = 55 + ((base * 7 + m.idx * 11) % 40)
-    const profitPct = Number((profits[m.idx] + ((base + m.idx) % 5) * 0.2).toFixed(2))
+
+    const r = profitRanges[m.modelId]
+    // deterministic-ish pseudo-random using date + model index
+    const seed = (base * 97 + m.idx * 193) % 10_000
+    const u = (seed % 1000) / 1000
+    let profit = r.min + (r.max - r.min) * u
+
+    // Rare overlap: let some non-syntrix models occasionally approach higher values
+    if (m.modelId !== 'syntrix') {
+      const overlapRoll = (seed % 100)
+      if (overlapRoll < r.overlapChancePct) {
+        profit = Math.min(r.max + 3, profit + 4)
+      }
+    }
+
+    const profitPct = Number(profit.toFixed(2))
 
     return {
       modelId: m.modelId,
@@ -500,7 +523,9 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
       constraints: [
         'message must be 2-4 short sentences',
         'confidencePct must be integer 40..95',
-        'profitPct must be number -10..+15 (illustrative)',
+        'profitPct must be illustrative and plausible',
+        'Syntrix AI profitPct should usually be higher (e.g., +6..+18)',
+        'Other models profitPct should usually be lower (e.g., -4..+6), occasional overlap is allowed',
         'If requestedModelId is not null, include ONLY that model in items',
       ],
     }
