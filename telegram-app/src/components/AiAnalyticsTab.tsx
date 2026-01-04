@@ -88,7 +88,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   }, [])
 
   const fetchAnalytics = async () => {
-    if (!telegramUserId || !authToken) return
+    if (!telegramUserId) return
 
     setLoading(true)
     setError(null)
@@ -120,7 +120,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
   useEffect(() => {
     // Generate on first open.
-    if (!items.length && authToken) {
+    if (!items.length) {
       fetchAnalytics()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,7 +146,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
           variant="ghost"
           className="text-foreground hover:text-accent"
           onClick={fetchAnalytics}
-          disabled={!authToken || loading}
+          disabled={loading}
         >
           {strings.update}
         </Button>
@@ -190,7 +190,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
 
               {!charts.length && (
                 <div className="col-span-full p-4 text-sm text-muted-foreground">
-                  {loading ? strings.loading : strings.error}
+                  {loading ? strings.loading : error || strings.error}
                 </div>
               )}
             </div>
