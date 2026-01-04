@@ -161,6 +161,14 @@ const depositLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+const aiAnalyticsLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // Max 10 requests per minute
+  message: 'Too many AI analytics requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 const safeCompare = (first?: string, second?: string) => {
   if (typeof first !== 'string' || typeof second !== 'string') {
     return false
@@ -380,6 +388,176 @@ app.post('/api/user/auth', authLimiter, async (req, res) => {
   } catch (error) {
     console.error('Error generating user token:', error)
     res.status(500).json({ error: 'Failed to generate token' })
+  }
+})
+
+const aiAnalyticsRequestSchema = z
+  .object({
+    locale: z.string().optional(),
+    symbol: z.string().optional(),
+    timeframe: z.string().optional(),
+  })
+  .passthrough()
+
+type AiModelId = 'syntrix' | 'modelA' | 'modelB' | 'modelC' | 'modelD'
+type AiAnalyticsItem = {
+  modelId: AiModelId
+  displayName: string
+  signal: 'BUY' | 'SELL' | 'HOLD'
+  confidencePct: number
+  profitPct: number
+  message: string
+}
+
+const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
+  const base = new Date().getUTCDate()
+  const pick = <T,>(items: T[], offset: number) => items[(base + offset) % items.length]
+  const signals: Array<'BUY' | 'SELL' | 'HOLD'> = ['BUY', 'SELL', 'HOLD']
+  const profits = [3.2, 1.4, 0.6, -0.8, 2.1]
+
+  const models: Array<{ modelId: AiModelId; displayName: string; idx: number }> = [
+    { modelId: 'syntrix', displayName: 'Syntrix AI', idx: 0 },
+    { modelId: 'modelA', displayName: 'Model A', idx: 1 },
+    { modelId: 'modelB', displayName: 'Model B', idx: 2 },
+    { modelId: 'modelC', displayName: 'Model C', idx: 3 },
+    { modelId: 'modelD', displayName: 'Model D', idx: 4 },
+  ]
+
+  return models.map((m) => {
+    const signal = pick(signals, m.idx)
+    const confidencePct = 55 + ((base * 7 + m.idx * 11) % 40)
+    const profitPct = Number((profits[m.idx] + ((base + m.idx) % 5) * 0.2).toFixed(2))
+
+    return {
+      modelId: m.modelId,
+      displayName: m.displayName,
+      signal,
+      confidencePct,
+      profitPct,
+      message:
+        'Imitation only. Not financial advice.\n' +
+        `Hypothetical setup: ${signal} with ${confidencePct}% confidence. ` +
+        `Illustrative P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`,
+    }
+  })
+}
+
+app.post('/api/user/:telegramId/ai-analytics', requireUserAuth, aiAnalyticsLimiter, async (req, res) => {
+  const parsed = aiAnalyticsRequestSchema.safeParse(req.body ?? {})
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request' })
+  }
+
+  const locale = (parsed.data.locale || 'en').toString().slice(0, 8)
+  const symbol = (parsed.data.symbol || 'BTC/USDT').toString().slice(0, 20)
+  const timeframe = (parsed.data.timeframe || '1h').toString().slice(0, 10)
+
+  const openAiKey = process.env.OPENAI_API_KEY
+  const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+
+  if (!openAiKey) {
+    return res.json({
+      generatedAt: new Date().toISOString(),
+      simulated: true,
+      items: buildFallbackAiAnalytics(),
+    })
+  }
+
+  try {
+    const system =
+      'You generate SIMULATED trading analytics for a demo UI. ' +
+      'Never imply real trading execution or guaranteed returns. ' +
+      'Always include a clear disclaimer that it is a simulation and not financial advice. ' +
+      'Return STRICT JSON only. No markdown.'
+
+    const user = {
+      locale,
+      symbol,
+      timeframe,
+      models: [
+        { modelId: 'syntrix', displayName: 'Syntrix AI' },
+        { modelId: 'modelA', displayName: 'Model A' },
+        { modelId: 'modelB', displayName: 'Model B' },
+        { modelId: 'modelC', displayName: 'Model C' },
+        { modelId: 'modelD', displayName: 'Model D' },
+      ],
+      outputShape: {
+        items: [
+          {
+            modelId: 'syntrix | modelA | modelB | modelC | modelD',
+            displayName: 'string',
+            signal: 'BUY | SELL | HOLD',
+            confidencePct: 0,
+            profitPct: 0,
+            message: 'string',
+          },
+        ],
+      },
+      constraints: [
+        'message must be 2-4 short sentences',
+        'confidencePct must be integer 40..95',
+        'profitPct must be number -10..+15 (illustrative)',
+      ],
+    }
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: openAiModel,
+        temperature: 0.8,
+        max_tokens: 700,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: JSON.stringify(user) },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${openAiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 20_000,
+      }
+    )
+
+    const content = response.data?.choices?.[0]?.message?.content
+    if (typeof content !== 'string' || !content.trim()) {
+      throw new Error('OpenAI returned empty response')
+    }
+
+    const parsedJson = JSON.parse(content)
+    const items = Array.isArray(parsedJson?.items) ? (parsedJson.items as AiAnalyticsItem[]) : null
+
+    if (!items || !items.length) {
+      throw new Error('OpenAI response JSON missing items')
+    }
+
+    // Minimal sanitization
+    const sanitized: AiAnalyticsItem[] = items
+      .filter((it) => it && typeof it === 'object')
+      .slice(0, 5)
+      .map((it) => {
+        const modelId = (it.modelId as AiModelId) || 'modelA'
+        const displayName = typeof it.displayName === 'string' ? it.displayName.slice(0, 40) : 'Model'
+        const signal = (it.signal as any) === 'BUY' || (it.signal as any) === 'SELL' || (it.signal as any) === 'HOLD' ? (it.signal as any) : 'HOLD'
+        const confidencePct = Math.max(0, Math.min(100, Math.round(Number(it.confidencePct) || 0)))
+        const profitPct = Number((Number(it.profitPct) || 0).toFixed(2))
+        const message = typeof it.message === 'string' ? it.message.slice(0, 700) : ''
+        return { modelId, displayName, signal, confidencePct, profitPct, message }
+      })
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      simulated: true,
+      items: sanitized,
+    })
+  } catch (error) {
+    console.error('AI analytics generation failed:', error)
+    res.json({
+      generatedAt: new Date().toISOString(),
+      simulated: true,
+      items: buildFallbackAiAnalytics(),
+    })
   }
 })
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft } from '@phosphor-icons/react'
+import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft, ChartLineUp } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -12,8 +12,9 @@ import { translations, type Language } from '@/lib/translations'
 import { type WhitepaperParagraph, type WhitepaperListItem } from '@/lib/whitepaperContent'
 import { AnimatedBackground } from '@/components/AnimatedBackground'
 import { useUserData } from '@/hooks/useUserData'
+import { AiAnalyticsTab } from '@/components/AiAnalyticsTab'
 
-type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'profile'
+type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'ai' | 'profile'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home')
@@ -802,6 +803,7 @@ function App() {
     { id: 'invite' as TabType, icon: UserPlus, label: t.invite },
     { id: 'home' as TabType, icon: House, label: t.home },
     { id: 'calculator' as TabType, icon: Calculator, label: t.calculator },
+    { id: 'ai' as TabType, icon: ChartLineUp, label: (t as any).ai ?? 'AI' },
     { id: 'profile' as TabType, icon: User, label: t.profile }
   ]
 
@@ -1690,6 +1692,21 @@ function App() {
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === 'ai' && (
+            <AiAnalyticsTab
+              telegramUserId={telegramUserId}
+              authToken={authToken}
+              getAuthHeaders={getAuthHeaders}
+              strings={{
+                title: (t as any).aiAnalyticsTitle ?? 'AI Analytics',
+                simulated: (t as any).simulated ?? 'IMITATION',
+                update: (t as any).update ?? 'Update',
+                loading: (t as any).loading ?? 'Loading…',
+                error: (t as any).errorGeneric ?? 'Unable to load',
+              }}
+            />
           )}
           
           {activeTab === 'wallet' && (
