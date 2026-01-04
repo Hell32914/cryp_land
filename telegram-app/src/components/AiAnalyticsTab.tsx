@@ -81,10 +81,10 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   const modelToLabel = useMemo(() => {
     const map: Record<AiModelId, string> = {
       syntrix: 'Syntrix AI',
-      modelA: 'Model A',
-      modelB: 'Model B',
-      modelC: 'Model C',
-      modelD: 'Model D',
+      modelA: 'DEEPSEEK CHAT V3.1',
+      modelB: 'CLAUDE SONNET 4.5',
+      modelC: 'QWEN3 MAX',
+      modelD: 'GEMINI 2.5 PRO',
     }
     return map
   }, [])

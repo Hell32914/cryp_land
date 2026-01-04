@@ -426,10 +426,10 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
 
   const models: Array<{ modelId: AiModelId; displayName: string; idx: number }> = [
     { modelId: 'syntrix', displayName: 'Syntrix AI', idx: 0 },
-    { modelId: 'modelA', displayName: 'Model A', idx: 1 },
-    { modelId: 'modelB', displayName: 'Model B', idx: 2 },
-    { modelId: 'modelC', displayName: 'Model C', idx: 3 },
-    { modelId: 'modelD', displayName: 'Model D', idx: 4 },
+    { modelId: 'modelA', displayName: 'DEEPSEEK CHAT V3.1', idx: 1 },
+    { modelId: 'modelB', displayName: 'CLAUDE SONNET 4.5', idx: 2 },
+    { modelId: 'modelC', displayName: 'QWEN3 MAX', idx: 3 },
+    { modelId: 'modelD', displayName: 'GEMINI 2.5 PRO', idx: 4 },
   ]
 
   return models.map((m) => {
@@ -504,10 +504,10 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
       requestedModelId: requestedModelId || null,
       models: [
         { modelId: 'syntrix', displayName: 'Syntrix AI' },
-        { modelId: 'modelA', displayName: 'Model A' },
-        { modelId: 'modelB', displayName: 'Model B' },
-        { modelId: 'modelC', displayName: 'Model C' },
-        { modelId: 'modelD', displayName: 'Model D' },
+        { modelId: 'modelA', displayName: 'DEEPSEEK CHAT V3.1' },
+        { modelId: 'modelB', displayName: 'CLAUDE SONNET 4.5' },
+        { modelId: 'modelC', displayName: 'QWEN3 MAX' },
+        { modelId: 'modelD', displayName: 'GEMINI 2.5 PRO' },
       ],
       outputShape: {
         items: [
