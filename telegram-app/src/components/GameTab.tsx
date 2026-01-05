@@ -142,15 +142,27 @@ export function GameTab(props: {
   }
 
   const handleConfirmBuy = async () => {
-    if (!pendingBox || !telegramUserId) return
+    if (!pendingBox) return
+
+    if (!telegramUserId) {
+      toast.error((t as any).errorAuth ?? 'Not authenticated')
+      return
+    }
+
+    const authHeaders = getAuthHeaders()
+    if (!authHeaders?.Authorization) {
+      toast.error((t as any).errorAuth ?? 'Not authenticated')
+      return
+    }
 
     setBuying(true)
+    const toastId = toast.loading((t as any).loading ?? 'Loading…')
     try {
-      const API_URL = 'https://api.syntrix.website'
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/buy-box`, {
         method: 'POST',
         headers: {
-          ...getAuthHeaders(),
+          ...authHeaders,
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
@@ -158,12 +170,28 @@ export function GameTab(props: {
       })
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        toast.error(err?.error || (t as any).errorGeneric || 'Failed')
+        const contentType = response.headers.get('content-type') || ''
+        const err = contentType.includes('application/json')
+          ? await response.json().catch(() => ({}))
+          : await response.text().catch(() => '')
+
+        const message =
+          (typeof err === 'object' && err && 'error' in err && (err as any).error) ||
+          (typeof err === 'string' && err.trim() ? err.trim() : null) ||
+          (t as any).errorGeneric ||
+          'Failed'
+
+        toast.error(`${message} (${response.status})`)
         return
       }
 
       const data = (await response.json()) as BuyBoxResponse
+
+      if (!data?.success || !Array.isArray(data.outcomes) || typeof data.prizeIndex !== 'number') {
+        toast.error((t as any).errorGeneric ?? 'Failed')
+        return
+      }
+
       setConfirmOpen(false)
       setPendingBox(null)
       setRoulette(data)
@@ -177,6 +205,7 @@ export function GameTab(props: {
       console.error('Buy box error:', e)
       toast.error((t as any).errorNetwork ?? 'Network error')
     } finally {
+      toast.dismiss(toastId)
       setBuying(false)
     }
   }
