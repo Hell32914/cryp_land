@@ -836,8 +836,8 @@ function App() {
     return names[lang]
   }
 
-  // Show loading state
-  if (loading) {
+  // Show loading state (initial load only). Avoid unmounting the whole UI on background refreshes.
+  if (loading && !userData) {
     return (
       <>
         <AnimatedBackground />

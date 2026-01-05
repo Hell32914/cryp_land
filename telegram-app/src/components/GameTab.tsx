@@ -127,6 +127,7 @@ export function GameTab(props: {
       if (done) {
         setSpinning(false)
         setSpinDone(true)
+        setRouletteTokenBalance(data.newBonusTokens)
         toast.success(
           `${(t as any).gameYouWon ?? 'You won'} ${formatAmount(data.prize)} ${(t as any).gameTokenLabel ?? 'tokens'}`
         )
@@ -195,12 +196,15 @@ export function GameTab(props: {
       setConfirmOpen(false)
       setPendingBox(null)
       setRoulette(data)
-      setRouletteTokenBalance(data.newBonusTokens)
+      // Show balance after purchase (cost deducted) but before prize reveal.
+      // The backend may have already computed/credited the prize; we delay reflecting it in UI until Spin completes.
+      setRouletteTokenBalance(Math.max(0, bonusTokens - pendingBox.cost))
       setIdleIndex(Math.floor(Math.random() * data.outcomes.length))
       setSpinSequence([])
       setSpinPos(0)
       setSpinDone(false)
-      await refreshData()
+      // Do not refresh global data here; it can trigger a full-screen loading state and reset the roulette view.
+      // We'll refresh after the spin completes.
     } catch (e) {
       console.error('Buy box error:', e)
       toast.error((t as any).errorNetwork ?? 'Network error')
