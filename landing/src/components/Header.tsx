@@ -6,12 +6,26 @@ import { LanguageSelector } from "@/components/LanguageSelector"
 import { useLanguage } from "@/lib/LanguageContext"
 import { WhitepaperDialog } from "@/components/WhitepaperDialog"
 
+function getTelegramChannelTrackingUrl() {
+  if (typeof window === 'undefined') return 'https://t.me/SyntrixAI'
+
+  const host = window.location.hostname.toLowerCase()
+  const map: Record<string, string> = {
+    'info.syntrix.website': 'https://t.me/+y7c56UGxsDc5YTg6',
+    'ss.syntrix.website': 'https://t.me/+RYREOO02rGVhODgy',
+    'road.syntrix.website': 'https://t.me/+pTfwJYpELktkOWZi',
+    'invest.syntrix.website': 'https://t.me/+GteJd3Lac8lkZTZi',
+  }
+
+  return map[host] || 'https://t.me/SyntrixAI'
+}
+
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { t } = useLanguage()
 
   const navItems = [
-    { label: t.header.telegramChannel, href: "https://t.me/SyntrixAI", external: true }
+    { label: t.header.telegramChannel, href: getTelegramChannelTrackingUrl(), external: true }
   ]
 
   return (

@@ -485,20 +485,11 @@ function kyivSecondsSinceMidnight(date: Date) {
 }
 
 function kyivSlotIndex(date: Date) {
-  // Schedule (Kyiv time):
-  // 00:00-08:00 -> 4 generations
-  // 08:00-00:00 -> 44 generations
+  // Schedule (Kyiv time): 2 refreshes per hour.
+  // 24h * 2 = 48 slots per day, each slot is 30 minutes.
   const secs = kyivSecondsSinceMidnight(date)
-  const nightEnd = 8 * 3600
-  if (secs < nightEnd) {
-    const slot = Math.min(3, Math.floor((secs / nightEnd) * 4))
-    return slot
-  }
-
-  const daySecs = 16 * 3600
-  const t = secs - nightEnd
-  const slot = Math.min(43, Math.floor((t / daySecs) * 44))
-  return 4 + slot
+  const slot = Math.floor(secs / (30 * 60))
+  return Math.max(0, Math.min(47, slot))
 }
 
 function kyivPrevDayKey(date: Date) {
@@ -667,7 +658,8 @@ function computeDeterministicAiAnalyticsForSlot(opts: { modelId: AiModelId; date
   const threshold = Math.max(0.35, Math.max(1, Math.abs(profitPct)) * 0.006)
   const signal: 'BUY' | 'SELL' | 'HOLD' = delta > threshold ? 'BUY' : delta < -threshold ? 'SELL' : 'HOLD'
 
-  const includeInsight = (seed % 100) < 35
+  // Always include the explanatory paragraph so all models show a richer message.
+  const includeInsight = true
   void prevDate
   return { signal, confidencePct, profitPct, seed, includeInsight }
 }
@@ -684,7 +676,8 @@ function buildAiAnalyticsMessage(opts: {
   const { signal, confidencePct, profitPct } = opts
   const symbol = (opts.symbol || 'BTC/USDT').toString().slice(0, 20)
   const seed = Number.isFinite(opts.seed as number) ? (opts.seed as number) : 0
-  const includeInsight = Boolean(opts.includeInsight)
+  // Default to including the explanatory paragraph.
+  const includeInsight = opts.includeInsight !== false
 
   const base = `${signal}. Confidence: ${confidencePct}%. Estimated P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`
   if (!includeInsight) return base

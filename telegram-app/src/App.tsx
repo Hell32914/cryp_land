@@ -862,8 +862,9 @@ function App() {
     )
   }
 
-  // Show error state
-  if (error) {
+  // Show error state (only if initial load failed). During background refreshes,
+  // keep the last known UI instead of hard-failing the entire Mini App.
+  if (error && !userData) {
     return (
       <>
         <AnimatedBackground />

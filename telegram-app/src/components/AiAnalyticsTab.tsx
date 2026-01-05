@@ -114,17 +114,12 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   }
 
   const getDelayToNextKyivSlotMs = () => {
+    // 2 refreshes per hour -> every 30 minutes.
     const secs = getKyivSecondsSinceMidnight()
-    const nightEnd = 8 * 3600
-
-    // Build deterministic boundaries for today in seconds.
-    const boundaries: number[] = [0]
-    for (let i = 1; i <= 4; i++) boundaries.push(Math.round((nightEnd * i) / 4))
-    for (let i = 1; i <= 44; i++) boundaries.push(Math.round(nightEnd + ((16 * 3600) * i) / 44))
-    boundaries[boundaries.length - 1] = 24 * 3600
-
-    const next = boundaries.find((b) => b > secs) ?? 24 * 3600
-    const deltaSecs = Math.max(5, next - secs)
+    const slotSizeSecs = 30 * 60
+    const nextBoundary = (Math.floor(secs / slotSizeSecs) + 1) * slotSizeSecs
+    const wrapped = nextBoundary >= 24 * 3600 ? 24 * 3600 : nextBoundary
+    const deltaSecs = Math.max(5, wrapped - secs)
     return deltaSecs * 1000
   }
 
@@ -157,6 +152,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     try {
       const res = await fetch(`${API_URL}/api/user/${telegramUserId}/ai-analytics`, {
         method: 'POST',
+        cache: 'no-store',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           locale: window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || 'en',
@@ -412,15 +408,6 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
               </ScrollArea>
             </DialogContent>
           </Dialog>
-
-          <Button
-            variant="ghost"
-            className="text-foreground hover:text-accent"
-            onClick={fetchAllNow}
-            disabled={loading}
-          >
-            {strings.update}
-          </Button>
         </div>
       </div>
 
