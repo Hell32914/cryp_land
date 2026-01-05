@@ -47,10 +47,14 @@ function Button({
   }) {
   const Comp = asChild ? Slot : "button"
 
+  // Avoid accidental form submissions. Consumers can still pass type="submit" when needed.
+  const buttonType = !asChild && props.type === undefined ? "button" : props.type
+
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      {...(!asChild ? { type: buttonType } : {})}
       {...props}
     />
   )

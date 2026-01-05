@@ -149,7 +149,11 @@ export function GameTab(props: {
       const API_URL = 'https://api.syntrix.website'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/buy-box`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify({ boxId: pendingBox.id }),
       })
 
