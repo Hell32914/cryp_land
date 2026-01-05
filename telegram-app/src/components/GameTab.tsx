@@ -1,0 +1,372 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Coins, Gift } from '@phosphor-icons/react'
+import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
+type GameBoxId = 'genesis' | 'matrix' | 'quantum' | 'vault' | 'liquidity' | 'whale'
+
+type GameBox = {
+  id: GameBoxId
+  name: string
+  cost: number
+  maxPrize: number
+}
+
+type BuyBoxResponse = {
+  success: true
+  boxId: GameBoxId
+  cost: number
+  maxPrize: number
+  outcomes: number[]
+  prizeIndex: number
+  prize: number
+  newBonusTokens: number
+}
+
+function formatAmount(n: number): string {
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
+export function GameTab(props: {
+  t: any
+  telegramUserId: string | undefined
+  getAuthHeaders: () => Record<string, string>
+  bonusTokens: number
+  refreshData: () => Promise<void>
+}) {
+  const { t, telegramUserId, getAuthHeaders, bonusTokens, refreshData } = props
+
+  const boxes: GameBox[] = useMemo(
+    () => [
+      { id: 'genesis', name: (t as any).gameBoxGenesis ?? 'Genesis Pack', cost: 150, maxPrize: 250 },
+      { id: 'matrix', name: (t as any).gameBoxMatrix ?? 'Matrix Crate', cost: 525, maxPrize: 700 },
+      { id: 'quantum', name: (t as any).gameBoxQuantum ?? 'Quantum Capsule', cost: 1500, maxPrize: 2000 },
+      { id: 'vault', name: (t as any).gameBoxVault ?? 'Secure Vault', cost: 3750, maxPrize: 5000 },
+      { id: 'liquidity', name: (t as any).gameBoxLiquidity ?? 'Liquidity Locker', cost: 7500, maxPrize: 10000 },
+      { id: 'whale', name: (t as any).gameBoxWhale ?? 'Whale Chest', cost: 18750, maxPrize: 25000 },
+    ],
+    [t]
+  )
+
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingBox, setPendingBox] = useState<GameBox | null>(null)
+  const [buying, setBuying] = useState(false)
+
+  const [roulette, setRoulette] = useState<BuyBoxResponse | null>(null)
+  const [rouletteTokenBalance, setRouletteTokenBalance] = useState<number | null>(null)
+  const [spinning, setSpinning] = useState(false)
+  const [spinSequence, setSpinSequence] = useState<number[]>([])
+  const [spinPos, setSpinPos] = useState(0)
+  const [spinDone, setSpinDone] = useState(false)
+  const [idleIndex, setIdleIndex] = useState(0)
+  const spinTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (spinTimer.current) {
+        window.clearTimeout(spinTimer.current)
+        spinTimer.current = null
+      }
+    }
+  }, [])
+
+  const canAfford = (box: GameBox) => bonusTokens >= box.cost
+
+  const openConfirm = (box: GameBox) => {
+    if (!canAfford(box)) {
+      toast.error((t as any).gameInsufficientTokens ?? 'Insufficient tokens')
+      return
+    }
+    setPendingBox(box)
+    setConfirmOpen(true)
+  }
+
+  const goBackToGrid = async () => {
+    if (spinning) return
+    setRoulette(null)
+    setRouletteTokenBalance(null)
+    setSpinSequence([])
+    setSpinPos(0)
+    setSpinDone(false)
+    await refreshData()
+  }
+
+  const startSpin = async (data: BuyBoxResponse) => {
+    setSpinning(true)
+    setSpinDone(false)
+
+    // Build a spin sequence that ends on the prizeIndex.
+    const seq: number[] = []
+    for (let i = 0; i < 46; i++) {
+      seq.push(Math.floor(Math.random() * data.outcomes.length))
+    }
+    seq.push(data.prizeIndex)
+
+    setSpinSequence(seq)
+    setSpinPos(0)
+
+    let step = 0
+    let delay = 35
+
+    const tick = () => {
+      step += 1
+      setSpinPos(step)
+
+      const done = step >= seq.length - 1
+      if (done) {
+        setSpinning(false)
+        setSpinDone(true)
+        toast.success(
+          `${(t as any).gameYouWon ?? 'You won'} ${formatAmount(data.prize)} ${(t as any).gameTokenLabel ?? 'tokens'}`
+        )
+        refreshData()
+        return
+      }
+
+      delay = Math.min(220, delay * 1.08)
+      spinTimer.current = window.setTimeout(tick, delay)
+    }
+
+    spinTimer.current = window.setTimeout(tick, delay)
+  }
+
+  const handleConfirmBuy = async () => {
+    if (!pendingBox || !telegramUserId) return
+
+    setBuying(true)
+    try {
+      const API_URL = 'https://api.syntrix.website'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/buy-box`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ boxId: pendingBox.id }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        toast.error(err?.error || (t as any).errorGeneric || 'Failed')
+        return
+      }
+
+      const data = (await response.json()) as BuyBoxResponse
+      setConfirmOpen(false)
+      setPendingBox(null)
+      setRoulette(data)
+      setRouletteTokenBalance(data.newBonusTokens)
+      setIdleIndex(Math.floor(Math.random() * data.outcomes.length))
+      setSpinSequence([])
+      setSpinPos(0)
+      setSpinDone(false)
+      await refreshData()
+    } catch (e) {
+      console.error('Buy box error:', e)
+      toast.error((t as any).errorNetwork ?? 'Network error')
+    } finally {
+      setBuying(false)
+    }
+  }
+
+  if (roulette) {
+    const isIdle = !spinning && !spinDone && spinSequence.length === 0
+    const currentIndex = isIdle
+      ? idleIndex
+      : (spinSequence[Math.min(spinPos, Math.max(0, spinSequence.length - 1))] ?? roulette.prizeIndex)
+    const prevIndex = isIdle
+      ? (currentIndex - 1 + roulette.outcomes.length) % roulette.outcomes.length
+      : (spinSequence[Math.max(0, Math.min(spinPos - 1, spinSequence.length - 1))] ?? currentIndex)
+    const nextIndex = isIdle
+      ? (currentIndex + 1) % roulette.outcomes.length
+      : (spinSequence[Math.max(0, Math.min(spinPos + 1, spinSequence.length - 1))] ?? currentIndex)
+
+    const prev = roulette.outcomes[prevIndex] ?? 0
+    const current = roulette.outcomes[currentIndex] ?? 0
+    const next = roulette.outcomes[nextIndex] ?? 0
+
+    return (
+      <div className="space-y-5 pb-4">
+        <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 border border-border/50 shadow-lg">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              className="px-2"
+              onClick={goBackToGrid}
+              disabled={spinning}
+              aria-label={(t as any).back ?? 'Back'}
+            >
+              <ArrowLeft size={20} weight="bold" />
+            </Button>
+            <h2 className="text-base sm:text-lg font-bold text-foreground">
+              {(t as any).gameRouletteTitle ?? 'Roulette'}
+            </h2>
+            <div className="w-10" />
+          </div>
+        </div>
+
+        <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 border border-border/50 shadow-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {(t as any).gameTokenBalance ?? 'Token balance'}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold text-primary">{formatAmount(rouletteTokenBalance ?? bonusTokens)}</span>
+              <Coins size={18} weight="fill" className="text-accent" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border/50 bg-background/50 p-4 text-center">
+              <p className="text-sm text-muted-foreground">{formatAmount(prev)}</p>
+            </div>
+
+            <div className="rounded-xl border-2 border-primary/40 bg-card/60 p-6 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <Gift size={22} weight="duotone" className="text-primary" />
+                <p className="text-3xl font-extrabold text-foreground">{formatAmount(current)}</p>
+                <Coins size={18} weight="fill" className="text-accent" />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {spinning
+                  ? ((t as any).gameSpinning ?? 'Spinning…')
+                  : spinDone
+                    ? ((t as any).gameSpinDone ?? 'Result ready')
+                    : ''}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/50 bg-background/50 p-4 text-center">
+              <p className="text-sm text-muted-foreground">{formatAmount(next)}</p>
+            </div>
+          </div>
+
+          {!spinning && !spinDone && (
+            <div className="pt-2">
+              <Button
+                className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6"
+                onClick={() => startSpin(roulette)}
+              >
+                {(t as any).gameSpinButton ?? 'Spin'}
+              </Button>
+            </div>
+          )}
+
+          {spinDone && (
+            <div className="pt-2">
+              <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6" onClick={goBackToGrid}>
+                {(t as any).gameBackToBoxes ?? 'Back to boxes'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 pb-4">
+      <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 space-y-3 border border-border/50 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+              <Gift size={22} weight="duotone" className="text-primary sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-foreground">{(t as any).syntrixGameTitle ?? 'Syntrix Game'}</h2>
+              <p className="text-xs text-muted-foreground">{(t as any).gameSubtitle ?? 'Buy a box and spin the roulette'}</p>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">{(t as any).gameTokenBalance ?? 'Token balance'}</p>
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-lg font-bold text-primary">{formatAmount(bonusTokens)}</span>
+              <Coins size={18} weight="fill" className="text-accent" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {boxes.map((box) => {
+          const affordable = canAfford(box)
+          return (
+            <button
+              key={box.id}
+              type="button"
+              className={`relative overflow-hidden rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-4 aspect-[4/5] flex flex-col text-left transition-opacity ${
+                affordable ? 'hover:bg-card/70' : 'opacity-50 cursor-not-allowed'
+              }`}
+              onClick={() => affordable && openConfirm(box)}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="outline" className="border-border/50 bg-background/50 text-muted-foreground">
+                  {(t as any).upTo ?? 'Up to'} {box.maxPrize}
+                </Badge>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Gift size={18} weight="fill" className="text-primary" />
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Gift size={44} weight="duotone" className="text-primary" />
+                </div>
+                <p className="text-sm font-bold text-foreground text-center leading-tight">{box.name}</p>
+              </div>
+
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-lg font-bold text-foreground">{box.cost.toLocaleString('en-US')}</span>
+                <Coins size={18} weight="fill" className="text-accent" />
+              </div>
+
+              {!affordable && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  {(t as any).gameNotEnough ?? 'Not enough tokens'}
+                </p>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => !buying && setConfirmOpen(open)}>
+        <AlertDialogContent className="bg-card border-border/50 rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              {(t as any).gameConfirmTitle ?? 'Confirm purchase'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {pendingBox
+                ? `${(t as any).gameConfirmText ?? 'Do you want to buy'} “${pendingBox.name}” ${
+                    (t as any).gameFor ?? 'for'
+                  } ${pendingBox.cost} ${(t as any).gameTokenLabel ?? 'tokens'}?`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={buying}>{(t as any).cancel ?? 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={buying}
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmBuy()
+              }}
+            >
+              {buying ? ((t as any).loading ?? 'Loading…') : ((t as any).buy ?? 'Buy')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}

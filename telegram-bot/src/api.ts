@@ -1992,6 +1992,123 @@ app.post('/api/user/:telegramId/referral-reinvest', requireUserAuth, async (req,
   }
 })
 
+const gameBuyBoxSchema = z.object({
+  boxId: z.enum(['genesis', 'matrix', 'quantum', 'vault', 'liquidity', 'whale'])
+})
+
+type GameBoxId = z.infer<typeof gameBuyBoxSchema>['boxId']
+
+type GameBoxConfig = {
+  id: GameBoxId
+  cost: number
+  maxPrize: number
+}
+
+const GAME_BOXES: Record<GameBoxId, GameBoxConfig> = {
+  genesis: { id: 'genesis', cost: 150, maxPrize: 250 },
+  matrix: { id: 'matrix', cost: 525, maxPrize: 700 },
+  quantum: { id: 'quantum', cost: 1500, maxPrize: 2000 },
+  vault: { id: 'vault', cost: 3750, maxPrize: 5000 },
+  liquidity: { id: 'liquidity', cost: 7500, maxPrize: 10000 },
+  whale: { id: 'whale', cost: 18750, maxPrize: 25000 }
+}
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100
+}
+
+function buildGameOutcomes(cost: number, maxPrize: number): number[] {
+  // 60 distinct prize options. Most outcomes are below cost so users lose more often than win.
+  const values = new Set<number>()
+
+  const push = (v: number) => {
+    let x = Math.max(0, round2(v))
+    while (values.has(x)) x = round2(x + 0.01)
+    values.add(x)
+  }
+
+  // 45 loss-leaning values: 0 .. 0.9 * cost
+  for (let i = 0; i < 45; i++) {
+    const t = i / 44
+    push(t * (cost * 0.9))
+  }
+
+  // 10 near break-even values: 0.9 * cost .. 1.05 * cost
+  for (let i = 0; i < 10; i++) {
+    const t = (i + 1) / 10
+    push(cost * 0.9 + t * (cost * 0.15))
+  }
+
+  // 4 higher wins
+  push(maxPrize * 0.35)
+  push(maxPrize * 0.5)
+  push(maxPrize * 0.7)
+  push(maxPrize * 0.9)
+
+  // 1 jackpot
+  push(maxPrize)
+
+  return Array.from(values)
+    .slice(0, 60)
+    .sort((a, b) => a - b)
+}
+
+// Buy a game box using bonusTokens (virtual credits)
+app.post('/api/user/:telegramId/game/buy-box', requireUserAuth, async (req, res) => {
+  try {
+    // SECURITY: Use verified telegramId from JWT, not from URL params
+    const telegramId = (req as any).verifiedTelegramId
+
+    const parsed = gameBuyBoxSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid request' })
+    }
+
+    const box = GAME_BOXES[parsed.data.boxId]
+    const outcomes = buildGameOutcomes(box.cost, box.maxPrize)
+
+    // Pick outcome uniformly across 60 options
+    const prizeIndex = crypto.randomInt(0, outcomes.length)
+    const prize = outcomes[prizeIndex]
+    const delta = prize - box.cost
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const updated = await prisma.user.updateMany({
+      where: {
+        id: user.id,
+        bonusTokens: { gte: box.cost }
+      },
+      data: {
+        bonusTokens: { increment: delta }
+      }
+    })
+
+    if (updated.count === 0) {
+      return res.status(400).json({ error: 'Insufficient bonus tokens' })
+    }
+
+    const refreshed = await prisma.user.findUnique({ where: { id: user.id } })
+
+    res.json({
+      success: true,
+      boxId: box.id,
+      cost: box.cost,
+      maxPrize: box.maxPrize,
+      outcomes,
+      prizeIndex,
+      prize,
+      newBonusTokens: refreshed?.bonusTokens ?? 0
+    })
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // Create deposit invoice
 app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth, async (req, res) => {
   try {
