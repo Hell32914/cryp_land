@@ -119,24 +119,42 @@ export function GameTab(props: {
     setSpinning(true)
     setSpinDone(false)
 
-    // Build a spin sequence that ends on the prizeIndex.
-    const seq: number[] = []
-    for (let i = 0; i < 46; i++) {
-      seq.push(Math.floor(Math.random() * data.outcomes.length))
+    // Build a reel with buffer items above/below so it never ends abruptly.
+    const prefixCount = 8
+    const suffixCount = 10
+    const mainCount = 54
+
+    const prefix: number[] = []
+    const suffix: number[] = []
+    for (let i = 0; i < prefixCount; i++) {
+      prefix.push(Math.floor(Math.random() * data.outcomes.length))
     }
-    seq.push(data.prizeIndex)
+    for (let i = 0; i < suffixCount; i++) {
+      suffix.push(Math.floor(Math.random() * data.outcomes.length))
+    }
+
+    const main: number[] = []
+    for (let i = 0; i < mainCount; i++) {
+      main.push(Math.floor(Math.random() * data.outcomes.length))
+    }
+
+    // Prize should land at stopAt (not the end of the list) so items remain visible below.
+    const stopAt = prefix.length + main.length
+    const seq: number[] = [...prefix, ...main, data.prizeIndex, ...suffix]
 
     setSpinSequence(seq)
-    setSpinPos(0)
+    setSpinPos(prefix.length)
 
     const start = window.performance.now()
-    const durationMs = 4200
+    const durationMs = 5600
 
     const animate = (now: number) => {
       const tNorm = Math.min(1, Math.max(0, (now - start) / durationMs))
-      // Ease-out cubic
-      const eased = 1 - Math.pow(1 - tNorm, 3)
-      const pos = eased * (seq.length - 1)
+      // Ease-out quint (smoother slowdown)
+      const eased = 1 - Math.pow(1 - tNorm, 5)
+      const from = prefix.length
+      const to = stopAt
+      const pos = from + eased * (to - from)
       setSpinPos(pos)
 
       if (tNorm < 1) {
@@ -145,7 +163,7 @@ export function GameTab(props: {
       }
 
       spinRaf.current = null
-      setSpinPos(seq.length - 1)
+      setSpinPos(stopAt)
       setSpinning(false)
       setSpinDone(true)
       setRouletteTokenBalance(data.newBonusTokens)
@@ -236,7 +254,8 @@ export function GameTab(props: {
       ? Array.from({ length: Math.max(24, roulette.outcomes.length * 4) }, (_, i) => i % roulette.outcomes.length)
       : spinSequence
 
-    const reelPos = isIdle ? idleIndex : Math.min(Math.max(spinPos, 0), Math.max(0, reelIndices.length - 1))
+    const reelPosRaw = isIdle ? idleIndex : spinPos
+    const reelPos = Math.min(Math.max(reelPosRaw, 0), Math.max(0, reelIndices.length - 1))
     const reelTransformY = REEL_VIEW_HEIGHT / 2 - (reelPos * REEL_ITEM_HEIGHT + REEL_ITEM_HEIGHT / 2)
 
     return (
