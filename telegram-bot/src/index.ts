@@ -2470,7 +2470,7 @@ bot.on('message:text', async (ctx) => {
     }
   }
 
-  // Handle search user by @username (pending deposits)
+  // Handle search user by @username or Telegram ID (pending deposits)
   if (state.awaitingInput === 'search_pending_deposits_user') {
     if (!(await isSupport(userId))) {
       await ctx.reply('⛔️ Access denied')
@@ -2480,14 +2480,14 @@ bot.on('message:text', async (ctx) => {
     const raw = ctx.message?.text?.trim()
     if (!raw || raw.startsWith('/')) {
       handleInvalidInput(userId, state, attempts)
-      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
       return
     }
 
     const query = raw.replace(/^@+/, '').trim()
     if (!query) {
       handleInvalidInput(userId, state, attempts)
-      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
       return
     }
 
@@ -2545,7 +2545,7 @@ bot.on('message:text', async (ctx) => {
     }
   }
 
-  // Handle search user by @username (pending withdrawals)
+  // Handle search user by @username or Telegram ID (pending withdrawals)
   if (state.awaitingInput === 'search_pending_withdrawals_user') {
     if (!(await isSupport(userId))) {
       await ctx.reply('⛔️ Access denied')
@@ -2555,14 +2555,14 @@ bot.on('message:text', async (ctx) => {
     const raw = ctx.message?.text?.trim()
     if (!raw || raw.startsWith('/')) {
       handleInvalidInput(userId, state, attempts)
-      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
       return
     }
 
     const query = raw.replace(/^@+/, '').trim()
     if (!query) {
       handleInvalidInput(userId, state, attempts)
-      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
       return
     }
 
@@ -3059,7 +3059,7 @@ bot.callbackQuery(/^admin_pending_deposits(?:_(\d+))?$/, async (ctx) => {
   }
   if (page > 1 || page < totalPages) keyboard.row()
 
-  keyboard.text('🔎 Search (@)', 'admin_pending_deposits_search').row()
+  keyboard.text('🔎 Search (@/ID)', 'admin_pending_deposits_search').row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
@@ -3067,7 +3067,7 @@ bot.callbackQuery(/^admin_pending_deposits(?:_(\d+))?$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
-// Pending Deposits: search by @username
+// Pending Deposits: search by @username or Telegram ID
 bot.callbackQuery('admin_pending_deposits_search', async (ctx) => {
   const staffId = ctx.from?.id.toString()
   if (!staffId || !(await isSupport(staffId))) {
@@ -3086,8 +3086,10 @@ bot.callbackQuery('admin_pending_deposits_search', async (ctx) => {
   await safeEditMessage(
     ctx,
     '🔎 Search Pending Deposits\n\n' +
-      'Send the user tag to search:\n' +
-      '• `@username`\n\n' +
+      'Send a username or Telegram ID to search:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
       '⚠️ Send /cancel to abort',
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
@@ -3240,7 +3242,7 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   }
   if (page > 1 || page < totalPages) keyboard.row()
 
-  keyboard.text('🔎 Search (@)', 'admin_pending_withdrawals_search').row()
+  keyboard.text('🔎 Search (@/ID)', 'admin_pending_withdrawals_search').row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
@@ -3248,7 +3250,7 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
   await safeAnswerCallback(ctx)
 })
 
-// Pending Withdrawals: search by @username
+// Pending Withdrawals: search by @username or Telegram ID
 bot.callbackQuery('admin_pending_withdrawals_search', async (ctx) => {
   const staffId = ctx.from?.id.toString()
   if (!staffId || !(await isSupport(staffId))) {
@@ -3267,8 +3269,10 @@ bot.callbackQuery('admin_pending_withdrawals_search', async (ctx) => {
   await safeEditMessage(
     ctx,
     '🔎 Search Pending Withdrawals\n\n' +
-      'Send the user tag to search:\n' +
-      '• `@username`\n\n' +
+      'Send a username or Telegram ID to search:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
       '⚠️ Send /cancel to abort',
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
