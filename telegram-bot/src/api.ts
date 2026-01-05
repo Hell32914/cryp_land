@@ -410,67 +410,163 @@ type AiAnalyticsItem = {
   message: string
 }
 
-const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
-  const base = new Date().getUTCDate()
-  const pick = <T,>(items: T[], offset: number) => items[(base + offset) % items.length]
-  const signals: Array<'BUY' | 'SELL' | 'HOLD'> = ['BUY', 'SELL', 'HOLD']
-  // Profit ranges are illustrative and biased for demo purposes:
-  // Syntrix is typically higher; others are typically lower (with occasional overlap).
-  const profitRanges: Record<AiModelId, { min: number; max: number; overlapChancePct: number }> = {
-    syntrix: { min: 6, max: 18, overlapChancePct: 0 },
-    modelA: { min: -2, max: 5, overlapChancePct: 8 },
-    modelB: { min: -3, max: 4, overlapChancePct: 6 },
-    modelC: { min: -4, max: 4, overlapChancePct: 5 },
-    modelD: { min: -2, max: 6, overlapChancePct: 10 },
-  }
+const buildFallbackAiAnalytics = (opts?: { date?: Date; symbol?: string }): AiAnalyticsItem[] => {
+  const date = opts?.date ?? new Date()
+  const symbol = (opts?.symbol || 'BTC/USDT').toString().slice(0, 20)
 
-  const models: Array<{ modelId: AiModelId; displayName: string; idx: number }> = [
-    { modelId: 'syntrix', displayName: 'Syntrix AI', idx: 0 },
-    { modelId: 'modelA', displayName: 'DEEPSEEK CHAT V3.1', idx: 1 },
-    { modelId: 'modelB', displayName: 'CLAUDE SONNET 4.5', idx: 2 },
-    { modelId: 'modelC', displayName: 'QWEN3 MAX', idx: 3 },
-    { modelId: 'modelD', displayName: 'GEMINI 2.5 PRO', idx: 4 },
+  const models: Array<{ modelId: AiModelId; displayName: string }> = [
+    { modelId: 'syntrix', displayName: 'Syntrix AI' },
+    { modelId: 'modelA', displayName: 'DEEPSEEK CHAT V3.1' },
+    { modelId: 'modelB', displayName: 'CLAUDE SONNET 4.5' },
+    { modelId: 'modelC', displayName: 'QWEN3 MAX' },
+    { modelId: 'modelD', displayName: 'GEMINI 2.5 PRO' },
   ]
 
   return models.map((m) => {
-    const signal = pick(signals, m.idx)
-    const confidencePct = 55 + ((base * 7 + m.idx * 11) % 40)
-
-    const r = profitRanges[m.modelId]
-    // deterministic-ish pseudo-random using date + model index
-    const seed = (base * 97 + m.idx * 193) % 10_000
-    const u = (seed % 1000) / 1000
-    let profit = r.min + (r.max - r.min) * u
-
-    // Rare overlap: let some non-syntrix models occasionally approach higher values
-    if (m.modelId !== 'syntrix') {
-      const overlapRoll = (seed % 100)
-      if (overlapRoll < r.overlapChancePct) {
-        profit = Math.min(r.max + 3, profit + 4)
-      }
-    }
-
-    const profitPct = Number(profit.toFixed(2))
-
-    const includeInsight = (seed % 100) < 35
-    const message = buildAiAnalyticsMessage({
-      signal,
-      confidencePct,
-      profitPct,
+    const { signal, confidencePct, profitPct, seed, includeInsight } = computeDeterministicAiAnalyticsForDay({
       modelId: m.modelId,
-      symbol: 'BTC/USDT',
-      seed,
-      includeInsight,
+      date,
+      symbol,
     })
+
     return {
       modelId: m.modelId,
       displayName: m.displayName,
       signal,
       confidencePct,
       profitPct,
-      message,
+      message: buildAiAnalyticsMessage({
+        signal,
+        confidencePct,
+        profitPct,
+        modelId: m.modelId,
+        symbol,
+        seed,
+        includeInsight,
+      }),
     }
   })
+}
+
+function utcDateKey(date: Date) {
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function daysInUtcMonth(date: Date) {
+  const y = date.getUTCFullYear()
+  const m = date.getUTCMonth()
+  return new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+}
+
+function hashToUint32(input: string) {
+  // Simple FNV-1a 32-bit
+  let h = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed: number) {
+  let t = seed >>> 0
+  return () => {
+    t += 0x6d2b79f5
+    let x = Math.imul(t ^ (t >>> 15), 1 | t)
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x)
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function monthlyTargetEnd(modelId: AiModelId) {
+  // User request: by end of month, Syntrix can reach ~500%.
+  // Other models are lower so chart remains readable.
+  switch (modelId) {
+    case 'syntrix':
+      return 500
+    case 'modelA':
+      return 140
+    case 'modelB':
+      return 120
+    case 'modelC':
+      return 95
+    case 'modelD':
+      return 110
+  }
+}
+
+function monthlyStart(modelId: AiModelId) {
+  // Day 1 ~1% for Syntrix; others start smaller.
+  switch (modelId) {
+    case 'syntrix':
+      return 1
+    default:
+      return 0.6
+  }
+}
+
+function computeMonthlyProfitPct(opts: { modelId: AiModelId; date: Date; symbol: string }) {
+  const { modelId, date, symbol } = opts
+  const day = date.getUTCDate()
+  const dim = daysInUtcMonth(date)
+  const p = dim <= 1 ? 1 : (day - 1) / (dim - 1)
+
+  const start = monthlyStart(modelId)
+  const end = monthlyTargetEnd(modelId)
+  const curve = start + (end - start) * Math.pow(p, 2.2)
+
+  const seed = hashToUint32(`${utcDateKey(date)}:${modelId}:${symbol}`)
+  const rand = mulberry32(seed)
+
+  // Oscillations + small deterministic jitter to create down-days while trending upward.
+  const amp = (end - start) * (0.035 + 0.045 * p)
+  const phaseA = (seed % 1000) / 1000
+  const phaseB = ((seed >>> 8) % 1000) / 1000
+  const osc =
+    Math.sin((day + phaseA) * (Math.PI * 2) / 5) * 0.75 +
+    Math.sin((day + phaseB) * (Math.PI * 2) / 11) * 0.45
+  const jitter = (rand() - 0.5) * 0.35
+  const noise = amp * (osc / 1.3 + jitter)
+
+  let profit = curve + noise
+  if (modelId === 'syntrix') {
+    profit = Math.max(0, profit)
+  } else {
+    profit = Math.max(-25, profit)
+  }
+
+  return Number(profit.toFixed(2))
+}
+
+function computeDeterministicAiAnalyticsForDay(opts: { modelId: AiModelId; date: Date; symbol: string }) {
+  const { modelId, date, symbol } = opts
+  const seed = hashToUint32(`${utcDateKey(date)}:${modelId}:${symbol}:v2`)
+  const rand = mulberry32(seed)
+
+  const profitPct = computeMonthlyProfitPct({ modelId, date, symbol })
+
+  // Confidence stays stable within the day.
+  const dim = daysInUtcMonth(date)
+  const p = dim <= 1 ? 1 : (date.getUTCDate() - 1) / (dim - 1)
+  const confidenceBase = 58 + 22 * p
+  const confidenceNoise = (rand() - 0.5) * 12 + Math.sin((date.getUTCDate() + (seed % 7)) * 0.9) * 4
+  const confidencePct = Math.max(40, Math.min(95, Math.round(confidenceBase + confidenceNoise)))
+
+  // Signal derived from day-to-day change so some days are SELL/HOLD.
+  const yesterday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 1))
+  const prevProfit = yesterday.getUTCMonth() === date.getUTCMonth()
+    ? computeMonthlyProfitPct({ modelId, date: yesterday, symbol })
+    : profitPct
+
+  const delta = profitPct - prevProfit
+  const threshold = Math.max(0.35, Math.abs(profitPct) * 0.006)
+  const signal: 'BUY' | 'SELL' | 'HOLD' = delta > threshold ? 'BUY' : delta < -threshold ? 'SELL' : 'HOLD'
+
+  const includeInsight = (seed % 100) < 35
+  return { signal, confidencePct, profitPct, seed, includeInsight }
 }
 
 function buildAiAnalyticsMessage(opts: {
@@ -521,6 +617,15 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
   const symbol = (parsed.data.symbol || 'BTC/USDT').toString().slice(0, 20)
   const timeframe = (parsed.data.timeframe || '1h').toString().slice(0, 10)
   const requestedModelId = parsed.data.modelId
+
+  // Make AI analytics stable across manual updates: numbers only change by day.
+  // Also ensure month-long growth trajectory with natural pullbacks.
+  const allDeterministic = buildFallbackAiAnalytics({ date: new Date(), symbol })
+  return res.json({
+    generatedAt: new Date().toISOString(),
+    simulated: true,
+    items: requestedModelId ? allDeterministic.filter((i) => i.modelId === requestedModelId) : allDeterministic,
+  })
 
   const openAiKey = process.env.OPENAI_API_KEY
   const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini'
@@ -604,17 +709,14 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
     }
 
     const parsedJson = JSON.parse(content)
-    const items = Array.isArray(parsedJson?.items) ? (parsedJson.items as AiAnalyticsItem[]) : null
+    const items: AiAnalyticsItem[] = Array.isArray(parsedJson?.items) ? (parsedJson.items as AiAnalyticsItem[]) : []
 
-    if (!items || !items.length) {
+    if (items.length === 0) {
       throw new Error('OpenAI response JSON missing items')
     }
 
     // Minimal sanitization
-    let filtered = items
-    if (requestedModelId) {
-      filtered = items.filter((i) => i?.modelId === requestedModelId)
-    }
+    const filtered = requestedModelId ? items.filter((i) => i?.modelId === requestedModelId) : items
 
     const sanitized: AiAnalyticsItem[] = filtered
       .filter((it) => it && typeof it === 'object')
@@ -626,8 +728,6 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
         const confidencePct = Math.max(0, Math.min(100, Math.round(Number(it.confidencePct) || 0)))
         const rawProfitPct = Number((Number(it.profitPct) || 0).toFixed(2))
         let profitPct = rawProfitPct
-        let message = typeof it.message === 'string' ? it.message.slice(0, 700) : ''
-
         // Normalize message format so UI doesn't show extra prefixes like "Signal:".
         // Also add an optional "insight" paragraph sometimes.
         const seed = (Date.now() + (modelId === 'syntrix' ? 1 : 0) * 17 + confidencePct * 31) % 10_000

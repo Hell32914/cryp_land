@@ -71,7 +71,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const buildSeries = (targetProfitPct: number, modelId: AiModelId): ChartPoint[] => {
   const points = 28
-  const end = modelId === 'syntrix' ? clamp(targetProfitPct, 0, 50) : clamp(targetProfitPct, -25, 50)
+  const end = modelId === 'syntrix' ? clamp(targetProfitPct, 0, 600) : clamp(targetProfitPct, -100, 600)
 
   const data: ChartPoint[] = []
   let value = 0
@@ -257,18 +257,18 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     }
 
     if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      return [-5, 15]
+      return [-10, 60]
     }
 
     const range = Math.max(0.01, max - min)
     const pad = Math.max(0.8, range * 0.15)
 
-    let lower = Math.min(min - pad, -5)
-    let upper = Math.max(max + pad, 5)
+    let lower = Math.min(min - pad, -10)
+    let upper = Math.max(max + pad, 10)
 
     // Keep within sensible global bounds used by the demo generator.
-    lower = clamp(lower, -25, 50)
-    upper = clamp(upper, -25, 50)
+    lower = clamp(lower, -100, 600)
+    upper = clamp(upper, -100, 600)
 
     if (upper - lower < 6) {
       // Ensure some visual vertical space.
@@ -278,7 +278,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     }
 
     if (lower >= upper) {
-      return [-5, 15]
+      return [-10, 60]
     }
 
     return [Number(lower.toFixed(2)), Number(upper.toFixed(2))]
