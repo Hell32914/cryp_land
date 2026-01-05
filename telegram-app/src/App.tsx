@@ -799,19 +799,30 @@ function App() {
     }
   }
 
+  // Feature flag: hide Game tab in production when disabled.
+  const GAME_ENABLED = import.meta.env.VITE_ENABLE_GAME === 'true'
+
   const tabs = [
     { id: 'wallet' as TabType, icon: Wallet, label: t.wallet },
     { id: 'invite' as TabType, icon: UserPlus, label: t.invite },
     { id: 'home' as TabType, icon: House, label: t.home },
     { id: 'calculator' as TabType, icon: Calculator, label: t.calculator },
-    { id: 'game' as TabType, icon: Gift, label: (t as any).game ?? 'Game' },
+    ...(GAME_ENABLED ? [{ id: 'game' as TabType, icon: Gift, label: (t as any).game ?? 'Game' }] : []),
     { id: 'ai' as TabType, icon: ChartLineUp, label: (t as any).ai ?? 'AI' },
     { id: 'profile' as TabType, icon: User, label: t.profile }
   ]
 
   const handleTabClick = (tabId: TabType) => {
+    if (tabId === 'game' && !GAME_ENABLED) return
     setActiveTab(tabId)
   }
+
+  // Safety: if something persisted or forces Game, bounce back.
+  useEffect(() => {
+    if (!GAME_ENABLED && activeTab === 'game') {
+      setActiveTab('home')
+    }
+  }, [GAME_ENABLED, activeTab])
 
   const incomePlans = [
     { name: 'Bronze', minAmount: '$10-$99', dailyPercent: '0.5%' },
@@ -1762,7 +1773,7 @@ function App() {
             />
           )}
 
-          {activeTab === 'game' && (
+          {GAME_ENABLED && activeTab === 'game' && (
             <GameTab
               t={t}
               telegramUserId={telegramUserId}
