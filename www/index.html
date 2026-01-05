@@ -108,18 +108,19 @@
     </div>
 
     <script>
-        // Определяем домены, которые должны вести на канал вместо бота
-        const channelDomains = [
-            'info.syntrix.website',
-            'ss.syntrix.website',
-            'road.syntrix.website',
-            'invest.syntrix.website',
-            'official.syntrix.website'
-        ];
-        
+        // Домены, которые должны вести на TG-канал (трек-ссылка зависит от домена)
+        const channelInviteByHost = {
+            'info.syntrix.website': 'https://t.me/+y7c56UGxsDc5YTg6',
+            'ss.syntrix.website': 'https://t.me/+RYREOO02rGVhODgy',
+            'road.syntrix.website': 'https://t.me/+pTfwJYpELktkOWZi',
+            'invest.syntrix.website': 'https://t.me/+GteJd3Lac8lkZTZi',
+            // оставляем существующее поведение для доменов, где трек-ссылка не задана
+            'official.syntrix.website': 'https://t.me/+tvQ2u0yoEJRhOTBi'
+        };
+
         // Получаем текущий домен
         const currentHost = window.location.hostname.toLowerCase();
-        const isChannelDomain = channelDomains.includes(currentHost);
+        const channelInviteLink = channelInviteByHost[currentHost];
         
         // Получаем параметр ref из URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -128,9 +129,9 @@
         // Обновляем ссылку в зависимости от домена
         const startBtn = document.getElementById('startBtn');
         
-        if (isChannelDomain) {
-            // Для доменов канала - переход на группу
-            startBtn.href = 'https://t.me/+tvQ2u0yoEJRhOTBi';
+        if (channelInviteLink) {
+            // Для доменов канала - переход на группу/канал
+            startBtn.href = channelInviteLink;
             startBtn.textContent = 'Join Channel';
             
             // Обновляем заголовок и описание для канала
