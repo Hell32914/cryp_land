@@ -71,12 +71,20 @@ export function GameTab(props: {
   const [spinDone, setSpinDone] = useState(false)
   const [idleIndex, setIdleIndex] = useState(0)
   const spinTimer = useRef<number | null>(null)
+  const spinRaf = useRef<number | null>(null)
+
+  const REEL_VIEW_HEIGHT = 360
+  const REEL_ITEM_HEIGHT = 84
 
   useEffect(() => {
     return () => {
       if (spinTimer.current) {
         window.clearTimeout(spinTimer.current)
         spinTimer.current = null
+      }
+      if (spinRaf.current) {
+        window.cancelAnimationFrame(spinRaf.current)
+        spinRaf.current = null
       }
     }
   }, [])
@@ -103,6 +111,11 @@ export function GameTab(props: {
   }
 
   const startSpin = async (data: BuyBoxResponse) => {
+    if (spinRaf.current) {
+      window.cancelAnimationFrame(spinRaf.current)
+      spinRaf.current = null
+    }
+
     setSpinning(true)
     setSpinDone(false)
 
@@ -116,30 +129,33 @@ export function GameTab(props: {
     setSpinSequence(seq)
     setSpinPos(0)
 
-    let step = 0
-    let delay = 35
+    const start = window.performance.now()
+    const durationMs = 4200
 
-    const tick = () => {
-      step += 1
-      setSpinPos(step)
+    const animate = (now: number) => {
+      const tNorm = Math.min(1, Math.max(0, (now - start) / durationMs))
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - tNorm, 3)
+      const pos = eased * (seq.length - 1)
+      setSpinPos(pos)
 
-      const done = step >= seq.length - 1
-      if (done) {
-        setSpinning(false)
-        setSpinDone(true)
-        setRouletteTokenBalance(data.newBonusTokens)
-        toast.success(
-          `${(t as any).gameYouWon ?? 'You won'} ${formatAmount(data.prize)} ${(t as any).gameTokenLabel ?? 'tokens'}`
-        )
-        refreshData()
+      if (tNorm < 1) {
+        spinRaf.current = window.requestAnimationFrame(animate)
         return
       }
 
-      delay = Math.min(220, delay * 1.08)
-      spinTimer.current = window.setTimeout(tick, delay)
+      spinRaf.current = null
+      setSpinPos(seq.length - 1)
+      setSpinning(false)
+      setSpinDone(true)
+      setRouletteTokenBalance(data.newBonusTokens)
+      toast.success(
+        `${(t as any).gameYouWon ?? 'You won'} ${formatAmount(data.prize)} ${(t as any).gameTokenLabel ?? 'tokens'}`
+      )
+      refreshData()
     }
 
-    spinTimer.current = window.setTimeout(tick, delay)
+    spinRaf.current = window.requestAnimationFrame(animate)
   }
 
   const handleConfirmBuy = async () => {
@@ -216,19 +232,12 @@ export function GameTab(props: {
 
   if (roulette) {
     const isIdle = !spinning && !spinDone && spinSequence.length === 0
-    const currentIndex = isIdle
-      ? idleIndex
-      : (spinSequence[Math.min(spinPos, Math.max(0, spinSequence.length - 1))] ?? roulette.prizeIndex)
-    const prevIndex = isIdle
-      ? (currentIndex - 1 + roulette.outcomes.length) % roulette.outcomes.length
-      : (spinSequence[Math.max(0, Math.min(spinPos - 1, spinSequence.length - 1))] ?? currentIndex)
-    const nextIndex = isIdle
-      ? (currentIndex + 1) % roulette.outcomes.length
-      : (spinSequence[Math.max(0, Math.min(spinPos + 1, spinSequence.length - 1))] ?? currentIndex)
+    const reelIndices = isIdle
+      ? Array.from({ length: Math.max(24, roulette.outcomes.length * 4) }, (_, i) => i % roulette.outcomes.length)
+      : spinSequence
 
-    const prev = roulette.outcomes[prevIndex] ?? 0
-    const current = roulette.outcomes[currentIndex] ?? 0
-    const next = roulette.outcomes[nextIndex] ?? 0
+    const reelPos = isIdle ? idleIndex : Math.min(Math.max(spinPos, 0), Math.max(0, reelIndices.length - 1))
+    const reelTransformY = REEL_VIEW_HEIGHT / 2 - (reelPos * REEL_ITEM_HEIGHT + REEL_ITEM_HEIGHT / 2)
 
     return (
       <div className="space-y-5 pb-4">
@@ -261,30 +270,61 @@ export function GameTab(props: {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="rounded-xl border border-border/50 bg-background/50 p-4 text-center">
-              <p className="text-sm text-muted-foreground">{formatAmount(prev)}</p>
+          <div className="relative rounded-2xl border border-border/50 bg-background/40 overflow-hidden shadow-lg" style={{ height: REEL_VIEW_HEIGHT }}>
+            <div
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 text-primary select-none"
+              aria-hidden
+            >
+              <div className="h-0 w-0 border-y-[16px] border-y-transparent border-r-[22px] border-r-primary/70" />
+            </div>
+            <div
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 text-primary select-none"
+              aria-hidden
+            >
+              <div className="h-0 w-0 border-y-[16px] border-y-transparent border-l-[22px] border-l-primary/70" />
             </div>
 
-            <div className="rounded-xl border-2 border-primary/40 bg-card/60 p-6 text-center">
-              <div className="flex items-center justify-center gap-2">
-                <Gift size={22} weight="duotone" className="text-primary" />
-                <p className="text-3xl font-extrabold text-foreground">{formatAmount(current)}</p>
-                <Coins size={18} weight="fill" className="text-accent" />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {spinning
-                  ? ((t as any).gameSpinning ?? 'Spinning…')
-                  : spinDone
-                    ? ((t as any).gameSpinDone ?? 'Result ready')
-                    : ''}
-              </p>
-            </div>
+            <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 h-[100px] rounded-2xl border-2 border-primary/40 bg-card/30 pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-background/80 to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
 
-            <div className="rounded-xl border border-border/50 bg-background/50 p-4 text-center">
-              <p className="text-sm text-muted-foreground">{formatAmount(next)}</p>
+            <div
+              className="will-change-transform"
+              style={{ transform: `translateY(${reelTransformY}px)` }}
+            >
+              {reelIndices.map((idx, i) => {
+                const value = roulette.outcomes[idx] ?? 0
+                const isCenter = Math.round(reelPos) === i
+                return (
+                  <div
+                    key={`${idx}-${i}`}
+                    className={`flex items-center justify-center px-6 ${isCenter ? '' : 'opacity-70'}`}
+                    style={{ height: REEL_ITEM_HEIGHT }}
+                  >
+                    <div
+                      className={
+                        `w-full max-w-sm rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm ` +
+                        `flex items-center justify-center gap-2 py-5 ` +
+                        (isCenter ? 'border-primary/40 bg-card/70' : '')
+                      }
+                    >
+                      <Gift size={20} weight="duotone" className="text-primary" />
+                      <span className="text-3xl font-extrabold text-foreground tabular-nums">{formatAmount(value)}</span>
+                      <Coins size={16} weight="fill" className="text-accent" />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            {spinning
+              ? ((t as any).gameSpinning ?? 'Spinning…')
+              : spinDone
+                ? ((t as any).gameSpinDone ?? 'Result ready')
+                : ((t as any).gameReadyToSpin ?? 'Ready to spin')}
+          </p>
 
           {!spinning && !spinDone && (
             <div className="pt-2">
