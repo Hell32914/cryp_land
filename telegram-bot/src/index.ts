@@ -2638,6 +2638,158 @@ bot.on('message:text', async (ctx) => {
     }
   }
 
+  // Handle search user by @username or Telegram ID (completed deposits)
+  if (state.awaitingInput === 'search_deposits_user') {
+    if (!(await isSupport(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const raw = ctx.message?.text?.trim()
+    if (!raw || raw.startsWith('/')) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
+      return
+    }
+
+    const query = raw.replace(/^@+/, '').trim()
+    if (!query) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
+      return
+    }
+
+    try {
+      const isNumericQuery = /^\d+$/.test(query)
+      const user = await prisma.user.findFirst({
+        where: isNumericQuery
+          ? { telegramId: query }
+          : { username: { equals: query, mode: 'insensitive' as const } },
+      })
+
+      if (!user) {
+        handleInvalidInput(userId, state, attempts)
+        await ctx.reply(`❌ User not found: ${raw}\n\nTry again or send /cancel`)
+        return
+      }
+
+      const totalCompleted = await prisma.deposit.count({ where: { status: 'COMPLETED', userId: user.id } })
+      const deposits = await prisma.deposit.findMany({
+        where: { status: 'COMPLETED', userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      })
+
+      const backPage = state.currentDepositsPage || 1
+      const username = (user.username || 'no_username').replace(/_/g, '\\_')
+
+      let message = `👤 *User:* @${username}\n`
+      message += `🆔 \`${user.telegramId}\`\n\n`
+      message += `✅ *Completed Deposits:* ${totalCompleted}`
+      if (totalCompleted > 10) message += ` (showing last 10)`
+      message += `\n\n`
+
+      if (deposits.length === 0) {
+        message += 'No completed deposits for this user.'
+      } else {
+        deposits.forEach((d, idx) => {
+          message += `${idx + 1}. 💵 $${d.amount.toFixed(2)} | 📅 ${d.createdAt.toLocaleString()}\n`
+        })
+      }
+
+      const keyboard = new InlineKeyboard()
+        .text('👤 View User', `view_deposit_user_${user.id}_${backPage}`).row()
+        .text('🔎 New Search', 'admin_deposits_search').row()
+        .text('◀️ Back', `admin_deposits_${backPage}`)
+
+      await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+      adminState.set(userId, { ...state, awaitingInput: undefined, attempts: 0, lastAttempt: undefined })
+      return
+    } catch (error) {
+      console.error('Error searching deposits user:', error)
+      await ctx.reply('❌ Error searching user. Please try again.')
+      return
+    }
+  }
+
+  // Handle search user by @username or Telegram ID (withdrawals)
+  if (state.awaitingInput === 'search_withdrawals_user') {
+    if (!(await isSupport(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const raw = ctx.message?.text?.trim()
+    if (!raw || raw.startsWith('/')) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
+      return
+    }
+
+    const query = raw.replace(/^@+/, '').trim()
+    if (!query) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)\nSend /cancel to abort.')
+      return
+    }
+
+    try {
+      const isNumericQuery = /^\d+$/.test(query)
+      const user = await prisma.user.findFirst({
+        where: isNumericQuery
+          ? { telegramId: query }
+          : { username: { equals: query, mode: 'insensitive' as const } },
+      })
+
+      if (!user) {
+        handleInvalidInput(userId, state, attempts)
+        await ctx.reply(`❌ User not found: ${raw}\n\nTry again or send /cancel`)
+        return
+      }
+
+      const total = await prisma.withdrawal.count({ where: { userId: user.id } })
+      const withdrawals = await prisma.withdrawal.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      })
+
+      const backPage = state.currentWithdrawalsPage || 1
+      const username = (user.username || 'no_username').replace(/_/g, '\\_')
+
+      let message = `👤 *User:* @${username}\n`
+      message += `🆔 \`${user.telegramId}\`\n\n`
+      message += `📤 *Withdrawals:* ${total}`
+      if (total > 10) message += ` (showing last 10)`
+      message += `\n\n`
+
+      if (withdrawals.length === 0) {
+        message += 'No withdrawals for this user.'
+      } else {
+        withdrawals.forEach((w, idx) => {
+          const statusEmoji =
+            w.status === 'COMPLETED' ? '✅' :
+            w.status === 'PENDING' ? '⏳' :
+            w.status === 'PROCESSING' ? '🔄' :
+            '❌'
+          message += `${idx + 1}. ${statusEmoji} $${w.amount.toFixed(2)} | ${w.currency} | ${w.status}\n`
+        })
+      }
+
+      const keyboard = new InlineKeyboard()
+        .text('🔎 New Search', 'admin_withdrawals_search').row()
+        .text('◀️ Back', `admin_withdrawals_${backPage}`)
+
+      await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+      adminState.set(userId, { ...state, awaitingInput: undefined, attempts: 0, lastAttempt: undefined })
+      return
+    } catch (error) {
+      console.error('Error searching withdrawals user:', error)
+      await ctx.reply('❌ Error searching user. Please try again.')
+      return
+    }
+  }
+
   // Handle add balance amount
   if (state.awaitingInput === 'balance_add_amount') {
     const amount = parseFloat(ctx.message?.text || '')
@@ -2987,10 +3139,41 @@ bot.callbackQuery(/^admin_deposits(?:_(\d+))?$/, async (ctx) => {
     keyboard.text('Next ▶️', `admin_deposits_${page + 1}`)
   }
   if (page > 1 || page < totalPages) keyboard.row()
+
+  keyboard.text('🔎 Search (@/ID)', 'admin_deposits_search').row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
+})
+
+// Completed Deposits: search by @username or Telegram ID
+bot.callbackQuery('admin_deposits_search', async (ctx) => {
+  const staffId = ctx.from?.id.toString()
+  if (!staffId || !(await isSupport(staffId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const currentState = adminState.get(staffId) || {}
+  adminState.set(staffId, { ...currentState, awaitingInput: 'search_deposits_user' })
+
+  const savedPage = currentState.currentDepositsPage || 1
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back', `admin_deposits_${savedPage}`).row()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    '🔎 Search Completed Deposits\n\n' +
+      'Send a username or Telegram ID to search:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
+      '⚠️ Send /cancel to abort',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
   await safeAnswerCallback(ctx)
 })
 
@@ -3154,10 +3337,41 @@ bot.callbackQuery(/^admin_withdrawals(?:_(\d+))?$/, async (ctx) => {
     keyboard.text('Next ▶️', `admin_withdrawals_${page + 1}`)
   }
   if (page > 1 || page < totalPages) keyboard.row()
+
+  keyboard.text('🔎 Search (@/ID)', 'admin_withdrawals_search').row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
+})
+
+// Withdrawals: search by @username or Telegram ID
+bot.callbackQuery('admin_withdrawals_search', async (ctx) => {
+  const staffId = ctx.from?.id.toString()
+  if (!staffId || !(await isSupport(staffId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const currentState = adminState.get(staffId) || {}
+  adminState.set(staffId, { ...currentState, awaitingInput: 'search_withdrawals_user' })
+
+  const savedPage = currentState.currentWithdrawalsPage || 1
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back', `admin_withdrawals_${savedPage}`).row()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    '🔎 Search Withdrawals\n\n' +
+      'Send a username or Telegram ID to search:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
+      '⚠️ Send /cancel to abort',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
   await safeAnswerCallback(ctx)
 })
 
