@@ -2470,6 +2470,174 @@ bot.on('message:text', async (ctx) => {
     }
   }
 
+  // Handle search user by @username (pending deposits)
+  if (state.awaitingInput === 'search_pending_deposits_user') {
+    if (!(await isSupport(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const raw = ctx.message?.text?.trim()
+    if (!raw || raw.startsWith('/')) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      return
+    }
+
+    const query = raw.replace(/^@+/, '').trim()
+    if (!query) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      return
+    }
+
+    try {
+      const isNumericQuery = /^\d+$/.test(query)
+      const user = await prisma.user.findFirst({
+        where: isNumericQuery
+          ? { telegramId: query }
+          : { username: { equals: query, mode: 'insensitive' as const } },
+      })
+
+      if (!user) {
+        handleInvalidInput(userId, state, attempts)
+        await ctx.reply(`❌ User not found: ${raw}\n\nTry again or send /cancel`)
+        return
+      }
+
+      const totalPending = await prisma.deposit.count({ where: { status: 'PENDING', userId: user.id } })
+      const deposits = await prisma.deposit.findMany({
+        where: { status: 'PENDING', userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      })
+
+      const backPage = state.currentPendingDepositsPage || 1
+      const username = (user.username || 'no_username').replace(/_/g, '\\_')
+
+      let message = `👤 *User:* @${username}\n`
+      message += `🆔 \`${user.telegramId}\`\n\n`
+      message += `⏳ *Pending Deposits:* ${totalPending}`
+      if (totalPending > 10) message += ` (showing last 10)`
+      message += `\n\n`
+
+      if (deposits.length === 0) {
+        message += 'No pending deposits for this user.'
+      } else {
+        deposits.forEach((d, idx) => {
+          message += `${idx + 1}. 💵 $${d.amount.toFixed(2)} | 📅 ${d.createdAt.toLocaleString()}\n`
+        })
+      }
+
+      const keyboard = new InlineKeyboard()
+        .text('👤 View User', `view_pending_deposit_user_${user.id}_${backPage}`).row()
+        .text('🔎 New Search', 'admin_pending_deposits_search').row()
+        .text('◀️ Back', `admin_pending_deposits_${backPage}`)
+
+      await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+
+      adminState.set(userId, { ...state, awaitingInput: undefined, attempts: 0, lastAttempt: undefined })
+      return
+    } catch (error) {
+      console.error('Error searching pending deposits user:', error)
+      await ctx.reply('❌ Error searching user. Please try again.')
+      return
+    }
+  }
+
+  // Handle search user by @username (pending withdrawals)
+  if (state.awaitingInput === 'search_pending_withdrawals_user') {
+    if (!(await isSupport(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const raw = ctx.message?.text?.trim()
+    if (!raw || raw.startsWith('/')) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      return
+    }
+
+    const query = raw.replace(/^@+/, '').trim()
+    if (!query) {
+      handleInvalidInput(userId, state, attempts)
+      await ctx.reply('❌ Please provide a user tag like @username\nSend /cancel to abort.')
+      return
+    }
+
+    try {
+      const isNumericQuery = /^\d+$/.test(query)
+      const user = await prisma.user.findFirst({
+        where: isNumericQuery
+          ? { telegramId: query }
+          : { username: { equals: query, mode: 'insensitive' as const } },
+      })
+
+      if (!user) {
+        handleInvalidInput(userId, state, attempts)
+        await ctx.reply(`❌ User not found: ${raw}\n\nTry again or send /cancel`)
+        return
+      }
+
+      const totalPending = await prisma.withdrawal.count({
+        where: { userId: user.id, status: { in: ['PENDING', 'PROCESSING', 'APPROVED'] } },
+      })
+      const withdrawals = await prisma.withdrawal.findMany({
+        where: { userId: user.id, status: { in: ['PENDING', 'PROCESSING', 'APPROVED'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      })
+
+      const backPage = state.currentPendingWithdrawalsPage || 1
+      const username = (user.username || 'no_username').replace(/_/g, '\\_')
+
+      let message = `👤 *User:* @${username}\n`
+      message += `🆔 \`${user.telegramId}\`\n\n`
+      message += `⏳ *Pending Withdrawals:* ${totalPending}`
+      if (totalPending > 10) message += ` (showing last 10)`
+      message += `\n\n`
+
+      if (withdrawals.length === 0) {
+        message += 'No pending withdrawals for this user.'
+      } else {
+        withdrawals.forEach((w, idx) => {
+          let statusEmoji = '⏳'
+          if (w.status === 'PROCESSING') statusEmoji = '🔄'
+          if (w.status === 'APPROVED') statusEmoji = '✅'
+          message += `${idx + 1}. ${statusEmoji} $${w.amount.toFixed(2)} | ${w.currency} | ${w.status}\n`
+        })
+      }
+
+      const keyboard = new InlineKeyboard()
+      const displayCount = Math.min(withdrawals.length, 5)
+      for (let i = 0; i < displayCount; i++) {
+        const w = withdrawals[i]
+        if (w.status === 'APPROVED') {
+          keyboard.text(`✅ Complete #${i + 1}`, `complete_withdrawal_${w.id}`).row()
+        } else {
+          keyboard
+            .text(`✅ #${i + 1}`, `approve_withdrawal_${w.id}_${backPage}`)
+            .text(`❌ #${i + 1}`, `reject_withdrawal_${w.id}_${backPage}`)
+            .row()
+        }
+      }
+
+      keyboard
+        .text('🔎 New Search', 'admin_pending_withdrawals_search').row()
+        .text('◀️ Back', `admin_pending_withdrawals_${backPage}`)
+
+      await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+
+      adminState.set(userId, { ...state, awaitingInput: undefined, attempts: 0, lastAttempt: undefined })
+      return
+    } catch (error) {
+      console.error('Error searching pending withdrawals user:', error)
+      await ctx.reply('❌ Error searching user. Please try again.')
+      return
+    }
+  }
+
   // Handle add balance amount
   if (state.awaitingInput === 'balance_add_amount') {
     const amount = parseFloat(ctx.message?.text || '')
@@ -2876,9 +3044,9 @@ bot.callbackQuery(/^admin_pending_deposits(?:_(\d+))?$/, async (ctx) => {
   pendingDeposits.forEach((deposit, index) => {
     const num = skip + index + 1
     if (index % 2 === 0) {
-      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}_${page}`)
+      keyboard.text(`👤 ${num}`, `view_pending_deposit_user_${deposit.user.id}_${page}`)
     } else {
-      keyboard.text(`👤 ${num}`, `view_deposit_user_${deposit.user.id}_${page}`).row()
+      keyboard.text(`👤 ${num}`, `view_pending_deposit_user_${deposit.user.id}_${page}`).row()
     }
   })
   if (pendingDeposits.length % 2 === 1) keyboard.row()
@@ -2890,10 +3058,39 @@ bot.callbackQuery(/^admin_pending_deposits(?:_(\d+))?$/, async (ctx) => {
     keyboard.text('Next ▶️', `admin_pending_deposits_${page + 1}`)
   }
   if (page > 1 || page < totalPages) keyboard.row()
+
+  keyboard.text('🔎 Search (@)', 'admin_pending_deposits_search').row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
+})
+
+// Pending Deposits: search by @username
+bot.callbackQuery('admin_pending_deposits_search', async (ctx) => {
+  const staffId = ctx.from?.id.toString()
+  if (!staffId || !(await isSupport(staffId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const currentState = adminState.get(staffId) || {}
+  adminState.set(staffId, { ...currentState, awaitingInput: 'search_pending_deposits_user' })
+
+  const savedPage = currentState.currentPendingDepositsPage || 1
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back', `admin_pending_deposits_${savedPage}`).row()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    '🔎 Search Pending Deposits\n\n' +
+      'Send the user tag to search:\n' +
+      '• `@username`\n\n' +
+      '⚠️ Send /cancel to abort',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
   await safeAnswerCallback(ctx)
 })
 
@@ -3042,10 +3239,107 @@ bot.callbackQuery(/^admin_pending_withdrawals(?:_(\d+))?$/, async (ctx) => {
     keyboard.text('Next ▶️', `admin_pending_withdrawals_${page + 1}`)
   }
   if (page > 1 || page < totalPages) keyboard.row()
+
+  keyboard.text('🔎 Search (@)', 'admin_pending_withdrawals_search').row()
   
   keyboard.text('◀️ Back to Admin', 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: 'Markdown' })
+  await safeAnswerCallback(ctx)
+})
+
+// Pending Withdrawals: search by @username
+bot.callbackQuery('admin_pending_withdrawals_search', async (ctx) => {
+  const staffId = ctx.from?.id.toString()
+  if (!staffId || !(await isSupport(staffId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const currentState = adminState.get(staffId) || {}
+  adminState.set(staffId, { ...currentState, awaitingInput: 'search_pending_withdrawals_user' })
+
+  const savedPage = currentState.currentPendingWithdrawalsPage || 1
+  const keyboard = new InlineKeyboard()
+    .text('◀️ Back', `admin_pending_withdrawals_${savedPage}`).row()
+    .text('◀️ Back to Admin', 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    '🔎 Search Pending Withdrawals\n\n' +
+      'Send the user tag to search:\n' +
+      '• `@username`\n\n' +
+      '⚠️ Send /cancel to abort',
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+// View user from pending deposits list
+bot.callbackQuery(/^view_pending_deposit_user_(\d+)(?:_(\d+))?$/, async (ctx) => {
+  const visitorId = ctx.from?.id.toString()
+  if (!visitorId || !(await isSupport(visitorId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
+
+  if (fromPage) {
+    const currentState = adminState.get(visitorId) || {}
+    adminState.set(visitorId, { ...currentState, currentPendingDepositsPage: fromPage })
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      deposits: { where: { status: 'COMPLETED' }, orderBy: { createdAt: 'desc' } },
+      withdrawals: { orderBy: { createdAt: 'desc' } },
+    },
+  })
+
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  let statusEmoji = '⚪️'
+  if (user.status === 'ACTIVE') statusEmoji = '✅'
+  if (user.status === 'INACTIVE') statusEmoji = '⏸'
+  if (user.status === 'KYC_REQUIRED') statusEmoji = '📋'
+  if (user.status === 'BLOCKED') statusEmoji = '🚫'
+
+  const totalDeposits = user.deposits.reduce((sum, d) => sum + d.amount, 0)
+  const totalWithdrawals = user.withdrawals.filter(w => w.status === 'COMPLETED').reduce((sum, w) => sum + w.amount, 0)
+
+  await safeEditMessage(
+    ctx,
+    `👤 *User Details*\n\n` +
+      `Username: ${formatUserDisplay(user)}\n` +
+      `ID: \`${user.telegramId}\`\n` +
+      `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
+      `💼 *Financial Summary:*\n` +
+      `📥 Total Deposits: $${totalDeposits.toFixed(2)} (${user.deposits.length} txs)\n` +
+      `💰 Working Balance: $${user.totalDeposit.toFixed(2)}\n` +
+      `📈 Current Profit: $${user.profit.toFixed(2)}\n` +
+      `💎 Referral Earnings: $${user.referralEarnings.toFixed(2)}\n` +
+      `🎁 Bonus Tokens: $${(user.bonusTokens || 0).toFixed(2)}\n` +
+      `📤 Total Withdrawals: $${totalWithdrawals.toFixed(2)} (${user.withdrawals.filter(w => w.status === 'COMPLETED').length} txs)\n` +
+      `💸 Lifetime Deposits: $${(user.lifetimeDeposit || 0).toFixed(2)}\n\n` +
+      `📊 *Account Info:*\n` +
+      `${user.country ? `🌍 Country: ${user.country}\n` : ''}` +
+      `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`\n` : ''}` +
+      `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
+    {
+      reply_markup: (() => {
+        const backState = adminState.get(visitorId)
+        const savedPage = backState?.currentPendingDepositsPage || 1
+        return new InlineKeyboard().text('◀️ Back to Pending Deposits', `admin_pending_deposits_${savedPage}`)
+      })(),
+      parse_mode: 'Markdown',
+    }
+  )
   await safeAnswerCallback(ctx)
 })
 
