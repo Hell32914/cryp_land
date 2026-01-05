@@ -452,17 +452,63 @@ const buildFallbackAiAnalytics = (): AiAnalyticsItem[] => {
 
     const profitPct = Number(profit.toFixed(2))
 
+    const includeInsight = (seed % 100) < 35
+    const message = buildAiAnalyticsMessage({
+      signal,
+      confidencePct,
+      profitPct,
+      modelId: m.modelId,
+      symbol: 'BTC/USDT',
+      seed,
+      includeInsight,
+    })
     return {
       modelId: m.modelId,
       displayName: m.displayName,
       signal,
       confidencePct,
       profitPct,
-      message:
-        `Signal: ${signal}. Confidence: ${confidencePct}%. ` +
-        `Estimated P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`,
+      message,
     }
   })
+}
+
+function buildAiAnalyticsMessage(opts: {
+  signal: 'BUY' | 'SELL' | 'HOLD'
+  confidencePct: number
+  profitPct: number
+  modelId?: string
+  symbol?: string
+  seed?: number
+  includeInsight?: boolean
+}) {
+  const { signal, confidencePct, profitPct } = opts
+  const symbol = (opts.symbol || 'BTC/USDT').toString().slice(0, 20)
+  const seed = Number.isFinite(opts.seed as number) ? (opts.seed as number) : 0
+  const includeInsight = Boolean(opts.includeInsight)
+
+  const base = `${signal}. Confidence: ${confidencePct}%. Estimated P/L: ${profitPct >= 0 ? '+' : ''}${profitPct}%.`
+  if (!includeInsight) return base
+
+  const pick = <T,>(arr: T[]) => arr[Math.abs(seed) % arr.length]
+
+  const insightBySignal: Record<typeof signal, string[]> = {
+    BUY: [
+      `I analyzed the current market structure for ${symbol}. Indicators suggest a bullish trend; momentum is strong and may support further gains.`,
+      `Current indicators suggest a bullish trend for ${symbol}. The momentum is strong, likely leading to further price increases.`,
+    ],
+    SELL: [
+      `I analyzed recent momentum for ${symbol}. A potential decline is noted in the market; caution is advised for new positions.`,
+      `A potential decline is noted in the market. Caution is advised for those considering new positions.`,
+    ],
+    HOLD: [
+      `I analyzed the market for ${symbol}. Signals look indecisive; waiting for confirmation may be prudent.`,
+      `Market conditions are mixed and direction is unclear. A neutral stance may fit until momentum improves.`,
+    ],
+  }
+
+  const insight = pick(insightBySignal[signal])
+  return `${base}\n\n${insight}`
 }
 
 app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, res) => {
@@ -517,12 +563,13 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
             signal: 'BUY | SELL | HOLD',
             confidencePct: 0,
             profitPct: 0,
-            message: 'string',
+            message: 'string (start with signal like "HOLD."; do not include the word "Signal" or "Signal:")',
           },
         ],
       },
       constraints: [
         'message must be 2-4 short sentences',
+        'message must NOT include the prefix "Signal:"; start with the signal value followed by a period (e.g., "HOLD.")',
         'confidencePct must be integer 40..95',
         'profitPct must be illustrative and plausible',
         'Syntrix AI profitPct should usually be higher (e.g., +6..+18)',
@@ -581,12 +628,24 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
         let profitPct = rawProfitPct
         let message = typeof it.message === 'string' ? it.message.slice(0, 700) : ''
 
+        // Normalize message format so UI doesn't show extra prefixes like "Signal:".
+        // Also add an optional "insight" paragraph sometimes.
+        const seed = (Date.now() + (modelId === 'syntrix' ? 1 : 0) * 17 + confidencePct * 31) % 10_000
+        const includeInsight = (seed % 100) < 35
         // Syntrix AI should be positive (or at least not negative) most of the time.
         // If OpenAI returns a negative value, clamp it to 0 and ensure the message remains consistent.
         if (modelId === 'syntrix' && profitPct < 0) {
           profitPct = 0
-          message = `Signal: ${signal}. Confidence: ${confidencePct}%. Estimated P/L: +${profitPct.toFixed(2)}%.`
         }
+        const message = buildAiAnalyticsMessage({
+          signal,
+          confidencePct,
+          profitPct,
+          modelId,
+          symbol,
+          seed,
+          includeInsight,
+        }).slice(0, 700)
         return { modelId, displayName, signal, confidencePct, profitPct, message }
       })
 

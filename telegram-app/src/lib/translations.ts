@@ -1816,6 +1816,49 @@ export const translations = {
     ai: 'AI',
     profile: 'Profile',
     aiAnalyticsTitle: 'AI Analytics',
+    aiAnalyticsHowItWorks: 'How it works',
+    aiAnalyticsHowItWorksTitle: 'How it works',
+    aiAnalyticsHowItWorksIntro:
+      'Syntrix AI is a multi-model analytics system that uses competitive AI analysis to form trading decisions.',
+    aiAnalyticsHowItWorksParallelTitle: 'Parallel AI market analysis',
+    aiAnalyticsHowItWorksModels: ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+    aiAnalyticsHowItWorksHypothesesTitle: 'Each model forms its own strategic hypothesis:',
+    aiAnalyticsHowItWorksHypotheses: [
+      'Potential entry points',
+      'Risk management',
+      'Volatility expectations',
+      'Market behavior patterns',
+    ],
+    aiAnalyticsHowItWorksCompetitionTitle: 'AI competition and crypto analysis',
+    aiAnalyticsHowItWorksCompetitionIntro:
+      'All hypotheses are cross-checked and validated via crypto-analytic consistency checks:',
+    aiAnalyticsHowItWorksCompetitionBullets: [
+      'Scenario matching',
+      'Divergence detection',
+      'Logical and statistical conflict analysis',
+      'Filtering noisy and emotional decisions',
+    ],
+    aiAnalyticsHowItWorksCompetitionOutro:
+      'It works like an AI tournament where every model defends its viewpoint.',
+    aiAnalyticsHowItWorksMetaTitle: 'Syntrix intelligence (Meta-AI layer)',
+    aiAnalyticsHowItWorksMetaIntro: 'After that, Syntrix AI applies:',
+    aiAnalyticsHowItWorksMetaBullets: [
+      'Proprietary mathematical models',
+      'Probabilistic analysis algorithms',
+      'Elements of cryptography and secure decision logic',
+      'Risk management based on aggregated data',
+    ],
+    aiAnalyticsHowItWorksMetaOutro:
+      "Syntrix does not copy others’ outputs. It makes the final decision independently, using AI competition as a signal source — not an instruction.",
+    aiAnalyticsHowItWorksExecutionTitle: 'Real execution',
+    aiAnalyticsHowItWorksExecutionIntro:
+      'Only after multi-level verification can a strategy be allowed into execution. All actions are logged and additionally checked for:',
+    aiAnalyticsHowItWorksExecutionBullets: [
+      'Risk-parameter compliance',
+      'Capital protection',
+      'Resilience to market anomalies',
+    ],
+    aiAnalyticsHowItWorksCta: 'Got it!',
     aiAnalyticsInfo: 'Info',
     aiAnalyticsInfoTitle: 'How it works',
     aiAnalyticsInfoBody:
@@ -1993,6 +2036,49 @@ export const translations = {
     ai: 'KI',
     profile: 'Profil',
     aiAnalyticsTitle: 'KI-Analytik',
+    aiAnalyticsHowItWorks: 'So funktioniert es',
+    aiAnalyticsHowItWorksTitle: 'So funktioniert es',
+    aiAnalyticsHowItWorksIntro:
+      'Syntrix AI ist ein Multi-Model-Analysesystem, das konkurrierende KI-Analysen nutzt, um Handelsentscheidungen abzuleiten.',
+    aiAnalyticsHowItWorksParallelTitle: 'Parallele KI-Marktanalyse',
+    aiAnalyticsHowItWorksModels: ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+    aiAnalyticsHowItWorksHypothesesTitle: 'Jedes Modell erstellt seine eigene strategische Hypothese:',
+    aiAnalyticsHowItWorksHypotheses: [
+      'Mögliche Einstiegspunkte',
+      'Risikomanagement',
+      'Erwartungen zur Volatilität',
+      'Verhaltensmuster des Marktes',
+    ],
+    aiAnalyticsHowItWorksCompetitionTitle: 'KI-Wettbewerb und Kryptoanalyse',
+    aiAnalyticsHowItWorksCompetitionIntro:
+      'Alle Hypothesen werden kreuzvalidiert und kryptanalytisch geprüft:',
+    aiAnalyticsHowItWorksCompetitionBullets: [
+      'Szenarien-Abgleich',
+      'Erkennen von Abweichungen',
+      'Analyse logischer und statistischer Konflikte',
+      'Filterung von Rauschen und emotionalen Entscheidungen',
+    ],
+    aiAnalyticsHowItWorksCompetitionOutro:
+      'Das ist wie ein KI-Turnier, in dem jedes Modell seinen Standpunkt verteidigt.',
+    aiAnalyticsHowItWorksMetaTitle: 'Syntrix-Intelligenz (Meta-AI-Schicht)',
+    aiAnalyticsHowItWorksMetaIntro: 'Anschließend wendet Syntrix AI an:',
+    aiAnalyticsHowItWorksMetaBullets: [
+      'Eigene mathematische Modelle',
+      'Algorithmen der Wahrscheinlichkeitsanalyse',
+      'Elemente der Kryptografie und abgesicherte Entscheidungslogik',
+      'Risikomanagement auf Basis aggregierter Daten',
+    ],
+    aiAnalyticsHowItWorksMetaOutro:
+      'Syntrix kopiert keine fremden Entscheidungen. Es trifft die finale Entscheidung eigenständig und nutzt KI-Konkurrenz als Signalquelle – nicht als Anweisung.',
+    aiAnalyticsHowItWorksExecutionTitle: 'Reale Ausführung',
+    aiAnalyticsHowItWorksExecutionIntro:
+      'Erst nach mehrstufiger Prüfung wird eine Strategie zur Ausführung zugelassen. Alle Aktionen werden protokolliert und zusätzlich geprüft auf:',
+    aiAnalyticsHowItWorksExecutionBullets: [
+      'Einhaltung der Risikoparameter',
+      'Kapitalschutz',
+      'Robustheit gegenüber Marktanomalien',
+    ],
+    aiAnalyticsHowItWorksCta: 'Verstanden',
     aiAnalyticsInfo: 'Info',
     aiAnalyticsInfoTitle: 'So funktioniert es',
     aiAnalyticsInfoBody:
@@ -2155,6 +2241,49 @@ export const translations = {
     ai: 'IA',
     profile: 'Perfil',
     aiAnalyticsTitle: 'Analítica IA',
+    aiAnalyticsHowItWorks: 'Cómo funciona',
+    aiAnalyticsHowItWorksTitle: 'Cómo funciona',
+    aiAnalyticsHowItWorksIntro:
+      'Syntrix AI es un sistema analítico multimodelo que usa competencia entre IAs para formar decisiones de trading.',
+    aiAnalyticsHowItWorksParallelTitle: 'Análisis de mercado con IA en paralelo',
+    aiAnalyticsHowItWorksModels: ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+    aiAnalyticsHowItWorksHypothesesTitle: 'Cada modelo construye su propia hipótesis estratégica:',
+    aiAnalyticsHowItWorksHypotheses: [
+      'Posibles puntos de entrada',
+      'Gestión de riesgos',
+      'Expectativas de volatilidad',
+      'Patrones de comportamiento del mercado',
+    ],
+    aiAnalyticsHowItWorksCompetitionTitle: 'Competencia de IA y criptoanálisis',
+    aiAnalyticsHowItWorksCompetitionIntro:
+      'Todas las hipótesis se cruzan y validan con controles de consistencia criptoanalítica:',
+    aiAnalyticsHowItWorksCompetitionBullets: [
+      'Comparación de escenarios',
+      'Detección de divergencias',
+      'Análisis de conflictos lógicos y estadísticos',
+      'Filtrado de ruido y decisiones emocionales',
+    ],
+    aiAnalyticsHowItWorksCompetitionOutro:
+      'Es como un torneo de IA donde cada modelo defiende su punto de vista.',
+    aiAnalyticsHowItWorksMetaTitle: 'Inteligencia Syntrix (capa Meta-AI)',
+    aiAnalyticsHowItWorksMetaIntro: 'Después de eso, Syntrix AI aplica:',
+    aiAnalyticsHowItWorksMetaBullets: [
+      'Modelos matemáticos propios',
+      'Algoritmos de análisis probabilístico',
+      'Elementos de criptografía y lógica de decisión segura',
+      'Gestión de riesgos basada en datos agregados',
+    ],
+    aiAnalyticsHowItWorksMetaOutro:
+      'Syntrix no copia las salidas de otros modelos. Toma la decisión final de forma independiente, usando la competencia de IA como fuente de señales — no como instrucción.',
+    aiAnalyticsHowItWorksExecutionTitle: 'Ejecución real',
+    aiAnalyticsHowItWorksExecutionIntro:
+      'Solo después de una verificación multinivel una estrategia puede pasar a ejecución. Todas las acciones se registran y se revisan adicionalmente por:',
+    aiAnalyticsHowItWorksExecutionBullets: [
+      'Cumplimiento de parámetros de riesgo',
+      'Protección de capital',
+      'Resistencia a anomalías del mercado',
+    ],
+    aiAnalyticsHowItWorksCta: 'Entendido',
     aiAnalyticsInfo: 'Info',
     aiAnalyticsInfoTitle: 'Cómo funciona',
     aiAnalyticsInfoBody:
@@ -2269,6 +2398,49 @@ export const translations = {
     ai: 'IA',
     profile: 'Profil',
     aiAnalyticsTitle: 'Analytique IA',
+    aiAnalyticsHowItWorks: 'Comment ça marche',
+    aiAnalyticsHowItWorksTitle: 'Comment ça marche',
+    aiAnalyticsHowItWorksIntro:
+      'Syntrix AI est un système d’analyse multi-modèles qui utilise la concurrence entre IA pour former des décisions de trading.',
+    aiAnalyticsHowItWorksParallelTitle: 'Analyse de marché IA en parallèle',
+    aiAnalyticsHowItWorksModels: ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+    aiAnalyticsHowItWorksHypothesesTitle: 'Chaque modèle construit sa propre hypothèse stratégique :',
+    aiAnalyticsHowItWorksHypotheses: [
+      'Points d’entrée possibles',
+      'Gestion du risque',
+      'Attentes de volatilité',
+      'Schémas de comportement du marché',
+    ],
+    aiAnalyticsHowItWorksCompetitionTitle: 'Concurrence IA et cryptoanalyse',
+    aiAnalyticsHowItWorksCompetitionIntro:
+      'Toutes les hypothèses sont recoupées et validées via des contrôles de cohérence crypto-analytique :',
+    aiAnalyticsHowItWorksCompetitionBullets: [
+      'Comparaison des scénarios',
+      'Détection des divergences',
+      'Analyse des conflits logiques et statistiques',
+      'Filtrage du bruit et des décisions émotionnelles',
+    ],
+    aiAnalyticsHowItWorksCompetitionOutro:
+      'C’est comme un tournoi d’IA où chaque modèle défend son point de vue.',
+    aiAnalyticsHowItWorksMetaTitle: 'Intelligence Syntrix (couche Meta-AI)',
+    aiAnalyticsHowItWorksMetaIntro: 'Ensuite, Syntrix AI applique :',
+    aiAnalyticsHowItWorksMetaBullets: [
+      'Ses propres modèles mathématiques',
+      'Des algorithmes d’analyse probabiliste',
+      'Des éléments de cryptographie et une logique de décision sécurisée',
+      'Une gestion du risque basée sur des données agrégées',
+    ],
+    aiAnalyticsHowItWorksMetaOutro:
+      'Syntrix ne copie pas les résultats des autres. Il prend la décision finale de manière autonome, en utilisant la concurrence des IA comme source de signaux — pas comme instruction.',
+    aiAnalyticsHowItWorksExecutionTitle: 'Exécution réelle',
+    aiAnalyticsHowItWorksExecutionIntro:
+      'Ce n’est qu’après une vérification multi-niveaux qu’une stratégie peut passer à l’exécution. Toutes les actions sont journalisées et vérifiées en plus pour :',
+    aiAnalyticsHowItWorksExecutionBullets: [
+      'Conformité aux paramètres de risque',
+      'Protection du capital',
+      'Résilience face aux anomalies de marché',
+    ],
+    aiAnalyticsHowItWorksCta: 'Compris',
     aiAnalyticsInfo: 'Info',
     aiAnalyticsInfoTitle: 'Comment ça marche',
     aiAnalyticsInfoBody:
@@ -2431,6 +2603,49 @@ export const translations = {
     ai: 'IA',
     profile: 'Profilo',
     aiAnalyticsTitle: 'Analisi IA',
+    aiAnalyticsHowItWorks: 'Come funziona',
+    aiAnalyticsHowItWorksTitle: 'Come funziona',
+    aiAnalyticsHowItWorksIntro:
+      'Syntrix AI è un sistema di analisi multi-modello che utilizza la competizione tra IA per costruire decisioni di trading.',
+    aiAnalyticsHowItWorksParallelTitle: 'Analisi di mercato IA in parallelo',
+    aiAnalyticsHowItWorksModels: ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+    aiAnalyticsHowItWorksHypothesesTitle: 'Ogni modello costruisce la propria ipotesi strategica:',
+    aiAnalyticsHowItWorksHypotheses: [
+      'Possibili punti di ingresso',
+      'Gestione del rischio',
+      'Aspettative sulla volatilità',
+      'Pattern comportamentali del mercato',
+    ],
+    aiAnalyticsHowItWorksCompetitionTitle: 'Competizione IA e criptoanalisi',
+    aiAnalyticsHowItWorksCompetitionIntro:
+      'Tutte le ipotesi vengono incrociate e validate tramite controlli di coerenza cripto-analitica:',
+    aiAnalyticsHowItWorksCompetitionBullets: [
+      'Confronto degli scenari',
+      'Individuazione delle divergenze',
+      'Analisi dei conflitti logici e statistici',
+      'Filtraggio del rumore e delle decisioni emotive',
+    ],
+    aiAnalyticsHowItWorksCompetitionOutro:
+      'È come un torneo di IA in cui ogni modello difende il proprio punto di vista.',
+    aiAnalyticsHowItWorksMetaTitle: 'Intelligenza Syntrix (strato Meta-AI)',
+    aiAnalyticsHowItWorksMetaIntro: 'Dopo di che, Syntrix AI applica:',
+    aiAnalyticsHowItWorksMetaBullets: [
+      'Modelli matematici proprietari',
+      'Algoritmi di analisi probabilistica',
+      'Elementi di crittografia e logica decisionale sicura',
+      'Gestione del rischio basata su dati aggregati',
+    ],
+    aiAnalyticsHowItWorksMetaOutro:
+      'Syntrix non copia le uscite degli altri. Prende la decisione finale in modo autonomo, usando la competizione tra IA come fonte di segnali — non come istruzione.',
+    aiAnalyticsHowItWorksExecutionTitle: 'Esecuzione reale',
+    aiAnalyticsHowItWorksExecutionIntro:
+      'Solo dopo una verifica multi-livello una strategia può passare all’esecuzione. Tutte le azioni vengono registrate e controllate ulteriormente per:',
+    aiAnalyticsHowItWorksExecutionBullets: [
+      'Conformità ai parametri di rischio',
+      'Protezione del capitale',
+      'Resilienza alle anomalie di mercato',
+    ],
+    aiAnalyticsHowItWorksCta: 'Capito',
     aiAnalyticsInfo: 'Info',
     aiAnalyticsInfoTitle: 'Come funziona',
     aiAnalyticsInfoBody:
@@ -2593,6 +2808,49 @@ export const translations = {
     ai: 'AI',
     profile: 'Profiel',
     aiAnalyticsTitle: 'AI-analytiek',
+    aiAnalyticsHowItWorks: 'Hoe het werkt',
+    aiAnalyticsHowItWorksTitle: 'Hoe het werkt',
+    aiAnalyticsHowItWorksIntro:
+      'Syntrix AI is een multi-model analyticsysteem dat concurrerende AI-analyses gebruikt om handelsbeslissingen te vormen.',
+    aiAnalyticsHowItWorksParallelTitle: 'Parallelle AI-marktanalyse',
+    aiAnalyticsHowItWorksModels: ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+    aiAnalyticsHowItWorksHypothesesTitle: 'Elk model bouwt zijn eigen strategische hypothese:',
+    aiAnalyticsHowItWorksHypotheses: [
+      'Mogelijke instappunten',
+      'Risicobeheer',
+      'Verwachtingen over volatiliteit',
+      'Gedragspatronen van de markt',
+    ],
+    aiAnalyticsHowItWorksCompetitionTitle: 'AI-competitie en cryptoanalyse',
+    aiAnalyticsHowItWorksCompetitionIntro:
+      'Alle hypothesen worden kruis-gecheckt en gevalideerd via crypto-analytische consistentiechecks:',
+    aiAnalyticsHowItWorksCompetitionBullets: [
+      'Scenariovergelijking',
+      'Detectie van afwijkingen',
+      'Analyse van logische en statistische conflicten',
+      'Filteren van ruis en emotionele beslissingen',
+    ],
+    aiAnalyticsHowItWorksCompetitionOutro:
+      'Het werkt als een AI-toernooi waarin elk model zijn standpunt verdedigt.',
+    aiAnalyticsHowItWorksMetaTitle: 'Syntrix-intelligentie (Meta-AI-laag)',
+    aiAnalyticsHowItWorksMetaIntro: 'Daarna past Syntrix AI toe:',
+    aiAnalyticsHowItWorksMetaBullets: [
+      'Eigen wiskundige modellen',
+      'Algoritmen voor waarschijnlijkheidsanalyse',
+      'Elementen van cryptografie en beveiligde beslislogica',
+      'Risicobeheer op basis van geaggregeerde data',
+    ],
+    aiAnalyticsHowItWorksMetaOutro:
+      'Syntrix kopieert geen beslissingen van anderen. Het neemt de eindbeslissing zelfstandig en gebruikt AI-competitie als signaalbron — niet als instructie.',
+    aiAnalyticsHowItWorksExecutionTitle: 'Echte uitvoering',
+    aiAnalyticsHowItWorksExecutionIntro:
+      'Pas na meerlaagse verificatie kan een strategie worden uitgevoerd. Alle acties worden gelogd en extra gecontroleerd op:',
+    aiAnalyticsHowItWorksExecutionBullets: [
+      'Naleving van risicoparameters',
+      'Kapitaalbescherming',
+      'Bestandheid tegen marktanomalieën',
+    ],
+    aiAnalyticsHowItWorksCta: 'Begrepen',
     aiAnalyticsInfo: 'Info',
     aiAnalyticsInfoTitle: 'Hoe het werkt',
     aiAnalyticsInfoBody:

@@ -1703,11 +1703,57 @@ function App() {
                 title: (t as any).aiAnalyticsTitle ?? 'AI Analytics',
                 simulated: (t as any).simulated ?? 'IMITATION',
                 update: (t as any).update ?? 'Update',
-                info: (t as any).aiAnalyticsInfo ?? 'Info',
-                infoTitle: (t as any).aiAnalyticsInfoTitle ?? 'About AI Analytics',
-                infoBody:
-                  (t as any).aiAnalyticsInfoBody ??
-                  'Syntrix AI compares its market assessment with multiple independent models and synthesizes the result into a single trading signal.\nSignals update twice per hour.',
+                howItWorks: (t as any).aiAnalyticsHowItWorks ?? (t as any).aiAnalyticsInfo ?? 'How it works',
+                howItWorksTitle: (t as any).aiAnalyticsHowItWorksTitle ?? (t as any).aiAnalyticsInfoTitle ?? 'How it works',
+                howItWorksIntro:
+                  (t as any).aiAnalyticsHowItWorksIntro ??
+                  'Syntrix AI is a multi-model analytics system that uses competitive AI analysis to form trading decisions.',
+                howItWorksParallelTitle:
+                  (t as any).aiAnalyticsHowItWorksParallelTitle ??
+                  'Parallel AI market analysis',
+                howItWorksModels:
+                  (t as any).aiAnalyticsHowItWorksModels ??
+                  ['DeepSeek Chat v3.1', 'Claude Sonnet 4.5', 'Qwen3 Max', 'Gemini 2.5 Pro'],
+                howItWorksHypothesesTitle:
+                  (t as any).aiAnalyticsHowItWorksHypothesesTitle ??
+                  'Each model forms its own strategic hypothesis:',
+                howItWorksHypotheses:
+                  (t as any).aiAnalyticsHowItWorksHypotheses ??
+                  ['Possible entry points', 'Risk management', 'Volatility expectations', 'Market behavior patterns'],
+                howItWorksCompetitionTitle:
+                  (t as any).aiAnalyticsHowItWorksCompetitionTitle ??
+                  'AI competition and crypto analysis',
+                howItWorksCompetitionIntro:
+                  (t as any).aiAnalyticsHowItWorksCompetitionIntro ??
+                  'All hypotheses are cross-checked and validated via crypto-analytic consistency checks:',
+                howItWorksCompetitionBullets:
+                  (t as any).aiAnalyticsHowItWorksCompetitionBullets ??
+                  ['Scenario comparison', 'Divergence detection', 'Logical and statistical conflict analysis', 'Filtering noisy and emotional decisions'],
+                howItWorksCompetitionOutro:
+                  (t as any).aiAnalyticsHowItWorksCompetitionOutro ??
+                  'It works like an AI tournament where every model defends its viewpoint.',
+                howItWorksMetaTitle:
+                  (t as any).aiAnalyticsHowItWorksMetaTitle ??
+                  'Syntrix intelligence (Meta-AI layer)',
+                howItWorksMetaIntro:
+                  (t as any).aiAnalyticsHowItWorksMetaIntro ??
+                  'After that, Syntrix AI applies:',
+                howItWorksMetaBullets:
+                  (t as any).aiAnalyticsHowItWorksMetaBullets ??
+                  ['Proprietary mathematical models', 'Probabilistic analysis algorithms', 'Elements of cryptography and secure decision logic', 'Risk management based on aggregated data'],
+                howItWorksMetaOutro:
+                  (t as any).aiAnalyticsHowItWorksMetaOutro ??
+                  "Syntrix doesn't copy others' outputs. It makes the final decision independently, using AI competition as a signal source — not an instruction.",
+                howItWorksExecutionTitle:
+                  (t as any).aiAnalyticsHowItWorksExecutionTitle ??
+                  'Execution',
+                howItWorksExecutionIntro:
+                  (t as any).aiAnalyticsHowItWorksExecutionIntro ??
+                  'Only after multi-level verification can a strategy be allowed into execution. All actions are logged and additionally checked for:',
+                howItWorksExecutionBullets:
+                  (t as any).aiAnalyticsHowItWorksExecutionBullets ??
+                  ['Risk parameter compliance', 'Capital protection', 'Resilience to market anomalies'],
+                howItWorksCta: (t as any).aiAnalyticsHowItWorksCta ?? 'Got it!',
                 loading: (t as any).loading ?? 'Loading…',
                 error: (t as any).errorGeneric ?? 'Unable to load',
               }}

@@ -5,8 +5,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -39,9 +39,25 @@ type Props = {
     title: string
     simulated: string
     update: string
-    info: string
-    infoTitle: string
-    infoBody: string
+    howItWorks: string
+    howItWorksTitle: string
+    howItWorksIntro: string
+    howItWorksParallelTitle: string
+    howItWorksModels: string[]
+    howItWorksHypothesesTitle: string
+    howItWorksHypotheses: string[]
+    howItWorksCompetitionTitle: string
+    howItWorksCompetitionIntro: string
+    howItWorksCompetitionBullets: string[]
+    howItWorksCompetitionOutro: string
+    howItWorksMetaTitle: string
+    howItWorksMetaIntro: string
+    howItWorksMetaBullets: string[]
+    howItWorksMetaOutro: string
+    howItWorksExecutionTitle: string
+    howItWorksExecutionIntro: string
+    howItWorksExecutionBullets: string[]
+    howItWorksCta: string
     loading: string
     error: string
   }
@@ -277,17 +293,96 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
         <div className="flex items-center gap-2">
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="ghost" className="text-foreground hover:text-accent">
-                {strings.info}
+              <Button
+                variant="secondary"
+                className="border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
+              >
+                {strings.howItWorks}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="bg-card border-2 border-primary/30 w-[calc(100vw-2rem)] max-w-[520px] rounded-xl">
               <DialogHeader>
-                <DialogTitle>{strings.infoTitle}</DialogTitle>
-                <DialogDescription className="whitespace-pre-wrap">
-                  {strings.infoBody}
-                </DialogDescription>
+                <DialogTitle className="text-xl font-bold text-primary">{strings.howItWorksTitle}</DialogTitle>
               </DialogHeader>
+
+              <ScrollArea className="max-h-[70vh] pr-3">
+                <div className="space-y-4 pt-2">
+                  <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">{strings.howItWorksIntro}</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="bg-accent/5 rounded-lg p-4 border border-accent/20">
+                      <p className="text-sm font-bold text-accent mb-2">{strings.howItWorksParallelTitle}</p>
+                      <ul className="space-y-2 text-sm text-foreground/90">
+                        {strings.howItWorksModels.map((m) => (
+                          <li key={m} className="flex items-start gap-2">
+                            <span className="text-accent mt-0.5">•</span>
+                            <span>{m}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <p className="text-sm font-semibold text-foreground mt-4">{strings.howItWorksHypothesesTitle}</p>
+                      <ul className="space-y-2 text-sm text-foreground/90 mt-2">
+                        {strings.howItWorksHypotheses.map((b) => (
+                          <li key={b} className="flex items-start gap-2">
+                            <span className="text-accent mt-0.5">•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="bg-secondary/5 rounded-lg p-4 border border-secondary/20">
+                      <p className="text-sm font-bold text-foreground mb-2">{strings.howItWorksCompetitionTitle}</p>
+                      <p className="text-sm text-foreground/90">{strings.howItWorksCompetitionIntro}</p>
+                      <ul className="space-y-2 text-sm text-foreground/90 mt-3">
+                        {strings.howItWorksCompetitionBullets.map((b) => (
+                          <li key={b} className="flex items-start gap-2">
+                            <span className="text-foreground/80 mt-0.5">•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-sm text-muted-foreground mt-3">{strings.howItWorksCompetitionOutro}</p>
+                    </div>
+
+                    <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                      <p className="text-sm font-bold text-primary mb-2">{strings.howItWorksMetaTitle}</p>
+                      <p className="text-sm text-foreground/90">{strings.howItWorksMetaIntro}</p>
+                      <ul className="space-y-2 text-sm text-foreground/90 mt-3">
+                        {strings.howItWorksMetaBullets.map((b) => (
+                          <li key={b} className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-sm text-foreground/90 mt-3">{strings.howItWorksMetaOutro}</p>
+                    </div>
+
+                    <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                      <p className="text-sm font-bold text-foreground mb-2">{strings.howItWorksExecutionTitle}</p>
+                      <p className="text-sm text-foreground/90">{strings.howItWorksExecutionIntro}</p>
+                      <ul className="space-y-2 text-sm text-foreground/90 mt-3">
+                        {strings.howItWorksExecutionBullets.map((b) => (
+                          <li key={b} className="flex items-start gap-2">
+                            <span className="text-foreground/80 mt-0.5">•</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <DialogClose asChild>
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3" type="button">
+                      {strings.howItWorksCta}
+                    </Button>
+                  </DialogClose>
+                </div>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
 
