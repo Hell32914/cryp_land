@@ -423,7 +423,7 @@ const buildFallbackAiAnalytics = (opts?: { date?: Date; symbol?: string }): AiAn
   ]
 
   return models.map((m) => {
-    const { signal, confidencePct, profitPct, seed, includeInsight } = computeDeterministicAiAnalyticsForDay({
+    const { signal, confidencePct, profitPct, seed, includeInsight } = computeDeterministicAiAnalyticsForSlot({
       modelId: m.modelId,
       date,
       symbol,
@@ -448,17 +448,76 @@ const buildFallbackAiAnalytics = (opts?: { date?: Date; symbol?: string }): AiAn
   })
 }
 
-function utcDateKey(date: Date) {
-  const y = date.getUTCFullYear()
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const d = String(date.getUTCDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+function getTimeZoneParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value
+  const y = Number(get('year') || '0')
+  const m = Number(get('month') || '1')
+  const d = Number(get('day') || '1')
+  const hh = Number(get('hour') || '0')
+  const mm = Number(get('minute') || '0')
+  const ss = Number(get('second') || '0')
+  return { y, m, d, hh, mm, ss }
 }
 
-function daysInUtcMonth(date: Date) {
-  const y = date.getUTCFullYear()
-  const m = date.getUTCMonth()
-  return new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+function kyivDateKey(date: Date) {
+  const { y, m, d } = getTimeZoneParts(date, 'Europe/Kyiv')
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function daysInMonth(year: number, month1to12: number) {
+  return new Date(Date.UTC(year, month1to12, 0)).getUTCDate()
+}
+
+function kyivSecondsSinceMidnight(date: Date) {
+  const { hh, mm, ss } = getTimeZoneParts(date, 'Europe/Kyiv')
+  return hh * 3600 + mm * 60 + ss
+}
+
+function kyivSlotIndex(date: Date) {
+  // Schedule (Kyiv time):
+  // 00:00-08:00 -> 4 generations
+  // 08:00-00:00 -> 44 generations
+  const secs = kyivSecondsSinceMidnight(date)
+  const nightEnd = 8 * 3600
+  if (secs < nightEnd) {
+    const slot = Math.min(3, Math.floor((secs / nightEnd) * 4))
+    return slot
+  }
+
+  const daySecs = 16 * 3600
+  const t = secs - nightEnd
+  const slot = Math.min(43, Math.floor((t / daySecs) * 44))
+  return 4 + slot
+}
+
+function kyivPrevDayKey(date: Date) {
+  // Compute previous calendar day in Kyiv, without relying on 24h subtraction (DST-safe).
+  const { y, m, d } = getTimeZoneParts(date, 'Europe/Kyiv')
+  if (d > 1) {
+    return `${y}-${String(m).padStart(2, '0')}-${String(d - 1).padStart(2, '0')}`
+  }
+  // previous month
+  if (m > 1) {
+    const pm = m - 1
+    const pdays = daysInMonth(y, pm)
+    return `${y}-${String(pm).padStart(2, '0')}-${String(pdays).padStart(2, '0')}`
+  }
+  // previous year
+  const py = y - 1
+  const pm = 12
+  const pdays = daysInMonth(py, pm)
+  return `${py}-${String(pm).padStart(2, '0')}-${String(pdays).padStart(2, '0')}`
 }
 
 function hashToUint32(input: string) {
@@ -508,26 +567,26 @@ function monthlyStart(modelId: AiModelId) {
   }
 }
 
-function computeMonthlyProfitPct(opts: { modelId: AiModelId; date: Date; symbol: string }) {
+function computeDailyBaselineProfitPct(opts: { modelId: AiModelId; date: Date; symbol: string }) {
   const { modelId, date, symbol } = opts
-  const day = date.getUTCDate()
-  const dim = daysInUtcMonth(date)
-  const p = dim <= 1 ? 1 : (day - 1) / (dim - 1)
+  const { y, m, d } = getTimeZoneParts(date, 'Europe/Kyiv')
+  const dim = daysInMonth(y, m)
+  const p = dim <= 1 ? 1 : (d - 1) / (dim - 1)
 
   const start = monthlyStart(modelId)
   const end = monthlyTargetEnd(modelId)
   const curve = start + (end - start) * Math.pow(p, 2.2)
 
-  const seed = hashToUint32(`${utcDateKey(date)}:${modelId}:${symbol}`)
+  const seed = hashToUint32(`${kyivDateKey(date)}:${modelId}:${symbol}:day`)
   const rand = mulberry32(seed)
 
-  // Oscillations + small deterministic jitter to create down-days while trending upward.
+  // Day-to-day movement with pullbacks while trending upward.
   const amp = (end - start) * (0.035 + 0.045 * p)
   const phaseA = (seed % 1000) / 1000
   const phaseB = ((seed >>> 8) % 1000) / 1000
   const osc =
-    Math.sin((day + phaseA) * (Math.PI * 2) / 5) * 0.75 +
-    Math.sin((day + phaseB) * (Math.PI * 2) / 11) * 0.45
+    Math.sin((d + phaseA) * (Math.PI * 2) / 5) * 0.75 +
+    Math.sin((d + phaseB) * (Math.PI * 2) / 11) * 0.45
   const jitter = (rand() - 0.5) * 0.35
   const noise = amp * (osc / 1.3 + jitter)
 
@@ -535,37 +594,81 @@ function computeMonthlyProfitPct(opts: { modelId: AiModelId; date: Date; symbol:
   if (modelId === 'syntrix') {
     profit = Math.max(0, profit)
   } else {
-    profit = Math.max(-25, profit)
+    profit = Math.max(-100, profit)
   }
 
   return Number(profit.toFixed(2))
 }
 
-function computeDeterministicAiAnalyticsForDay(opts: { modelId: AiModelId; date: Date; symbol: string }) {
-  const { modelId, date, symbol } = opts
-  const seed = hashToUint32(`${utcDateKey(date)}:${modelId}:${symbol}:v2`)
+function computeProfitPctForSlot(opts: { modelId: AiModelId; date: Date; symbol: string; slotIndex: number }) {
+  const { modelId, date, symbol, slotIndex } = opts
+  const baseline = computeDailyBaselineProfitPct({ modelId, date, symbol })
+
+  const seed = hashToUint32(`${kyivDateKey(date)}:${modelId}:${symbol}:slot:${slotIndex}`)
   const rand = mulberry32(seed)
 
-  const profitPct = computeMonthlyProfitPct({ modelId, date, symbol })
+  // Intra-day variation: stable within slot, changes only on slot boundaries.
+  const amp = Math.max(0.6, Math.abs(baseline) * 0.012)
+  const phase = (seed % 1000) / 1000
+  const osc =
+    Math.sin((slotIndex + phase) * (Math.PI * 2) / 8) * 0.9 +
+    Math.sin((slotIndex + phase) * (Math.PI * 2) / 17) * 0.6
+  const jitter = (rand() - 0.5) * 0.6
+  let profit = baseline + amp * (osc / 1.4 + jitter)
 
-  // Confidence stays stable within the day.
-  const dim = daysInUtcMonth(date)
-  const p = dim <= 1 ? 1 : (date.getUTCDate() - 1) / (dim - 1)
+  if (modelId === 'syntrix') {
+    profit = Math.max(0, profit)
+  } else {
+    profit = Math.max(-100, profit)
+  }
+  return Number(profit.toFixed(2))
+}
+
+function computeDeterministicAiAnalyticsForSlot(opts: { modelId: AiModelId; date: Date; symbol: string }) {
+  const { modelId, date, symbol } = opts
+  const slotIndex = kyivSlotIndex(date)
+  const seed = hashToUint32(`${kyivDateKey(date)}:${modelId}:${symbol}:slot:${slotIndex}:v3`)
+  const rand = mulberry32(seed)
+
+  const profitPct = computeProfitPctForSlot({ modelId, date, symbol, slotIndex })
+
+  // Confidence stays stable within the slot.
+  const { y, m, d } = getTimeZoneParts(date, 'Europe/Kyiv')
+  const dim = daysInMonth(y, m)
+  const p = dim <= 1 ? 1 : (d - 1) / (dim - 1)
   const confidenceBase = 58 + 22 * p
-  const confidenceNoise = (rand() - 0.5) * 12 + Math.sin((date.getUTCDate() + (seed % 7)) * 0.9) * 4
+  const confidenceNoise = (rand() - 0.5) * 12 + Math.sin((slotIndex + (seed % 7)) * 0.9) * 4
   const confidencePct = Math.max(40, Math.min(95, Math.round(confidenceBase + confidenceNoise)))
 
-  // Signal derived from day-to-day change so some days are SELL/HOLD.
-  const yesterday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 1))
-  const prevProfit = yesterday.getUTCMonth() === date.getUTCMonth()
-    ? computeMonthlyProfitPct({ modelId, date: yesterday, symbol })
-    : profitPct
+  // Signal derived from change vs previous slot.
+  const prevSlotIndex = slotIndex > 0 ? slotIndex - 1 : 47
+  const prevDate = slotIndex > 0 ? date : new Date(date.getTime())
+  // If we're at the first slot of the day, use previous Kyiv day key in the seed.
+  const prevProfit = slotIndex > 0
+    ? computeProfitPctForSlot({ modelId, date, symbol, slotIndex: prevSlotIndex })
+    : (() => {
+        const prevDayKey = kyivPrevDayKey(date)
+        const prevSeedDate = prevDayKey + ':seed'
+        // Create a deterministic pseudo-date seed input (no need for real Date arithmetic)
+        const prevSeed = hashToUint32(`${prevSeedDate}:${modelId}:${symbol}`)
+        const prevRand = mulberry32(prevSeed)
+        // Approximate previous day's last slot around that day's baseline.
+        const baselineGuess = computeDailyBaselineProfitPct({ modelId, date, symbol })
+        const osc = Math.sin((47 + (prevSeed % 1000) / 1000) * (Math.PI * 2) / 8)
+        const amp = Math.max(0.6, Math.abs(baselineGuess) * 0.012)
+        const jitter = (prevRand() - 0.5) * 0.6
+        let v = baselineGuess + amp * (osc / 1.4 + jitter)
+        if (modelId === 'syntrix') v = Math.max(0, v)
+        else v = Math.max(-100, v)
+        return Number(v.toFixed(2))
+      })()
 
   const delta = profitPct - prevProfit
-  const threshold = Math.max(0.35, Math.abs(profitPct) * 0.006)
+  const threshold = Math.max(0.35, Math.max(1, Math.abs(profitPct)) * 0.006)
   const signal: 'BUY' | 'SELL' | 'HOLD' = delta > threshold ? 'BUY' : delta < -threshold ? 'SELL' : 'HOLD'
 
   const includeInsight = (seed % 100) < 35
+  void prevDate
   return { signal, confidencePct, profitPct, seed, includeInsight }
 }
 

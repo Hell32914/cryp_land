@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft, ChartLineUp } from '@phosphor-icons/react'
+import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft, ChartLineUp, Gift, Coins } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -14,7 +14,7 @@ import { AnimatedBackground } from '@/components/AnimatedBackground'
 import { useUserData } from '@/hooks/useUserData'
 import { AiAnalyticsTab } from '@/components/AiAnalyticsTab'
 
-type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'ai' | 'profile'
+type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'game' | 'ai' | 'profile'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home')
@@ -803,6 +803,7 @@ function App() {
     { id: 'invite' as TabType, icon: UserPlus, label: t.invite },
     { id: 'home' as TabType, icon: House, label: t.home },
     { id: 'calculator' as TabType, icon: Calculator, label: t.calculator },
+    { id: 'game' as TabType, icon: Gift, label: (t as any).game ?? 'Game' },
     { id: 'ai' as TabType, icon: ChartLineUp, label: (t as any).ai ?? 'AI' },
     { id: 'profile' as TabType, icon: User, label: t.profile }
   ]
@@ -1758,6 +1759,57 @@ function App() {
                 error: (t as any).errorGeneric ?? 'Unable to load',
               }}
             />
+          )}
+
+          {activeTab === 'game' && (
+            <div className="space-y-5 pb-4">
+              <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 space-y-2 border border-border/50 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <Gift size={22} weight="duotone" className="text-primary sm:w-6 sm:h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">{(t as any).syntrixGameTitle ?? 'Syntrix Game'}</h2>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { upTo: 250, cost: 150, tone: 'primary' },
+                  { upTo: 700, cost: 525, tone: 'accent' },
+                  { upTo: 2000, cost: 1500, tone: 'secondary' },
+                  { upTo: 5000, cost: 3750, tone: 'muted' },
+                  { upTo: 10000, cost: 7500, tone: 'foreground' },
+                  { upTo: 25000, cost: 18750, tone: 'primary' },
+                ].map((box, idx) => (
+                  <div
+                    key={`${box.upTo}-${idx}`}
+                    className="relative overflow-hidden rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-4 aspect-[4/5] flex flex-col"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="border-border/50 bg-background/50 text-muted-foreground">
+                        {(t as any).upTo ?? 'Up to'} {box.upTo}
+                      </Badge>
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                        <Gift size={18} weight="fill" className="text-primary" />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                        <Gift size={44} weight="duotone" className="text-primary" />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="text-lg font-bold text-foreground">{box.cost.toLocaleString('en-US')}</span>
+                      <Coins size={18} weight="fill" className="text-accent" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
           
           {activeTab === 'wallet' && (

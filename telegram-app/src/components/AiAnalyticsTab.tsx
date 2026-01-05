@@ -92,14 +92,41 @@ const buildSeries = (targetProfitPct: number, modelId: AiModelId): ChartPoint[] 
 export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiUrl, strings }: Props) {
   const API_URL = apiUrl || (import.meta.env.VITE_API_URL || 'https://api.syntrix.website')
 
-  // 2 updates per hour
-  const UPDATE_INTERVAL_MS = 30 * 60_000
-
   const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const updateTimerRef = useRef<number | null>(null)
+
+  const getKyivSecondsSinceMidnight = () => {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Kyiv',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date())
+    const get = (type: string) => parts.find((p) => p.type === type)?.value
+    const hh = Number(get('hour') || '0')
+    const mm = Number(get('minute') || '0')
+    const ss = Number(get('second') || '0')
+    return hh * 3600 + mm * 60 + ss
+  }
+
+  const getDelayToNextKyivSlotMs = () => {
+    const secs = getKyivSecondsSinceMidnight()
+    const nightEnd = 8 * 3600
+
+    // Build deterministic boundaries for today in seconds.
+    const boundaries: number[] = [0]
+    for (let i = 1; i <= 4; i++) boundaries.push(Math.round((nightEnd * i) / 4))
+    for (let i = 1; i <= 44; i++) boundaries.push(Math.round(nightEnd + ((16 * 3600) * i) / 44))
+    boundaries[boundaries.length - 1] = 24 * 3600
+
+    const next = boundaries.find((b) => b > secs) ?? 24 * 3600
+    const deltaSecs = Math.max(5, next - secs)
+    return deltaSecs * 1000
+  }
 
   const modelToColor = useMemo(() => {
     return {
@@ -160,9 +187,9 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   }
 
   const scheduleAllUpdates = () => {
-    // Update exactly 2 times per hour (every 30 minutes)
-    const remainder = Date.now() % UPDATE_INTERVAL_MS
-    const delay = remainder === 0 ? UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS - remainder
+    // Align refresh cadence to Kyiv "generation slots":
+    // 00:00-08:00 -> 4 slots, 08:00-00:00 -> 44 slots.
+    const delay = getDelayToNextKyivSlotMs()
 
     if (updateTimerRef.current) {
       window.clearTimeout(updateTimerRef.current)
