@@ -146,13 +146,14 @@ export interface UsersResponse {
 export interface DepositRecord {
   id: number
   status: string
+  paymentMethod?: string
   amount: number
   currency: string
   network?: string | null
   txHash?: string | null
   createdAt: string
   user: UserRecord
-  depStatus: 'processing' | 'paid'
+  depStatus: 'processing' | 'paid' | 'failed'
   leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active'
   trafficSource: string | null
   referralLink: string | null

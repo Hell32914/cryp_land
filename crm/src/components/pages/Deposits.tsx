@@ -64,6 +64,11 @@ export function Deposits() {
     }
   }
 
+  const getPaymentMethodLabel = (paymentMethod?: string) => {
+    const pm = (paymentMethod || 'OXAPAY').toUpperCase()
+    return pm === 'PAYPAL' ? 'PAYPAL' : 'CRYPTO'
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -98,6 +103,8 @@ export function Deposits() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>Order ID</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Method</TableHead>
                   <TableHead>User ID</TableHead>
                   <TableHead>Username</TableHead>
                   <TableHead>Full Name</TableHead>
@@ -114,6 +121,12 @@ export function Deposits() {
                 {filteredDeposits.map((deposit) => (
                   <TableRow key={deposit.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-sm">#{deposit.id}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(deposit.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">
+                      {getPaymentMethodLabel(deposit.paymentMethod)}
+                    </TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">{deposit.user.telegramId}</TableCell>
                     <TableCell className="font-medium text-sm">{deposit.user.username || 'N/A'}</TableCell>
                     <TableCell className="text-sm">{deposit.user.fullName}</TableCell>
@@ -125,6 +138,8 @@ export function Deposits() {
                       <Badge variant="outline" className={
                         deposit.depStatus === 'paid' 
                           ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                          : deposit.depStatus === 'failed'
+                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
                           : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                       }>
                         {deposit.depStatus}
@@ -181,6 +196,9 @@ export function Deposits() {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {new Date(selectedDeposit.createdAt).toLocaleString()}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Method: {getPaymentMethodLabel(selectedDeposit.paymentMethod)}
                 </div>
               </div>
 

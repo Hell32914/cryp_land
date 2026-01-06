@@ -1466,6 +1466,32 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
     const { status, limit = '100' } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 100, 500)
 
+    // Auto-expire pending deposits when payment links are expected to be expired.
+    // OxaPay invoices are created with lifeTime=30 minutes (see src/oxapay.ts).
+    const oxapayExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_OXAPAY || 60)
+    const paypalExpireHours = Number(process.env.DEPOSIT_EXPIRE_HOURS_PAYPAL || 24)
+    const now = new Date()
+    const oxapayCutoff = new Date(now.getTime() - oxapayExpireMinutes * 60 * 1000)
+    const paypalCutoff = new Date(now.getTime() - paypalExpireHours * 60 * 60 * 1000)
+
+    await prisma.deposit.updateMany({
+      where: {
+        status: 'PENDING',
+        createdAt: { lt: oxapayCutoff },
+        paymentMethod: 'OXAPAY',
+      },
+      data: { status: 'FAILED' },
+    })
+
+    await prisma.deposit.updateMany({
+      where: {
+        status: 'PENDING',
+        createdAt: { lt: paypalCutoff },
+        paymentMethod: 'PAYPAL',
+      },
+      data: { status: 'FAILED' },
+    })
+
     const deposits = await prisma.deposit.findMany({
       where: status
         ? {
@@ -1489,26 +1515,46 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       take,
     })
 
+    // Precompute per-user first REAL (money) deposit id to properly label FTD.
+    // Exclude synthetic deposits such as manual profit credits (currency = 'PROFIT').
+    const userIds = Array.from(new Set(deposits.map(d => d.userId)))
+    const completedRealDeposits = await prisma.deposit.findMany({
+      where: {
+        userId: { in: userIds },
+        status: 'COMPLETED',
+        NOT: [{ currency: 'PROFIT' }],
+      },
+      select: { id: true, userId: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    const firstRealDepositIdByUserId = new Map<number, number>()
+    for (const dep of completedRealDeposits) {
+      if (!firstRealDepositIdByUserId.has(dep.userId)) {
+        firstRealDepositIdByUserId.set(dep.userId, dep.id)
+      }
+    }
+
     // Get all marketing links to match with users
     const marketingLinks = await prisma.marketingLink.findMany()
     const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
 
     const payload = deposits.map((deposit) => {
       // Determine depStatus based on deposit status
-      const depStatus = deposit.status === 'COMPLETED' ? 'paid' : 'processing'
+      const depStatus = deposit.status === 'COMPLETED' ? 'paid' : deposit.status === 'FAILED' ? 'failed' : 'processing'
       
       // Determine leadStatus
       let leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active' = 'active'
       
-      // Check if this is first deposit
-      const userDeposits = deposits.filter(d => d.user.telegramId === deposit.user.telegramId && d.status === 'COMPLETED')
-      const isFirstDeposit = userDeposits.length > 0 && userDeposits[0].id === deposit.id
-      
-      if (isFirstDeposit) {
+      const firstRealDepositId = firstRealDepositIdByUserId.get(deposit.userId)
+      const hasRealFtd = typeof firstRealDepositId === 'number'
+      const isFirstRealDeposit = deposit.status === 'COMPLETED' && firstRealDepositId === deposit.id && deposit.currency !== 'PROFIT'
+
+      if (isFirstRealDeposit) {
         leadStatus = 'FTD'
       } else if (deposit.user.withdrawals.length > 0) {
         leadStatus = 'withdraw'
-      } else if (deposit.user.dailyUpdates.length > 0) {
+      } else if (hasRealFtd && deposit.user.dailyUpdates.length > 0) {
         leadStatus = 'reinvest'
       }
 
@@ -1575,7 +1621,7 @@ app.get('/api/admin/withdrawals', requireAdminAuth, async (req, res) => {
 
     const payload = withdrawals.map((withdrawal) => ({
       id: withdrawal.id,
-      status: withdrawal.status,
+      status: withdrawal.status === 'APPROVED' ? 'COMPLETED' : withdrawal.status,
       paymentMethod: (withdrawal as any).paymentMethod,
       amount: withdrawal.amount,
       currency: withdrawal.currency,
