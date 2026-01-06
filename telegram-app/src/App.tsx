@@ -69,6 +69,14 @@ function App() {
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
+  const formatUsd = (value: number) => {
+    const safe = Number.isFinite(value) ? value : 0
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(safe)
+  }
+
   const mapLanguageCodeToAppLanguage = (code?: string | null): Language => {
     if (!code) return 'ENGLISH'
     const normalized = code.toString().trim().toLowerCase().split(/[-_]/)[0]
@@ -346,7 +354,7 @@ function App() {
 
       if (response.ok) {
         const data = await response.json()
-        toast.success(`Successfully reinvested $${data.reinvestedAmount.toFixed(2)} referral earnings!`)
+        toast.success(`Successfully reinvested $${formatUsd(data.reinvestedAmount)} referral earnings!`)
         await refreshData()
       } else {
         const error = await response.json()
@@ -922,7 +930,7 @@ function App() {
 
             <p className="text-foreground text-sm sm:text-base">
               {t.availableBalance}{' '}
-              <span className="font-bold text-primary">${(((userData?.totalDeposit || 0) + (userData?.profit || 0)) || 0).toFixed(2)}</span>
+              <span className="font-bold text-primary">${formatUsd(((userData?.totalDeposit || 0) + (userData?.profit || 0)) || 0)}</span>
             </p>
 
             <div className="space-y-2">
@@ -1537,7 +1545,7 @@ function App() {
                   <div className="flex items-start justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.totalBalance}</p>
-                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {((userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0)).toFixed(2)}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-foreground">$ {formatUsd((userData?.totalDeposit || 0) + (userData?.profit || 0) + (userData?.referralEarnings || 0))}</p>
                     </div>
                     <Badge 
                       variant="outline" 
@@ -1550,7 +1558,7 @@ function App() {
                   <div className="flex items-center justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.profit}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">${(userData?.profit || 0).toFixed(2)}</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">${formatUsd(userData?.profit || 0)}</p>
                     </div>
                     <Button 
                       className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1564,7 +1572,7 @@ function App() {
                   <div className="flex items-center justify-between pb-3 border-b border-dashed border-border/50">
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1">{t.deposit}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">${(userData?.totalDeposit || 0).toFixed(2)}</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">${formatUsd(userData?.totalDeposit || 0)}</p>
                     </div>
                     <Button 
                       className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-6 sm:px-8 py-5 sm:py-6 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
@@ -1580,7 +1588,7 @@ function App() {
                         Syntrix Token
                         <span className="text-xs opacity-70">(0.5% daily)</span>
                       </p>
-                      <p className="text-lg sm:text-xl font-bold text-primary">${(userData?.bonusTokens || 0).toFixed(2)}</p>
+                      <p className="text-lg sm:text-xl font-bold text-primary">${formatUsd(userData?.bonusTokens || 0)}</p>
                     </div>
                     <Button
                       variant="ghost"
@@ -1612,7 +1620,7 @@ function App() {
                   <div className="flex items-center justify-between">
                     <p className="text-foreground font-bold">
                       {userData?.planProgress?.nextPlan 
-                        ? `$${userData.planProgress.leftUntilNext.toFixed(2)} left until ${userData.planProgress.nextPlan}`
+                        ? `$${formatUsd(userData.planProgress.leftUntilNext)} left until ${userData.planProgress.nextPlan}`
                         : '🏆 Highest plan achieved!'}
                     </p>
                     <Button 
@@ -1668,7 +1676,7 @@ function App() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-foreground">
-                              +${update.amount.toFixed(2)}
+                              +${formatUsd(update.amount)}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {new Date(update.timestamp).toLocaleTimeString('en-US', { 
@@ -1692,7 +1700,7 @@ function App() {
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold text-muted-foreground">Total Daily Profit</p>
                         <p className="text-lg font-bold text-accent">
-                          +${dailyProfitTotal.toFixed(2)}
+                          +${formatUsd(dailyProfitTotal)}
                         </p>
                       </div>
                       <div className="flex items-center justify-between mt-2">
@@ -1835,7 +1843,7 @@ function App() {
                   <div className="space-y-4">
                     <p className="text-foreground text-lg">
                       {t.availableBalance}{' '}
-                      <span className="font-bold">${(((userData?.totalDeposit || 0) + (userData?.profit || 0)) || 0).toFixed(2)}</span>
+                      <span className="font-bold">${formatUsd(((userData?.totalDeposit || 0) + (userData?.profit || 0)) || 0)}</span>
                     </p>
                     
                     <Button 
@@ -1984,7 +1992,7 @@ function App() {
                               tx.currency === 'PROFIT' ? 'text-purple-500' : 
                               tx.type === 'DEPOSIT' ? 'text-green-500' : 'text-red-500'
                             }`}>
-                              {tx.currency === 'PROFIT' || tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toFixed(2)}
+                              {tx.currency === 'PROFIT' || tx.type === 'DEPOSIT' ? '+' : '-'}${formatUsd(tx.amount)}
                             </p>
                             <p className="text-xs">
                               <span className={`inline-block px-2 py-0.5 rounded text-xs ${
@@ -2039,7 +2047,7 @@ function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-sm mb-1">{t.referralBalance}</p>
-                    <p className="text-2xl font-bold text-black">$ {(userData?.referralEarnings || 0).toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-black">$ {formatUsd(userData?.referralEarnings || 0)}</p>
                   </div>
                   <Button 
                     className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold px-8 py-6 text-base"
@@ -2162,7 +2170,7 @@ function App() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-accent">+${referral.earnings.toFixed(2)}</p>
+                          <p className="font-bold text-accent">+${formatUsd(referral.earnings)}</p>
                           <p className="text-xs text-muted-foreground">
                             {referral.level === 1 ? '4%' : referral.level === 2 ? '3%' : '2%'}
                           </p>
