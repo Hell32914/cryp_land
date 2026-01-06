@@ -1466,17 +1466,18 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
     const { status, limit = '100' } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 100, 500)
 
-    // Auto-expire pending deposits when payment links are expected to be expired.
+    // Auto-expire stale deposits when payment links are expected to be expired.
     // OxaPay invoices are created with lifeTime=30 minutes (see src/oxapay.ts).
-    const oxapayExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_OXAPAY || 60)
-    const paypalExpireHours = Number(process.env.DEPOSIT_EXPIRE_HOURS_PAYPAL || 24)
+    // NOTE: This is a cleanup-on-read (runs when CRM/admin fetches deposits).
+    const oxapayExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_OXAPAY || 35)
+    const paypalExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_PAYPAL || 35)
     const now = new Date()
     const oxapayCutoff = new Date(now.getTime() - oxapayExpireMinutes * 60 * 1000)
-    const paypalCutoff = new Date(now.getTime() - paypalExpireHours * 60 * 60 * 1000)
+    const paypalCutoff = new Date(now.getTime() - paypalExpireMinutes * 60 * 1000)
 
     await prisma.deposit.updateMany({
       where: {
-        status: 'PENDING',
+        status: { in: ['PENDING', 'PROCESSING'] },
         createdAt: { lt: oxapayCutoff },
         paymentMethod: 'OXAPAY',
       },
@@ -1485,7 +1486,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
 
     await prisma.deposit.updateMany({
       where: {
-        status: 'PENDING',
+        status: { in: ['PENDING', 'PROCESSING'] },
         createdAt: { lt: paypalCutoff },
         paymentMethod: 'PAYPAL',
       },
