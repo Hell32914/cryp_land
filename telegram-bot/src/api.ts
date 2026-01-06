@@ -531,30 +531,39 @@ function mulberry32(seed: number) {
   }
 }
 
+function clampProfitPct(modelId: AiModelId, value: number) {
+  // Product requirement:
+  // - Syntrix AI: usually large positive, only minimal negatives.
+  // - Other models: usually smaller, downside can be wider.
+  if (modelId === 'syntrix') {
+    return Math.min(60, Math.max(-3, value))
+  }
+
+  return Math.min(20, Math.max(-15, value))
+}
+
 function monthlyTargetEnd(modelId: AiModelId) {
-  // User request: by end of month, Syntrix can reach ~500%.
-  // Other models are lower so chart remains readable.
+  // Keep Syntrix higher than others, but within realistic UI ranges.
   switch (modelId) {
     case 'syntrix':
-      return 500
+      return 18
     case 'modelA':
-      return 140
+      return 6
     case 'modelB':
-      return 120
+      return 5
     case 'modelC':
-      return 95
+      return 4
     case 'modelD':
-      return 110
+      return 5.5
   }
 }
 
 function monthlyStart(modelId: AiModelId) {
-  // Day 1 ~1% for Syntrix; others start smaller.
   switch (modelId) {
     case 'syntrix':
-      return 1
+      return 6.5
     default:
-      return 0.6
+      return 1.2
   }
 }
 
@@ -581,13 +590,17 @@ function computeDailyBaselineProfitPct(opts: { modelId: AiModelId; date: Date; s
   const jitter = (rand() - 0.5) * 0.35
   const noise = amp * (osc / 1.3 + jitter)
 
-  let profit = curve + noise
+  let profit = clampProfitPct(modelId, curve + noise)
+  // Add rare small negative pullbacks for Syntrix, but keep them minimal.
   if (modelId === 'syntrix') {
-    profit = Math.max(0, profit)
-  } else {
-    profit = Math.max(-100, profit)
+    const extraSeed = hashToUint32(`${kyivDateKey(date)}:${modelId}:${symbol}:pullback:v1`)
+    const r = mulberry32(extraSeed)()
+    if (r < 0.08) {
+      // 8% of days: slight negative reading
+      profit = clampProfitPct(modelId, -0.5 - r * 3)
+    }
   }
-
+  void symbol
   return Number(profit.toFixed(2))
 }
 
@@ -605,13 +618,8 @@ function computeProfitPctForSlot(opts: { modelId: AiModelId; date: Date; symbol:
     Math.sin((slotIndex + phase) * (Math.PI * 2) / 8) * 0.9 +
     Math.sin((slotIndex + phase) * (Math.PI * 2) / 17) * 0.6
   const jitter = (rand() - 0.5) * 0.6
-  let profit = baseline + amp * (osc / 1.4 + jitter)
-
-  if (modelId === 'syntrix') {
-    profit = Math.max(0, profit)
-  } else {
-    profit = Math.max(-100, profit)
-  }
+  const profit = clampProfitPct(modelId, baseline + amp * (osc / 1.4 + jitter))
+  void symbol
   return Number(profit.toFixed(2))
 }
 
@@ -648,9 +656,7 @@ function computeDeterministicAiAnalyticsForSlot(opts: { modelId: AiModelId; date
         const osc = Math.sin((47 + (prevSeed % 1000) / 1000) * (Math.PI * 2) / 8)
         const amp = Math.max(0.6, Math.abs(baselineGuess) * 0.012)
         const jitter = (prevRand() - 0.5) * 0.6
-        let v = baselineGuess + amp * (osc / 1.4 + jitter)
-        if (modelId === 'syntrix') v = Math.max(0, v)
-        else v = Math.max(-100, v)
+        const v = clampProfitPct(modelId, baselineGuess + amp * (osc / 1.4 + jitter))
         return Number(v.toFixed(2))
       })()
 
@@ -716,11 +722,39 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
 
   // Make AI analytics stable across manual updates: numbers only change by day.
   // Also ensure month-long growth trajectory with natural pullbacks.
-  const allDeterministic = buildFallbackAiAnalytics({ date: new Date(), symbol })
+  const now = new Date()
+  const allDeterministic = buildFallbackAiAnalytics({ date: now, symbol })
+  const responseItems = requestedModelId ? allDeterministic.filter((i) => i.modelId === requestedModelId) : allDeterministic
+
+  // Persist each request so the client can show a full daily list (40+ requests/day).
+  // If user is not found, still return analytics (no hard fail).
+  try {
+    const telegramId = String(req.params.telegramId || '').trim()
+    if (telegramId) {
+      const user = await prisma.user.findUnique({ where: { telegramId } })
+      if (user) {
+        await prisma.aiAnalyticsRequestLog.create({
+          data: {
+            userId: user.id,
+            kyivDate: kyivDateKey(now),
+            locale,
+            symbol,
+            timeframe,
+            requestedModelId: requestedModelId ?? null,
+            generatedAt: now,
+            items: responseItems as any,
+          },
+        })
+      }
+    }
+  } catch (e) {
+    console.warn('AI analytics request logging failed:', e)
+  }
+
   return res.json({
-    generatedAt: new Date().toISOString(),
+    generatedAt: now.toISOString(),
     simulated: true,
-    items: requestedModelId ? allDeterministic.filter((i) => i.modelId === requestedModelId) : allDeterministic,
+    items: responseItems,
   })
 
   const openAiKey = process.env.OPENAI_API_KEY
@@ -828,11 +862,7 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
         // Also add an optional "insight" paragraph sometimes.
         const seed = (Date.now() + (modelId === 'syntrix' ? 1 : 0) * 17 + confidencePct * 31) % 10_000
         const includeInsight = (seed % 100) < 35
-        // Syntrix AI should be positive (or at least not negative) most of the time.
-        // If OpenAI returns a negative value, clamp it to 0 and ensure the message remains consistent.
-        if (modelId === 'syntrix' && profitPct < 0) {
-          profitPct = 0
-        }
+        profitPct = clampProfitPct(modelId, profitPct)
         const message = buildAiAnalyticsMessage({
           signal,
           confidencePct,
@@ -858,6 +888,60 @@ app.post('/api/user/:telegramId/ai-analytics', aiAnalyticsLimiter, async (req, r
       simulated: true,
       items: requestedModelId ? all.filter((i) => i.modelId === requestedModelId) : all,
     })
+  }
+})
+
+app.get('/api/user/:telegramId/ai-analytics/history', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = String(req.params.telegramId || '').trim()
+    if (!telegramId) {
+      return res.status(400).json({ error: 'telegramId is required' })
+    }
+
+    const date = (typeof req.query.date === 'string' ? req.query.date : kyivDateKey(new Date())).trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' })
+    }
+
+    const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : 100
+    const offsetRaw = typeof req.query.offset === 'string' ? Number(req.query.offset) : 0
+
+    const limit = Math.max(1, Math.min(200, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 100))
+    const offset = Math.max(0, Math.min(50_000, Number.isFinite(offsetRaw) ? Math.floor(offsetRaw) : 0))
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const rows = await prisma.aiAnalyticsRequestLog.findMany({
+      where: { userId: user.id, kyivDate: date },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+      select: {
+        id: true,
+        createdAt: true,
+        generatedAt: true,
+        locale: true,
+        symbol: true,
+        timeframe: true,
+        requestedModelId: true,
+        items: true,
+      },
+    })
+
+    return res.json({
+      date,
+      limit,
+      offset,
+      hasMore: rows.length === limit,
+      nextOffset: offset + rows.length,
+      requests: rows,
+    })
+  } catch (e) {
+    console.error('AI analytics history failed:', e)
+    return res.status(500).json({ error: 'Failed to load history' })
   }
 })
 

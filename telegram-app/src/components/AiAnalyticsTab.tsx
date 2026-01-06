@@ -67,11 +67,22 @@ type ChartPoint = { t: number; p: number }
 
 type CombinedChartPoint = { t: number } & Partial<Record<AiModelId, number>>
 
+type AiAnalyticsHistoryRow = {
+  id: number
+  createdAt: string
+  generatedAt: string
+  locale?: string | null
+  symbol?: string | null
+  timeframe?: string | null
+  requestedModelId?: string | null
+  items: AiAnalyticsItem[]
+}
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 const buildSeries = (targetProfitPct: number, modelId: AiModelId): ChartPoint[] => {
   const points = 28
-  const end = modelId === 'syntrix' ? clamp(targetProfitPct, 0, 600) : clamp(targetProfitPct, -100, 600)
+  const end = clamp(targetProfitPct, -100, 600)
 
   const data: ChartPoint[] = []
   let value = 0
@@ -82,7 +93,7 @@ const buildSeries = (targetProfitPct: number, modelId: AiModelId): ChartPoint[] 
     const desiredStep = remaining > 0 ? (end - value) / remaining : 0
     const jitter = (Math.sin(i * 1.7) + Math.cos(i * 0.9)) * 0.15
     value = value + desiredStep + jitter
-    if (modelId === 'syntrix') value = Math.max(0, value)
+    void modelId
     data.push({ t: i + 1, p: Number(value.toFixed(2)) })
   }
 
@@ -95,6 +106,10 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
   const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [historyRows, setHistoryRows] = useState<AiAnalyticsHistoryRow[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
 
   const updateTimerRef = useRef<number | null>(null)
 
@@ -182,6 +197,34 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     }
   }
 
+  const fetchHistoryToday = async () => {
+    if (!telegramUserId) return
+    if (!authToken) return
+
+    setHistoryLoading(true)
+    setHistoryError(null)
+    try {
+      const res = await fetch(`${API_URL}/api/user/${telegramUserId}/ai-analytics/history?limit=200`, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: getAuthHeaders(),
+      })
+
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || 'Request failed')
+      }
+
+      const data = await res.json()
+      const rows = Array.isArray(data?.requests) ? (data.requests as AiAnalyticsHistoryRow[]) : []
+      setHistoryRows(rows)
+    } catch (e: any) {
+      setHistoryError(e?.message || strings.error)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   const scheduleAllUpdates = () => {
     // Align refresh cadence to Kyiv "generation slots":
     // 00:00-08:00 -> 4 slots, 08:00-00:00 -> 44 slots.
@@ -202,6 +245,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     setError(null)
     try {
       await fetchAnalyticsAll()
+      await fetchHistoryToday()
     } finally {
       setLoading(false)
     }
@@ -222,6 +266,20 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken])
+
+  const formatKyivTime = (iso: string) => {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Kyiv',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }).format(new Date(iso))
+    } catch {
+      return ''
+    }
+  }
 
   const orderedItems = useMemo(() => {
     return models
@@ -427,8 +485,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                         <span className="text-xs font-semibold text-foreground truncate">{item.displayName || modelToLabel[item.modelId]}</span>
                       </div>
                       <span className="text-xs font-semibold text-primary shrink-0">
-                        {item.modelId === 'syntrix' ? '+' : item.profitPct >= 0 ? '+' : ''}
-                        {item.modelId === 'syntrix' ? Math.max(0, item.profitPct) : item.profitPct}%
+                        {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
                       </span>
                     </div>
                   ))}
@@ -478,7 +535,7 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                         {item.signal}
                       </Badge>
                       <span className="text-xs text-muted-foreground">{item.confidencePct}%</span>
-                      <span className="text-xs text-primary">
+                      <span className={item.profitPct >= 0 ? 'text-xs text-primary' : 'text-xs text-destructive'}>
                         {item.profitPct >= 0 ? '+' : ''}{item.profitPct}%
                       </span>
                     </div>
@@ -486,6 +543,56 @@ export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiU
                   <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{item.message}</p>
                 </div>
               ))}
+
+              <div className="pt-2">
+                <div className="text-sm font-semibold text-foreground">Requests today</div>
+                <div className="mt-2 space-y-2">
+                  {historyRows.map((row) => {
+                    const syntrix = Array.isArray(row.items)
+                      ? row.items.find((it) => it?.modelId === 'syntrix')
+                      : undefined
+
+                    const signal = syntrix?.signal
+                    const confidencePct = syntrix?.confidencePct
+                    const profitPct = syntrix?.profitPct
+                    const message = syntrix?.message
+
+                    return (
+                      <div key={`hist-${row.id}`} className="rounded-lg border border-border/50 bg-background/50 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs text-muted-foreground">{formatKyivTime(row.createdAt)}</div>
+                          {signal ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="border-border/50 bg-background/50 text-muted-foreground">
+                                {signal}
+                              </Badge>
+                              {typeof confidencePct === 'number' ? (
+                                <span className="text-xs text-muted-foreground">{confidencePct}%</span>
+                              ) : null}
+                              {typeof profitPct === 'number' ? (
+                                <span className={profitPct >= 0 ? 'text-xs text-primary' : 'text-xs text-destructive'}>
+                                  {profitPct >= 0 ? '+' : ''}{profitPct}%
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                        {message ? (
+                          <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{message}</p>
+                        ) : (
+                          <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">(No data)</p>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {!historyRows.length ? (
+                    <div className="p-2 text-sm text-muted-foreground">
+                      {historyLoading ? 'Loading history…' : historyError || 'No requests yet today.'}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
 
               {!orderedItems.length && (
                 <div className="p-4 text-sm text-muted-foreground">

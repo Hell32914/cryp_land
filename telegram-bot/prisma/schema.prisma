@@ -52,6 +52,7 @@ model User {
   notifications     Notification[]
   referrals         Referral[]    @relation("UserReferrals")
   dailyUpdates      DailyProfitUpdate[] @relation("UserDailyUpdates")
+  aiAnalyticsRequestLogs AiAnalyticsRequestLog[]
 }
 
 model Referral {
@@ -145,6 +146,22 @@ model TradingPost {
   entryPrice  Float
   lastPrice   Float
   postedAt    DateTime @default(now())
+}
+
+model AiAnalyticsRequestLog {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id])
+  kyivDate         String
+  locale           String?
+  symbol           String?
+  timeframe        String?
+  requestedModelId String?
+  generatedAt      DateTime
+  items            Json
+  createdAt        DateTime @default(now())
+
+  @@index([userId, kyivDate, createdAt])
 }
 
 model Expense {
