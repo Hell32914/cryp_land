@@ -1488,32 +1488,36 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
     const { status, limit = '100' } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 100, 500)
 
-    // Auto-expire stale deposits when payment links are expected to be expired.
-    // OxaPay invoices are created with lifeTime=30 minutes (see src/oxapay.ts).
-    // NOTE: This is a cleanup-on-read (runs when CRM/admin fetches deposits).
-    const oxapayExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_OXAPAY || 35)
-    const paypalExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_PAYPAL || 35)
-    const now = new Date()
-    const oxapayCutoff = new Date(now.getTime() - oxapayExpireMinutes * 60 * 1000)
-    const paypalCutoff = new Date(now.getTime() - paypalExpireMinutes * 60 * 1000)
+    // NOTE: Previously we auto-expired stale deposits (default ~35 minutes) as a cleanup-on-read.
+    // This can surprise support/admin by making PENDING deposits disappear from the CRM.
+    // To avoid that, auto-expire is now opt-in.
+    if (String(process.env.ADMIN_DEPOSIT_AUTO_EXPIRE || '').toLowerCase() === 'true') {
+      // Auto-expire stale deposits when payment links are expected to be expired.
+      // OxaPay invoices are created with lifeTime=30 minutes (see src/oxapay.ts).
+      const oxapayExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_OXAPAY || 35)
+      const paypalExpireMinutes = Number(process.env.DEPOSIT_EXPIRE_MINUTES_PAYPAL || 35)
+      const now = new Date()
+      const oxapayCutoff = new Date(now.getTime() - oxapayExpireMinutes * 60 * 1000)
+      const paypalCutoff = new Date(now.getTime() - paypalExpireMinutes * 60 * 1000)
 
-    await prisma.deposit.updateMany({
-      where: {
-        status: { in: ['PENDING', 'PROCESSING'] },
-        createdAt: { lt: oxapayCutoff },
-        paymentMethod: 'OXAPAY',
-      },
-      data: { status: 'FAILED' },
-    })
+      await prisma.deposit.updateMany({
+        where: {
+          status: { in: ['PENDING', 'PROCESSING'] },
+          createdAt: { lt: oxapayCutoff },
+          paymentMethod: 'OXAPAY',
+        },
+        data: { status: 'FAILED' },
+      })
 
-    await prisma.deposit.updateMany({
-      where: {
-        status: { in: ['PENDING', 'PROCESSING'] },
-        createdAt: { lt: paypalCutoff },
-        paymentMethod: 'PAYPAL',
-      },
-      data: { status: 'FAILED' },
-    })
+      await prisma.deposit.updateMany({
+        where: {
+          status: { in: ['PENDING', 'PROCESSING'] },
+          createdAt: { lt: paypalCutoff },
+          paymentMethod: 'PAYPAL',
+        },
+        data: { status: 'FAILED' },
+      })
+    }
 
     const deposits = await prisma.deposit.findMany({
       where: status

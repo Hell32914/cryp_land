@@ -5,6 +5,7 @@ import { startApiServer, stopApiServer } from './api.js'
 import { scheduleTradingCards, postTradingCard, rescheduleCards } from './tradingCardScheduler.js'
 import { generateTradingCard, formatCardCaption, getLastTradingPostData } from './cardGenerator.js'
 import { getCardSettings, updateCardSettings } from './cardSettings.js'
+import cron from 'node-cron'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -4298,7 +4299,8 @@ bot.callbackQuery('confirm_activate_token_accounts', async (ctx) => {
 bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
   const adminId = ctx.from?.id.toString()
   if (!adminId || !(await isSupport(adminId))) {
-    await safeAnswerCallback(ctx, 'Access denied')
+    await safeAnswerCallback(ctx)
+    await ctx.reply('⛔ Access denied')
     return
   }
 
@@ -4318,17 +4320,20 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
     })
 
     if (!withdrawal) {
-      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ Withdrawal not found')
       return
     }
 
     if (withdrawal.status === 'COMPLETED') {
-      await safeAnswerCallback(ctx, '✅ Already completed')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('✅ Already completed')
       return
     }
 
     if (withdrawal.status === 'FAILED') {
-      await safeAnswerCallback(ctx, '❌ Already rejected/failed')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ Already rejected/failed')
       return
     }
 
@@ -4356,7 +4361,7 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
         ctx.callbackQuery.message!.text + '\n\n✅ *CONFIRMED AS COMPLETED*',
         { parse_mode: 'Markdown' }
       )
-      await safeAnswerCallback(ctx, '✅ Withdrawal marked as completed')
+      await safeAnswerCallback(ctx)
       return
     }
 
@@ -4367,29 +4372,42 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
       
       const paymentMethod = String((withdrawal as any).paymentMethod || 'OXAPAY').toUpperCase()
 
+      // Refresh user balances for accurate "remaining" values
+      const currentUser = await prisma.user.findUnique({ where: { id: withdrawal.userId } })
+      const currentTotalDeposit = currentUser?.totalDeposit ?? (withdrawal.user as any).totalDeposit ?? 0
+      const currentProfit = currentUser?.profit ?? (withdrawal.user as any).profit ?? 0
+      const currentAvailable = currentTotalDeposit + (currentProfit || 0)
+
       // PayPal payout - MANUAL PROCESSING ONLY
       if (paymentMethod === 'PAYPAL') {
         const receiverEmail = (withdrawal as any).paypalEmail || withdrawal.address
         
-        // Approved in bot means the manual transfer was done; mark as COMPLETED for CRM
+        // Approve = mark as APPROVED and wait for manual transfer; completion is a separate step
         await prisma.withdrawal.update({
           where: { id: withdrawalId },
           data: {
-            status: 'COMPLETED',
-            txHash: 'MANUAL_TRANSFER_COMPLETED'
+            status: 'APPROVED',
+            txHash: 'AWAITING_MANUAL_TRANSFER'
           }
         })
 
-        // Notify user that withdrawal was completed
-        await bot.api.sendMessage(
-          withdrawal.user.telegramId,
-          `✅ *Withdrawal Completed*\n\n` +
-            `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-            `💳 Method: PAYPAL\n` +
-            `📧 PayPal: \`${receiverEmail}\`\n\n` +
-            `✅ Transfer confirmed by admin.`,
-          { parse_mode: 'Markdown' }
-        )
+        // Notify user that withdrawal was approved
+        try {
+          await bot.api.sendMessage(
+            withdrawal.user.telegramId,
+            `✅ *Withdrawal Approved*\n\n` +
+              `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+              `💳 Method: PAYPAL\n` +
+              `📧 PayPal: \`${receiverEmail}\`\n\n` +
+              `💳 Remaining deposit: $${Number(currentTotalDeposit).toFixed(2)}\n` +
+              `📈 Remaining profit: $${Number(currentProfit || 0).toFixed(2)}\n` +
+              `💰 Available total: $${Number(currentAvailable).toFixed(2)}\n\n` +
+              `ℹ️ Approved by admin. Transfer will be processed manually.`,
+            { parse_mode: 'Markdown' }
+          )
+        } catch (err) {
+          console.error('Failed to notify user about withdrawal approval (PayPal):', err)
+        }
 
         const backState = adminState.get(adminId)
         const savedPage = backState?.currentPendingWithdrawalsPage || 1
@@ -4398,38 +4416,46 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
 
         await safeEditMessage(
           ctx,
-          ctx.callbackQuery.message!.text + '\n\n✅ *COMPLETED*\n' +
+          ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED*\n' +
             `💳 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-            `📧 PayPal: ${receiverEmail}`,
+            `📧 PayPal: ${receiverEmail}\n` +
+            `ℹ️ Manual transfer required (use "Complete" after transfer).`,
           { parse_mode: 'Markdown', reply_markup: backKeyboard }
         )
-        await safeAnswerCallback(ctx, '✅ Marked as completed')
+        await safeAnswerCallback(ctx)
         return
       }
 
       // OxaPay/Crypto payout - MANUAL PROCESSING ONLY
-      // Approved in bot means the manual transfer was done; mark as COMPLETED for CRM
+      // Approve = mark as APPROVED and wait for manual transfer; completion is a separate step
       await prisma.withdrawal.update({
         where: { id: withdrawalId },
         data: {
-          status: 'COMPLETED',
-          txHash: 'MANUAL_TRANSFER_COMPLETED'
+          status: 'APPROVED',
+          txHash: 'AWAITING_MANUAL_TRANSFER'
         }
       })
 
-      console.log(`✅ Withdrawal ${withdrawalId} approved and marked COMPLETED`)
+      console.log(`✅ Withdrawal ${withdrawalId} approved and marked APPROVED (awaiting manual transfer)`) 
 
       // Notify user
-      await bot.api.sendMessage(
-        withdrawal.user.telegramId,
-        `✅ *Withdrawal Completed*\n\n` +
-        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-        `💎 Currency: ${withdrawal.currency}\n` +
-        `🌐 Network: ${withdrawal.network}\n` +
-        `📍 Address: \`${withdrawal.address}\`\n\n` +
-        `✅ Transfer confirmed by admin.`,
-        { parse_mode: 'Markdown' }
-      )
+      try {
+        await bot.api.sendMessage(
+          withdrawal.user.telegramId,
+          `✅ *Withdrawal Approved*\n\n` +
+          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+          `💎 Currency: ${withdrawal.currency}\n` +
+          `🌐 Network: ${withdrawal.network}\n` +
+          `📍 Address: \`${withdrawal.address}\`\n\n` +
+          `💳 Remaining deposit: $${Number(currentTotalDeposit).toFixed(2)}\n` +
+          `📈 Remaining profit: $${Number(currentProfit || 0).toFixed(2)}\n` +
+          `💰 Available total: $${Number(currentAvailable).toFixed(2)}\n\n` +
+          `ℹ️ Approved by admin. Transfer will be processed manually.`,
+          { parse_mode: 'Markdown' }
+        )
+      } catch (err) {
+        console.error('Failed to notify user about withdrawal approval (Crypto):', err)
+      }
       
       const backState = adminState.get(adminId)
       const savedPage = backState?.currentPendingWithdrawalsPage || 1
@@ -4437,21 +4463,24 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
         .text('◀️ Back', `admin_pending_withdrawals_${savedPage}`)
       
       await safeEditMessage(ctx, 
-        ctx.callbackQuery.message!.text + '\n\n✅ *COMPLETED*\n' +
+        ctx.callbackQuery.message!.text + '\n\n✅ *APPROVED*\n' +
         `💳 Amount: $${withdrawal.amount.toFixed(2)}\n` +
         `💎 ${withdrawal.currency} (${withdrawal.network})\n` +
-        `📍 Address: \`${withdrawal.address}\``,
+        `📍 Address: \`${withdrawal.address}\`\n` +
+        `ℹ️ Manual transfer required (use "Complete" after transfer).`,
         { parse_mode: 'Markdown', reply_markup: backKeyboard }
       )
-      await safeAnswerCallback(ctx, '✅ Marked as completed')
+      await safeAnswerCallback(ctx)
     } else if (withdrawal.status === 'PENDING') {
       // This should not happen with new logic, but handle legacy pending withdrawals
-      await safeAnswerCallback(ctx, '⚠️ Legacy PENDING withdrawal detected. Please reject and ask user to resubmit.')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('⚠️ Legacy PENDING withdrawal detected. Please reject and ask user to resubmit.')
       return
     }
   } catch (error) {
     console.error('Error approving withdrawal:', error)
-    await safeAnswerCallback(ctx, '❌ Error processing withdrawal')
+    await safeAnswerCallback(ctx)
+    await ctx.reply('❌ Error processing withdrawal')
   }
 })
 
@@ -4459,7 +4488,8 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
 bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await safeAnswerCallback(ctx, 'Access denied')
+    await safeAnswerCallback(ctx)
+    await ctx.reply('⛔ Access denied')
     return
   }
 
@@ -4479,24 +4509,28 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
     })
 
     if (!withdrawal) {
-      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ Withdrawal not found')
       return
     }
 
     if (withdrawal.status === 'COMPLETED') {
-      await safeAnswerCallback(ctx, '❌ Cannot reject completed withdrawal')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ Cannot reject completed withdrawal')
       return
     }
 
     if (withdrawal.status === 'FAILED') {
-      await safeAnswerCallback(ctx, 'ℹ️ Already rejected')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('ℹ️ Already rejected')
       return
     }
 
     // Get current user balance
     const currentUser = await prisma.user.findUnique({ where: { id: withdrawal.userId } })
     if (!currentUser) {
-      await safeAnswerCallback(ctx, '❌ User not found')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ User not found')
       return
     }
 
@@ -4546,10 +4580,11 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
       ctx.callbackQuery.message!.text + '\n\n❌ *REJECTED* (Balance restored)',
       { parse_mode: 'Markdown', reply_markup: backKeyboard }
     )
-    await safeAnswerCallback(ctx, '❌ Withdrawal rejected, balance restored')
+    await safeAnswerCallback(ctx)
   } catch (error) {
     console.error('Error rejecting withdrawal:', error)
-    await safeAnswerCallback(ctx, '❌ Error rejecting withdrawal')
+    await safeAnswerCallback(ctx)
+    await ctx.reply('❌ Error rejecting withdrawal')
   }
 })
 
@@ -4557,7 +4592,8 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
 bot.callbackQuery(/^complete_withdrawal_(\d+)$/, async (ctx) => {
   const userId = ctx.from?.id.toString()
   if (!userId || !(await isSupport(userId))) {
-    await safeAnswerCallback(ctx, 'Access denied')
+    await safeAnswerCallback(ctx)
+    await ctx.reply('⛔ Access denied')
     return
   }
 
@@ -4570,17 +4606,20 @@ bot.callbackQuery(/^complete_withdrawal_(\d+)$/, async (ctx) => {
     })
 
     if (!withdrawal) {
-      await safeAnswerCallback(ctx, '❌ Withdrawal not found')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ Withdrawal not found')
       return
     }
 
     if (withdrawal.status === 'COMPLETED') {
-      await safeAnswerCallback(ctx, 'ℹ️ Already marked as completed')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('ℹ️ Already marked as completed')
       return
     }
 
     if (withdrawal.status === 'FAILED') {
-      await safeAnswerCallback(ctx, '❌ Cannot complete rejected withdrawal')
+      await safeAnswerCallback(ctx)
+      await ctx.reply('❌ Cannot complete rejected withdrawal')
       return
     }
 
@@ -4635,10 +4674,11 @@ bot.callbackQuery(/^complete_withdrawal_(\d+)$/, async (ctx) => {
         `📅 ${new Date().toLocaleString()}`,
       { parse_mode: 'Markdown', reply_markup: backKeyboard }
     )
-    await safeAnswerCallback(ctx, '✅ Withdrawal marked as completed')
+    await safeAnswerCallback(ctx)
   } catch (error) {
     console.error('Error completing withdrawal:', error)
-    await safeAnswerCallback(ctx, '❌ Error marking withdrawal as completed')
+    await safeAnswerCallback(ctx)
+    await ctx.reply('❌ Error marking withdrawal as completed')
   }
 })
 
@@ -5171,6 +5211,116 @@ async function checkPendingWithdrawals() {
   }
 }
 
+async function refreshTelegramUserProfiles() {
+  const enabled = String(process.env.TELEGRAM_PROFILE_SYNC_DAILY || 'true').toLowerCase() !== 'false'
+  if (!enabled) return
+
+  const syncAll = String(process.env.TELEGRAM_PROFILE_SYNC_ALL || '').toLowerCase() === 'true'
+  const batchSize = Math.min(Math.max(Number(process.env.TELEGRAM_PROFILE_SYNC_BATCH || 200) || 200, 20), 1000)
+  const delayMs = Math.min(Math.max(Number(process.env.TELEGRAM_PROFILE_SYNC_DELAY_MS || 75) || 75, 0), 5000)
+
+  console.log(`🔄 Telegram profile sync started (syncAll=${syncAll}, batchSize=${batchSize})`)
+
+  let lastId = 0
+  let scanned = 0
+  let updated = 0
+  let skipped = 0
+  let failed = 0
+
+  while (true) {
+    const whereClause: any = {
+      id: { gt: lastId },
+    }
+
+    if (!syncAll) {
+      whereClause.OR = [
+        { username: null },
+        { username: '' },
+        { username: 'no_username' },
+      ]
+    }
+
+    const users = await prisma.user.findMany({
+      where: whereClause,
+      orderBy: { id: 'asc' },
+      take: batchSize,
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+      },
+    })
+
+    if (users.length === 0) break
+
+    for (const user of users) {
+      lastId = user.id
+      scanned++
+
+      const chatId = Number(user.telegramId)
+      if (!Number.isFinite(chatId)) {
+        skipped++
+        continue
+      }
+
+      try {
+        const chat: any = await bot.api.getChat(chatId)
+
+        const newUsername = chat?.username ? String(chat.username) : null
+        const newFirstName = chat?.first_name ? String(chat.first_name) : null
+        const newLastName = chat?.last_name ? String(chat.last_name) : null
+
+        const data: any = {}
+        if (newUsername && newUsername !== user.username) data.username = newUsername
+        if (newFirstName && newFirstName !== user.firstName) data.firstName = newFirstName
+        if (newLastName && newLastName !== user.lastName) data.lastName = newLastName
+
+        if (Object.keys(data).length > 0) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data,
+          })
+          updated++
+        }
+      } catch (err: any) {
+        failed++
+        const msg = err?.message || String(err)
+        // Common cases: user blocked bot / chat not found / insufficient rights
+        console.log(`⚠️ Telegram profile sync failed for userId=${user.id} tg=${user.telegramId}: ${msg}`)
+      }
+
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+  }
+
+  console.log(`✅ Telegram profile sync done. scanned=${scanned}, updated=${updated}, skipped=${skipped}, failed=${failed}`)
+}
+
+function startTelegramProfileSyncScheduler() {
+  const enabled = String(process.env.TELEGRAM_PROFILE_SYNC_DAILY || 'true').toLowerCase() !== 'false'
+  if (!enabled) {
+    console.log('ℹ️ Telegram profile sync scheduler disabled (TELEGRAM_PROFILE_SYNC_DAILY=false)')
+    return
+  }
+
+  const cronExpr = String(process.env.TELEGRAM_PROFILE_SYNC_CRON || '0 4 * * *')
+  const tz = String(process.env.TELEGRAM_PROFILE_SYNC_TZ || 'Europe/Kyiv')
+
+  cron.schedule(cronExpr, async () => {
+    try {
+      await refreshTelegramUserProfiles()
+    } catch (e) {
+      console.error('❌ Telegram profile sync job error:', e)
+    }
+  }, { timezone: tz })
+
+  console.log(`⏰ Telegram profile sync scheduled: '${cronExpr}' (${tz})`)
+}
+
 // Check if profit accrual should run every hour (more reliable than 24h interval)
 setInterval(checkAndRunProfitAccrual, 60 * 60 * 1000)
 
@@ -5197,6 +5347,11 @@ setTimeout(() => {
   console.log('🔄 Starting withdrawal status checker...')
   checkPendingWithdrawals()
 }, 15000)
+
+// Start daily Telegram profile sync
+setTimeout(() => {
+  startTelegramProfileSyncScheduler()
+}, 20000)
 
 // Error handling
 bot.catch((err) => {
