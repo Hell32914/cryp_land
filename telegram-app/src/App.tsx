@@ -40,6 +40,7 @@ function App() {
   const [storedLanguage, setStoredLanguage] = useKV<Language>('app-language', 'ENGLISH')
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(storedLanguage || 'ENGLISH')
   const didApplyRefLanguage = useRef(false)
+  const didRequestPhoneRef = useRef(false)
   const [referrals, setReferrals] = useState<any[]>([])
   const [loadingReferrals, setLoadingReferrals] = useState(false)
   const [dailyUpdates, setDailyUpdates] = useState<any[]>([])
@@ -318,6 +319,66 @@ function App() {
     }
     return headers
   }
+
+  // Ask for phone number via Telegram (once) and save it to backend for CRM
+  useEffect(() => {
+    const requestAndSavePhone = async () => {
+      if (!authToken || !telegramUserId || !userData) return
+      if (userData.phoneNumber) return
+      if (didRequestPhoneRef.current) return
+      didRequestPhoneRef.current = true
+
+      const webApp = window.Telegram?.WebApp
+      if (!webApp?.requestContact) {
+        // Older Telegram clients may not support this API
+        return
+      }
+
+      const getPhoneFromResponse = (resp: any): string | null => {
+        if (!resp) return null
+        // Common shapes seen in Telegram WebApp APIs
+        if (typeof resp.phone_number === 'string') return resp.phone_number
+        if (typeof resp.phoneNumber === 'string') return resp.phoneNumber
+        if (typeof resp.contact?.phone_number === 'string') return resp.contact.phone_number
+        if (typeof resp.contact?.phoneNumber === 'string') return resp.contact.phoneNumber
+        return null
+      }
+
+      try {
+        let response: any = null
+
+        // Support both Promise and callback-based implementations
+        const result = webApp.requestContact((sent: boolean, resp?: any) => {
+          if (sent) response = resp
+        })
+
+        if (result && typeof (result as any).then === 'function') {
+          response = await result
+        } else {
+          // allow callback to run
+          await new Promise((r) => setTimeout(r, 500))
+        }
+
+        const phone = getPhoneFromResponse(response)
+        if (!phone) return
+
+        const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+        const saveResp = await fetch(`${API_URL}/api/user/${telegramUserId}/phone`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ phoneNumber: phone }),
+        })
+
+        if (saveResp.ok) {
+          await refreshData()
+        }
+      } catch (e) {
+        console.error('Failed to request/save phone:', e)
+      }
+    }
+
+    requestAndSavePhone()
+  }, [authToken, telegramUserId, userData?.phoneNumber])
 
   // Fetch referrals
   const fetchReferrals = async () => {

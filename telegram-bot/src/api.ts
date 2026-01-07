@@ -270,7 +270,18 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
 function validateTelegramWebAppData(
   initData: string,
   botToken: string
-): { valid: boolean; telegramId?: string; authDate?: number } {
+): {
+  valid: boolean
+  telegramId?: string
+  authDate?: number
+  user?: {
+    id: number
+    first_name?: string
+    last_name?: string
+    username?: string
+    language_code?: string
+  }
+} {
   try {
     const urlParams = new URLSearchParams(initData)
     const hash = urlParams.get('hash')
@@ -319,7 +330,18 @@ function validateTelegramWebAppData(
     const userStr = urlParams.get('user')
     if (userStr) {
       const userData = JSON.parse(userStr)
-      return { valid: true, telegramId: String(userData.id), authDate }
+      return {
+        valid: true,
+        telegramId: String(userData.id),
+        authDate,
+        user: {
+          id: Number(userData.id),
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          username: userData.username,
+          language_code: userData.language_code,
+        },
+      }
     }
 
     return { valid: false }
@@ -332,9 +354,18 @@ function validateTelegramWebAppData(
 // User authentication endpoint - generates JWT for mini-app users
 app.post('/api/user/auth', authLimiter, async (req, res) => {
   try {
-    const { telegramId, initData } = req.body
+    const { telegramId, initData, user: bodyUser } = req.body
 
     let effectiveTelegramId: string | undefined
+    let initUser:
+      | {
+          id: number
+          first_name?: string
+          last_name?: string
+          username?: string
+          language_code?: string
+        }
+      | undefined
 
     // PRODUCTION: initData is mandatory; telegramId must be derived from validated initData.
     if (isProduction) {
@@ -354,6 +385,7 @@ app.post('/api/user/auth', authLimiter, async (req, res) => {
       }
 
       effectiveTelegramId = validation.telegramId
+      initUser = validation.user
 
       // If client also sends telegramId, it must match (defense-in-depth)
       if (telegramId && telegramId !== effectiveTelegramId) {
@@ -366,20 +398,46 @@ app.post('/api/user/auth', authLimiter, async (req, res) => {
         return res.status(400).json({ error: 'telegramId is required' })
       }
       effectiveTelegramId = telegramId
-    }
-    
-    // Verify user exists in database
-    const user = await prisma.user.findUnique({
-      where: { telegramId: effectiveTelegramId }
-    })
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' })
+      if (bodyUser && typeof bodyUser === 'object') {
+        initUser = {
+          id: Number((bodyUser as any).id || telegramId),
+          first_name: typeof (bodyUser as any).first_name === 'string' ? (bodyUser as any).first_name : undefined,
+          last_name: typeof (bodyUser as any).last_name === 'string' ? (bodyUser as any).last_name : undefined,
+          username: typeof (bodyUser as any).username === 'string' ? (bodyUser as any).username : undefined,
+          language_code: typeof (bodyUser as any).language_code === 'string' ? (bodyUser as any).language_code : undefined,
+        }
+      }
     }
+
+    if (!effectiveTelegramId) {
+      return res.status(400).json({ error: 'telegramId is required' })
+    }
+
+    const effectiveId = effectiveTelegramId
+
+    // Ensure user exists in database (auto-register on first mini-app open)
+    const updateData: Record<string, any> = {}
+    if (initUser?.username) updateData.username = initUser.username
+    if (initUser?.first_name) updateData.firstName = initUser.first_name
+    if (initUser?.last_name) updateData.lastName = initUser.last_name
+    if (initUser?.language_code) updateData.languageCode = initUser.language_code
+
+    await prisma.user.upsert({
+      where: { telegramId: effectiveId },
+      create: {
+        telegramId: effectiveId,
+        username: initUser?.username,
+        firstName: initUser?.first_name,
+        lastName: initUser?.last_name,
+        languageCode: initUser?.language_code,
+      },
+      update: updateData,
+    })
 
     // Generate JWT token for user
     const token = jwt.sign(
-      { telegramId: effectiveTelegramId },
+      { telegramId: effectiveId },
       USER_JWT_SECRET,
       { expiresIn: '7d' } // Token valid for 7 days
     )
@@ -388,6 +446,46 @@ app.post('/api/user/auth', authLimiter, async (req, res) => {
   } catch (error) {
     console.error('Error generating user token:', error)
     res.status(500).json({ error: 'Failed to generate token' })
+  }
+})
+
+// Update user phone number (from Telegram Mini App requestContact)
+const userPhoneSchema = z.object({
+  phoneNumber: z.string().min(5).max(32),
+})
+
+app.post('/api/user/:telegramId/phone', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId
+    const parseResult = userPhoneSchema.safeParse(req.body)
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'phoneNumber is required' })
+    }
+
+    const raw = parseResult.data.phoneNumber
+    const trimmed = raw.trim()
+
+    // Normalize to digits + optional leading plus
+    const digits = trimmed.replace(/\D/g, '')
+    const normalized = trimmed.startsWith('+') ? `+${digits}` : digits
+    if (!digits || digits.length < 5) {
+      return res.status(400).json({ error: 'Invalid phoneNumber' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    await prisma.user.update({
+      where: { telegramId },
+      data: { phoneNumber: normalized },
+    })
+
+    return res.json({ ok: true })
+  } catch (error) {
+    console.error('Update phone error:', error)
+    return res.status(500).json({ error: 'Failed to update phone number' })
   }
 })
 
@@ -1299,6 +1397,7 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   telegramId: user.telegramId,
   username: user.username,
   fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
+  phoneNumber: user.phoneNumber || null,
   country: user.country || 'Unknown',
   status: user.status,
   plan: user.plan,
@@ -1882,6 +1981,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
     res.json({
       id: user.telegramId,
       nickname: user.username || user.firstName || 'User',
+      phoneNumber: user.phoneNumber || null,
       createdAt: user.createdAt,
       status: user.status,
       languageCode: user.languageCode || null,

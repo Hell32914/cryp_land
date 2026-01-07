@@ -103,6 +103,7 @@ export interface UserRecord {
   telegramId: string
   username: string | null
   fullName: string
+  phoneNumber?: string | null
   country: string
   status: string
   plan: string
