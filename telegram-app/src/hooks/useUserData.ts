@@ -13,7 +13,6 @@ export interface Referral {
 interface UserData {
   id: string
   nickname: string
-  phoneNumber?: string | null
   createdAt: string
   status: string
   languageCode?: string | null

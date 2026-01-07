@@ -5,9 +5,6 @@ interface TelegramWebApp {
   enableClosingConfirmation(): void
   disableClosingConfirmation(): void
   close(): void
-  requestContact?: (
-    callback?: (sent: boolean, response?: any) => void
-  ) => void | Promise<any>
   MainButton: {
     text: string
     color: string
