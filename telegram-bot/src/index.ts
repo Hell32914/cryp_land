@@ -29,6 +29,36 @@ const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
+function isChannelChatId(chatId: number | string | undefined | null): boolean {
+  if (chatId === undefined || chatId === null) return false
+  const chatIdStr = String(chatId)
+  const envIdStr = String(CHANNEL_ID)
+
+  if (chatIdStr === envIdStr) return true
+
+  // Allow passing channel id without the "-100" prefix in env.
+  // Telegram often represents channels/supergroups as -100xxxxxxxxxx.
+  if (/^\d+$/.test(envIdStr) && chatIdStr === `-100${envIdStr}`) return true
+
+  return false
+}
+
+function buildChannelUtmParams(inviteLink?: any): string {
+  const payload: Record<string, any> = {
+    channel: true,
+    joinedAt: new Date().toISOString(),
+  }
+
+  if (inviteLink) {
+    // Telegram Bot API: ChatInviteLink object
+    payload.inviteLink = inviteLink.invite_link || inviteLink
+    if (inviteLink.name) payload.inviteLinkName = inviteLink.name
+    if (inviteLink.creator?.id) payload.inviteLinkCreatorId = String(inviteLink.creator.id)
+  }
+
+  return JSON.stringify(payload)
+}
+
 // Admin state management
 const adminState = new Map<string, {
   awaitingInput?: string,
@@ -68,6 +98,112 @@ bot.use(async (ctx, next) => {
   }
   
   return next()
+})
+
+// ============= CHANNEL LEAD CAPTURE =============
+// When a user joins the Telegram channel (even before they start the bot),
+// create a lead record so it appears in CRM with source CHANNEL.
+bot.on('chat_member', async (ctx) => {
+  try {
+    const update: any = (ctx as any).update
+    const chatMemberUpdate = update?.chat_member
+    if (!chatMemberUpdate) return
+
+    const chatId = chatMemberUpdate.chat?.id
+    if (!isChannelChatId(chatId)) return
+
+    const user = chatMemberUpdate.new_chat_member?.user
+    if (!user?.id) return
+
+    const oldStatus = chatMemberUpdate.old_chat_member?.status
+    const newStatus = chatMemberUpdate.new_chat_member?.status
+    const joinedStatuses = new Set(['member', 'restricted', 'administrator', 'creator'])
+    const leftStatuses = new Set(['left', 'kicked'])
+
+    // Only handle actual join transitions
+    if (!joinedStatuses.has(newStatus)) return
+    if (oldStatus && !leftStatuses.has(oldStatus)) return
+
+    const telegramId = String(user.id)
+    const utmParams = buildChannelUtmParams(chatMemberUpdate.invite_link)
+
+    const existing = await prisma.user.findUnique({ where: { telegramId } })
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          telegramId,
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          marketingSource: 'Channel',
+          utmParams,
+        },
+      })
+      return
+    }
+
+    const data: any = {
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+    }
+    if (!existing.marketingSource) data.marketingSource = 'Channel'
+    if (!existing.utmParams) data.utmParams = utmParams
+
+    // Avoid unnecessary writes
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { telegramId }, data })
+    }
+  } catch (error) {
+    console.error('Channel lead capture (chat_member) error:', error)
+  }
+})
+
+// If the channel uses join requests, we can capture the lead even earlier.
+bot.on('chat_join_request', async (ctx) => {
+  try {
+    const update: any = (ctx as any).update
+    const joinRequest = update?.chat_join_request
+    if (!joinRequest) return
+
+    const chatId = joinRequest.chat?.id
+    if (!isChannelChatId(chatId)) return
+
+    const user = joinRequest.from
+    if (!user?.id) return
+
+    const telegramId = String(user.id)
+    const utmParams = buildChannelUtmParams(joinRequest.invite_link)
+
+    const existing = await prisma.user.findUnique({ where: { telegramId } })
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          telegramId,
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          marketingSource: 'Channel',
+          utmParams,
+        },
+      })
+      return
+    }
+
+    const data: any = {
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name,
+    }
+    if (!existing.marketingSource) data.marketingSource = 'Channel'
+    if (!existing.utmParams) data.utmParams = utmParams
+
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { telegramId }, data })
+    }
+  } catch (error) {
+    console.error('Channel lead capture (chat_join_request) error:', error)
+  }
 })
 
 // Helper to handle invalid input and update attempts

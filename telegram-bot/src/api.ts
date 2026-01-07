@@ -1421,6 +1421,28 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         ].filter(Boolean)
         linkName = parts.length > 0 ? parts.join('_') : marketingLink.linkId
       }
+
+      // If user came from Telegram channel, expose it as Link Name in CRM.
+      // This makes channel leads visible even without mk_ marketing links.
+      if (!linkName) {
+        const isChannelSource = String((user as any).marketingSource || '').toLowerCase() === 'channel'
+          || String((user as any).utmParams || '').toLowerCase() === 'channel'
+
+        if (isChannelSource) {
+          let channelLinkName: string | null = 'CHANNEL'
+          const rawUtm = (user as any).utmParams
+          if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(rawUtm)
+              if (parsed?.inviteLinkName) channelLinkName = String(parsed.inviteLinkName)
+              else if (parsed?.inviteLink) channelLinkName = 'CHANNEL'
+            } catch {
+              // ignore JSON parse errors
+            }
+          }
+          linkName = channelLinkName
+        }
+      }
       
       return {
         ...user,
