@@ -1410,6 +1410,27 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       if (!marketingLink && (user as any).linkId) {
         marketingLink = linksByLinkId.get((user as any).linkId)
       }
+
+      // Channel attribution: if the user joined via a Telegram invite link whose name contains mk_...
+      // (recommended: set the invite link name to the marketing linkId), attribute the lead to that link.
+      if (!marketingLink) {
+        const rawUtm = (user as any).utmParams
+        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawUtm)
+            const inviteLinkName = parsed?.inviteLinkName
+            const inviteLink = parsed?.inviteLink
+            const candidateSource = String(inviteLinkName || inviteLink || '')
+            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_]+/)
+            const candidateLinkId = mkMatch ? mkMatch[0] : null
+            if (candidateLinkId) {
+              marketingLink = linksByLinkId.get(candidateLinkId) || null
+            }
+          } catch {
+            // ignore JSON parse errors
+          }
+        }
+      }
       
       // Build linkName from marketing link metadata
       let linkName = null
@@ -3424,16 +3445,73 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
 // Get marketing stats by source
 app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
   try {
-    // Get all users with marketing source
+    const links = await prisma.marketingLink.findMany({ orderBy: { createdAt: 'desc' } })
     const users = await prisma.user.findMany({
-      where: {
-        marketingSource: { not: null },
-        isHidden: false
-      },
-      include: {
-        deposits: true
-      }
+      where: { isHidden: false },
+      include: { deposits: true },
     })
+
+    const statsBySource = new Map<string, {
+      source: string
+      users: number
+      leads: number
+      ftd: number
+    }>()
+
+    const ensure = (source: string) => {
+      const key = source || 'Unknown'
+      if (!statsBySource.has(key)) {
+        statsBySource.set(key, { source: key, users: 0, leads: 0, ftd: 0 })
+      }
+      return statsBySource.get(key)!
+    }
+
+    const mkLinkIds = new Set(links.map(l => l.linkId))
+    const extractMkFromChannelUtm = (rawUtm: unknown): string | null => {
+      if (!rawUtm || typeof rawUtm !== 'string') return null
+      const trimmed = rawUtm.trim()
+      if (!trimmed.startsWith('{')) return null
+      try {
+        const parsed = JSON.parse(trimmed)
+        const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
+        const match = candidate.match(/mk_[a-zA-Z0-9_]+/)
+        const linkId = match ? match[0] : null
+        if (linkId && mkLinkIds.has(linkId)) return linkId
+      } catch {
+        return null
+      }
+      return null
+    }
+
+    for (const user of users) {
+      // Determine attribution source
+      let source = (user.marketingSource || '').trim() || 'Unknown'
+
+      // If user has mk_... stored directly in utmParams, attribute by that linkId (more precise)
+      if (user.utmParams) {
+        const directMk = user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        if (directMk && mkLinkIds.has(directMk[0])) {
+          source = directMk[0]
+        }
+      }
+
+      // Channel attribution via invite link name containing mk_...
+      if (source.toLowerCase() === 'channel') {
+        const ch = extractMkFromChannelUtm(user.utmParams)
+        if (ch) source = ch
+      }
+
+      const stat = ensure(source)
+      stat.users += 1
+
+      const hasFtd = (user.deposits || []).some(d => d.status === 'COMPLETED' && d.amount > 0)
+      if (hasFtd) stat.ftd += 1
+
+      // Lead = user without completed deposit
+      if (!hasFtd) stat.leads += 1
+    }
+
+    return res.json({ sources: Array.from(statsBySource.values()) })
   } catch (error) {
     console.error('Get marketing stats error:', error)
     return res.status(500).json({ error: 'Failed to load marketing stats' })

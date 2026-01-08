@@ -274,7 +274,8 @@ export function Users() {
                         {(() => {
                           const isChannel = (user.marketingSource || '').toLowerCase() === 'channel'
                           const hasStartedBot = Boolean(user.botStartedAt)
-                          const isChannelOnly = isChannel && !hasStartedBot
+                          const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
+                          const isChannelOnly = isChannel && !hasStartedBot && isInactive
                           const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
 
                           const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
