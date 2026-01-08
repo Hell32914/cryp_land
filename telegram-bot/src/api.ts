@@ -1311,6 +1311,7 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   role: user.role || 'user',
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
+  botStartedAt: user.botStartedAt || null,
   // New fields
   comment: user.comment || null,
   currentProfit: user.profit, // Current profit balance
@@ -1435,7 +1436,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             try {
               const parsed = JSON.parse(rawUtm)
               if (parsed?.inviteLinkName) channelLinkName = String(parsed.inviteLinkName)
-              else if (parsed?.inviteLink) channelLinkName = 'CHANNEL'
+              else if (parsed?.inviteLink) channelLinkName = String(parsed.inviteLink)
             } catch {
               // ignore JSON parse errors
             }
@@ -3517,6 +3518,53 @@ app.patch('/api/admin/users/:telegramId/role', requireAdminAuth, async (req, res
   } catch (error) {
     console.error('Update user role error:', error)
     return res.status(500).json({ error: 'Failed to update user role' })
+  }
+})
+
+// Delete user (for removing test accounts from CRM)
+app.delete('/api/admin/users/:telegramId', requireAdminAuth, async (req, res) => {
+  try {
+    const { telegramId } = req.params
+    if (!telegramId) return res.status(400).json({ error: 'telegramId is required' })
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const allowDeletePrivileged = String(process.env.CRM_ALLOW_DELETE_PRIVILEGED_USERS || '')
+      .toLowerCase() === 'true'
+
+    // Prevent accidental deletion of privileged accounts unless explicitly allowed.
+    try {
+      const { ADMIN_IDS } = await import('./index.js')
+      if (Array.isArray(ADMIN_IDS) && ADMIN_IDS.includes(telegramId) && !allowDeletePrivileged) {
+        return res.status(403).json({ error: 'Cannot delete admin account' })
+      }
+    } catch {
+      // ignore
+    }
+
+    if ((user.isAdmin || ['admin', 'support'].includes(String(user.role))) && !allowDeletePrivileged) {
+      return res.status(403).json({ error: 'Cannot delete privileged user' })
+    }
+
+    await prisma.$transaction([
+      prisma.referral.deleteMany({
+        where: {
+          OR: [{ userId: user.id }, { referredUserId: user.id }],
+        },
+      }),
+      prisma.notification.deleteMany({ where: { userId: user.id } }),
+      prisma.withdrawal.deleteMany({ where: { userId: user.id } }),
+      prisma.deposit.deleteMany({ where: { userId: user.id } }),
+      prisma.dailyProfitUpdate.deleteMany({ where: { userId: user.id } }),
+      prisma.aiAnalyticsRequestLog.deleteMany({ where: { userId: user.id } }),
+      prisma.user.delete({ where: { telegramId } }),
+    ])
+
+    return res.json({ success: true })
+  } catch (error) {
+    console.error('Delete user error:', error)
+    return res.status(500).json({ error: 'Failed to delete user' })
   }
 })
 

@@ -598,6 +598,14 @@ bot.command('start', async (ctx) => {
     })
   }
 
+  // Mark that the user has entered the bot (CHANNEL status should end after this)
+  if (user && !user.botStartedAt) {
+    user = await prisma.user.update({
+      where: { telegramId },
+      data: { botStartedAt: new Date() },
+    })
+  }
+
   if (!user) {
     user = await prisma.user.create({
       data: {
@@ -605,6 +613,7 @@ bot.command('start', async (ctx) => {
         username: ctx.from?.username,
         firstName: ctx.from?.first_name,
         lastName: ctx.from?.last_name,
+        botStartedAt: new Date(),
         phoneNumber: ctx.from?.username ? null : ctx.from?.id.toString(),
         languageCode: preferredLanguage || ctx.from?.language_code,
         referredBy: referrerId,
@@ -5108,6 +5117,10 @@ async function sendScheduledNotifications() {
 
 // Function to check and update withdrawal statuses
 async function checkPendingWithdrawals() {
+  const enabled = String(process.env.WITHDRAWAL_STATUS_CHECKER_ENABLED || '').toLowerCase() === 'true'
+  if (!enabled) {
+    return
+  }
   try {
     // Find all PROCESSING withdrawals with trackId
     const pendingWithdrawals = await prisma.withdrawal.findMany({
@@ -5209,6 +5222,18 @@ async function checkPendingWithdrawals() {
   } catch (error) {
     console.error('❌ Error checking pending withdrawals:', error)
   }
+}
+
+function startWithdrawalStatusChecker() {
+  const enabled = String(process.env.WITHDRAWAL_STATUS_CHECKER_ENABLED || '').toLowerCase() === 'true'
+  if (!enabled) {
+    console.log('ℹ️ Withdrawal status checker disabled (WITHDRAWAL_STATUS_CHECKER_ENABLED!=true)')
+    return
+  }
+
+  console.log('🔄 Starting withdrawal status checker (every 5 minutes)...')
+  checkPendingWithdrawals()
+  setInterval(checkPendingWithdrawals, 5 * 60 * 1000)
 }
 
 async function refreshTelegramUserProfiles() {
@@ -5327,8 +5352,8 @@ setInterval(checkAndRunProfitAccrual, 60 * 60 * 1000)
 // Check for scheduled notifications every minute
 setInterval(sendScheduledNotifications, 60 * 1000)
 
-// Check pending withdrawals every 5 minutes
-setInterval(checkPendingWithdrawals, 5 * 60 * 1000)
+// Check pending withdrawals every 5 minutes (opt-in)
+startWithdrawalStatusChecker()
 
 // Run profit check on startup (will run if needed)
 setTimeout(() => {
@@ -5344,8 +5369,7 @@ setTimeout(async () => {
 
 // Start withdrawal status checker
 setTimeout(() => {
-  console.log('🔄 Starting withdrawal status checker...')
-  checkPendingWithdrawals()
+  startWithdrawalStatusChecker()
 }, 15000)
 
 // Start daily Telegram profile sync

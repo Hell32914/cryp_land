@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel } from '@phosphor-icons/react'
 import { useApiQuery } from '@/hooks/use-api-query'
-import { fetchUsers, updateUserRole, activateContactSupport, type UserRecord } from '@/lib/api'
+import { fetchUsers, updateUserRole, activateContactSupport, deleteUser, type UserRecord } from '@/lib/api'
 import { useDebounce } from '@/hooks/use-debounce'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -110,6 +110,24 @@ export function Users() {
       toast.error('Failed to activate contact support')
     },
   })
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (telegramId: string) => deleteUser(token!, telegramId),
+    onSuccess: () => {
+      toast.success('User deleted')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setSelectedUser(null)
+    },
+    onError: () => {
+      toast.error('Failed to delete user')
+    },
+  })
+
+  const handleDeleteUser = () => {
+    if (!selectedUser) return
+    if (!confirm(`Delete user ${selectedUser.telegramId}? This will remove all related records (deposits, withdrawals, notifications, referrals, etc.).`)) return
+    deleteUserMutation.mutate(selectedUser.telegramId)
+  }
 
   const handleContactSupportSubmit = () => {
     if (!selectedUser) return
@@ -255,10 +273,12 @@ export function Users() {
                       <TableCell>
                         {(() => {
                           const isChannel = (user.marketingSource || '').toLowerCase() === 'channel'
+                          const hasStartedBot = Boolean(user.botStartedAt)
+                          const isChannelOnly = isChannel && !hasStartedBot
                           const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
 
-                          const label = isChannel ? 'channel' : (isKnownUser ? 'user' : 'lead')
-                          const badgeClass = isChannel
+                          const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
+                          const badgeClass = isChannelOnly
                             ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                             : (isKnownUser
                               ? 'bg-green-500/10 text-green-400 border-green-500/20'
@@ -566,6 +586,17 @@ export function Users() {
                   onClick={() => setContactSupportDialogOpen(true)}
                 >
                   📞 Contact Support
+                </Button>
+              </div>
+
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  className="w-full border-red-500/20 text-red-400 hover:bg-red-500/10"
+                  onClick={handleDeleteUser}
+                  disabled={deleteUserMutation.isPending}
+                >
+                  {deleteUserMutation.isPending ? 'Deleting…' : '🗑 Delete User'}
                 </Button>
               </div>
             </div>

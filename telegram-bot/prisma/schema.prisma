@@ -16,6 +16,7 @@ model User {
   username          String?
   firstName         String?
   lastName          String?
+  botStartedAt      DateTime?
   phoneNumber       String?
   languageCode      String?
   ipAddress         String?

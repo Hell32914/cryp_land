@@ -115,6 +115,7 @@ export interface UserRecord {
   role: string
   createdAt: string
   updatedAt: string
+  botStartedAt?: string | null
   // New fields
   comment: string | null
   currentProfit: number
@@ -345,6 +346,11 @@ export const updateUserRole = (token: string, telegramId: string, role: string) 
   request<UserRecord>(`/api/admin/users/${telegramId}/role`, {
     method: 'PATCH',
     body: JSON.stringify({ role }),
+  }, token)
+
+export const deleteUser = (token: string, telegramId: string) =>
+  request<{ success: boolean }>(`/api/admin/users/${telegramId}`, {
+    method: 'DELETE',
   }, token)
 
 export const activateContactSupport = (token: string, telegramId: string, bonusAmount: number, timerMinutes: number) =>
