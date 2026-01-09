@@ -12,7 +12,8 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:check": "node check-db-connection.js"
+    "db:check": "node check-db-connection.js",
+    "stats:recompute": "node scripts/recompute-user-stats.cjs"
   },
   "keywords": [
     "telegram",

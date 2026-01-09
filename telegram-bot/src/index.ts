@@ -1308,7 +1308,7 @@ bot.callbackQuery(/^manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
     `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
     `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`` : ''}\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) - user.totalWithdraw - user.profit).toFixed(2)}\n` +
+    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) + user.profit + user.referralEarnings - user.totalWithdraw).toFixed(2)}\n` +
     `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
     `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
     `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
@@ -1418,7 +1418,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     `User: ${displayName}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) - user.totalWithdraw - user.profit).toFixed(2)}\n` +
+    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) + user.profit + user.referralEarnings - user.totalWithdraw).toFixed(2)}\n` +
     `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
     `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
     `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
