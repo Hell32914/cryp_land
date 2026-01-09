@@ -1522,7 +1522,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <a 
-                      href="https://t.me/SyntrixAI" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-all border border-primary/20 cursor-pointer"
@@ -1817,7 +1817,7 @@ function App() {
                     </div>
                     <div className="flex gap-2">
                       <a 
-                        href="https://t.me/SyntrixAI" 
+                        href="https://t.me/+T-daFo58lL4yNDY6" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer"
@@ -2025,7 +2025,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <a 
-                      href="https://t.me/SyntrixAI" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-12 h-12 rounded bg-black flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
@@ -2212,7 +2212,7 @@ function App() {
                   </div>
                   <div className="flex gap-1.5 sm:gap-2 shrink-0">
                     <a 
-                      href="https://t.me/SyntrixAI" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer"
@@ -2335,7 +2335,7 @@ function App() {
                   </div>
                   <div className="flex gap-2">
                     <a 
-                      href="https://t.me/SyntrixAI" 
+                      href="https://t.me/+T-daFo58lL4yNDY6" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 rounded bg-black flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
