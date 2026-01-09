@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
-import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, type MarketingLink } from '@/lib/api'
+import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, generateChannelInviteLink, type MarketingLink } from '@/lib/api'
 
 const TELEGRAM_LANDING_DOMAIN = 'syntrix.website'
 const TELEGRAM_CHANNEL_INVITE_LINK = 't.me/+GteJd3Lac8lkZTZi'
@@ -606,7 +606,7 @@ export function LinkBuilder() {
                             size="sm"
                             onClick={async () => {
                               try {
-                                const linkUrl = link.linkUrl || buildLinkUrl(link.domain, link.linkId)
+                                const linkUrl = link.channelInviteLink || link.linkUrl || buildLinkUrl(link.domain, link.linkId)
                                 const ok = await copyText(linkUrl)
                                 if (ok) {
                                   toast.success('Link copied!')
@@ -619,6 +619,25 @@ export function LinkBuilder() {
                             }}
                           >
                             <Copy size={16} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                if (!token) return
+                                const resp = await generateChannelInviteLink(token, link.linkId)
+                                const ok = await copyText(resp.inviteLink)
+                                if (ok) toast.success('Channel invite copied!')
+                                else toast.error('Failed to copy')
+                                // refresh table so channelInviteLink appears
+                                await loadLinks()
+                              } catch {
+                                toast.error('Failed to create channel invite')
+                              }
+                            }}
+                          >
+                            Invite
                           </Button>
                           <Button
                             variant="ghost"

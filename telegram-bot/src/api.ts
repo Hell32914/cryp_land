@@ -1391,6 +1391,11 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     // Get all marketing links to match with users
     const marketingLinks = await prisma.marketingLink.findMany()
     const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
+    const linksByChannelInvite = new Map(
+      marketingLinks
+        .filter(l => Boolean((l as any).channelInviteLink))
+        .map(l => [String((l as any).channelInviteLink), l] as const)
+    )
 
     // Calculate additional fields and get marketing link info
     const enrichedUsers = await Promise.all(users.map(async (user) => {
@@ -1425,6 +1430,22 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             const candidateLinkId = mkMatch ? mkMatch[0] : null
             if (candidateLinkId) {
               marketingLink = linksByLinkId.get(candidateLinkId) || null
+            }
+          } catch {
+            // ignore JSON parse errors
+          }
+        }
+      }
+
+      // Channel attribution: exact match by inviteLink URL against stored marketingLink.channelInviteLink
+      if (!marketingLink) {
+        const rawUtm = (user as any).utmParams
+        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawUtm)
+            const inviteLink = parsed?.inviteLink
+            if (inviteLink) {
+              marketingLink = linksByChannelInvite.get(String(inviteLink)) || null
             }
           } catch {
             // ignore JSON parse errors
@@ -3154,8 +3175,8 @@ app.post('/api/oxapay-callback', async (req, res) => {
 
     console.log(`✅ Deposit completed: $${deposit.amount} added to user ${deposit.user.telegramId}`)
     
-    // Check if user reached $1000 and activate referral
-    if (updatedUser.totalDeposit >= 1000 && updatedUser.referredBy && !updatedUser.isActiveReferral) {
+    // Check if user reached $500 and activate referral
+    if (updatedUser.totalDeposit >= 500 && updatedUser.referredBy && !updatedUser.isActiveReferral) {
       await prisma.user.update({
         where: { id: updatedUser.id },
         data: { isActiveReferral: true }
@@ -3166,7 +3187,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
         const { bot: botInstance } = await import('./index.js')
         await botInstance.api.sendMessage(
           updatedUser.referredBy,
-          `🎉 Your referral has become active! They reached $1000 deposit.\nYou will now earn 4% from their daily profits.`
+          `🎉 Your referral has become active! They reached $500 deposit.\nYou will now earn 4% from their daily profits.`
         )
       } catch (err) {
         console.error('Failed to notify referrer:', err)
@@ -3451,6 +3472,12 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
       include: { deposits: true },
     })
 
+    const linksByChannelInvite = new Map(
+      links
+        .filter(l => Boolean((l as any).channelInviteLink))
+        .map(l => [String((l as any).channelInviteLink), l] as const)
+    )
+
     const statsBySource = new Map<string, {
       source: string
       users: number
@@ -3501,6 +3528,23 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
         if (ch) source = ch
       }
 
+      // Channel attribution via inviteLink URL match (marketingLink.channelInviteLink)
+      if (source.toLowerCase() === 'channel') {
+        const rawUtm = user.utmParams
+        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawUtm)
+            const inviteLink = parsed?.inviteLink
+            if (inviteLink) {
+              const link = linksByChannelInvite.get(String(inviteLink))
+              if (link) source = link.linkId
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       const stat = ensure(source)
       stat.users += 1
 
@@ -3515,6 +3559,42 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
   } catch (error) {
     console.error('Get marketing stats error:', error)
     return res.status(500).json({ error: 'Failed to load marketing stats' })
+  }
+})
+
+// Create (or reuse) a Telegram channel invite link for a marketing link.
+// Requires the bot to be an admin in the channel.
+app.post('/api/admin/marketing-links/:linkId/channel-invite', requireAdminAuth, async (req, res) => {
+  try {
+    const { linkId } = req.params
+    if (!linkId) return res.status(400).json({ error: 'linkId is required' })
+
+    const channelId = process.env.CHANNEL_ID
+    if (!channelId) {
+      return res.status(400).json({ error: 'CHANNEL_ID is not configured' })
+    }
+
+    const link = await prisma.marketingLink.findUnique({ where: { linkId } })
+    if (!link) return res.status(404).json({ error: 'Link not found' })
+
+    // If already generated, just return it
+    const existingInvite = (link as any).channelInviteLink
+    if (existingInvite) {
+      return res.json({ inviteLink: String(existingInvite), link })
+    }
+
+    const { bot } = await import('./index.js')
+    const invite = await bot.api.createChatInviteLink(channelId, { name: linkId })
+
+    const updated = await prisma.marketingLink.update({
+      where: { linkId },
+      data: { channelInviteLink: invite.invite_link },
+    })
+
+    return res.json({ inviteLink: invite.invite_link, link: updated })
+  } catch (error) {
+    console.error('Create channel invite link error:', error)
+    return res.status(500).json({ error: 'Failed to create channel invite link' })
   }
 })
 

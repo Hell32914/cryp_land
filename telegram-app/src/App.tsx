@@ -943,7 +943,6 @@ function App() {
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
                   <SelectItem value="OXAPAY">Crypto</SelectItem>
-                  <SelectItem value="PAYPAL">PayPal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2085,6 +2084,11 @@ function App() {
                     <ShareNetwork size={24} />
                   </Button>
                 </div>
+              </div>
+
+              <div className="bg-background rounded-lg p-6 border border-border space-y-3">
+                <h3 className="text-lg font-bold text-foreground tracking-wider">{t.referralHowItWorksTitle}</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">{t.referralHowItWorksBody}</p>
               </div>
 
               <div className="relative overflow-hidden rounded-lg bg-background border border-border p-6">

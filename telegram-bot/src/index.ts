@@ -362,6 +362,8 @@ const TARIFF_PLANS = [
   { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
 ]
 
+const REFERRAL_ACTIVATION_DEPOSIT_USD = 500
+
 // Calculate tariff plan based on balance
 function calculateTariffPlan(balance: number) {
   const plan = TARIFF_PLANS.find(p => balance >= p.minDeposit && balance <= p.maxDeposit) || TARIFF_PLANS[0]
@@ -380,7 +382,7 @@ function calculateTariffPlan(balance: number) {
   }
 }
 
-// Create referral chain for user who reached $1000 deposit
+// Create referral chain for user who reached referral activation deposit
 async function createReferralChain(user: any) {
   if (!user.referredBy) return
 
@@ -416,7 +418,7 @@ async function createReferralChain(user: any) {
       // Notify referrer
       await bot.api.sendMessage(
         referrer.telegramId,
-        `🎉 *Referral Activated!*\n\n👤 @${user.username || 'User'} reached $1000 deposit!\n💰 You now earn 4% of their daily profits.`,
+        `🎉 *Referral Activated!*\n\n👤 @${user.username || 'User'} reached $${REFERRAL_ACTIVATION_DEPOSIT_USD} deposit!\n💰 You now earn 4% of their daily profits.`,
         { parse_mode: 'Markdown' }
       ).catch(() => {})
 
@@ -442,7 +444,7 @@ async function createReferralChain(user: any) {
           // Notify L2 referrer
           await bot.api.sendMessage(
             level2Referrer.telegramId,
-            `🎉 *Level 2 Referral Activated!*\n\n👤 @${user.username || 'User'} (referred by @${referrer.username || 'User'}) reached $1000!\n💰 You now earn 3% of their daily profits.`,
+            `🎉 *Level 2 Referral Activated!*\n\n👤 @${user.username || 'User'} (referred by @${referrer.username || 'User'}) reached $${REFERRAL_ACTIVATION_DEPOSIT_USD}!\n💰 You now earn 3% of their daily profits.`,
             { parse_mode: 'Markdown' }
           ).catch(() => {})
 
@@ -468,7 +470,7 @@ async function createReferralChain(user: any) {
               // Notify L3 referrer
               await bot.api.sendMessage(
                 level3Referrer.telegramId,
-                `🎉 *Level 3 Referral Activated!*\n\n👤 @${user.username || 'User'} reached $1000!\n💰 You now earn 2% of their daily profits.`,
+                `🎉 *Level 3 Referral Activated!*\n\n👤 @${user.username || 'User'} reached $${REFERRAL_ACTIVATION_DEPOSIT_USD}!\n💰 You now earn 2% of their daily profits.`,
                 { parse_mode: 'Markdown' }
               ).catch(() => {})
             }
@@ -1962,7 +1964,12 @@ bot.on('message:text', async (ctx) => {
     const currentUser = await prisma.user.findUnique({ where: { id: userId } })
     const newTotalDeposit = (currentUser?.totalDeposit || 0) + amount
     const shouldActivate = currentUser?.status === 'INACTIVE' && newTotalDeposit >= 10
-    const shouldCreateReferral = currentUser && currentUser.totalDeposit < 1000 && newTotalDeposit >= 1000
+    const shouldActivateReferral =
+      !!currentUser &&
+      !!currentUser.referredBy &&
+      !currentUser.isActiveReferral &&
+      currentUser.totalDeposit < REFERRAL_ACTIVATION_DEPOSIT_USD &&
+      newTotalDeposit >= REFERRAL_ACTIVATION_DEPOSIT_USD
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -1970,12 +1977,13 @@ bot.on('message:text', async (ctx) => {
         totalDeposit: { increment: amount },
         lifetimeDeposit: { increment: amount },
         // Activate profile if totalDeposit >= $10 and currently inactive
-        ...(shouldActivate && { status: 'ACTIVE' })
+        ...(shouldActivate && { status: 'ACTIVE' }),
+        ...(shouldActivateReferral && { isActiveReferral: true })
       }
     })
 
-    // Create referral chain if user reached $1000 total deposit
-    if (shouldCreateReferral) {
+    // Create referral chain if user reached referral activation deposit
+    if (shouldActivateReferral) {
       await createReferralChain(user)
     }
 
@@ -4927,7 +4935,7 @@ async function accrueDailyProfit() {
       console.log(`💰 Accrued $${totalDailyProfit.toFixed(4)} profit to user ${user.telegramId} (${planInfo.currentPlan} - ${planInfo.dailyPercent}%${bonusInfo}) - ${updates.length} updates`)
 
       // Distribute referral earnings (3-level cascade: 4%, 3%, 2%)
-      // Only if user is active referral (totalDeposit >= $1000)
+      // Only if user is active referral (totalDeposit >= activation deposit)
       if (user.referredBy && user.isActiveReferral) {
         try {
           // Level 1: Direct referrer gets 4%

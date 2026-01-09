@@ -260,6 +260,7 @@ export interface MarketingLink {
   source: string
   domain?: string
   linkUrl?: string
+  channelInviteLink?: string | null
   clicks: number
   conversions: number
   conversionRate: string
@@ -329,6 +330,11 @@ export const toggleMarketingLink = (token: string, linkId: string, isActive: boo
   request<MarketingLink>(`/api/admin/marketing-links/${linkId}`, {
     method: 'PATCH',
     body: JSON.stringify({ isActive }),
+  }, token)
+
+export const generateChannelInviteLink = (token: string, linkId: string) =>
+  request<{ inviteLink: string; link: MarketingLink }>(`/api/admin/marketing-links/${linkId}/channel-invite`, {
+    method: 'POST',
   }, token)
 
 export const deleteMarketingLink = (token: string, linkId: string) =>

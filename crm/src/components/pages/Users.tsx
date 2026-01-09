@@ -280,7 +280,7 @@ export function Users() {
 
                           const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
                           const badgeClass = isChannelOnly
-                            ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                             : (isKnownUser
                               ? 'bg-green-500/10 text-green-400 border-green-500/20'
                               : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20')
@@ -404,7 +404,7 @@ export function Users() {
       </Card>
 
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('users.userDetails')}</DialogTitle>
           </DialogHeader>

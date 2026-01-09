@@ -1914,6 +1914,12 @@ export const translations = {
     noTransactionsYet: 'No transactions yet',
     inviteFriends: 'Invite friends to join',
     referralBalance: 'Referral Balance:',
+    referralHowItWorksTitle: 'HOW IT WORKS',
+    referralHowItWorksBody:
+      'Share your referral link with a friend.\n' +
+      'If your friend deposits $500 or more, you earn 4% of their profit.\n' +
+      'Friend of a friend: 3% of their profit. Third level: 2% of their profit.\n' +
+      'Example: your friend made $200 profit → you earn $8 (4% of $200).',
     yourReferralLink: 'YOUR REFERRAL LINK',
     termsOfTheProgram: 'TERMS OF THE PROGRAM',
     friendDeposit: 'Friend deposit',
@@ -2159,6 +2165,12 @@ export const translations = {
     noTransactionsYet: 'Noch keine Transaktionen',
     inviteFriends: 'Freunde einladen',
     referralBalance: 'Empfehlungsguthaben:',
+    referralHowItWorksTitle: 'WIE ES FUNKTIONIERT',
+    referralHowItWorksBody:
+      'Teile deinen Empfehlungs-Link mit einem Freund.\n' +
+      'Wenn dein Freund $500 oder mehr einzahlt, erhältst du 4% seines Profits.\n' +
+      'Freund eines Freundes: 3% seines Profits. Dritte Ebene: 2% seines Profits.\n' +
+      'Beispiel: dein Freund machte $200 Profit → du erhältst $8 (4% von $200).',
     yourReferralLink: 'DEIN EMPFEHLUNGS-LINK',
     termsOfTheProgram: 'PROGRAMMBEDINGUNGEN',
     friendDeposit: 'Einzahlung eines Freundes',
@@ -2389,6 +2401,12 @@ export const translations = {
     noTransactionsYet: 'Aún no hay transacciones',
     inviteFriends: 'Invita a amigos',
     referralBalance: 'Balance de referidos:',
+    referralHowItWorksTitle: 'CÓMO FUNCIONA',
+    referralHowItWorksBody:
+      'Comparte tu enlace de referidos con un amigo.\n' +
+      'Si tu amigo deposita $500 o más, ganas el 4% de su beneficio.\n' +
+      'Amigo de un amigo: 3% de su beneficio. Tercer nivel: 2% de su beneficio.\n' +
+      'Ejemplo: tu amigo ganó $200 → tú ganas $8 (4% de $200).',
     yourReferralLink: 'TU ENLACE DE REFERIDOS',
     termsOfTheProgram: 'TÉRMINOS DEL PROGRAMA',
     friendDeposit: 'Depósito de un amigo',
@@ -2571,6 +2589,12 @@ export const translations = {
     noTransactionsYet: 'Pas encore de transactions',
     inviteFriends: 'Invitez des amis',
     referralBalance: 'Solde de parrainage :',
+    referralHowItWorksTitle: 'COMMENT ÇA MARCHE',
+    referralHowItWorksBody:
+      'Partagez votre lien de parrainage avec un ami.\n' +
+      'Si votre ami dépose 500 $ ou plus, vous recevez 4% de son profit.\n' +
+      "Ami d’un ami : 3% de son profit. Troisième niveau : 2% de son profit.\n" +
+      'Exemple : votre ami a fait 200 $ de profit → vous recevez 8 $ (4% de 200 $).',
     yourReferralLink: 'VOTRE LIEN DE PARRAINAGE',
     termsOfTheProgram: 'CONDITIONS DU PROGRAMME',
     friendDeposit: 'Dépôt d’un ami',
@@ -2801,6 +2825,12 @@ export const translations = {
     noTransactionsYet: 'Ancora nessuna transazione',
     inviteFriends: 'Invita amici',
     referralBalance: 'Saldo referral :',
+    referralHowItWorksTitle: 'COME FUNZIONA',
+    referralHowItWorksBody:
+      'Condividi il tuo link referral con un amico.\n' +
+      'Se il tuo amico deposita $500 o più, guadagni il 4% del suo profitto.\n' +
+      'Amico di un amico: 3% del profitto. Terzo livello: 2% del profitto.\n' +
+      'Esempio: il tuo amico ha fatto $200 di profitto → tu guadagni $8 (4% di $200).',
     yourReferralLink: 'IL TUO LINK DI REFERRAL',
     termsOfTheProgram: 'TERMINI DEL PROGRAMMA',
     friendDeposit: 'Deposito di un amico',
@@ -3031,6 +3061,12 @@ export const translations = {
     noTransactionsYet: 'Nog geen transacties',
     inviteFriends: 'Nodig vrienden uit',
     referralBalance: 'Referral saldo:',
+    referralHowItWorksTitle: 'HOE HET WERKT',
+    referralHowItWorksBody:
+      'Deel je referral-link met een vriend.\n' +
+      'Als je vriend $500 of meer stort, ontvang je 4% van zijn/haar winst.\n' +
+      'Vriend van een vriend: 3% van de winst. Derde niveau: 2% van de winst.\n' +
+      'Voorbeeld: je vriend maakte $200 winst → jij ontvangt $8 (4% van $200).',
     yourReferralLink: 'JOUW REFERRALLINK',
     termsOfTheProgram: 'PROGRAMMACONDITIES',
     friendDeposit: 'Storting van een vriend',

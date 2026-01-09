@@ -190,6 +190,7 @@ model MarketingLink {
   language       String?
   domain         String?
   trackingPixel  String?
+  channelInviteLink String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
