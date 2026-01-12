@@ -359,7 +359,7 @@ function App() {
         setMembershipLink(effectiveLink)
 
         if (!response.ok) {
-          setMembershipError(data?.error || 'Не удалось проверить подписку')
+          setMembershipError(data?.error || 'Failed to check membership')
           setIsMember(false)
           setMembershipChecked(true)
           return
@@ -369,7 +369,7 @@ function App() {
         setMembershipChecked(true)
       } catch (error) {
         console.error('Membership check error:', error)
-        setMembershipError('Не удалось проверить подписку. Попробуйте ещё раз.')
+        setMembershipError('Failed to check membership. Please try again.')
         setIsMember(false)
         setMembershipChecked(true)
       }
@@ -973,7 +973,7 @@ function App() {
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
           <div className="text-center space-y-4">
             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-foreground/70">Проверяем подписку...</p>
+            <p className="text-foreground/70">Checking membership...</p>
           </div>
         </div>
       </>
@@ -988,9 +988,9 @@ function App() {
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
           <div className="text-center space-y-4 max-w-md">
             <div className="text-destructive text-6xl">⚠️</div>
-            <h2 className="text-xl font-bold text-foreground">Доступ ограничен</h2>
+            <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
             <p className="text-foreground/70">
-              Для использования мини‑аппа нужно вступить в чат.
+              To use this mini app, you must join the chat.
             </p>
             {membershipError && (
               <p className="text-foreground/60 text-sm">{membershipError}</p>
@@ -1008,7 +1008,7 @@ function App() {
                   }
                 }}
               >
-                Вступить в чат
+                Join the chat
               </Button>
               <Button
                 variant="outline"
@@ -1029,7 +1029,7 @@ function App() {
                       const effectiveLink = (data?.chatLink as string) || requiredMembershipLink
                       setMembershipLink(effectiveLink)
                       if (!response.ok) {
-                        setMembershipError(data?.error || 'Не удалось проверить подписку')
+                        setMembershipError(data?.error || 'Failed to check membership')
                         setIsMember(false)
                         setMembershipChecked(true)
                         return
@@ -1038,7 +1038,7 @@ function App() {
                       setMembershipChecked(true)
                     } catch (e) {
                       console.error('Membership re-check error:', e)
-                      setMembershipError('Не удалось проверить подписку. Попробуйте ещё раз.')
+                      setMembershipError('Failed to check membership. Please try again.')
                       setIsMember(false)
                       setMembershipChecked(true)
                     }
@@ -1046,7 +1046,7 @@ function App() {
                   void run()
                 }}
               >
-                Проверить снова
+                Check again
               </Button>
             </div>
           </div>
