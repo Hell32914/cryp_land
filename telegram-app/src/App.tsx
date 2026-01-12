@@ -990,7 +990,7 @@ function App() {
             <div className="text-destructive text-6xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
             <p className="text-foreground/70">
-              To use this mini app, you must join the chat.
+              To use this mini app, you must join the channel.
             </p>
             {membershipError && (
               <p className="text-foreground/60 text-sm">{membershipError}</p>
@@ -1008,7 +1008,7 @@ function App() {
                   }
                 }}
               >
-                Join the chat
+                Join the channel
               </Button>
               <Button
                 variant="outline"
