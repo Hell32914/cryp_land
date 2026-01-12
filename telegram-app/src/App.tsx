@@ -59,6 +59,13 @@ function App() {
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
 
+  // Gate access: require membership in a specific chat/channel before allowing use of the mini-app.
+  const requiredMembershipLink = 'https://t.me/+T-daFo58lL4yNDY6'
+  const [membershipChecked, setMembershipChecked] = useState(false)
+  const [isMember, setIsMember] = useState<boolean | null>(null)
+  const [membershipError, setMembershipError] = useState<string | null>(null)
+  const [membershipLink, setMembershipLink] = useState<string>(requiredMembershipLink)
+
   // Mini app: hide PayPal deposit option (UI) while keeping code paths intact.
   const enablePayPalDeposit = false
 
@@ -331,6 +338,45 @@ function App() {
     }
     return headers
   }
+
+  // Check chat/channel membership before allowing access to the mini-app.
+  useEffect(() => {
+    const checkMembership = async () => {
+      if (!telegramUserId || !authToken) return
+
+      setMembershipError(null)
+      setMembershipChecked(false)
+      setIsMember(null)
+
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+        const response = await fetch(`${API_URL}/api/user/${telegramUserId}/membership`, {
+          headers: getAuthHeaders(),
+        })
+
+        const data = await response.json().catch(() => ({} as any))
+        const effectiveLink = (data?.chatLink as string) || requiredMembershipLink
+        setMembershipLink(effectiveLink)
+
+        if (!response.ok) {
+          setMembershipError(data?.error || 'Не удалось проверить подписку')
+          setIsMember(false)
+          setMembershipChecked(true)
+          return
+        }
+
+        setIsMember(Boolean(data?.isMember))
+        setMembershipChecked(true)
+      } catch (error) {
+        console.error('Membership check error:', error)
+        setMembershipError('Не удалось проверить подписку. Попробуйте ещё раз.')
+        setIsMember(false)
+        setMembershipChecked(true)
+      }
+    }
+
+    void checkMembership()
+  }, [telegramUserId, authToken])
 
   // Fetch referrals
   const fetchReferrals = async () => {
@@ -913,6 +959,96 @@ function App() {
           <div className="text-center space-y-4 max-w-md">
             <div className="text-destructive text-6xl">⛔️</div>
             <h2 className="text-2xl font-bold text-foreground">You are blocked</h2>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Membership gate (requires auth, so it won't block local unauthenticated dev flows)
+  if (authToken && !membershipChecked) {
+    return (
+      <>
+        <AnimatedBackground />
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-foreground/70">Проверяем подписку...</p>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (authToken && membershipChecked && isMember === false) {
+    return (
+      <>
+        <AnimatedBackground />
+        <Toaster />
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="text-destructive text-6xl">⚠️</div>
+            <h2 className="text-xl font-bold text-foreground">Доступ ограничен</h2>
+            <p className="text-foreground/70">
+              Для использования мини‑аппа нужно вступить в чат.
+            </p>
+            {membershipError && (
+              <p className="text-foreground/60 text-sm">{membershipError}</p>
+            )}
+            <div className="flex flex-col gap-2">
+              <Button
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => {
+                  const url = membershipLink || requiredMembershipLink
+                  const tg = (window as any).Telegram?.WebApp
+                  if (tg?.openTelegramLink) {
+                    tg.openTelegramLink(url)
+                  } else {
+                    window.open(url, '_blank')
+                  }
+                }}
+              >
+                Вступить в чат
+              </Button>
+              <Button
+                variant="outline"
+                className="border-border text-foreground hover:bg-muted/50"
+                onClick={() => {
+                  // Trigger re-check by resetting state; the effect will rerun on authToken/telegramUserId change only,
+                  // so we re-run the same logic inline.
+                  const run = async () => {
+                    try {
+                      setMembershipError(null)
+                      setMembershipChecked(false)
+                      setIsMember(null)
+                      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+                      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/membership`, {
+                        headers: getAuthHeaders(),
+                      })
+                      const data = await response.json().catch(() => ({} as any))
+                      const effectiveLink = (data?.chatLink as string) || requiredMembershipLink
+                      setMembershipLink(effectiveLink)
+                      if (!response.ok) {
+                        setMembershipError(data?.error || 'Не удалось проверить подписку')
+                        setIsMember(false)
+                        setMembershipChecked(true)
+                        return
+                      }
+                      setIsMember(Boolean(data?.isMember))
+                      setMembershipChecked(true)
+                    } catch (e) {
+                      console.error('Membership re-check error:', e)
+                      setMembershipError('Не удалось проверить подписку. Попробуйте ещё раз.')
+                      setIsMember(false)
+                      setMembershipChecked(true)
+                    }
+                  }
+                  void run()
+                }}
+              >
+                Проверить снова
+              </Button>
+            </div>
           </div>
         </div>
       </>

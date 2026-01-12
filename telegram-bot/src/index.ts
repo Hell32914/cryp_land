@@ -160,6 +160,62 @@ bot.on('chat_member', async (ctx) => {
   }
 })
 
+// Utility: get current chat id (for configuring REQUIRED_MEMBERSHIP_CHAT_ID)
+bot.command('chatid', async (ctx) => {
+  const chatId = ctx.chat?.id
+  const chatType = ctx.chat?.type
+  const chatTitle = (ctx.chat as any)?.title
+  const chatUsername = (ctx.chat as any)?.username
+
+  await ctx.reply(
+    `Chat ID: ${chatId}\nType: ${chatType || 'unknown'}${chatTitle ? `\nTitle: ${chatTitle}` : ''}${chatUsername ? `\nUsername: @${chatUsername}` : ''}`
+  )
+})
+
+// Alternative way to get chat_id when users can't write in the channel/group:
+// forward any message from that chat to the bot in private.
+bot.on('message', async (ctx, next) => {
+  const msg: any = ctx.message
+  if (!msg) return next()
+
+  // New Bot API format
+  const forwardOrigin = msg.forward_origin
+  if (forwardOrigin?.type === 'channel' && forwardOrigin.chat?.id) {
+    const chatId = forwardOrigin.chat.id
+    const title = forwardOrigin.chat.title
+    const username = forwardOrigin.chat.username
+    await ctx.reply(
+      `Chat ID: ${chatId}\nType: channel${title ? `\nTitle: ${title}` : ''}${username ? `\nUsername: @${username}` : ''}`
+    )
+    return
+  }
+
+  if (forwardOrigin?.type === 'chat' && forwardOrigin.chat?.id) {
+    const chatId = forwardOrigin.chat.id
+    const title = forwardOrigin.chat.title
+    const username = forwardOrigin.chat.username
+    await ctx.reply(
+      `Chat ID: ${chatId}\nType: chat${title ? `\nTitle: ${title}` : ''}${username ? `\nUsername: @${username}` : ''}`
+    )
+    return
+  }
+
+  // Legacy fields
+  const fwdChat = msg.forward_from_chat
+  if (fwdChat?.id) {
+    const chatId = fwdChat.id
+    const title = fwdChat.title
+    const username = fwdChat.username
+    const type = fwdChat.type || 'unknown'
+    await ctx.reply(
+      `Chat ID: ${chatId}\nType: ${type}${title ? `\nTitle: ${title}` : ''}${username ? `\nUsername: @${username}` : ''}`
+    )
+    return
+  }
+
+  return next()
+})
+
 // If the channel uses join requests, we can capture the lead even earlier.
 bot.on('chat_join_request', async (ctx) => {
   try {

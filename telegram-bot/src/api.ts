@@ -1973,6 +1973,52 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
   }
 })
 
+// Check if user is a member of the required chat/channel (gate access to mini-app)
+app.get('/api/user/:telegramId/membership', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId as string
+
+    const botToken = process.env.BOT_TOKEN
+    if (!botToken) {
+      return res.status(500).json({ error: 'Server configuration error' })
+    }
+
+    const requiredChatId = process.env.REQUIRED_MEMBERSHIP_CHAT_ID
+    const requiredChatLink = process.env.REQUIRED_MEMBERSHIP_LINK || 'https://t.me/+T-daFo58lL4yNDY6'
+    if (!requiredChatId) {
+      return res.status(500).json({ error: 'Membership chat is not configured', chatLink: requiredChatLink })
+    }
+
+    try {
+      const tgRes = await axios.get(`https://api.telegram.org/bot${botToken}/getChatMember`, {
+        params: {
+          chat_id: requiredChatId,
+          user_id: telegramId,
+        },
+        timeout: 8000,
+      })
+
+      const status = tgRes.data?.result?.status as string | undefined
+      const isMember = status === 'creator' || status === 'administrator' || status === 'member'
+
+      return res.json({ isMember, status: status || 'unknown', chatLink: requiredChatLink })
+    } catch (err: any) {
+      // If Telegram says the user isn't a participant, treat it as not a member.
+      const description = err?.response?.data?.description as string | undefined
+      const lower = description?.toLowerCase() || ''
+      if (lower.includes('user not found') || lower.includes('user_not_participant') || lower.includes('not a member') || lower.includes('participant_id_invalid')) {
+        return res.json({ isMember: false, status: 'left', chatLink: requiredChatLink })
+      }
+
+      console.error('Membership check failed:', description || err?.message || err)
+      return res.status(500).json({ error: 'Membership check failed', chatLink: requiredChatLink })
+    }
+  } catch (error) {
+    console.error('Membership API error:', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // Get user notifications
 app.get('/api/user/:telegramId/notifications', requireUserAuth, async (req, res) => {
   try {
