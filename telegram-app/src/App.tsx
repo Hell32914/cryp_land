@@ -59,6 +59,9 @@ function App() {
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
 
+  // Mini app: hide PayPal deposit option (UI) while keeping code paths intact.
+  const enablePayPalDeposit = false
+
   // Sync local language from persisted storage (useKV can be async depending on environment).
   useEffect(() => {
     if (!storedLanguage) return
@@ -66,6 +69,16 @@ function App() {
       setSelectedLanguage(storedLanguage)
     }
   }, [storedLanguage])
+
+  // Safety: if PayPal deposits are disabled, force back to crypto.
+  useEffect(() => {
+    if (enablePayPalDeposit) return
+    if (depositMethod !== 'PAYPAL') return
+    setDepositMethod('OXAPAY')
+    setDepositQrCode('')
+    setDepositAddress('')
+    setDepositPaymentUrl('')
+  }, [depositMethod])
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
@@ -1095,7 +1108,7 @@ function App() {
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
                   <SelectItem value="OXAPAY">Crypto</SelectItem>
-                  <SelectItem value="PAYPAL">PayPal</SelectItem>
+                    {enablePayPalDeposit && <SelectItem value="PAYPAL">PayPal</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -1145,7 +1158,7 @@ function App() {
               {t.continue}
             </Button>
 
-            {depositMethod === 'PAYPAL' && depositPaymentUrl && (
+            {enablePayPalDeposit && depositMethod === 'PAYPAL' && depositPaymentUrl && (
               <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-3">
                 <h3 className="text-sm font-bold text-foreground">PayPal Payment</h3>
                 <Button
