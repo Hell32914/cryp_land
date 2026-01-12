@@ -4557,21 +4557,37 @@ bot.callbackQuery(/^reject_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
       data: { status: 'FAILED' }
     })
 
-    // For PROCESSING status: totalDeposit WAS deducted (reserved), so we need to refund it
-    // For PENDING status (legacy): totalDeposit was NOT deducted yet, so no need to refund
+    // Funds are reserved for PROCESSING/APPROVED withdrawals.
+    // Refund the exact buckets using stored reservation breakdown.
     let refundMessage = ''
-    if (withdrawal.status === 'PROCESSING') {
-      // Refund the totalDeposit
-      await prisma.user.update({
+    if (withdrawal.status === 'PROCESSING' || withdrawal.status === 'APPROVED') {
+      const reservedDeposit = Number((withdrawal as any).reservedDeposit || 0)
+      const reservedProfit = Number((withdrawal as any).reservedProfit || 0)
+
+      // Backward-compatibility: if older records don't have reservation fields, refund everything to deposit.
+      const shouldFallback = reservedDeposit <= 0 && reservedProfit <= 0
+      const refundDeposit = shouldFallback ? withdrawal.amount : reservedDeposit
+      const refundProfit = shouldFallback ? 0 : reservedProfit
+
+      const updatedUser = await prisma.user.update({
         where: { id: withdrawal.userId },
         data: {
-          totalDeposit: { increment: withdrawal.amount },
-          totalWithdraw: { decrement: withdrawal.amount }
+          totalDeposit: { increment: refundDeposit },
+          // Keep legacy balance mirrored with totalDeposit.
+          balance: { increment: refundDeposit },
+          ...(refundProfit > 0 ? { profit: { increment: refundProfit } } : {}),
         }
       })
-      const newDeposit = currentUser.totalDeposit + withdrawal.amount
-      refundMessage = `✅ Funds returned to your account\n💳 New deposit: $${newDeposit.toFixed(2)}`
-      console.log(`💰 Refunded $${withdrawal.amount.toFixed(2)} to user ${withdrawal.user.telegramId}. New deposit: $${newDeposit.toFixed(2)}`)
+
+      // Recompute plan after restoring funds
+      try {
+        await updateUserPlan(updatedUser.id)
+      } catch (e) {
+        console.error('Failed to update user plan after withdrawal refund:', e)
+      }
+
+      refundMessage = `✅ Funds returned to your account\n💳 New deposit: $${updatedUser.totalDeposit.toFixed(2)}`
+      console.log(`💰 Refunded withdrawal ${withdrawal.id} to user ${withdrawal.user.telegramId}. New deposit: $${updatedUser.totalDeposit.toFixed(2)}`)
     } else {
       refundMessage = `💳 Current deposit: $${currentUser.totalDeposit.toFixed(2)} (unchanged)`
       console.log(`ℹ️ No refund needed for PENDING withdrawal ${withdrawal.id}`)
@@ -4640,12 +4656,23 @@ bot.callbackQuery(/^complete_withdrawal_(\d+)$/, async (ctx) => {
       return
     }
 
-    // Update withdrawal status to COMPLETED
-    await prisma.withdrawal.update({
-      where: { id: withdrawalId },
-      data: {
-        status: 'COMPLETED',
-        txHash: withdrawal.txHash === 'AWAITING_MANUAL_TRANSFER' ? 'MANUAL_TRANSFER_COMPLETED' : withdrawal.txHash
+    // Mark withdrawal as COMPLETED once and increment user's lifetime withdrawals once.
+    const newTxHash = withdrawal.txHash === 'AWAITING_MANUAL_TRANSFER' ? 'MANUAL_TRANSFER_COMPLETED' : withdrawal.txHash
+
+    await prisma.$transaction(async (tx) => {
+      const marked = await tx.withdrawal.updateMany({
+        where: { id: withdrawalId, status: { notIn: ['COMPLETED', 'FAILED'] } },
+        data: {
+          status: 'COMPLETED',
+          txHash: newTxHash,
+        },
+      })
+
+      if (marked.count === 1) {
+        await tx.user.update({
+          where: { id: withdrawal.userId },
+          data: { totalWithdraw: { increment: withdrawal.amount } },
+        })
       }
     })
 
@@ -5165,58 +5192,95 @@ async function checkPendingWithdrawals() {
           const payoutStatus = status.status?.toLowerCase()
 
           if (payoutStatus === 'paid' || payoutStatus === 'confirmed') {
-            // Withdrawal completed successfully
-            await prisma.withdrawal.update({
-              where: { id: withdrawal.id },
-              data: { status: 'COMPLETED' }
+            // Withdrawal completed successfully (idempotent)
+            const completed = await prisma.$transaction(async (tx) => {
+              const marked = await tx.withdrawal.updateMany({
+                where: { id: withdrawal.id, status: { notIn: ['COMPLETED', 'FAILED'] } },
+                data: { status: 'COMPLETED' },
+              })
+
+              if (marked.count === 1) {
+                await tx.user.update({
+                  where: { id: withdrawal.userId },
+                  data: { totalWithdraw: { increment: withdrawal.amount } },
+                })
+                return true
+              }
+
+              return false
             })
 
-            // Notify user
-            try {
-              await bot.api.sendMessage(
-                withdrawal.user.telegramId,
-                `✅ *Withdrawal Completed*\n\n` +
-                `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-                `💎 Currency: ${withdrawal.currency}\n` +
-                `🌐 Network: ${withdrawal.network}\n` +
-                `📍 Address: \`${withdrawal.address}\`\n\n` +
-                `✅ Your withdrawal has been successfully processed!`,
-                { parse_mode: 'Markdown' }
-              )
-            } catch (err) {
-              console.error('Failed to notify user:', err)
+            // Notify user only once
+            if (completed) {
+              try {
+                await bot.api.sendMessage(
+                  withdrawal.user.telegramId,
+                  `✅ *Withdrawal Completed*\n\n` +
+                  `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+                  `💎 Currency: ${withdrawal.currency}\n` +
+                  `🌐 Network: ${withdrawal.network}\n` +
+                  `📍 Address: \`${withdrawal.address}\`\n\n` +
+                  `✅ Your withdrawal has been successfully processed!`,
+                  { parse_mode: 'Markdown' }
+                )
+              } catch (err) {
+                console.error('Failed to notify user:', err)
+              }
             }
 
             console.log(`✅ Withdrawal ${withdrawal.id} marked as COMPLETED`)
           } else if (payoutStatus === 'expired' || payoutStatus === 'canceled' || payoutStatus === 'failed') {
             // Withdrawal failed - refund user
-            await prisma.withdrawal.update({
-              where: { id: withdrawal.id },
-              data: { status: 'FAILED' }
+            const refundedUser = await prisma.$transaction(async (tx) => {
+              const marked = await tx.withdrawal.updateMany({
+                where: { id: withdrawal.id, status: { notIn: ['COMPLETED', 'FAILED'] } },
+                data: { status: 'FAILED' },
+              })
+
+              if (marked.count !== 1) return null
+
+              const reservedDeposit = Number((withdrawal as any).reservedDeposit || 0)
+              const reservedProfit = Number((withdrawal as any).reservedProfit || 0)
+
+              const shouldFallback = reservedDeposit <= 0 && reservedProfit <= 0
+              const refundDeposit = shouldFallback ? withdrawal.amount : reservedDeposit
+              const refundProfit = shouldFallback ? 0 : reservedProfit
+
+              const updatedUser = await tx.user.update({
+                where: { id: withdrawal.userId },
+                data: {
+                  totalDeposit: { increment: refundDeposit },
+                  balance: { increment: refundDeposit },
+                  ...(refundProfit > 0 ? { profit: { increment: refundProfit } } : {}),
+                },
+              })
+
+              return updatedUser
             })
 
-            // Refund totalDeposit
-            await prisma.user.update({
-              where: { id: withdrawal.userId },
-              data: {
-                totalDeposit: { increment: withdrawal.amount },
-                totalWithdraw: { decrement: withdrawal.amount }
+            if (refundedUser) {
+              try {
+                await updateUserPlan(refundedUser.id)
+              } catch (e) {
+                console.error('Failed to update user plan after withdrawal refund:', e)
               }
-            })
+            }
 
-            // Notify user
-            try {
-              await bot.api.sendMessage(
-                withdrawal.user.telegramId,
-                `❌ *Withdrawal Failed*\n\n` +
-                `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
-                `💎 Currency: ${withdrawal.currency}\n\n` +
-                `⚠️ The withdrawal could not be processed.\n` +
-                `💳 Your deposit has been refunded: $${(withdrawal.user.totalDeposit + withdrawal.amount).toFixed(2)}`,
-                { parse_mode: 'Markdown' }
-              )
-            } catch (err) {
-              console.error('Failed to notify user:', err)
+            // Notify user (only if we actually refunded)
+            if (refundedUser) {
+              try {
+                await bot.api.sendMessage(
+                  withdrawal.user.telegramId,
+                  `❌ *Withdrawal Failed*\n\n` +
+                  `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+                  `💎 Currency: ${withdrawal.currency}\n\n` +
+                  `⚠️ The withdrawal could not be processed.\n` +
+                  `💳 Your deposit has been refunded: $${refundedUser.totalDeposit.toFixed(2)}`,
+                  { parse_mode: 'Markdown' }
+                )
+              } catch (err) {
+                console.error('Failed to notify user:', err)
+              }
             }
 
             console.log(`❌ Withdrawal ${withdrawal.id} FAILED and refunded`)

@@ -1004,7 +1004,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       geoWithdrawals,
     ] = await Promise.all([
       prisma.user.count({ where: userWhere }),
-      prisma.user.aggregate({ _sum: { balance: true }, where: { isHidden: false } }),
+      // totalDeposit is the working balance; legacy `balance` may be stale in old data.
+      prisma.user.aggregate({ _sum: { totalDeposit: true }, where: { isHidden: false } }),
       prisma.deposit.aggregate({
         _sum: { amount: true },
         where: {
@@ -1270,7 +1271,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     return res.json({
       kpis: {
         totalUsers,
-        totalBalance: Number(balanceAgg._sum.balance ?? 0),
+        totalBalance: Number((balanceAgg as any)._sum.totalDeposit ?? 0),
         depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
         withdrawalsToday: Number(withdrawalsTodayAgg._sum.amount ?? 0),
         profitPeriod: Number(profitAgg._sum.amount ?? 0),
@@ -1316,7 +1317,8 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   comment: user.comment || null,
   currentProfit: user.profit, // Current profit balance
   totalProfit: user.totalProfit || 0, // Lifetime profit
-  remainingBalance: user.totalDeposit - user.totalWithdraw, // Working balance - withdrawals
+  // totalDeposit is already the working balance (net of withdrawals/reservations).
+  remainingBalance: user.totalDeposit,
   referralCount: user.referralCount || 0,
   referredBy: user.referredBy || null,
   withdrawalStatus: user.kycRequired ? 'verification' : (user.isBlocked ? 'blocked' : 'allowed'),
@@ -1932,7 +1934,8 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
       createdAt: user.createdAt,
       status: user.status,
       languageCode: user.languageCode || null,
-      balance: user.balance,
+      // `balance` is legacy; `totalDeposit` is the working balance.
+      balance: user.totalDeposit,
       profit: user.profit || 0,
       totalDeposit: user.totalDeposit,
       totalWithdraw: user.totalWithdraw,
@@ -2486,6 +2489,7 @@ app.post('/api/user/:telegramId/paypal-capture', depositLimiter, requireUserAuth
       await tx.user.update({
         where: { id: deposit.userId },
         data: {
+          balance: { increment: deposit.amount },
           totalDeposit: { increment: deposit.amount },
           lifetimeDeposit: { increment: deposit.amount },
           status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined,
@@ -2604,6 +2608,7 @@ app.post('/api/paypal-webhook', async (req, res) => {
             await tx.user.update({
               where: { id: deposit.userId },
               data: {
+                balance: { increment: deposit.amount },
                 totalDeposit: { increment: deposit.amount },
                 lifetimeDeposit: { increment: deposit.amount },
                 status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
@@ -2677,6 +2682,7 @@ app.post('/api/paypal-webhook', async (req, res) => {
             await tx.user.update({
               where: { id: deposit.userId },
               data: {
+                balance: { increment: deposit.amount },
                 totalDeposit: { increment: deposit.amount },
                 lifetimeDeposit: { increment: deposit.amount },
                 status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
@@ -2811,6 +2817,11 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
     // Check if IP changed since registration
     const ipChanged = user.ipAddress && user.ipAddress !== clientIp ? true : false
 
+    // Reservation split: profit first, then deposit
+    const profitToReserve = Math.min(user.profit || 0, amount)
+    const depositToReserve = amount - profitToReserve
+    const newDeposit = user.totalDeposit - depositToReserve
+
     // Create withdrawal record with all metadata
     const withdrawal = await prisma.withdrawal.create({
       data: {
@@ -2822,6 +2833,8 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
         address: normalizedAddress,
         network: normalizedNetwork,
         paypalEmail: normalizedPaypalEmail,
+        reservedProfit: profitToReserve,
+        reservedDeposit: depositToReserve,
         ipAddress: clientIp,
         userAgent,
         country: geoData.country,
@@ -2847,19 +2860,15 @@ app.post('/api/user/:telegramId/create-withdrawal', withdrawalLimiter, requireUs
     const { bot, notifySupport } = await import('./index.js')
     
     console.log(`💰 Withdrawal ${withdrawal.id} for $${amount} requires approval. Reserving funds...`)
-    
-    // Calculate how much to deduct from profit vs totalDeposit
-    const profitToDeduct = Math.min(user.profit || 0, amount)
-    const depositToDeduct = amount - profitToDeduct
-    const newDeposit = user.totalDeposit - depositToDeduct
-    
-    // STEP 1: Deduct from profit first, then totalDeposit (reserve funds)
+
+    // STEP 1: Reserve funds (profit first, then deposit)
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        profit: { decrement: profitToDeduct },
-        totalDeposit: { decrement: depositToDeduct },
-        totalWithdraw: { increment: amount }
+        profit: { decrement: profitToReserve },
+        totalDeposit: { decrement: depositToReserve },
+        // Keep legacy balance mirrored with totalDeposit.
+        balance: { decrement: depositToReserve }
       }
     })
     
@@ -3083,11 +3092,28 @@ app.post('/api/oxapay-callback', async (req, res) => {
 
       // Update withdrawal with real blockchain transaction hash
       if (txID && txID.length === 64) {
-        await prisma.withdrawal.update({
-          where: { id: withdrawal.id },
-          data: { 
-            txHash: txID,
-            status: status === 'Paid' || status === 'paid' ? 'COMPLETED' : withdrawal.status
+        const paid = status === 'Paid' || status === 'paid'
+
+        await prisma.$transaction(async (tx) => {
+          // Always store the real chain hash.
+          await tx.withdrawal.update({
+            where: { id: withdrawal.id },
+            data: { txHash: txID },
+          })
+
+          if (paid) {
+            // Mark completed once and only once.
+            const marked = await tx.withdrawal.updateMany({
+              where: { id: withdrawal.id, status: { not: 'COMPLETED' } },
+              data: { status: 'COMPLETED' },
+            })
+
+            if (marked.count === 1) {
+              await tx.user.update({
+                where: { id: withdrawal.userId },
+                data: { totalWithdraw: { increment: withdrawal.amount } },
+              })
+            }
           }
         })
         console.log(`✅ Withdrawal ${withdrawal.id} updated with blockchain hash: ${txID}`)
@@ -3156,6 +3182,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
       await tx.user.update({
         where: { id: deposit.userId },
         data: {
+          balance: { increment: deposit.amount },
           totalDeposit: { increment: deposit.amount },
           lifetimeDeposit: { increment: deposit.amount },
           status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined

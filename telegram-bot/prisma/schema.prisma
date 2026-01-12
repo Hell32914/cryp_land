@@ -106,6 +106,9 @@ model Withdrawal {
   address           String
   paypalEmail       String?
   txHash            String?
+  // Reservation breakdown (so rejected withdrawals can restore exact buckets)
+  reservedProfit     Float         @default(0)
+  reservedDeposit    Float         @default(0)
   ipAddress         String?
   userAgent         String?
   country           String?
