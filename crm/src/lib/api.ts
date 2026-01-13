@@ -162,6 +162,16 @@ export interface DepositRecord {
   linkName: string | null
 }
 
+export interface DepositsResponse {
+  deposits: DepositRecord[]
+  count: number
+  totalCount: number
+  page: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
 export interface WithdrawalRecord {
   id: number
   status: string
@@ -232,8 +242,14 @@ export const fetchUsers = (token: string, search?: string, sortBy?: string, sort
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)
 }
 
-export const fetchDeposits = (token: string) =>
-  request<{ deposits: DepositRecord[] }>('/api/admin/deposits', {}, token)
+export const fetchDeposits = (token: string, opts?: { page?: number; limit?: number; search?: string }) => {
+  const params = new URLSearchParams()
+  if (opts?.page) params.set('page', String(opts.page))
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.search) params.set('search', String(opts.search))
+  const query = params.toString()
+  return request<DepositsResponse>(`/api/admin/deposits${query ? `?${query}` : ''}`, {}, token)
+}
 
 export const fetchWithdrawals = (token: string) =>
   request<{ withdrawals: WithdrawalRecord[] }>('/api/admin/withdrawals', {}, token)

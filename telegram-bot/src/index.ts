@@ -1356,6 +1356,10 @@ bot.callbackQuery(/^manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
     return countryFlags[langCode] || '🌍'
   }
 
+  const lifetimeDeposited = user.lifetimeDeposit || 0
+  const currentAccBalance = user.totalDeposit + user.profit + user.referralEarnings
+  const tariffProfit = (user.totalDeposit + user.profit) + user.totalWithdraw - lifetimeDeposited
+
   await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
     `Username: ${formatUserDisplay(user)}\n` +
@@ -1364,10 +1368,10 @@ bot.callbackQuery(/^manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
     `${user.country ? `🌍 Country: ${user.country}` : ''}\n` +
     `${user.ipAddress ? `📡 IP: \`${user.ipAddress}\`` : ''}\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) + user.profit + user.referralEarnings - user.totalWithdraw).toFixed(2)}\n` +
-    `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
-    `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
-    `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
+    `📊 *All Time Balance:* $${(lifetimeDeposited + user.profit + user.referralEarnings - user.totalWithdraw).toFixed(2)}\n` +
+    `💰 *Current Acc Balance:* $${currentAccBalance.toFixed(2)}\n\n` +
+    `📥 Total Deposited: $${lifetimeDeposited.toFixed(2)}\n` +
+    `📈 Client Profit: $${tariffProfit.toFixed(2)}\n` +
     `🎁 Bonus Tokens: $${(user.bonusTokens || 0).toFixed(2)}\n` +
     `📤 Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `📅 Joined: ${user.createdAt.toLocaleDateString()}`,
@@ -1469,15 +1473,19 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     displayName = 'no\\_username'
   }
 
+  const lifetimeDeposited = user.lifetimeDeposit || 0
+  const currentAccBalance = user.totalDeposit + user.profit + user.referralEarnings
+  const tariffProfit = (user.totalDeposit + user.profit) + user.totalWithdraw - lifetimeDeposited
+
   await safeEditMessage(ctx, 
     `👤 *User Details*\n\n` +
     `User: ${displayName}\n` +
     `ID: \`${user.telegramId}\`\n` +
     `Status: ${statusEmoji} ${user.status.replace(/_/g, '\\_')}\n\n` +
-    `📊 *All Time Balance:* $${((user.lifetimeDeposit || 0) + user.profit + user.referralEarnings - user.totalWithdraw).toFixed(2)}\n` +
-    `💰 *Current Acc Balance:* $${(user.totalDeposit + user.profit + user.referralEarnings).toFixed(2)}\n\n` +
-    `📥 Total Deposited: $${(user.lifetimeDeposit || 0).toFixed(2)}\n` +
-    `📈 Client Profit: $${user.profit.toFixed(2)}\n` +
+    `📊 *All Time Balance:* $${(lifetimeDeposited + user.profit + user.referralEarnings - user.totalWithdraw).toFixed(2)}\n` +
+    `💰 *Current Acc Balance:* $${currentAccBalance.toFixed(2)}\n\n` +
+    `📥 Total Deposited: $${lifetimeDeposited.toFixed(2)}\n` +
+    `📈 Client Profit: $${tariffProfit.toFixed(2)}\n` +
     `📤 Withdrawn: $${user.totalWithdraw.toFixed(2)}\n\n` +
     `✅ Status updated successfully!`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
@@ -2297,7 +2305,7 @@ bot.on('message:text', async (ctx) => {
         if (!existingUpdates) {
           const planInfo = calculateTariffPlan(user.totalDeposit)
           const dailyProfit = (user.totalDeposit * planInfo.dailyPercent) / 100
-          const bonusProfit = ((user.bonusTokens || 0) * 0.5) / 100
+          const bonusProfit = ((user.bonusTokens || 0) * 0.1) / 100
           const totalDailyProfit = dailyProfit + bonusProfit
           
           if (totalDailyProfit > 0) {
@@ -2377,7 +2385,7 @@ bot.on('message:text', async (ctx) => {
         `💡 *How it works:*\n` +
         `• Added to your Total Balance\n` +
         `• Can be reinvested\n` +
-        `• Earns 0.5% daily profit (Bronze rate)\n` +
+        `• Earns 0.1% daily profit\n` +
         `• Cannot be withdrawn as cash`
 
       await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
@@ -4963,8 +4971,8 @@ async function accrueDailyProfit() {
       const planInfo = calculateTariffPlan(user.totalDeposit)
       const dailyProfit = (user.totalDeposit * planInfo.dailyPercent) / 100
       
-      // Syntrix Token earns daily profit at Bronze plan rate (0.5%)
-      const bonusProfit = ((user.bonusTokens || 0) * 0.5) / 100
+      // Syntrix Token earns daily profit at a fixed rate (0.1%)
+      const bonusProfit = ((user.bonusTokens || 0) * 0.1) / 100
       const totalDailyProfit = dailyProfit + bonusProfit
 
       if (totalDailyProfit <= 0) {
@@ -5169,7 +5177,7 @@ async function sendScheduledNotifications() {
               update.user.telegramId,
               `🎁 *Syntrix Token Income*\n\n` +
               `✅ Token accrual: $${update.amount.toFixed(2)}\n` +
-              `📌 0.5% daily`,
+              `📌 0.1% daily`,
               { parse_mode: 'Markdown' }
             )
           } else {

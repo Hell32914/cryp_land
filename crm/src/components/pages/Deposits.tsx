@@ -26,21 +26,20 @@ import { fetchDeposits, type DepositRecord } from '@/lib/api'
 export function Deposits() {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 100
   const [selectedDeposit, setSelectedDeposit] = useState<DepositRecord | null>(null)
   const { token } = useAuth()
   const { data } = useQuery({
-    queryKey: ['deposits', token],
-    queryFn: () => fetchDeposits(token!),
+    queryKey: ['deposits', token, page, search],
+    queryFn: () => fetchDeposits(token!, { page, limit: pageSize, search: search.trim() || undefined }),
     enabled: !!token,
     refetchInterval: 10000, // Auto-refresh every 10 seconds
   })
 
   const deposits = data?.deposits || []
 
-  const filteredDeposits = deposits.filter(deposit =>
-    deposit.user.username?.toLowerCase().includes(search.toLowerCase()) ||
-    deposit.id.toString().includes(search)
-  )
+  const filteredDeposits = deposits
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -92,7 +91,10 @@ export function Deposits() {
             <Input
               placeholder="Search deposits..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               className="pl-10"
             />
           </div>
@@ -175,6 +177,34 @@ export function Deposits() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          <div className="flex items-center justify-between pt-4">
+            <div className="text-sm text-muted-foreground">
+              Page <span className="font-medium text-foreground">{data?.page || page}</span> of{' '}
+              <span className="font-medium text-foreground">{data?.totalPages || 1}</span>
+              {typeof data?.totalCount === 'number' ? (
+                <span> • Total: <span className="font-medium text-foreground">{data.totalCount}</span></span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={!(data?.hasPrevPage) || page <= 1}
+              >
+                ◀ Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!(data?.hasNextPage)}
+              >
+                Next ▶
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

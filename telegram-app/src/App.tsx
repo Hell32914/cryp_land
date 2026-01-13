@@ -1734,7 +1734,7 @@ function App() {
                     <div>
                       <p className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-2">
                         Syntrix Token
-                        <span className="text-xs opacity-70">(0.5% daily)</span>
+                        <span className="text-xs opacity-70">(0.1% daily)</span>
                       </p>
                       <p className="text-lg sm:text-xl font-bold text-primary">${formatUsd(userData?.bonusTokens || 0)}</p>
                     </div>
@@ -1838,7 +1838,7 @@ function App() {
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground">
                             {update.source === 'TOKEN'
-                              ? 'Syntrix Token (0.5%)'
+                              ? 'Syntrix Token (0.1%)'
                               : userData?.planProgress?.currentPlan}
                           </p>
                         </div>
@@ -2804,8 +2804,8 @@ function App() {
               <div className="flex items-start gap-3 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
                 <span className="text-green-500 text-xl">📈</span>
                 <div>
-                  <p className="font-semibold text-foreground">Earns 0.5% daily profit</p>
-                  <p className="text-xs text-muted-foreground">Bronze rate (same as $10-$99 deposit)</p>
+                  <p className="font-semibold text-foreground">Earns 0.1% daily profit</p>
+                  <p className="text-xs text-muted-foreground">Fixed Syntrix Token rate</p>
                 </div>
               </div>
 

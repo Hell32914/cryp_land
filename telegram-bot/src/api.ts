@@ -1530,8 +1530,10 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 
 app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
   try {
-    const { status, limit = '100' } = req.query
+    const { status, limit = '100', page = '1', search } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 100, 500)
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
+    const skip = (pageNum - 1) * take
 
     // NOTE: Previously we auto-expired stale deposits (default ~35 minutes) as a cleanup-on-read.
     // This can surprise support/admin by making PENDING deposits disappear from the CRM.
@@ -1564,12 +1566,32 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       })
     }
 
+    const baseWhere: any = status
+      ? {
+          status: String(status).toUpperCase(),
+        }
+      : {}
+
+    const searchStr = typeof search === 'string' ? search.trim() : ''
+    const where: any = { ...baseWhere }
+    if (searchStr) {
+      const or: any[] = []
+      const asNumber = Number(searchStr)
+      if (Number.isInteger(asNumber) && asNumber > 0) {
+        or.push({ id: asNumber })
+      }
+      or.push({ user: { telegramId: { contains: searchStr, mode: 'insensitive' } } })
+      or.push({ user: { username: { contains: searchStr, mode: 'insensitive' } } })
+      or.push({ user: { firstName: { contains: searchStr, mode: 'insensitive' } } })
+      or.push({ user: { lastName: { contains: searchStr, mode: 'insensitive' } } })
+      where.OR = or
+    }
+
+    const totalCount = await prisma.deposit.count({ where })
+    const totalPages = Math.ceil(totalCount / take) || 1
+
     const deposits = await prisma.deposit.findMany({
-      where: status
-        ? {
-            status: String(status).toUpperCase(),
-          }
-        : undefined,
+      where,
       include: { 
         user: {
           include: {
@@ -1584,6 +1606,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
         },
       },
       orderBy: { createdAt: 'desc' },
+      skip,
       take,
     })
 
@@ -1668,7 +1691,15 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       }
     })
 
-    return res.json({ deposits: payload })
+    return res.json({
+      deposits: payload,
+      count: payload.length,
+      totalCount,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    })
   } catch (error) {
     console.error('Admin deposits error:', error)
     return res.status(500).json({ error: 'Failed to load deposits' })
