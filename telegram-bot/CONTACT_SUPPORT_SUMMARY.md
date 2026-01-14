@@ -60,7 +60,7 @@
 1. Открывает mini-app
 2. Если contactSupportSeen=false И настройки включены → видит модалку
 3. Видит бонус ($50 или другую сумму) и таймер обратного отсчета
-4. Нажимает SEND → открывается @SyntrixSupport + флаг contactSupportSeen=true
+4. Нажимает SEND → открывается @syntrix_support_bot + флаг contactSupportSeen=true
 5. При следующих запусках модалка не показывается
 
 ### Для новых пользователей:

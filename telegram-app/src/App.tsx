@@ -1720,7 +1720,7 @@ function App() {
                       <TelegramLogo size={20} weight="fill" className="text-primary sm:w-6 sm:h-6" />
                     </a>
                     <a 
-                      href="https://t.me/SyntrixSupport" 
+                      href={requiredSupportBotLink}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-all border border-primary/20 cursor-pointer"
@@ -2015,7 +2015,7 @@ function App() {
                         <TelegramLogo size={24} weight="fill" className="text-primary" />
                       </a>
                       <a 
-                        href="https://t.me/SyntrixSupport" 
+                        href={requiredSupportBotLink}
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer"
@@ -2223,7 +2223,7 @@ function App() {
                       <TelegramLogo size={24} weight="fill" className="text-white" />
                     </a>
                     <a 
-                      href="https://t.me/SyntrixSupport" 
+                      href={requiredSupportBotLink}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-12 h-12 rounded bg-black flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
@@ -2410,7 +2410,7 @@ function App() {
                       <TelegramLogo size={24} weight="fill" className="text-primary" />
                     </a>
                     <a 
-                      href="https://t.me/SyntrixSupport" 
+                      href={requiredSupportBotLink}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer"
@@ -2533,7 +2533,7 @@ function App() {
                       <TelegramLogo size={24} weight="fill" className="text-white" />
                     </a>
                     <a 
-                      href="https://t.me/SyntrixSupport" 
+                      href={requiredSupportBotLink}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="w-10 h-10 rounded bg-black flex items-center justify-center hover:bg-black/80 transition-colors cursor-pointer"
@@ -2601,7 +2601,7 @@ function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <Button 
                     className="w-full bg-transparent border-2 border-accent text-accent hover:bg-accent/10 font-bold py-6 text-base uppercase"
-                    onClick={() => window.open('https://t.me/SyntrixSupport', '_blank')}
+                    onClick={() => window.open(requiredSupportBotLink, '_blank')}
                   >
                     {t.support}
                   </Button>
