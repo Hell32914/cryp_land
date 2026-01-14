@@ -34,13 +34,20 @@ export function Support() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
+  const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
   >(
     ['support-chats', search],
     (authToken) => fetchSupportChats(authToken, search),
-    { enabled: Boolean(token) }
+    {
+      enabled: Boolean(token),
+      // Auto-refresh list so new inbound messages show up without reload.
+      refetchInterval: 5000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
   )
 
   const chats = chatsData?.chats ?? []
@@ -55,7 +62,13 @@ export function Support() {
   >(
     ['support-messages', selectedChatId],
     (authToken) => fetchSupportMessages(authToken, selectedChatId!),
-    { enabled: Boolean(token && selectedChatId) }
+    {
+      enabled: Boolean(token && selectedChatId),
+      // Auto-refresh open chat.
+      refetchInterval: 3000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
   )
 
   const messages: SupportMessageRecord[] = messagesData?.messages ?? []
@@ -103,8 +116,8 @@ export function Support() {
     if (chat && chat.unreadCount > 0) {
       markReadMutation.mutate(selectedChatId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChatId])
+    // Mark as read again if unread increases due to polling.
+  }, [chats, selectedChatId])
 
   const handleSend = () => {
     if (!selectedChatId) return
@@ -119,21 +132,27 @@ export function Support() {
     if (!token) return
 
     const fileIds = messages
+      .filter((m) => m.kind === 'PHOTO')
       .map((m) => m.fileId)
       .filter((id): id is string => Boolean(id))
-      .filter((id) => !fileUrlCache[id])
+      .filter((id) => !fileUrlCache[id] && !fileLoadError[id])
 
     if (fileIds.length === 0) return
 
     ;(async () => {
       for (const id of fileIds) {
         try {
+          setFileLoadError((prev) => {
+            if (prev[id]) return prev
+            return { ...prev, [id]: false }
+          })
           const blob = await fetchSupportFileBlob(token, id)
           if (cancelled) return
           const url = URL.createObjectURL(blob)
           setFileUrlCache((prev) => ({ ...prev, [id]: url }))
         } catch {
-          // ignore
+          if (cancelled) return
+          setFileLoadError((prev) => ({ ...prev, [id]: true }))
         }
       }
     })()
@@ -251,13 +270,22 @@ export function Support() {
                               : 'mr-auto bg-muted/40 border-border')
                           }
                         >
-                          {m.kind === 'PHOTO' && m.fileId && fileUrlCache[m.fileId] ? (
+                          {m.kind === 'PHOTO' && m.fileId ? (
                             <div className="space-y-2">
-                              <img
-                                src={fileUrlCache[m.fileId]}
-                                alt="support-photo"
-                                className="max-h-[280px] w-auto rounded border border-border"
-                              />
+                              {fileUrlCache[m.fileId] ? (
+                                <img
+                                  src={fileUrlCache[m.fileId]}
+                                  alt="support-photo"
+                                  className="max-h-[280px] w-auto rounded border border-border"
+                                />
+                              ) : fileLoadError[m.fileId] ? (
+                                <div className="text-xs text-muted-foreground">
+                                  {t('support.photoLoadFailed')}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground">{t('support.photoLoading')}</div>
+                              )}
+
                               {m.text ? (
                                 <div className="whitespace-pre-wrap break-words">{m.text}</div>
                               ) : null}

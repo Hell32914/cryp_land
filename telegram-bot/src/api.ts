@@ -518,7 +518,8 @@ app.get('/api/admin/support/files/:fileId', requireAdminAuth, async (req, res) =
     const filePath = (file as any)?.file_path
     if (!filePath) return res.status(404).json({ error: 'File not found' })
 
-    const token = (supportBotInstance as any)?.token as string | undefined
+    // Use env token (most reliable in prod). Fallback to instance (dev).
+    const token = process.env.SUPPORT_BOT_TOKEN || ((supportBotInstance as any)?.token as string | undefined)
     if (!token) return res.status(503).json({ error: 'Support bot token unavailable' })
 
     const url = `https://api.telegram.org/file/bot${token}/${filePath}`
