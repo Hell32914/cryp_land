@@ -5708,9 +5708,7 @@ if (supportBot) {
     }
 
     await ctx.reply(
-      '✅ Support bot activated!\n\n' +
-        'If you are eligible, your account will be activated and you will receive 25 Syntrix Token.\n\n' +
-        'Now you can write your message here and our team will reply.'
+      'Good afternoon! This is the Syntrix support bot. You can write your message here and our team will reply.'
     )
   })
 
