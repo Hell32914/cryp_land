@@ -1025,7 +1025,9 @@ function App() {
     )
   }
 
-  const accessBlocked = authToken && membershipChecked && supportChecked && (isMember === false || supportBotStarted === false)
+  const needsMembership = isMember !== true
+  const needsSupportBot = supportBotStarted !== true
+  const accessBlocked = authToken && membershipChecked && supportChecked && (needsMembership || needsSupportBot)
 
   if (accessBlocked) {
     return (
@@ -1038,12 +1040,14 @@ function App() {
             <div className="text-destructive text-6xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
             <p className="text-foreground/70">
-              To use this mini app, you must complete the steps below.
+              {needsMembership
+                ? 'To use this mini app, please join the required channel first.'
+                : 'Next step: activate the support bot to continue.'}
             </p>
             {membershipError && <p className="text-foreground/60 text-sm">{membershipError}</p>}
             {supportError && <p className="text-foreground/60 text-sm">{supportError}</p>}
             <div className="flex flex-col gap-2">
-              {isMember === false && (
+              {needsMembership && (
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
                   onClick={() => {
@@ -1060,10 +1064,10 @@ function App() {
                 </Button>
               )}
 
-              {supportBotStarted === false && (
+              {!needsMembership && needsSupportBot && (
                 <>
                   <p className="text-foreground/70 text-sm">
-                    Please also start the support bot to activate your account and receive 25 Syntrix tokens.
+                    Activate the support bot to activate your account and receive 25 Syntrix tokens.
                   </p>
                   <Button
                     className="bg-primary text-primary-foreground hover:bg-primary/90"
