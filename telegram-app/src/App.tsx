@@ -66,6 +66,13 @@ function App() {
   const [membershipError, setMembershipError] = useState<string | null>(null)
   const [membershipLink, setMembershipLink] = useState<string>(requiredMembershipLink)
 
+  // Additional gate: user must press Start in the Support bot.
+  const requiredSupportBotLink = 'https://t.me/syntrix_support_bot?start=activate'
+  const [supportChecked, setSupportChecked] = useState(false)
+  const [supportBotStarted, setSupportBotStarted] = useState<boolean | null>(null)
+  const [supportError, setSupportError] = useState<string | null>(null)
+  const [supportBotLink, setSupportBotLink] = useState<string>(requiredSupportBotLink)
+
   // Mini app: hide PayPal deposit option (UI) while keeping code paths intact.
   const enablePayPalDeposit = false
 
@@ -339,43 +346,81 @@ function App() {
     return headers
   }
 
-  // Check chat/channel membership before allowing access to the mini-app.
-  useEffect(() => {
-    const checkMembership = async () => {
-      if (!telegramUserId || !authToken) return
+  const runAccessGateChecks = async () => {
+    if (!telegramUserId || !authToken) return
 
-      setMembershipError(null)
-      setMembershipChecked(false)
-      setIsMember(null)
+    setMembershipError(null)
+    setSupportError(null)
+    setMembershipChecked(false)
+    setSupportChecked(false)
+    setIsMember(null)
+    setSupportBotStarted(null)
 
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
-        const response = await fetch(`${API_URL}/api/user/${telegramUserId}/membership`, {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+
+      const [membershipRes, supportRes] = await Promise.all([
+        fetch(`${API_URL}/api/user/${telegramUserId}/membership`, {
           headers: getAuthHeaders(),
-        })
+        }),
+        fetch(`${API_URL}/api/user/${telegramUserId}/support-bot-started`, {
+          headers: getAuthHeaders(),
+        }),
+      ])
 
-        const data = await response.json().catch(() => ({} as any))
+      // Membership
+      try {
+        const data = await membershipRes.json().catch(() => ({} as any))
         const effectiveLink = (data?.chatLink as string) || requiredMembershipLink
         setMembershipLink(effectiveLink)
 
-        if (!response.ok) {
+        if (!membershipRes.ok) {
           setMembershipError(data?.error || 'Failed to check membership')
           setIsMember(false)
-          setMembershipChecked(true)
-          return
+        } else {
+          setIsMember(Boolean(data?.isMember))
         }
-
-        setIsMember(Boolean(data?.isMember))
-        setMembershipChecked(true)
-      } catch (error) {
-        console.error('Membership check error:', error)
+      } catch (e) {
+        console.error('Membership check parse error:', e)
         setMembershipError('Failed to check membership. Please try again.')
         setIsMember(false)
+      } finally {
         setMembershipChecked(true)
       }
-    }
 
-    void checkMembership()
+      // Support bot started
+      try {
+        const data = await supportRes.json().catch(() => ({} as any))
+        const effectiveLink = (data?.supportBotLink as string) || requiredSupportBotLink
+        setSupportBotLink(effectiveLink)
+
+        if (!supportRes.ok) {
+          setSupportError(data?.error || 'Failed to check support bot status')
+          setSupportBotStarted(false)
+        } else {
+          setSupportBotStarted(Boolean(data?.started))
+        }
+      } catch (e) {
+        console.error('Support bot check parse error:', e)
+        setSupportError('Failed to check support bot status. Please try again.')
+        setSupportBotStarted(false)
+      } finally {
+        setSupportChecked(true)
+      }
+    } catch (error) {
+      console.error('Access gate checks error:', error)
+      setMembershipError('Failed to check membership. Please try again.')
+      setIsMember(false)
+      setMembershipChecked(true)
+      setSupportError('Failed to check support bot status. Please try again.')
+      setSupportBotStarted(false)
+      setSupportChecked(true)
+    }
+  }
+
+  // Check access gates before allowing use of the mini-app.
+  useEffect(() => {
+    void runAccessGateChecks()
   }, [telegramUserId, authToken])
 
   // Fetch referrals
@@ -965,22 +1010,24 @@ function App() {
     )
   }
 
-  // Membership gate (requires auth, so it won't block local unauthenticated dev flows)
-  if (authToken && !membershipChecked) {
+  // Access gates (require auth, so they won't block local unauthenticated dev flows)
+  if (authToken && (!membershipChecked || !supportChecked)) {
     return (
       <>
         <AnimatedBackground />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
           <div className="text-center space-y-4">
             <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-foreground/70">Checking membership...</p>
+            <p className="text-foreground/70">Checking access...</p>
           </div>
         </div>
       </>
     )
   }
 
-  if (authToken && membershipChecked && isMember === false) {
+  const accessBlocked = authToken && membershipChecked && supportChecked && (isMember === false || supportBotStarted === false)
+
+  if (accessBlocked) {
     return (
       <>
         <AnimatedBackground />
@@ -990,60 +1037,54 @@ function App() {
             <div className="text-destructive text-6xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
             <p className="text-foreground/70">
-              To use this mini app, you must join the channel.
+              To use this mini app, you must complete the steps below.
             </p>
-            {membershipError && (
-              <p className="text-foreground/60 text-sm">{membershipError}</p>
-            )}
+            {membershipError && <p className="text-foreground/60 text-sm">{membershipError}</p>}
+            {supportError && <p className="text-foreground/60 text-sm">{supportError}</p>}
             <div className="flex flex-col gap-2">
-              <Button
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={() => {
-                  const url = membershipLink || requiredMembershipLink
-                  const tg = (window as any).Telegram?.WebApp
-                  if (tg?.openTelegramLink) {
-                    tg.openTelegramLink(url)
-                  } else {
-                    window.open(url, '_blank')
-                  }
-                }}
-              >
-                Join the channel
-              </Button>
+              {isMember === false && (
+                <Button
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={() => {
+                    const url = membershipLink || requiredMembershipLink
+                    const tg = (window as any).Telegram?.WebApp
+                    if (tg?.openTelegramLink) {
+                      tg.openTelegramLink(url)
+                    } else {
+                      window.open(url, '_blank')
+                    }
+                  }}
+                >
+                  Join the channel
+                </Button>
+              )}
+
+              {supportBotStarted === false && (
+                <>
+                  <p className="text-foreground/70 text-sm">
+                    Также активируйте сапорт бот для активации аккаунта и получения 25 Syntrix token
+                  </p>
+                  <Button
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    onClick={() => {
+                      const url = supportBotLink || requiredSupportBotLink
+                      const tg = (window as any).Telegram?.WebApp
+                      if (tg?.openTelegramLink) {
+                        tg.openTelegramLink(url)
+                      } else {
+                        window.open(url, '_blank')
+                      }
+                    }}
+                  >
+                    Open support bot
+                  </Button>
+                </>
+              )}
               <Button
                 variant="outline"
                 className="border-border text-foreground hover:bg-muted/50"
                 onClick={() => {
-                  // Trigger re-check by resetting state; the effect will rerun on authToken/telegramUserId change only,
-                  // so we re-run the same logic inline.
-                  const run = async () => {
-                    try {
-                      setMembershipError(null)
-                      setMembershipChecked(false)
-                      setIsMember(null)
-                      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
-                      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/membership`, {
-                        headers: getAuthHeaders(),
-                      })
-                      const data = await response.json().catch(() => ({} as any))
-                      const effectiveLink = (data?.chatLink as string) || requiredMembershipLink
-                      setMembershipLink(effectiveLink)
-                      if (!response.ok) {
-                        setMembershipError(data?.error || 'Failed to check membership')
-                        setIsMember(false)
-                        setMembershipChecked(true)
-                        return
-                      }
-                      setIsMember(Boolean(data?.isMember))
-                      setMembershipChecked(true)
-                    } catch (e) {
-                      console.error('Membership re-check error:', e)
-                      setMembershipError('Failed to check membership. Please try again.')
-                      setIsMember(false)
-                      setMembershipChecked(true)
-                    }
-                  }
-                  void run()
+                  void runAccessGateChecks()
                 }}
               >
                 Check again
@@ -2749,7 +2790,7 @@ function App() {
                   void refreshData()
 
                   // Open support chat AFTER successful claim
-                  const url = 'https://t.me/SyntrixSupport'
+                  const url = requiredSupportBotLink
                   const tg = (window as any).Telegram?.WebApp
                   if (tg?.openTelegramLink) {
                     tg.openTelegramLink(url)

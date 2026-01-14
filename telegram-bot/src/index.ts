@@ -5,6 +5,7 @@ import { startApiServer, stopApiServer } from './api.js'
 import { scheduleTradingCards, postTradingCard, rescheduleCards } from './tradingCardScheduler.js'
 import { generateTradingCard, formatCardCaption, getLastTradingPostData } from './cardGenerator.js'
 import { getCardSettings, updateCardSettings } from './cardSettings.js'
+import { claimContactSupportBonus } from './contactSupportBonus.js'
 import cron from 'node-cron'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
@@ -5659,6 +5660,23 @@ if (supportBot) {
 
     const telegramId = String(from.id)
 
+    // Ensure the main User record exists (so we can activate + grant bonus tokens)
+    await prisma.user.upsert({
+      where: { telegramId },
+      create: {
+        telegramId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        status: 'INACTIVE',
+      },
+      update: {
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+      },
+    })
+
     await prisma.supportChat.upsert({
       where: { telegramId },
       create: {
@@ -5681,7 +5699,19 @@ if (supportBot) {
       },
     })
 
-    await ctx.reply('Good afternoon! This is the Syntrix support bot. You can write your message here and our team will reply.')
+    // Claim activation bonus (best-effort). This also activates INACTIVE users.
+    try {
+      await claimContactSupportBonus(telegramId)
+    } catch (err) {
+      // Don't block support chat if bonus is unavailable/expired/already claimed.
+      console.warn('Support bot /start: bonus claim skipped:', (err as any)?.message || err)
+    }
+
+    await ctx.reply(
+      '✅ Support bot activated!\n\n' +
+        'If you are eligible, your account will be activated and you will receive 25 Syntrix Token.\n\n' +
+        'Now you can write your message here and our team will reply.'
+    )
   })
 
   supportBot.on('message:text', async (ctx) => {
