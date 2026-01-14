@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
 import {
   fetchSupportChats,
+  fetchSupportFileBlob,
   fetchSupportMessages,
   markSupportChatRead,
+  sendSupportPhoto,
   sendSupportMessage,
   type SupportChatRecord,
   type SupportMessageRecord,
@@ -27,6 +29,11 @@ export function Support() {
   const [search, setSearch] = useState('')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
+  const [photoCaption, setPhotoCaption] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
@@ -74,6 +81,22 @@ export function Support() {
     },
   })
 
+  const sendPhotoMutation = useMutation({
+    mutationFn: ({ chatId, file, caption }: { chatId: string; file: File; caption?: string }) =>
+      sendSupportPhoto(token!, chatId, file, caption),
+    onSuccess: async () => {
+      setPhotoCaption('')
+      setPhotoFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      toast.success(t('support.sent'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.sendFailed'))
+    },
+  })
+
   useEffect(() => {
     if (!selectedChatId) return
     const chat = chats.find((c) => c.chatId === selectedChatId)
@@ -89,6 +112,50 @@ export function Support() {
     if (!trimmed) return
     sendMessageMutation.mutate({ chatId: selectedChatId, text: trimmed })
   }
+
+  // Fetch blobs for photo messages (auth required, so cannot use <img src> directly)
+  useEffect(() => {
+    let cancelled = false
+    if (!token) return
+
+    const fileIds = messages
+      .map((m) => m.fileId)
+      .filter((id): id is string => Boolean(id))
+      .filter((id) => !fileUrlCache[id])
+
+    if (fileIds.length === 0) return
+
+    ;(async () => {
+      for (const id of fileIds) {
+        try {
+          const blob = await fetchSupportFileBlob(token, id)
+          if (cancelled) return
+          const url = URL.createObjectURL(blob)
+          setFileUrlCache((prev) => ({ ...prev, [id]: url }))
+        } catch {
+          // ignore
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [messages, token, fileUrlCache])
+
+  useEffect(() => {
+    return () => {
+      // Cleanup object URLs
+      Object.values(fileUrlCache).forEach((url) => {
+        try {
+          URL.revokeObjectURL(url)
+        } catch {
+          // ignore
+        }
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -184,7 +251,20 @@ export function Support() {
                               : 'mr-auto bg-muted/40 border-border')
                           }
                         >
-                          <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                          {m.kind === 'PHOTO' && m.fileId && fileUrlCache[m.fileId] ? (
+                            <div className="space-y-2">
+                              <img
+                                src={fileUrlCache[m.fileId]}
+                                alt="support-photo"
+                                className="max-h-[280px] w-auto rounded border border-border"
+                              />
+                              {m.text ? (
+                                <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap break-words">{m.text ?? ''}</div>
+                          )}
                           <div className="mt-1 text-[11px] text-muted-foreground">
                             {m.direction === 'OUT' ? t('support.admin') : t('support.user')} •{' '}
                             {new Date(m.createdAt).toLocaleString()}
@@ -202,14 +282,39 @@ export function Support() {
                     onChange={(e) => setMessageText(e.target.value)}
                     rows={4}
                   />
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={handleSend}
-                      disabled={!messageText.trim() || sendMessageMutation.isPending}
-                    >
-                      {sendMessageMutation.isPending ? t('support.sending') : t('support.send')}
-                    </Button>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
+                    <div className="md:col-span-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                      />
+                    </div>
+                    <div className="md:col-span-1 flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedChatId || !photoFile) return
+                          sendPhotoMutation.mutate({ chatId: selectedChatId, file: photoFile, caption: photoCaption.trim() || undefined })
+                        }}
+                        disabled={!photoFile || sendPhotoMutation.isPending}
+                      >
+                        {sendPhotoMutation.isPending ? t('support.sending') : t('support.sendPhoto')}
+                      </Button>
+                      <Button
+                        onClick={handleSend}
+                        disabled={!messageText.trim() || sendMessageMutation.isPending}
+                      >
+                        {sendMessageMutation.isPending ? t('support.sending') : t('support.send')}
+                      </Button>
+                    </div>
                   </div>
+                  <Input
+                    placeholder={t('support.photoCaption')}
+                    value={photoCaption}
+                    onChange={(e) => setPhotoCaption(e.target.value)}
+                  />
                 </div>
               </div>
             )}

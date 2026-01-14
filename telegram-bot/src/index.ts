@@ -5681,7 +5681,7 @@ if (supportBot) {
       },
     })
 
-    await ctx.reply('✅ Support chat opened. Please write your message and our team will reply.')
+    await ctx.reply('Good afternoon! This is the Syntrix support bot. You can write your message here and our team will reply.')
   })
 
   supportBot.on('message:text', async (ctx) => {
@@ -5721,12 +5721,56 @@ if (supportBot) {
       data: {
         supportChatId: chat.id,
         direction: 'IN',
+        kind: 'TEXT',
         text,
       },
     })
+  })
 
-    // Optional light ACK to user
-    await ctx.reply('📨 Received. Support will respond here.')
+  supportBot.on('message:photo', async (ctx) => {
+    const from = ctx.from
+    const chatId = String(ctx.chat?.id)
+    const photos = (ctx.message as any)?.photo as Array<{ file_id: string; file_unique_id: string }> | undefined
+    if (!from?.id || !chatId || !photos?.length) return
+
+    const telegramId = String(from.id)
+    const largest = photos[photos.length - 1]
+    const caption = (ctx.message as any)?.caption as string | undefined
+
+    const chat = await prisma.supportChat.upsert({
+      where: { telegramId },
+      create: {
+        telegramId,
+        chatId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        startedAt: new Date(),
+        lastMessageAt: new Date(),
+        lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+        unreadCount: 1,
+      },
+      update: {
+        chatId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        lastMessageAt: new Date(),
+        lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+        unreadCount: { increment: 1 },
+      },
+    })
+
+    await prisma.supportMessage.create({
+      data: {
+        supportChatId: chat.id,
+        direction: 'IN',
+        kind: 'PHOTO',
+        text: caption || null,
+        fileId: largest.file_id,
+        fileUniqueId: largest.file_unique_id,
+      },
+    })
   })
 
   supportBot.catch((err) => {

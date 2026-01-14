@@ -38,6 +38,27 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return (data ?? {}) as T
 }
 
+async function requestFormData<T>(path: string, formData: FormData, token?: string): Promise<T> {
+  const headers = new Headers()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+
+  const text = await response.text()
+  const data = text ? JSON.parse(text) : null
+
+  if (!response.ok) {
+    const message = (data && data.error) || response.statusText || 'Request failed'
+    throw new ApiError(message, response.status)
+  }
+
+  return (data ?? {}) as T
+}
+
 export interface KPIResponse {
   totalUsers: number
   totalBalance: number
@@ -230,7 +251,9 @@ export interface SupportMessageRecord {
   id: number
   supportChatId: number
   direction: 'IN' | 'OUT' | string
-  text: string
+  kind?: 'TEXT' | 'PHOTO' | string
+  text: string | null
+  fileId?: string | null
   adminUsername: string | null
   createdAt: string
 }
@@ -447,3 +470,32 @@ export const sendSupportMessage = (token: string, chatId: string, text: string) 
     method: 'POST',
     body: JSON.stringify({ text }),
   }, token)
+
+export const sendSupportPhoto = async (token: string, chatId: string, file: File, caption?: string) => {
+  const form = new FormData()
+  form.append('photo', file)
+  if (caption) form.append('caption', caption)
+  return requestFormData<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/photos`, form, token)
+}
+
+export const fetchSupportFileBlob = async (token: string, fileId: string) => {
+  const response = await fetch(`${API_BASE_URL}/api/admin/support/files/${encodeURIComponent(fileId)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    let message = response.statusText
+    try {
+      const data = text ? JSON.parse(text) : null
+      message = (data && data.error) || message
+    } catch {
+      // ignore
+    }
+    throw new ApiError(message || 'Request failed', response.status)
+  }
+
+  return response.blob()
+}

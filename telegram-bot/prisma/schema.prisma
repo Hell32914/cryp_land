@@ -238,7 +238,12 @@ model SupportMessage {
   supportChatId Int
   supportChat   SupportChat @relation(fields: [supportChatId], references: [id], onDelete: Cascade)
   direction     String
-  text          String
+  kind          String      @default("TEXT")
+  text          String?
+  fileId        String?
+  fileUniqueId  String?
+  fileName      String?
+  mimeType      String?
   adminUsername String?
   createdAt     DateTime    @default(now())
 

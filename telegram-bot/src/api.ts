@@ -3,11 +3,13 @@ import cors from 'cors'
 import { prisma } from './db.js'
 import axios from 'axios'
 import { webhookCallback } from 'grammy'
+import { InputFile } from 'grammy'
 import type { Bot } from 'grammy'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
+import multer from 'multer'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 const BIND_HOST = process.env.API_BIND_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0')
@@ -255,6 +257,11 @@ const supportSendMessageSchema = z.object({
   adminUsername: z.string().optional(),
 })
 
+const supportSendPhotoSchema = z.object({
+  caption: z.string().max(1024).optional(),
+  adminUsername: z.string().optional(),
+})
+
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
@@ -291,6 +298,14 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
 // They use separate tables SupportChat/SupportMessage.
 
 let supportBotInstance: Bot | undefined
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    // Telegram Bot API allows up to ~10MB for photos; keep conservative
+    fileSize: 10 * 1024 * 1024,
+  },
+})
 
 app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
   try {
@@ -406,6 +421,7 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       data: {
         supportChatId: chat.id,
         direction: 'OUT',
+        kind: 'TEXT',
         text,
         adminUsername: adminUsername || null,
       },
@@ -423,6 +439,99 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
   } catch (error) {
     console.error('Support send message error:', error)
     return res.status(500).json({ error: 'Failed to send message' })
+  }
+})
+
+app.post(
+  '/api/admin/support/chats/:chatId/photos',
+  requireAdminAuth,
+  upload.single('photo'),
+  async (req, res) => {
+    try {
+      if (!supportBotInstance) {
+        return res.status(503).json({ error: 'Support bot is not configured' })
+      }
+
+      const chatId = String(req.params.chatId)
+      const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+      if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: 'Photo file is required' })
+      }
+
+      const parsed = supportSendPhotoSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid payload' })
+      }
+      const { caption, adminUsername } = parsed.data
+
+      // Send to Telegram first
+      const sent = await supportBotInstance.api.sendPhoto(
+        chatId,
+        new InputFile(req.file.buffer, req.file.originalname || 'photo.jpg'),
+        caption ? { caption } : undefined,
+      )
+
+      const photos = (sent as any)?.photo as Array<{ file_id: string; file_unique_id: string }> | undefined
+      const largest = photos?.length ? photos[photos.length - 1] : undefined
+
+      const message = await prisma.supportMessage.create({
+        data: {
+          supportChatId: chat.id,
+          direction: 'OUT',
+          kind: 'PHOTO',
+          text: caption || null,
+          fileId: largest?.file_id || null,
+          fileUniqueId: largest?.file_unique_id || null,
+          fileName: req.file.originalname || null,
+          mimeType: req.file.mimetype || null,
+          adminUsername: adminUsername || null,
+        },
+      })
+
+      await prisma.supportChat.update({
+        where: { id: chat.id },
+        data: {
+          lastMessageAt: message.createdAt,
+          lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+        },
+      })
+
+      return res.json(message)
+    } catch (error) {
+      console.error('Support send photo error:', error)
+      return res.status(500).json({ error: 'Failed to send photo' })
+    }
+  },
+)
+
+// Proxy Telegram file (photo) to CRM without exposing bot token.
+app.get('/api/admin/support/files/:fileId', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supportBotInstance) {
+      return res.status(503).json({ error: 'Support bot is not configured' })
+    }
+
+    const fileId = String(req.params.fileId)
+    const file = await supportBotInstance.api.getFile(fileId)
+    const filePath = (file as any)?.file_path
+    if (!filePath) return res.status(404).json({ error: 'File not found' })
+
+    const token = (supportBotInstance as any)?.token as string | undefined
+    if (!token) return res.status(503).json({ error: 'Support bot token unavailable' })
+
+    const url = `https://api.telegram.org/file/bot${token}/${filePath}`
+    const response = await axios.get(url, { responseType: 'stream' })
+
+    res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream')
+    // Cache a bit in browser
+    res.setHeader('Cache-Control', 'private, max-age=3600')
+
+    response.data.pipe(res)
+  } catch (error) {
+    console.error('Support file proxy error:', error)
+    return res.status(500).json({ error: 'Failed to fetch file' })
   }
 })
 
