@@ -1,7 +1,6 @@
 import { prisma } from './db.js'
 
 const DEFAULT_BONUS_AMOUNT = 25
-const DEFAULT_TIMER_MINUTES = 1440
 
 export async function claimContactSupportBonus(telegramId: string) {
   const [settings, user] = await Promise.all([
@@ -17,22 +16,14 @@ export async function claimContactSupportBonus(telegramId: string) {
 
   const contactSupportEnabled = settings?.contactSupportEnabled ?? true
   const bonusAmount = settings?.contactSupportBonusAmount ?? DEFAULT_BONUS_AMOUNT
-  const timerMinutes = settings?.contactSupportTimerMinutes ?? DEFAULT_TIMER_MINUTES
 
-  if (!contactSupportEnabled || !timerMinutes) {
+  if (!contactSupportEnabled) {
     const err: any = new Error('Contact support bonus is disabled')
     err.statusCode = 400
     throw err
   }
 
-  // Offer window: user.createdAt -> +timerMinutes
-  const offerEndsAt = new Date(user.createdAt.getTime() + timerMinutes * 60 * 1000)
   const now = new Date()
-  if (now.getTime() > offerEndsAt.getTime()) {
-    const err: any = new Error('Offer expired')
-    err.statusCode = 400
-    throw err
-  }
 
   // Already claimed: return current user
   if (user.contactSupportSeen) {

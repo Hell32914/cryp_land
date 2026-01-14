@@ -5660,6 +5660,9 @@ if (supportBot) {
 
     const telegramId = String(from.id)
 
+    const existingUserBefore = await prisma.user.findUnique({ where: { telegramId } })
+    const hadBonusBefore = Boolean(existingUserBefore?.contactSupportSeen)
+
     // Ensure the main User record exists (so we can activate + grant bonus tokens)
     await prisma.user.upsert({
       where: { telegramId },
@@ -5700,15 +5703,19 @@ if (supportBot) {
     })
 
     // Claim activation bonus (best-effort). This also activates INACTIVE users.
+    let bonusGranted = false
     try {
       await claimContactSupportBonus(telegramId)
+      bonusGranted = !hadBonusBefore
     } catch (err) {
       // Don't block support chat if bonus is unavailable/expired/already claimed.
       console.warn('Support bot /start: bonus claim skipped:', (err as any)?.message || err)
     }
 
     await ctx.reply(
-      'Good afternoon! This is the Syntrix support bot. You can write your message here and our team will reply.'
+      bonusGranted
+        ? '✅ Support bot activated!\n\nYour account has been activated and you received 25 Syntrix tokens.\n\nNow you can write your message here and our team will reply.'
+        : '✅ Support bot activated!\n\nNow you can write your message here and our team will reply.'
     )
   })
 

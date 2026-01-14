@@ -761,6 +761,13 @@ function App() {
         console.log('Skipping contact support - userData not loaded yet')
         return
       }
+
+      // Do not show this promo modal to brand-new users.
+      // Activation + bonus is handled via the support bot /start flow.
+      if (userData.status !== 'ACTIVE') {
+        console.log('Skipping contact support - user not ACTIVE')
+        return
+      }
       
       // Show modal every time if timer is active, unless user clicked SEND button
       if (userData.contactSupportSeen) {
