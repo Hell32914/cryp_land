@@ -210,6 +210,47 @@ export interface ReferralsResponse {
   referrals: ReferralRecord[]
 }
 
+// ============= SUPPORT (CRM INBOX) =============
+export interface SupportChatRecord {
+  id: number
+  telegramId: string
+  chatId: string
+  username: string | null
+  firstName: string | null
+  lastName: string | null
+  startedAt: string
+  lastMessageAt: string | null
+  lastMessageText: string | null
+  unreadCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SupportMessageRecord {
+  id: number
+  supportChatId: number
+  direction: 'IN' | 'OUT' | string
+  text: string
+  adminUsername: string | null
+  createdAt: string
+}
+
+export interface SupportChatsResponse {
+  chats: SupportChatRecord[]
+  page: number
+  totalPages: number
+  totalCount: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
+export interface SupportMessagesResponse {
+  chat: SupportChatRecord
+  messages: SupportMessageRecord[]
+  hasMore: boolean
+  nextBeforeId: number | null
+}
+
 export const adminLogin = async (username: string, password: string) =>
   request<{ token: string }>('/api/admin/login', {
     method: 'POST',
@@ -283,7 +324,6 @@ export interface MarketingLink {
   isActive: boolean
   createdAt: string
   trackingPixel?: string | null
-  domain?: string
   // Extended metrics
   ownerName?: string
   linkName?: string
@@ -379,4 +419,31 @@ export const activateContactSupport = (token: string, telegramId: string, bonusA
   request<UserRecord>(`/api/admin/users/${telegramId}/contact-support`, {
     method: 'POST',
     body: JSON.stringify({ bonusAmount, timerMinutes }),
+  }, token)
+
+// Support inbox
+export const fetchSupportChats = (token: string, search?: string, page?: number, limit?: number) => {
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  if (page) params.set('page', String(page))
+  if (limit) params.set('limit', String(limit))
+  const query = params.toString()
+  return request<SupportChatsResponse>(`/api/admin/support/chats${query ? `?${query}` : ''}`, {}, token)
+}
+
+export const fetchSupportMessages = (token: string, chatId: string, opts?: { beforeId?: number; limit?: number }) => {
+  const params = new URLSearchParams()
+  if (opts?.beforeId) params.set('beforeId', String(opts.beforeId))
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  const query = params.toString()
+  return request<SupportMessagesResponse>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/messages${query ? `?${query}` : ''}`, {}, token)
+}
+
+export const markSupportChatRead = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/read`, { method: 'POST' }, token)
+
+export const sendSupportMessage = (token: string, chatId: string, text: string) =>
+  request<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ text }),
   }, token)

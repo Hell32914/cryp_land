@@ -24,6 +24,15 @@ if (!process.env.WEBHOOK_SECRET_TOKEN) {
   console.log(`Generated WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN.slice(0, 8)}...${WEBHOOK_SECRET_TOKEN.slice(-8)}`)
 }
 
+export const SUPPORT_WEBHOOK_SECRET_TOKEN = process.env.SUPPORT_WEBHOOK_SECRET_TOKEN || crypto.randomBytes(32).toString('hex')
+if (!process.env.SUPPORT_WEBHOOK_SECRET_TOKEN) {
+  if (isProduction) {
+    throw new Error('❌ SUPPORT_WEBHOOK_SECRET_TOKEN must be set in .env for production!')
+  }
+  console.warn('⚠️ SUPPORT_WEBHOOK_SECRET_TOKEN not set in .env, using generated token. Add it to .env for persistence.')
+  console.log(`Generated SUPPORT_WEBHOOK_SECRET_TOKEN=${SUPPORT_WEBHOOK_SECRET_TOKEN.slice(0, 8)}...${SUPPORT_WEBHOOK_SECRET_TOKEN.slice(-8)}`)
+}
+
 // Track pending withdrawal requests to prevent double-clicking race condition
 const pendingWithdrawalRequests = new Set<string>()
 
@@ -235,6 +244,17 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+const supportChatsQuerySchema = z.object({
+  search: z.string().optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+})
+
+const supportSendMessageSchema = z.object({
+  text: z.string().min(1).max(4096),
+  adminUsername: z.string().optional(),
+})
+
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
@@ -264,6 +284,146 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
   )
 
   return res.json({ token })
+})
+
+// ============= SUPPORT INBOX (CRM) =============
+// IMPORTANT: these endpoints are for CRM admins only.
+// They use separate tables SupportChat/SupportMessage.
+
+let supportBotInstance: Bot | undefined
+
+app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
+  try {
+    const parsed = supportChatsQuerySchema.safeParse(req.query)
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid query' })
+    }
+
+    const { search, page = 1, limit = 50 } = parsed.data
+    const where = search
+      ? {
+          OR: [
+            { telegramId: { contains: search, mode: 'insensitive' as const } },
+            { chatId: { contains: search, mode: 'insensitive' as const } },
+            { username: { contains: search, mode: 'insensitive' as const } },
+            { firstName: { contains: search, mode: 'insensitive' as const } },
+            { lastName: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : undefined
+
+    const skip = (page - 1) * limit
+    const [totalCount, chats] = await Promise.all([
+      prisma.supportChat.count({ where }),
+      prisma.supportChat.findMany({
+        where,
+        orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+    ])
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit))
+
+    return res.json({
+      chats,
+      page,
+      totalPages,
+      totalCount,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    })
+  } catch (error) {
+    console.error('Support chats fetch error:', error)
+    return res.status(500).json({ error: 'Failed to fetch support chats' })
+  }
+})
+
+app.get('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const limit = Math.min(Number(req.query.limit) || 50, 200)
+    const beforeId = req.query.beforeId ? Number(req.query.beforeId) : undefined
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    const messages = await prisma.supportMessage.findMany({
+      where: {
+        supportChatId: chat.id,
+        ...(beforeId ? { id: { lt: beforeId } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: limit,
+    })
+
+    return res.json({
+      chat,
+      messages: messages.reverse(),
+      hasMore: messages.length === limit,
+      nextBeforeId: messages.length ? messages[0].id : null,
+    })
+  } catch (error) {
+    console.error('Support messages fetch error:', error)
+    return res.status(500).json({ error: 'Failed to fetch messages' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/read', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: { unreadCount: 0 },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat read error:', error)
+    return res.status(500).json({ error: 'Failed to mark as read' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supportBotInstance) {
+      return res.status(503).json({ error: 'Support bot is not configured' })
+    }
+
+    const chatId = String(req.params.chatId)
+    const parseResult = supportSendMessageSchema.safeParse(req.body)
+    if (!parseResult.success) {
+      return res.status(400).json({ error: 'Invalid message payload' })
+    }
+
+    const { text, adminUsername } = parseResult.data
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    // Send to Telegram first (so we don't persist unsent messages)
+    await supportBotInstance.api.sendMessage(chatId, text)
+
+    const message = await prisma.supportMessage.create({
+      data: {
+        supportChatId: chat.id,
+        direction: 'OUT',
+        text,
+        adminUsername: adminUsername || null,
+      },
+    })
+
+    await prisma.supportChat.update({
+      where: { id: chat.id },
+      data: {
+        lastMessageAt: message.createdAt,
+        lastMessageText: text,
+      },
+    })
+
+    return res.json(message)
+  } catch (error) {
+    console.error('Support send message error:', error)
+    return res.status(500).json({ error: 'Failed to send message' })
+  }
 })
 
 // Validate Telegram WebApp initData
@@ -4048,7 +4208,9 @@ app.get('/health', (req, res) => {
 
 let server: any
 
-export function startApiServer(bot?: Bot) {
+export function startApiServer(bot?: Bot, supportBot?: Bot) {
+  supportBotInstance = supportBot
+
   // Add webhook endpoint if bot is provided
   if (bot) {
     app.post('/webhook', async (req, res) => {
@@ -4078,6 +4240,33 @@ export function startApiServer(bot?: Bot) {
       }
     })
     console.log('✅ Webhook handler registered at /webhook with debug logging')
+  }
+
+  if (supportBot) {
+    app.post('/support-webhook', async (req, res) => {
+      const clientIp = req.ip || req.headers['x-real-ip'] || req.headers['x-forwarded-for']
+      console.log(`📥 Support webhook request received from ${clientIp}`)
+
+      // Verify secret token (do NOT log secrets)
+      const receivedHeader = req.headers['x-telegram-bot-api-secret-token']
+      const receivedToken = typeof receivedHeader === 'string'
+        ? receivedHeader
+        : (Array.isArray(receivedHeader) ? receivedHeader[0] : undefined)
+
+      if (!safeCompare(receivedToken, SUPPORT_WEBHOOK_SECRET_TOKEN)) {
+        console.error('❌ Invalid support webhook secret token')
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      try {
+        await supportBot.handleUpdate(req.body)
+        res.sendStatus(200)
+      } catch (error) {
+        console.error('Error processing support webhook:', error)
+        res.sendStatus(500)
+      }
+    })
+    console.log('✅ Support webhook handler registered at /support-webhook')
   }
   
   server = app.listen(Number(PORT), BIND_HOST, () => {

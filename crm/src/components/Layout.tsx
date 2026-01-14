@@ -9,6 +9,7 @@ import {
   Receipt,
   Link,
   PencilRuler,
+  ChatCenteredText,
   List,
   SignOut,
   Translate,
@@ -57,6 +58,12 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       items: [
         { id: 'reflinks', label: t('nav.refLinks'), icon: Link },
         { id: 'linkbuilder', label: t('nav.linkBuilder'), icon: PencilRuler },
+      ],
+    },
+    {
+      title: t('nav.support'),
+      items: [
+        { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
       ],
     },
   ]

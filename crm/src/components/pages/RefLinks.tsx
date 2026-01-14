@@ -73,7 +73,7 @@ export function RefLinks() {
 
   const formatPercent = (val: number) => `${val.toFixed(2)}%`
   const formatMoney = (val: number) => `$${val.toFixed(2)}`
-  const formatDate = (date: Date) => new Date(date).toLocaleDateString('en-GB')
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-GB')
 
   return (
     <div className="space-y-6">

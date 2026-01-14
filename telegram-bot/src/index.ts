@@ -19,6 +19,10 @@ dotenv.config()
 
 export const bot = new Bot(process.env.BOT_TOKEN!)
 
+// Optional: separate support bot (CRM Support inbox)
+const SUPPORT_BOT_TOKEN = process.env.SUPPORT_BOT_TOKEN
+export const supportBot = SUPPORT_BOT_TOKEN ? new Bot(SUPPORT_BOT_TOKEN) : null
+
 // Parse admin IDs from comma-separated list in .env
 const ADMIN_IDS_STRING = process.env.ADMIN_IDS || process.env.ADMIN_ID || ''
 export const ADMIN_IDS = ADMIN_IDS_STRING.split(',').map(id => id.trim()).filter(id => id.length > 0)
@@ -5584,19 +5588,33 @@ async function startBot() {
     
     // Initialize bot (required for handleUpdate)
     await bot.init()
+
+    if (supportBot) {
+      await supportBot.init()
+    }
     
     // Set webhook URL with secret token for security
     const webhookUrl = process.env.WEBHOOK_URL || 'https://syntrix-bot.onrender.com'
     const fullWebhookUrl = webhookUrl.startsWith('http') ? webhookUrl : `https://${webhookUrl}`
-    const { WEBHOOK_SECRET_TOKEN } = await import('./api.js')
+    const { WEBHOOK_SECRET_TOKEN, SUPPORT_WEBHOOK_SECRET_TOKEN } = await import('./api.js')
     console.log(`🔗 Setting webhook to: ${fullWebhookUrl}/webhook`)
     await bot.api.setWebhook(`${fullWebhookUrl}/webhook`, {
       secret_token: WEBHOOK_SECRET_TOKEN
     })
     console.log('✅ Webhook set successfully with secret token')
+
+    if (supportBot) {
+      console.log(`🔗 Setting SUPPORT webhook to: ${fullWebhookUrl}/support-webhook`)
+      await supportBot.api.setWebhook(`${fullWebhookUrl}/support-webhook`, {
+        secret_token: SUPPORT_WEBHOOK_SECRET_TOKEN
+      })
+      console.log('✅ Support webhook set successfully with secret token')
+    } else {
+      console.warn('⚠️ SUPPORT_BOT_TOKEN is not set; support bot is disabled')
+    }
     
     // Start API server (includes webhook handler)
-    startApiServer(bot)
+    startApiServer(bot, supportBot ?? undefined)
     
     console.log('✅ Bot started successfully')
     // Initialize trading card scheduler
@@ -5618,6 +5636,7 @@ startBot()
 process.once('SIGINT', async () => {
   console.log('🛑 Bot stopping (SIGINT)...')
   await bot.stop()
+  if (supportBot) await supportBot.stop()
   stopApiServer()
   await prisma.$disconnect()
   process.exit(0)
@@ -5625,7 +5644,92 @@ process.once('SIGINT', async () => {
 process.once('SIGTERM', async () => {
   console.log('🛑 Bot stopping (SIGTERM)...')
   await bot.stop()
+  if (supportBot) await supportBot.stop()
   stopApiServer()
   await prisma.$disconnect()
   process.exit(0)
 })
+
+// ============= SUPPORT BOT HANDLERS =============
+if (supportBot) {
+  supportBot.command('start', async (ctx) => {
+    const from = ctx.from
+    const chatId = String(ctx.chat?.id)
+    if (!from?.id || !chatId) return
+
+    const telegramId = String(from.id)
+
+    await prisma.supportChat.upsert({
+      where: { telegramId },
+      create: {
+        telegramId,
+        chatId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        startedAt: new Date(),
+        lastMessageAt: new Date(),
+        lastMessageText: '/start',
+      },
+      update: {
+        chatId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        lastMessageAt: new Date(),
+        lastMessageText: '/start',
+      },
+    })
+
+    await ctx.reply('✅ Support chat opened. Please write your message and our team will reply.')
+  })
+
+  supportBot.on('message:text', async (ctx) => {
+    const from = ctx.from
+    const chatId = String(ctx.chat?.id)
+    const text = ctx.message?.text
+    if (!from?.id || !chatId || !text) return
+    if (text === '/start') return
+
+    const telegramId = String(from.id)
+
+    const chat = await prisma.supportChat.upsert({
+      where: { telegramId },
+      create: {
+        telegramId,
+        chatId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        startedAt: new Date(),
+        lastMessageAt: new Date(),
+        lastMessageText: text.slice(0, 500),
+        unreadCount: 1,
+      },
+      update: {
+        chatId,
+        username: from.username || null,
+        firstName: from.first_name || null,
+        lastName: from.last_name || null,
+        lastMessageAt: new Date(),
+        lastMessageText: text.slice(0, 500),
+        unreadCount: { increment: 1 },
+      },
+    })
+
+    await prisma.supportMessage.create({
+      data: {
+        supportChatId: chat.id,
+        direction: 'IN',
+        text,
+      },
+    })
+
+    // Optional light ACK to user
+    await ctx.reply('📨 Received. Support will respond here.')
+  })
+
+  supportBot.catch((err) => {
+    console.error('Support bot error:', err.error)
+  })
+}
