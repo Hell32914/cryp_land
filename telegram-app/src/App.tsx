@@ -1032,8 +1032,9 @@ function App() {
       <>
         <AnimatedBackground />
         <Toaster />
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
-          <div className="text-center space-y-4 max-w-md">
+        <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4 overflow-hidden">
+          <div className="absolute inset-0 bg-black/70" />
+          <div className="relative z-10 text-center space-y-4 max-w-md">
             <div className="text-destructive text-6xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
             <p className="text-foreground/70">
@@ -1062,7 +1063,7 @@ function App() {
               {supportBotStarted === false && (
                 <>
                   <p className="text-foreground/70 text-sm">
-                    Также активируйте сапорт бот для активации аккаунта и получения 25 Syntrix token
+                    Please also start the support bot to activate your account and receive 25 Syntrix tokens.
                   </p>
                   <Button
                     className="bg-primary text-primary-foreground hover:bg-primary/90"
