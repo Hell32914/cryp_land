@@ -570,6 +570,8 @@ app.get('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (re
 
 app.get('/api/admin/support/chats/:chatId/avatar', requireAdminAuth, async (req, res) => {
   try {
+    if (!supportBotInstance) return res.status(503).json({ error: 'Support bot is not initialized' })
+
     const chatId = String(req.params.chatId)
     const chat = await prisma.supportChat.findUnique({ where: { chatId } })
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
