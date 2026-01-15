@@ -235,7 +235,10 @@ const requireAdminAuth: RequestHandler = (req, res, next) => {
 
 function requireSuperAdmin(req: any, res: any, next: any) {
   const role = String(req.adminRole || '')
-  if (role !== 'superadmin') {
+  const username = String(req.adminUsername || '')
+  const isEnvAdmin = Boolean(CRM_ADMIN_USERNAME && username && username === CRM_ADMIN_USERNAME)
+  // Backward-compatible: old tokens may have role='admin' or missing role.
+  if (role !== 'superadmin' && !isEnvAdmin) {
     return res.status(403).json({ error: 'Forbidden' })
   }
   next()
