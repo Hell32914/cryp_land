@@ -268,6 +268,16 @@ const supportNoteSchema = z.object({
   text: z.string().min(1).max(5000),
 })
 
+const supportSetStageSchema = z.object({
+  stageId: z.string().min(1).max(64),
+})
+
+const supportBroadcastCreateSchema = z.object({
+  target: z.enum(['ALL', 'STAGE']),
+  stageId: z.string().min(1).max(64).optional(),
+  text: z.string().min(1).max(4096),
+})
+
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
@@ -435,7 +445,7 @@ app.get('/api/admin/support/chats/:chatId/notes', requireAdminAuth, async (req, 
 
     const notes = await prisma.supportNote.findMany({
       where: { supportChatId: chat.id },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       take: 200,
     })
 
@@ -496,6 +506,7 @@ app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req
         status: 'ACCEPTED',
         acceptedBy: adminUsername,
         acceptedAt: chat.acceptedAt || new Date(),
+        funnelStageId: chat.funnelStageId || 'primary',
         archivedAt: null,
       },
     })
@@ -503,6 +514,42 @@ app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req
   } catch (error) {
     console.error('Support chat accept error:', error)
     return res.status(500).json({ error: 'Failed to accept chat' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const parsed = supportSetStageSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid stage payload' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ARCHIVE') {
+      return res.status(409).json({ error: 'Chat is archived' })
+    }
+    if (chat.status !== 'ACCEPTED') {
+      return res.status(409).json({ error: 'Chat must be accepted before changing stage' })
+    }
+    if (chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: {
+        funnelStageId: parsed.data.stageId,
+      },
+    })
+
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat stage update error:', error)
+    return res.status(500).json({ error: 'Failed to update stage' })
   }
 })
 
@@ -526,6 +573,7 @@ app.post('/api/admin/support/chats/:chatId/unarchive', requireAdminAuth, async (
         archivedAt: null,
         acceptedBy: null,
         acceptedAt: null,
+        funnelStageId: null,
       },
     })
     return res.json(updated)
@@ -782,6 +830,230 @@ app.get('/api/admin/support/files/:fileId', requireAdminAuth, async (req, res) =
   } catch (error) {
     console.error('Support file proxy error:', error)
     return res.status(500).json({ error: 'Failed to fetch file' })
+  }
+})
+
+// ============= SUPPORT BROADCASTS (MASS MESSAGING) =============
+
+let supportBroadcastWorkerTimer: NodeJS.Timeout | null = null
+let supportBroadcastWorkerInProgress = false
+
+async function processSupportBroadcastTick() {
+  if (supportBroadcastWorkerInProgress) return
+  if (!supportBotInstance) return
+
+  supportBroadcastWorkerInProgress = true
+  try {
+    const broadcast = await prisma.supportBroadcast.findFirst({
+      where: { status: { in: ['PENDING', 'RUNNING'] } },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!broadcast) return
+
+    // Respect cancellation
+    if (broadcast.status === 'CANCELLED' || broadcast.cancelledAt) {
+      await prisma.supportBroadcastRecipient.updateMany({
+        where: { broadcastId: broadcast.id, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      })
+      return
+    }
+
+    if (broadcast.status === 'PENDING') {
+      await prisma.supportBroadcast.update({
+        where: { id: broadcast.id },
+        data: { status: 'RUNNING', startedAt: new Date() },
+      })
+    }
+
+    const pendingRecipients = await prisma.supportBroadcastRecipient.findMany({
+      where: { broadcastId: broadcast.id, status: 'PENDING' },
+      orderBy: { id: 'asc' },
+      take: 5,
+    })
+
+    if (pendingRecipients.length === 0) {
+      await prisma.supportBroadcast.update({
+        where: { id: broadcast.id },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      })
+      return
+    }
+
+    for (const recipient of pendingRecipients) {
+      // Check cancellation between sends
+      const latest = await prisma.supportBroadcast.findUnique({ where: { id: broadcast.id } })
+      if (!latest || latest.status === 'CANCELLED' || latest.cancelledAt) {
+        await prisma.supportBroadcastRecipient.updateMany({
+          where: { broadcastId: broadcast.id, status: 'PENDING' },
+          data: { status: 'CANCELLED' },
+        })
+        return
+      }
+
+      try {
+        // Send to Telegram first
+        await supportBotInstance.api.sendMessage(recipient.chatId, broadcast.text)
+
+        const message = await prisma.supportMessage.create({
+          data: {
+            supportChatId: recipient.supportChatId,
+            direction: 'OUT',
+            kind: 'TEXT',
+            text: broadcast.text,
+            adminUsername: broadcast.adminUsername,
+          },
+        })
+
+        await prisma.supportChat.update({
+          where: { id: recipient.supportChatId },
+          data: {
+            lastMessageAt: message.createdAt,
+            lastMessageText: broadcast.text,
+            lastOutboundAt: message.createdAt,
+          },
+        })
+
+        await prisma.supportBroadcastRecipient.update({
+          where: { id: recipient.id },
+          data: { status: 'SENT', sentAt: new Date(), error: null },
+        })
+
+        await prisma.supportBroadcast.update({
+          where: { id: broadcast.id },
+          data: { sentCount: { increment: 1 } },
+        })
+      } catch (error: any) {
+        const msg = String(error?.message || 'Send failed').slice(0, 500)
+        await prisma.supportBroadcastRecipient.update({
+          where: { id: recipient.id },
+          data: { status: 'FAILED', error: msg },
+        })
+        await prisma.supportBroadcast.update({
+          where: { id: broadcast.id },
+          data: { failedCount: { increment: 1 } },
+        })
+      }
+
+      // Gentle throttle
+      await new Promise((r) => setTimeout(r, 200))
+    }
+  } catch (error) {
+    console.error('Support broadcast worker tick error:', error)
+  } finally {
+    supportBroadcastWorkerInProgress = false
+  }
+}
+
+app.post('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supportBotInstance) {
+      return res.status(503).json({ error: 'Support bot is not configured' })
+    }
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const parsed = supportBroadcastCreateSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid broadcast payload' })
+
+    if (parsed.data.target === 'STAGE' && !parsed.data.stageId) {
+      return res.status(400).json({ error: 'stageId is required for STAGE target' })
+    }
+
+    const where: any = {
+      status: 'ACCEPTED',
+      archivedAt: null,
+      acceptedBy: adminUsername,
+      isBlocked: false,
+    }
+    if (parsed.data.target === 'STAGE') {
+      where.funnelStageId = parsed.data.stageId
+    }
+
+    const recipients = await prisma.supportChat.findMany({
+      where,
+      select: { id: true, chatId: true },
+    })
+
+    const created = await prisma.$transaction(async (tx) => {
+      const broadcast = await tx.supportBroadcast.create({
+        data: {
+          adminUsername,
+          target: parsed.data.target,
+          stageId: parsed.data.target === 'STAGE' ? parsed.data.stageId! : null,
+          text: parsed.data.text,
+          totalRecipients: recipients.length,
+          status: recipients.length ? 'PENDING' : 'COMPLETED',
+          completedAt: recipients.length ? null : new Date(),
+        },
+      })
+
+      if (recipients.length) {
+        await tx.supportBroadcastRecipient.createMany({
+          data: recipients.map((r) => ({
+            broadcastId: broadcast.id,
+            supportChatId: r.id,
+            chatId: r.chatId,
+          })),
+        })
+      }
+
+      return broadcast
+    })
+
+    return res.json(created)
+  } catch (error) {
+    console.error('Support broadcast create error:', error)
+    return res.status(500).json({ error: 'Failed to create broadcast' })
+  }
+})
+
+app.get('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => {
+  try {
+    const broadcasts = await prisma.supportBroadcast.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+    return res.json({ broadcasts })
+  } catch (error) {
+    console.error('Support broadcast list error:', error)
+    return res.status(500).json({ error: 'Failed to fetch broadcasts' })
+  }
+})
+
+app.post('/api/admin/support/broadcasts/:id/cancel', requireAdminAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const existing = await prisma.supportBroadcast.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Broadcast not found' })
+    if (existing.adminUsername !== adminUsername) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const b = await tx.supportBroadcast.update({
+        where: { id },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
+      })
+
+      await tx.supportBroadcastRecipient.updateMany({
+        where: { broadcastId: id, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      })
+
+      return b
+    })
+
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support broadcast cancel error:', error)
+    return res.status(500).json({ error: 'Failed to cancel broadcast' })
   }
 })
 
@@ -4536,6 +4808,10 @@ let server: any
 export function startApiServer(bot?: Bot, supportBot?: Bot) {
   supportBotInstance = supportBot
 
+  if (supportBotInstance && !supportBroadcastWorkerTimer) {
+    supportBroadcastWorkerTimer = setInterval(processSupportBroadcastTick, 750)
+  }
+
   // Add webhook endpoint if bot is provided
   if (bot) {
     app.post('/webhook', async (req, res) => {
@@ -4615,6 +4891,11 @@ export function stopApiServer() {
     server.close(() => {
       console.log('🛑 API Server stopped')
     })
+  }
+
+  if (supportBroadcastWorkerTimer) {
+    clearInterval(supportBroadcastWorkerTimer)
+    supportBroadcastWorkerTimer = null
   }
 }
 

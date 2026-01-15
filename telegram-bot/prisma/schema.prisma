@@ -224,6 +224,7 @@ model SupportChat {
   status          String    @default("NEW")
   acceptedBy      String?
   acceptedAt      DateTime?
+  funnelStageId   String?
   archivedAt      DateTime?
   isBlocked       Boolean   @default(false)
   blockedAt       DateTime?
@@ -239,8 +240,71 @@ model SupportChat {
 
   messages        SupportMessage[]
   notes           SupportNote[]
+  broadcasts       SupportBroadcastRecipient[]
 
   @@index([lastMessageAt])
+}
+
+enum SupportBroadcastStatus {
+  PENDING
+  RUNNING
+  CANCELLED
+  COMPLETED
+  FAILED
+}
+
+enum SupportBroadcastTarget {
+  ALL
+  STAGE
+}
+
+enum SupportBroadcastRecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+model SupportBroadcast {
+  id              Int       @id @default(autoincrement())
+  adminUsername   String
+  target          SupportBroadcastTarget
+  stageId         String?
+  text            String
+  status          SupportBroadcastStatus @default(PENDING)
+  totalRecipients Int       @default(0)
+  sentCount       Int       @default(0)
+  failedCount     Int       @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  recipients      SupportBroadcastRecipient[]
+
+  @@index([status, createdAt])
+  @@index([adminUsername, createdAt])
+}
+
+model SupportBroadcastRecipient {
+  id               Int       @id @default(autoincrement())
+  broadcastId      Int
+  broadcast        SupportBroadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  supportChatId    Int
+  supportChat      SupportChat @relation(fields: [supportChatId], references: [id], onDelete: Cascade)
+
+  chatId           String
+  status           SupportBroadcastRecipientStatus @default(PENDING)
+  error            String?
+  sentAt           DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([broadcastId, status])
+  @@index([supportChatId])
 }
 
 model SupportNote {

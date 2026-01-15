@@ -16,6 +16,7 @@ import { Support } from '@/components/pages/Support'
 import { SupportFunnel } from '@/components/pages/SupportFunnel'
 import { SupportFunnelBoard } from '@/components/pages/SupportFunnelBoard'
 import { SupportOperators } from '@/components/pages/SupportOperators'
+import { SupportBroadcasts } from '@/components/pages/SupportBroadcasts'
 import '@/lib/i18n'
 
 const queryClient = new QueryClient()
@@ -50,6 +51,8 @@ function AppContent() {
         return <SupportFunnel />
       case 'support-operators':
         return <SupportOperators />
+      case 'support-broadcasts':
+        return <SupportBroadcasts />
       default:
         return <Dashboard />
     }

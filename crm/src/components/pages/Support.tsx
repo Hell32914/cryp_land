@@ -17,6 +17,7 @@ import {
   markSupportChatUnread,
   sendSupportPhoto,
   sendSupportMessage,
+  setSupportChatStage,
   type SupportChatRecord,
   type SupportMessageRecord,
   type SupportNoteRecord,
@@ -90,6 +91,16 @@ export function Support() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const photoPickerRef = useRef<HTMLInputElement | null>(null)
 
+  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const [shouldScrollMessagesToBottom, setShouldScrollMessagesToBottom] = useState(false)
+  const [scrollBehavior, setScrollBehavior] = useState<ScrollBehavior>('auto')
+
+  const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+    })
+  }
+
   const [noteText, setNoteText] = useState('')
 
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
@@ -98,6 +109,13 @@ export function Support() {
 
   const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
   const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
+
+  const chatsListContainerRef = useRef<HTMLDivElement | null>(null)
+  const chatsListViewportRef = useRef<HTMLElement | null>(null)
+  const [isChatsListAtTop, setIsChatsListAtTop] = useState(true)
+  const [hasNewChatsActivityAbove, setHasNewChatsActivityAbove] = useState(false)
+  const [newChatsActivityCount, setNewChatsActivityCount] = useState(0)
+  const prevChatMetaRef = useRef<Record<string, { lastMessageAt: string | null; unreadCount: number }>>({})
 
   const defaultStages = useMemo<SupportFunnelStage[]>(
     () => [
@@ -136,12 +154,25 @@ export function Support() {
 
   const primaryStageId = funnelStages.find((s) => s.id === getPrimaryStageId())?.id || getPrimaryStageId()
 
+  const setStageMutation = useMutation({
+    mutationFn: ({ chatId, stageId }: { chatId: string; stageId: string }) => setSupportChatStage(token!, chatId, stageId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      await queryClient.invalidateQueries({ queryKey: ['support-chats-board'] })
+    },
+    onError: (e: any) => toast.error(e?.message || t('common.error')),
+  })
+
   const setChatStage = (chatId: string, stageId: string) => {
     setChatStageMap((prev) => {
       const next = { ...prev, [chatId]: stageId }
       saveSupportChatStageMap(next)
       return next
     })
+
+    if (token) {
+      setStageMutation.mutate({ chatId, stageId })
+    }
   }
 
   const togglePinned = (chatId: string) => {
@@ -181,7 +212,7 @@ export function Support() {
     Awaited<ReturnType<typeof fetchSupportChats>>
   >(
     ['support-chats', search],
-    (authToken) => fetchSupportChats(authToken, search),
+    (authToken) => fetchSupportChats(authToken, search, 1, 200),
     {
       enabled: Boolean(token),
       // Auto-refresh list so new inbound messages show up without reload.
@@ -239,6 +270,57 @@ export function Support() {
     return chats.filter((chat) => getChatTab(chat) === activeTab)
   }, [activeTab, chats])
 
+  // Track chat-list scroll position so we can notify about new activity when scrolled down.
+  useEffect(() => {
+    const root = chatsListContainerRef.current
+    if (!root) return
+    const viewport = root.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]')
+    chatsListViewportRef.current = viewport
+    if (!viewport) return
+
+    const onScroll = () => {
+      const atTop = viewport.scrollTop <= 8
+      setIsChatsListAtTop(atTop)
+      if (atTop) {
+        setHasNewChatsActivityAbove(false)
+        setNewChatsActivityCount(0)
+      }
+    }
+
+    viewport.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => viewport.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Detect new incoming activity and show a jump-to-top indicator when list is scrolled.
+  useEffect(() => {
+    const prev = prevChatMetaRef.current
+    let activityCount = 0
+
+    for (const chat of filteredChats) {
+      const prevMeta = prev[chat.chatId]
+      const lastMessageAt = chat.lastMessageAt || null
+      const unreadCount = chat.unreadCount || 0
+      if (prevMeta) {
+        const unreadIncreased = unreadCount > prevMeta.unreadCount
+        const lastMessageChanged = lastMessageAt && lastMessageAt !== prevMeta.lastMessageAt
+        if (unreadIncreased || lastMessageChanged) activityCount++
+      }
+    }
+
+    // Update snapshot for current tab.
+    const next: Record<string, { lastMessageAt: string | null; unreadCount: number }> = {}
+    for (const chat of filteredChats) {
+      next[chat.chatId] = { lastMessageAt: chat.lastMessageAt || null, unreadCount: chat.unreadCount || 0 }
+    }
+    prevChatMetaRef.current = next
+
+    if (activityCount > 0 && !isChatsListAtTop) {
+      setHasNewChatsActivityAbove(true)
+      setNewChatsActivityCount((c) => c + activityCount)
+    }
+  }, [filteredChats, isChatsListAtTop])
+
   const sortedChats = useMemo(() => {
     const toTs = (value: string | null) => (value ? new Date(value).getTime() : 0)
     return [...filteredChats].sort((a, b) => {
@@ -293,7 +375,14 @@ export function Support() {
     }
   )
 
-  const notes: SupportNoteRecord[] = (notesData as any)?.notes ?? []
+  const notesRaw: SupportNoteRecord[] = (notesData as any)?.notes ?? []
+  const notes = useMemo(() => {
+    return [...notesRaw].sort((a, b) => {
+      const at = new Date(a.createdAt).getTime()
+      const bt = new Date(b.createdAt).getTime()
+      return bt - at
+    })
+  }, [notesRaw])
 
   const markReadMutation = useMutation({
     mutationFn: (chatId: string) => markSupportChatRead(token!, chatId),
@@ -388,6 +477,9 @@ export function Support() {
       setMessageText('')
       await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setScrollBehavior('smooth')
+      setShouldScrollMessagesToBottom(true)
+      scrollMessagesToBottom('smooth')
       toast.success(t('support.sent'))
     },
     onError: (e: any) => {
@@ -404,6 +496,9 @@ export function Support() {
       if (fileInputRef.current) fileInputRef.current.value = ''
       await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setScrollBehavior('smooth')
+      setShouldScrollMessagesToBottom(true)
+      scrollMessagesToBottom('smooth')
       toast.success(t('support.sent'))
     },
     onError: (e: any) => {
@@ -440,6 +535,7 @@ export function Support() {
 
   const handleSend = () => {
     if (!selectedChatId) return
+    if (sendMessageMutation.isPending) return
     if (selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') {
       toast.error(t('support.mustAcceptFirst'))
       return
@@ -448,6 +544,20 @@ export function Support() {
     if (!trimmed) return
     sendMessageMutation.mutate({ chatId: selectedChatId, text: trimmed })
   }
+
+  // Scroll to bottom when opening a chat.
+  useEffect(() => {
+    if (!selectedChatId) return
+    setScrollBehavior('auto')
+    setShouldScrollMessagesToBottom(true)
+  }, [selectedChatId])
+
+  // Perform deferred scroll after messages render.
+  useEffect(() => {
+    if (!shouldScrollMessagesToBottom) return
+    scrollMessagesToBottom(scrollBehavior)
+    setShouldScrollMessagesToBottom(false)
+  }, [messages.length, scrollBehavior, shouldScrollMessagesToBottom, selectedChatId])
 
   // Fetch blobs for photo messages (auth required, so cannot use <img src> directly)
   useEffect(() => {
@@ -541,8 +651,28 @@ export function Support() {
             ) : sortedChats.length === 0 ? (
               <div className="text-sm text-muted-foreground">{t('support.noChats')}</div>
             ) : (
-              <ScrollArea className="h-[520px]">
-                <div className="space-y-2 pr-3">
+              <div ref={chatsListContainerRef} className="relative">
+                {hasNewChatsActivityAbove && !isChatsListAtTop ? (
+                  <div className="absolute top-2 left-2 right-2 z-10">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full justify-between"
+                      onClick={() => {
+                        const viewport = chatsListViewportRef.current
+                        if (viewport) viewport.scrollTo({ top: 0, behavior: 'smooth' })
+                        setHasNewChatsActivityAbove(false)
+                        setNewChatsActivityCount(0)
+                      }}
+                    >
+                      <span className="truncate">{t('support.newMessages')}</span>
+                      {newChatsActivityCount > 0 ? <Badge variant="secondary">{newChatsActivityCount}</Badge> : null}
+                    </Button>
+                  </div>
+                ) : null}
+
+                <ScrollArea className="h-[520px]">
+                  <div className="space-y-2 pr-3">
                   <div className="grid grid-cols-[minmax(0,1fr),220px,120px] gap-3 px-3 text-xs text-muted-foreground">
                     <div />
                     <div className="truncate">{t('support.columns.funnelStatus')}</div>
@@ -557,7 +687,7 @@ export function Support() {
 
                     const pinned = pinnedSet.has(chat.chatId)
 
-                    const stageId = chatStageMap[chat.chatId] || primaryStageId
+                    const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
                     const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
                     const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
@@ -644,8 +774,9 @@ export function Support() {
                       </div>
                     )
                   })}
-                </div>
-              </ScrollArea>
+                  </div>
+                </ScrollArea>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -723,6 +854,7 @@ export function Support() {
                           </div>
                         </div>
                       ))}
+                      <div ref={messagesEndRef} />
                     </div>
                   )}
                 </ScrollArea>
@@ -923,7 +1055,7 @@ export function Support() {
                 <div className="space-y-2">
                   <div className="text-xs text-muted-foreground">{t('support.requestInfo')}</div>
                   <Select
-                    value={chatStageMap[selectedChat.chatId] || primaryStageId}
+                    value={selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId}
                     onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
                   >
                     <SelectTrigger className="w-full">

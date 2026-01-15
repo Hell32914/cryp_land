@@ -242,6 +242,7 @@ export interface SupportChatRecord {
   status?: string | null
   acceptedBy?: string | null
   acceptedAt?: string | null
+  funnelStageId?: string | null
   archivedAt?: string | null
   isBlocked?: boolean | null
   blockedAt?: string | null
@@ -254,6 +255,27 @@ export interface SupportChatRecord {
   unreadCount: number
   createdAt: string
   updatedAt: string
+}
+
+export interface SupportBroadcastRecord {
+  id: number
+  adminUsername: string
+  target: 'ALL' | 'STAGE'
+  stageId: string | null
+  text: string
+  status: 'PENDING' | 'RUNNING' | 'CANCELLED' | 'COMPLETED' | 'FAILED'
+  totalRecipients: number
+  sentCount: number
+  failedCount: number
+  startedAt: string | null
+  completedAt: string | null
+  cancelledAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SupportBroadcastsResponse {
+  broadcasts: SupportBroadcastRecord[]
 }
 
 export interface SupportMessageRecord {
@@ -516,6 +538,24 @@ export const sendSupportPhoto = async (token: string, chatId: string, file: File
   if (caption) form.append('caption', caption)
   return requestFormData<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/photos`, form, token)
 }
+
+export const setSupportChatStage = (token: string, chatId: string, stageId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/stage`, {
+    method: 'POST',
+    body: JSON.stringify({ stageId }),
+  }, token)
+
+export const createSupportBroadcast = (token: string, payload: { target: 'ALL' | 'STAGE'; stageId?: string; text: string }) =>
+  request<SupportBroadcastRecord>(`/api/admin/support/broadcasts`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, token)
+
+export const fetchSupportBroadcasts = (token: string) =>
+  request<SupportBroadcastsResponse>(`/api/admin/support/broadcasts`, {}, token)
+
+export const cancelSupportBroadcast = (token: string, id: number) =>
+  request<SupportBroadcastRecord>(`/api/admin/support/broadcasts/${id}/cancel`, { method: 'POST' }, token)
 
 export const fetchSupportFileBlob = async (token: string, fileId: string) => {
   const response = await fetch(`${API_BASE_URL}/api/admin/support/files/${encodeURIComponent(fileId)}`, {

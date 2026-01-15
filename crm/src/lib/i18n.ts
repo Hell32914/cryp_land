@@ -28,6 +28,7 @@ const resources = {
         supportFunnel: 'Funnel',
         supportFunnelSettings: 'Funnel settings',
         supportOperators: 'Operators',
+        supportBroadcasts: 'Mass messaging',
       },
       supportBoard: {
         title: 'Funnel',
@@ -42,6 +43,28 @@ const resources = {
       supportOperators: {
         title: 'Operators',
         description: 'Operator management will be added here (assignment, permissions, availability).',
+      },
+      supportBroadcast: {
+        title: 'Mass messaging',
+        newMessage: 'New message',
+        statistics: 'Message statistics',
+        segmentsTitle: 'Send to',
+        segments: {
+          all: 'All clients',
+        },
+        composeTitle: 'Message',
+        recipients: 'Recipients',
+        target: 'Target',
+        messagePlaceholder: 'Type a message...',
+        noteCannotUndo: 'Already sent messages cannot be undone. You can cancel only pending sends.',
+        send: 'Send',
+        cancel: 'Cancel',
+        progress: 'Sent {{sent}}/{{total}} (failed {{failed}})',
+        created: 'Broadcast created',
+        createFailed: 'Failed to create broadcast',
+        cancelled: 'Broadcast cancelled',
+        cancelFailed: 'Failed to cancel broadcast',
+        noBroadcasts: 'No broadcasts yet',
       },
       support: {
         title: 'Support',
@@ -255,6 +278,7 @@ const resources = {
         supportFunnel: 'Воронка',
         supportFunnelSettings: 'Настройки воронки',
         supportOperators: 'Операторы',
+        supportBroadcasts: 'Рассылка',
       },
       supportBoard: {
         title: 'Воронка',
@@ -269,6 +293,28 @@ const resources = {
       supportOperators: {
         title: 'Операторы',
         description: 'Здесь будет управление операторами (назначение, права, доступность).',
+      },
+      supportBroadcast: {
+        title: 'Рассылка',
+        newMessage: 'Новое сообщение',
+        statistics: 'Статистика рассылок',
+        segmentsTitle: 'Кому отправить',
+        segments: {
+          all: 'Все клиенты',
+        },
+        composeTitle: 'Сообщение',
+        recipients: 'Получатели',
+        target: 'Список',
+        messagePlaceholder: 'Введите сообщение...',
+        noteCannotUndo: 'Отправленные сообщения нельзя отменить. Можно отменить только ещё не отправленные.',
+        send: 'Отправить',
+        cancel: 'Отмена',
+        progress: 'Отправлено {{sent}}/{{total}} (ошибки {{failed}})',
+        created: 'Рассылка создана',
+        createFailed: 'Не удалось создать рассылку',
+        cancelled: 'Рассылка отменена',
+        cancelFailed: 'Не удалось отменить рассылку',
+        noBroadcasts: 'Рассылок пока нет',
       },
       support: {
         title: 'Поддержка',

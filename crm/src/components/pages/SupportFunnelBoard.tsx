@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
-import { fetchSupportChats, acceptSupportChat, type SupportChatRecord } from '@/lib/api'
+import { fetchSupportChats, acceptSupportChat, setSupportChatStage, type SupportChatRecord } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -110,7 +110,7 @@ export function SupportFunnelBoard() {
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
-  >(['support-chats-board'], (authToken) => fetchSupportChats(authToken), {
+  >(['support-chats-board'], (authToken) => fetchSupportChats(authToken, undefined, 1, 200), {
     enabled: Boolean(token),
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
@@ -127,6 +127,15 @@ export function SupportFunnelBoard() {
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [chats])
 
+  const setStageMutation = useMutation({
+    mutationFn: ({ chatId, stageId }: { chatId: string; stageId: string }) => setSupportChatStage(token!, chatId, stageId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      await queryClient.invalidateQueries({ queryKey: ['support-chats-board'] })
+    },
+    onError: (e: any) => toast.error(e?.message || t('common.error')),
+  })
+
   const acceptMutation = useMutation({
     mutationFn: ({ chatId }: { chatId: string; stageId?: string; prevStageId?: string }) =>
       acceptSupportChat(token!, chatId),
@@ -136,6 +145,8 @@ export function SupportFunnelBoard() {
       // Default stage after accept: keep dropped stage if provided.
       const stageId = vars?.stageId || chatStageMap[updated.chatId] || primaryStageId
       setStage(updated.chatId, stageId)
+      // Persist stage after acceptance.
+      setStageMutation.mutate({ chatId: updated.chatId, stageId })
       toast.success(t('support.accepted'))
     },
     onError: (e: any, vars) => {
@@ -165,7 +176,7 @@ export function SupportFunnelBoard() {
     const status = String(chat.status || '').toUpperCase()
     if (status === 'ARCHIVE') return 'archived'
     if (status !== 'ACCEPTED') return 'unaccepted'
-    return chatStageMap[chat.chatId] || primaryStageId
+    return chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
   }
 
   const columns = useMemo(() => {
@@ -249,6 +260,7 @@ export function SupportFunnelBoard() {
     }
 
     setStage(payload.chatId, to)
+    setStageMutation.mutate({ chatId: payload.chatId, stageId: to })
   }
 
   if (isChatsLoading) {
