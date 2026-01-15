@@ -17,10 +17,38 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
+function decodeJwtClaims(token?: string | null): { username: string | null; role: string | null } {
+  try {
+    if (!token) return { username: null, role: null }
+    const parts = token.split('.')
+    if (parts.length < 2) return { username: null, role: null }
+    const payload = parts[1]
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const json = window.atob(padded)
+    const data = JSON.parse(json)
+    const username =
+      typeof data?.username === 'string'
+        ? data.username
+        : typeof data?.adminUsername === 'string'
+          ? data.adminUsername
+          : typeof data?.login === 'string'
+            ? data.login
+            : null
+    const role = typeof data?.role === 'string' ? data.role : typeof data?.adminRole === 'string' ? data.adminRole : null
+    return { username, role }
+  } catch {
+    return { username: null, role: null }
+  }
+}
+
 export function SupportOperators() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const queryClient = useQueryClient()
+
+  const me = useMemo(() => decodeJwtClaims(token), [token])
+  const canManageOperators = me.role === 'superadmin' || me.role === 'admin'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -90,6 +118,16 @@ export function SupportOperators() {
         <CardContent className="space-y-4">
           <div className="text-sm text-muted-foreground">{t('supportOperators.description')}</div>
 
+          <div className="text-xs text-muted-foreground">
+            {t('common.you')}: <span className="font-medium">{me.username || '—'}</span> · {t('common.role')}:{' '}
+            <span className="font-medium">{me.role || '—'}</span>
+            {!canManageOperators ? (
+              <div className="mt-1 text-destructive">
+                {t('supportOperators.superadminOnly')}
+              </div>
+            ) : null}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-end">
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">{t('supportOperators.username')}</div>
@@ -111,7 +149,7 @@ export function SupportOperators() {
                 if (!u || !p) return
                 createMutation.mutate({ username: u, password: p })
               }}
-              disabled={!token || createMutation.isPending || !username.trim() || !password}
+              disabled={!token || !canManageOperators || createMutation.isPending || !username.trim() || !password}
             >
               {createMutation.isPending ? t('support.processing') : t('supportOperators.add')}
             </Button>
@@ -127,7 +165,12 @@ export function SupportOperators() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
           ) : isError ? (
-            <div className="text-sm text-destructive">{t('common.error')}</div>
+            <div className="text-sm text-destructive">
+              {t('common.error')}
+              {!canManageOperators ? (
+                <div className="mt-1 text-xs text-muted-foreground">{t('supportOperators.superadminOnlyHint')}</div>
+              ) : null}
+            </div>
           ) : operators.length === 0 ? (
             <div className="text-sm text-muted-foreground">{t('supportOperators.empty')}</div>
           ) : (

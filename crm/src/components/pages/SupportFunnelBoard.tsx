@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
@@ -89,6 +89,12 @@ export function SupportFunnelBoard() {
 
   const [search, setSearch] = useState('')
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
+
+  const columnsScrollRef = useRef<HTMLDivElement | null>(null)
+  const topScrollRef = useRef<HTMLDivElement | null>(null)
+  const [columnsScrollWidth, setColumnsScrollWidth] = useState(0)
+  const [columnsClientWidth, setColumnsClientWidth] = useState(0)
+  const isSyncingScrollRef = useRef(false)
 
   useEffect(() => {
     const reloadAll = () => {
@@ -236,6 +242,53 @@ export function SupportFunnelBoard() {
     return map
   }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm])
 
+  // Keep a top horizontal scrollbar synced with the columns scroller.
+  useEffect(() => {
+    const el = columnsScrollRef.current
+    if (!el) return
+
+    const update = () => {
+      setColumnsScrollWidth(el.scrollWidth)
+      setColumnsClientWidth(el.clientWidth)
+    }
+
+    update()
+
+    const onWindowResize = () => update()
+    window.addEventListener('resize', onWindowResize)
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => update()) : null
+    ro?.observe(el)
+
+    return () => {
+      window.removeEventListener('resize', onWindowResize)
+      ro?.disconnect()
+    }
+  }, [columns.length])
+
+  const hasHorizontalOverflow = columnsScrollWidth > columnsClientWidth + 2
+
+  const syncScroll = (source: 'top' | 'columns') => {
+    const top = topScrollRef.current
+    const columnsEl = columnsScrollRef.current
+    if (!top || !columnsEl) return
+    if (isSyncingScrollRef.current) return
+
+    isSyncingScrollRef.current = true
+    try {
+      if (source === 'top') {
+        columnsEl.scrollLeft = top.scrollLeft
+      } else {
+        top.scrollLeft = columnsEl.scrollLeft
+      }
+    } finally {
+      // Release sync flag on next frame to avoid oscillation.
+      requestAnimationFrame(() => {
+        isSyncingScrollRef.current = false
+      })
+    }
+  }
+
   const handleDrop = async (payload: DragPayload, to: ColumnId) => {
     if (!payload?.chatId) return
     if (to === 'unaccepted') return
@@ -302,7 +355,18 @@ export function SupportFunnelBoard() {
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      {hasHorizontalOverflow ? (
+        <div
+          ref={topScrollRef}
+          onScroll={() => syncScroll('top')}
+          className="h-3 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-muted/20"
+          aria-label="Horizontal scroll"
+        >
+          <div style={{ width: columnsScrollWidth, height: 1 }} />
+        </div>
+      ) : null}
+
+      <div ref={columnsScrollRef} onScroll={() => syncScroll('columns')} className="flex gap-4 overflow-x-auto pb-2">
         {columns.map((col) => {
           const items = columnChats[col.id] || []
 

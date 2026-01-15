@@ -225,8 +225,19 @@ const requireAdminAuth: RequestHandler = (req, res, next) => {
   try {
     const token = authHeader.slice(7)
     const decoded = jwt.verify(token, CRM_JWT_SECRET!) as any
-    ;(req as any).adminUsername = typeof decoded?.username === 'string' ? decoded.username : undefined
-    ;(req as any).adminRole = typeof decoded?.role === 'string' ? decoded.role : undefined
+
+    // Backward-compatible: older CRM tokens used different claim names.
+    const usernameCandidate =
+      decoded?.username ??
+      decoded?.adminUsername ??
+      decoded?.login ??
+      decoded?.user ??
+      decoded?.sub
+
+    const roleCandidate = decoded?.role ?? decoded?.adminRole ?? decoded?.type
+
+    ;(req as any).adminUsername = typeof usernameCandidate === 'string' ? usernameCandidate : undefined
+    ;(req as any).adminRole = typeof roleCandidate === 'string' ? roleCandidate : undefined
     next()
   } catch {
     return res.status(401).json({ error: 'Unauthorized' })
@@ -238,7 +249,7 @@ function requireSuperAdmin(req: any, res: any, next: any) {
   const username = String(req.adminUsername || '')
   const isEnvAdmin = Boolean(CRM_ADMIN_USERNAME && username && username === CRM_ADMIN_USERNAME)
   // Backward-compatible: old tokens may have role='admin' or missing role.
-  if (role !== 'superadmin' && !isEnvAdmin) {
+  if (role !== 'superadmin' && role !== 'admin' && !isEnvAdmin) {
     return res.status(403).json({ error: 'Forbidden' })
   }
   next()
@@ -641,6 +652,81 @@ app.post('/api/admin/support/chats/:chatId/notes', requireAdminAuth, async (req,
   } catch (error) {
     console.error('Support chat note create error:', error)
     return res.status(500).json({ error: 'Failed to add note' })
+  }
+})
+
+app.patch('/api/admin/support/chats/:chatId/notes/:noteId', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const noteId = Number(req.params.noteId)
+    if (!Number.isFinite(noteId)) return res.status(400).json({ error: 'Invalid note id' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    const adminRole = String((req as any).adminRole || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const parsed = supportNoteSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid note payload' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const note = await prisma.supportNote.findUnique({ where: { id: noteId } })
+    if (!note || note.supportChatId !== chat.id) return res.status(404).json({ error: 'Note not found' })
+
+    const isAdminLike = adminRole === 'superadmin' || adminRole === 'admin'
+    const isAuthor = Boolean(note.adminUsername) && note.adminUsername === adminUsername
+    if (!isAdminLike && !isAuthor) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const updated = await prisma.supportNote.update({
+      where: { id: noteId },
+      data: { text: parsed.data.text },
+    })
+
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat note update error:', error)
+    return res.status(500).json({ error: 'Failed to update note' })
+  }
+})
+
+app.delete('/api/admin/support/chats/:chatId/notes/:noteId', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const noteId = Number(req.params.noteId)
+    if (!Number.isFinite(noteId)) return res.status(400).json({ error: 'Invalid note id' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    const adminRole = String((req as any).adminRole || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const note = await prisma.supportNote.findUnique({ where: { id: noteId } })
+    if (!note || note.supportChatId !== chat.id) return res.status(404).json({ error: 'Note not found' })
+
+    const isAdminLike = adminRole === 'superadmin' || adminRole === 'admin'
+    const isAuthor = Boolean(note.adminUsername) && note.adminUsername === adminUsername
+    if (!isAdminLike && !isAuthor) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    await prisma.supportNote.delete({ where: { id: noteId } })
+    return res.json({ success: true })
+  } catch (error) {
+    console.error('Support chat note delete error:', error)
+    return res.status(500).json({ error: 'Failed to delete note' })
   }
 })
 

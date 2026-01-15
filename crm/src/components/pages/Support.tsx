@@ -28,6 +28,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -116,6 +118,99 @@ export function Support() {
   const [hasNewChatsActivityAbove, setHasNewChatsActivityAbove] = useState(false)
   const [newChatsActivityCount, setNewChatsActivityCount] = useState(0)
   const prevChatMetaRef = useRef<Record<string, { lastMessageAt: string | null; unreadCount: number }>>({})
+
+  const NOTIFY_ENABLED_KEY = 'crm.support.notifications.enabled'
+  const NOTIFY_SOUND_KEY = 'crm.support.notifications.sound'
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(NOTIFY_ENABLED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(NOTIFY_SOUND_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  const notifiedOnceRef = useRef(false)
+  const prevNotifyMetaRef = useRef<Record<string, { lastInboundAt: string | null; unreadCount: number }>>({})
+  const lastNotifyAtRef = useRef<Record<string, number>>({})
+  const audioCtxRef = useRef<AudioContext | null>(null)
+
+  const persistNotificationSettings = (enabled: boolean, soundEnabled: boolean) => {
+    try {
+      window.localStorage.setItem(NOTIFY_ENABLED_KEY, enabled ? '1' : '0')
+      window.localStorage.setItem(NOTIFY_SOUND_KEY, soundEnabled ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }
+
+  const ensureNotificationPermission = async () => {
+    if (typeof window === 'undefined') return false
+    if (!('Notification' in window)) {
+      toast.error(t('support.notifications.notSupported'))
+      return false
+    }
+    if (Notification.permission === 'granted') return true
+    if (Notification.permission === 'denied') {
+      toast.error(t('support.notifications.permissionDenied'))
+      return false
+    }
+    const perm = await Notification.requestPermission()
+    if (perm !== 'granted') {
+      toast.error(t('support.notifications.permissionDenied'))
+      return false
+    }
+    return true
+  }
+
+  const primeAudio = async () => {
+    try {
+      if (typeof window === 'undefined') return
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined
+      if (!Ctx) return
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx()
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume()
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const playChime = () => {
+    try {
+      const ctx = audioCtxRef.current
+      if (!ctx) return
+      const now = ctx.currentTime
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.0001, now)
+      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22)
+      gain.connect(ctx.destination)
+
+      const makeTone = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, start)
+        osc.connect(gain)
+        osc.start(start)
+        osc.stop(start + dur)
+      }
+
+      // Short, mellow 2-note chime (C5 -> E5)
+      makeTone(523.25, now, 0.11)
+      makeTone(659.25, now + 0.09, 0.12)
+    } catch {
+      // ignore
+    }
+  }
 
   const defaultStages = useMemo<SupportFunnelStage[]>(
     () => [
@@ -211,8 +306,9 @@ export function Support() {
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
   >(
-    ['support-chats', search],
-    (authToken) => fetchSupportChats(authToken, search, 1, 200),
+    ['support-chats'],
+    // Fetch a wider list and filter locally so we can search by local-only "tags" (funnel stage labels).
+    (authToken) => fetchSupportChats(authToken, '', 1, 500),
     {
       enabled: Boolean(token),
       // Auto-refresh list so new inbound messages show up without reload.
@@ -267,8 +363,39 @@ export function Support() {
   }, [chats])
 
   const filteredChats = useMemo(() => {
-    return chats.filter((chat) => getChatTab(chat) === activeTab)
-  }, [activeTab, chats])
+    const raw = chats.filter((chat) => getChatTab(chat) === activeTab)
+    const q = search.trim().toLowerCase()
+    if (!q) return raw
+
+    const terms = q.split(/\s+/).filter(Boolean)
+    if (terms.length === 0) return raw
+
+    return raw.filter((chat) => {
+      const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+      const stageLabel = funnelStages.find((s) => s.id === stageId)?.label || ''
+
+      const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ')
+      const username = chat.username ? `@${chat.username}` : ''
+
+      const haystack = [
+        chat.chatId,
+        chat.telegramId,
+        chat.username,
+        username,
+        chat.firstName,
+        chat.lastName,
+        displayName,
+        stageId,
+        stageLabel,
+        chat.lastMessageText,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      return terms.every((term) => haystack.includes(term))
+    })
+  }, [activeTab, chats, funnelStages, chatStageMap, primaryStageId, search])
 
   // Track chat-list scroll position so we can notify about new activity when scrolled down.
   useEffect(() => {
@@ -320,6 +447,87 @@ export function Support() {
       setNewChatsActivityCount((c) => c + activityCount)
     }
   }, [filteredChats, isChatsListAtTop])
+
+  // Desktop/browser notifications for new inbound messages.
+  useEffect(() => {
+    if (!notificationsEnabled) return
+
+    const prev = prevNotifyMetaRef.current
+    const next: Record<string, { lastInboundAt: string | null; unreadCount: number }> = {}
+    const now = Date.now()
+
+    let anyEvent = false
+
+    for (const chat of chats) {
+      const lastInboundAt = chat.lastInboundAt || null
+      const unreadCount = chat.unreadCount || 0
+      next[chat.chatId] = { lastInboundAt, unreadCount }
+
+      const prevMeta = prev[chat.chatId]
+      if (!prevMeta) continue
+
+      const inboundChanged = lastInboundAt && lastInboundAt !== prevMeta.lastInboundAt
+      const unreadIncreased = unreadCount > prevMeta.unreadCount
+      if (!inboundChanged && !unreadIncreased) continue
+
+      // Skip if this chat is open and window is focused.
+      if (chat.chatId === selectedChatId && document.visibilityState === 'visible') continue
+
+      // Throttle per chat to avoid annoyance.
+      const lastNotifyAt = lastNotifyAtRef.current[chat.chatId] || 0
+      if (now - lastNotifyAt < 20000) continue
+
+      anyEvent = true
+      lastNotifyAtRef.current[chat.chatId] = now
+
+      const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+      const nick = chat.username ? `@${chat.username}` : null
+      const title = nick || displayName
+
+      const body = chat.lastMessageText ? chat.lastMessageText : t('support.notifications.newMessageBody')
+
+      ;(async () => {
+        const ok = await ensureNotificationPermission()
+        if (!ok) return
+
+        try {
+          const n = new Notification(t('support.notifications.newMessageTitle'), {
+            body: `${title}: ${body}`,
+            tag: `support-${chat.chatId}`,
+            silent: true,
+          })
+          n.onclick = () => {
+            try {
+              window.focus()
+              setSelectedChatId(chat.chatId)
+            } catch {
+              // ignore
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        if (notificationSoundEnabled && document.visibilityState !== 'visible') {
+          await primeAudio()
+          playChime()
+        }
+      })()
+    }
+
+    prevNotifyMetaRef.current = next
+
+    // Avoid firing on first load when we don't yet have a baseline.
+    if (!notifiedOnceRef.current) {
+      notifiedOnceRef.current = true
+      return
+    }
+
+    // If multiple events happened at once, also show an in-app toast.
+    if (anyEvent) {
+      toast.message(t('support.notifications.toast'))
+    }
+  }, [chats, notificationSoundEnabled, notificationsEnabled, selectedChatId, t])
 
   const sortedChats = useMemo(() => {
     const toTs = (value: string | null) => (value ? new Date(value).getTime() : 0)
@@ -627,6 +835,63 @@ export function Support() {
               />
             </div>
 
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={notificationsEnabled}
+                  onCheckedChange={async (checked) => {
+                    if (checked) {
+                      const ok = await ensureNotificationPermission()
+                      if (!ok) {
+                        setNotificationsEnabled(false)
+                        persistNotificationSettings(false, notificationSoundEnabled)
+                        return
+                      }
+                    }
+                    setNotificationsEnabled(checked)
+                    persistNotificationSettings(checked, notificationSoundEnabled)
+                  }}
+                />
+                <Label className="text-xs text-muted-foreground">{t('support.notifications.enable')}</Label>
+              </div>
+
+              <div className={"flex items-center gap-2 " + (!notificationsEnabled ? 'opacity-50' : '')}>
+                <Switch
+                  checked={notificationSoundEnabled}
+                  disabled={!notificationsEnabled}
+                  onCheckedChange={async (checked) => {
+                    setNotificationSoundEnabled(checked)
+                    persistNotificationSettings(notificationsEnabled, checked)
+                    if (checked) await primeAudio()
+                  }}
+                />
+                <Label className="text-xs text-muted-foreground">{t('support.notifications.sound')}</Label>
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  const ok = await ensureNotificationPermission()
+                  if (!ok) return
+                  await primeAudio()
+                  playChime()
+                  try {
+                    new Notification(t('support.notifications.testTitle'), {
+                      body: t('support.notifications.testBody'),
+                      tag: 'support-test',
+                      silent: true,
+                    })
+                  } catch {
+                    // ignore
+                  }
+                }}
+              >
+                {t('support.notifications.test')}
+              </Button>
+            </div>
+
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SupportChatsTab)}>
               <TabsList>
                 <TabsTrigger value="new">
@@ -682,9 +947,10 @@ export function Support() {
                 <ScrollArea className="h-[640px]">
                   <div className="divide-y divide-border">
                     {sortedChats.map((chat) => {
-                      const title = chat.username
-                        ? `@${chat.username}`
-                        : [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+                      const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+                      const nick = chat.username ? `@${chat.username}` : null
+                      const title = displayName
+                      const sub = nick || chat.telegramId
 
                       const pinned = pinnedSet.has(chat.chatId)
 
@@ -743,9 +1009,8 @@ export function Support() {
                                     ) : null}
                                   </div>
                                 </div>
-                                <div className="text-xs text-muted-foreground truncate mt-1">
-                                  {chat.lastMessageText || ''}
-                                </div>
+                                <div className="text-xs text-muted-foreground truncate">{sub}</div>
+                                <div className="text-xs text-muted-foreground truncate mt-1">{chat.lastMessageText || ''}</div>
                               </div>
                             </div>
                           </button>
@@ -824,9 +1089,10 @@ export function Support() {
                     <div className="divide-y divide-border">
                       {sortedChats.map((chat) => {
                         const isActive = chat.chatId === selectedChatId
-                        const title = chat.username
-                          ? `@${chat.username}`
-                          : [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+                        const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+                        const nick = chat.username ? `@${chat.username}` : null
+                        const title = displayName
+                        const sub = nick || chat.telegramId
 
                         const pinned = pinnedSet.has(chat.chatId)
                         const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
@@ -882,6 +1148,9 @@ export function Support() {
                                         </Badge>
                                       ) : null}
                                     </div>
+                                  </div>
+                                  <div className={"text-xs truncate " + (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground')}>
+                                    {sub}
                                   </div>
                                   <div className={"text-xs truncate mt-1 " + (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground')}>
                                     {chat.lastMessageText || ''}
