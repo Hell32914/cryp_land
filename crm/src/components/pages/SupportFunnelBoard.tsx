@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
@@ -243,7 +243,9 @@ export function SupportFunnelBoard() {
   }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm])
 
   // Keep a top horizontal scrollbar synced with the columns scroller.
-  useEffect(() => {
+  // Use layout-timed measurement + a few re-measures so the scrollbar is correct
+  // even when navigating between pages (and layout/fonts settle after mount).
+  useLayoutEffect(() => {
     const el = columnsScrollRef.current
     if (!el) return
 
@@ -252,16 +254,31 @@ export function SupportFunnelBoard() {
       setColumnsClientWidth(el.clientWidth)
     }
 
-    update()
+    const scheduleUpdate = () => {
+      update()
+      requestAnimationFrame(update)
+      window.setTimeout(update, 0)
+    }
+
+    scheduleUpdate()
 
     const onWindowResize = () => update()
     window.addEventListener('resize', onWindowResize)
 
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') scheduleUpdate()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => update()) : null
     ro?.observe(el)
 
+    const fontsReady: Promise<unknown> | null = (document as any)?.fonts?.ready || null
+    fontsReady?.then(() => scheduleUpdate()).catch(() => {})
+
     return () => {
       window.removeEventListener('resize', onWindowResize)
+      document.removeEventListener('visibilitychange', onVisibility)
       ro?.disconnect()
     }
   }, [columns.length])
@@ -359,7 +376,7 @@ export function SupportFunnelBoard() {
         <div
           ref={topScrollRef}
           onScroll={() => syncScroll('top')}
-          className="h-3 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-muted/20"
+          className="h-5 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-muted/20"
           aria-label="Horizontal scroll"
         >
           <div style={{ width: columnsScrollWidth, height: 1 }} />
