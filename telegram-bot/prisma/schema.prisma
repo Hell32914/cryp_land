@@ -215,6 +215,7 @@ model CrmOperator {
   username     String   @unique
   passwordHash String
   passwordSalt String
+  role         String   @default("admin")
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

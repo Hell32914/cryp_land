@@ -10,6 +10,14 @@ export class ApiError extends Error {
   }
 }
 
+function emitUnauthorized() {
+  try {
+    window.dispatchEvent(new Event('syntrix:unauthorized'))
+  } catch {
+    // ignore
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
 
   const headers = new Headers(options.headers || {})
@@ -31,6 +39,7 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   const data = text ? JSON.parse(text) : null
 
   if (!response.ok) {
+    if (response.status === 401) emitUnauthorized()
     const message = (data && data.error) || response.statusText || 'Request failed'
     throw new ApiError(message, response.status)
   }
@@ -52,6 +61,7 @@ async function requestFormData<T>(path: string, formData: FormData, token?: stri
   const data = text ? JSON.parse(text) : null
 
   if (!response.ok) {
+    if (response.status === 401) emitUnauthorized()
     const message = (data && data.error) || response.statusText || 'Request failed'
     throw new ApiError(message, response.status)
   }
@@ -281,6 +291,7 @@ export interface SupportBroadcastsResponse {
 export interface CrmOperatorRecord {
   id: number
   username: string
+  role?: string
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -573,10 +584,16 @@ export const cancelSupportBroadcast = (token: string, id: number) =>
 export const fetchCrmOperators = (token: string) =>
   request<CrmOperatorsResponse>(`/api/admin/operators`, {}, token)
 
-export const createCrmOperator = (token: string, payload: { username: string; password: string }) =>
+export const createCrmOperator = (token: string, payload: { username: string; password: string; role?: 'admin' | 'support' }) =>
   request<CrmOperatorRecord>(`/api/admin/operators`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  }, token)
+
+export const setCrmOperatorRole = (token: string, id: number, role: 'admin' | 'support') =>
+  request<CrmOperatorRecord>(`/api/admin/operators/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
   }, token)
 
 export const resetCrmOperatorPassword = (token: string, id: number, password: string) =>

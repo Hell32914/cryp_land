@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
+import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import { useApiQuery } from '@/hooks/use-api-query'
 import {
   createCrmOperator,
   deleteCrmOperator,
   fetchCrmOperators,
   resetCrmOperatorPassword,
+  setCrmOperatorRole,
   toggleCrmOperator,
   type CrmOperatorRecord,
 } from '@/lib/api'
@@ -16,42 +18,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-
-function decodeJwtClaims(token?: string | null): { username: string | null; role: string | null } {
-  try {
-    if (!token) return { username: null, role: null }
-    const parts = token.split('.')
-    if (parts.length < 2) return { username: null, role: null }
-    const payload = parts[1]
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
-    const json = window.atob(padded)
-    const data = JSON.parse(json)
-    const username =
-      typeof data?.username === 'string'
-        ? data.username
-        : typeof data?.adminUsername === 'string'
-          ? data.adminUsername
-          : typeof data?.login === 'string'
-            ? data.login
-            : null
-    const role = typeof data?.role === 'string' ? data.role : typeof data?.adminRole === 'string' ? data.adminRole : null
-    return { username, role }
-  } catch {
-    return { username: null, role: null }
-  }
-}
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export function SupportOperators() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const queryClient = useQueryClient()
 
-  const me = useMemo(() => decodeJwtClaims(token), [token])
+  const me = useMemo(() => {
+    const claims = decodeJwtClaims(token)
+    const role = normalizeCrmRole(claims.role)
+    return { username: claims.username, role }
+  }, [token])
   const canManageOperators = me.role === 'superadmin' || me.role === 'admin'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [newRole, setNewRole] = useState<'admin' | 'support'>('admin')
 
   const [resetId, setResetId] = useState<number | null>(null)
   const [resetPassword, setResetPassword] = useState('')
@@ -70,14 +59,24 @@ export function SupportOperators() {
   const operators = useMemo(() => (data as any)?.operators ?? [], [data]) as CrmOperatorRecord[]
 
   const createMutation = useMutation({
-    mutationFn: (payload: { username: string; password: string }) => createCrmOperator(token!, payload),
+    mutationFn: (payload: { username: string; password: string; role: 'admin' | 'support' }) => createCrmOperator(token!, payload),
     onSuccess: async () => {
       setUsername('')
       setPassword('')
+      setNewRole('admin')
       await queryClient.invalidateQueries({ queryKey: ['crm-operators'] })
       toast.success(t('supportOperators.created'))
     },
     onError: (e: any) => toast.error(e?.message || t('supportOperators.createFailed')),
+  })
+
+  const roleMutation = useMutation({
+    mutationFn: ({ id, role }: { id: number; role: 'admin' | 'support' }) => setCrmOperatorRole(token!, id, role),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['crm-operators'] })
+      toast.success(t('supportOperators.updated'))
+    },
+    onError: (e: any) => toast.error(e?.message || t('supportOperators.updateFailed')),
   })
 
   const toggleMutation = useMutation({
@@ -128,7 +127,7 @@ export function SupportOperators() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_220px_auto] gap-2 items-end">
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">{t('supportOperators.username')}</div>
               <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="operator1" />
@@ -142,12 +141,24 @@ export function SupportOperators() {
                 type="password"
               />
             </div>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">{t('supportOperators.role')}</div>
+              <Select value={newRole} onValueChange={(v) => setNewRole(v as any)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="support">Support</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               onClick={() => {
                 const u = username.trim()
                 const p = password
                 if (!u || !p) return
-                createMutation.mutate({ username: u, password: p })
+                createMutation.mutate({ username: u, password: p, role: newRole })
               }}
               disabled={!token || !canManageOperators || createMutation.isPending || !username.trim() || !password}
             >
@@ -184,6 +195,9 @@ export function SupportOperators() {
                         <Badge variant={op.isActive ? 'secondary' : 'destructive'}>
                           {op.isActive ? t('supportOperators.active') : t('supportOperators.disabled')}
                         </Badge>
+                        {op.role ? (
+                          <Badge variant="outline">{String(op.role).toUpperCase()}</Badge>
+                        ) : null}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {t('supportOperators.createdAt')}: {new Date(op.createdAt).toLocaleString()}
@@ -191,6 +205,21 @@ export function SupportOperators() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {canManageOperators ? (
+                        <Select
+                          value={(op.role as any) || 'admin'}
+                          onValueChange={(v) => roleMutation.mutate({ id: op.id, role: v as any })}
+                        >
+                          <SelectTrigger className="h-9 w-[140px]" disabled={roleMutation.isPending}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="support">Support</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : null}
+
                       <Button
                         variant="outline"
                         size="sm"

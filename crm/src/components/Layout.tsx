@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/lib/auth'
+import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import { cn } from '@/lib/utils'
 
 interface LayoutProps {
@@ -34,8 +35,10 @@ interface LayoutProps {
 
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { t, i18n } = useTranslation()
-  const { logout } = useAuth()
+  const { token, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+
+  const role = normalizeCrmRole(decodeJwtClaims(token).role)
 
   const currentLang = String((i18n as any)?.resolvedLanguage || i18n.language || 'en').split('-')[0]
 
@@ -75,6 +78,19 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     },
   ]
 
+  const visibleMenuSections =
+    role === 'support'
+      ? [
+          {
+            title: t('nav.support'),
+            items: [
+              { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
+              { id: 'support-funnel', label: t('nav.supportFunnel'), icon: Funnel },
+            ],
+          },
+        ]
+      : menuSections
+
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng)
   }
@@ -104,7 +120,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2 space-y-6">
-          {menuSections.map((section) => (
+          {visibleMenuSections.map((section) => (
             <div key={section.title}>
               {isSidebarOpen && (
                 <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">

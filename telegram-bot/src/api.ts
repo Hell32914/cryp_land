@@ -234,11 +234,43 @@ const requireAdminAuth: RequestHandler = (req, res, next) => {
       decoded?.user ??
       decoded?.sub
 
-    const roleCandidate = decoded?.role ?? decoded?.adminRole ?? decoded?.type
+    const username = typeof usernameCandidate === 'string' ? usernameCandidate : undefined
+    if (!username) return res.status(401).json({ error: 'Unauthorized' })
 
-    ;(req as any).adminUsername = typeof usernameCandidate === 'string' ? usernameCandidate : undefined
-    ;(req as any).adminRole = typeof roleCandidate === 'string' ? roleCandidate : undefined
-    next()
+    // Env-based superadmin
+    const isEnvAdmin = Boolean(CRM_ADMIN_USERNAME && username && username === CRM_ADMIN_USERNAME)
+    if (isEnvAdmin) {
+      ;(req as any).adminUsername = username
+      ;(req as any).adminRole = 'superadmin'
+      return next()
+    }
+
+    // DB operator: enforce active & derive role from DB (so disabling/deleting kicks everyone out)
+    ;(async () => {
+      const operator = await prisma.crmOperator.findUnique({
+        where: { username },
+        select: { username: true, isActive: true, role: true },
+      })
+
+      if (!operator || !operator.isActive) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const role = String(operator.role || 'admin')
+
+      // Support role can ONLY access /api/admin/support/*
+      const url = String(req.originalUrl || '')
+      if (role === 'support' && !url.startsWith('/api/admin/support')) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+
+      ;(req as any).adminUsername = operator.username
+      ;(req as any).adminRole = role
+      next()
+    })().catch((e) => {
+      console.error('Admin auth operator check error:', e)
+      return res.status(401).json({ error: 'Unauthorized' })
+    })
   } catch {
     return res.status(401).json({ error: 'Unauthorized' })
   }
@@ -290,6 +322,11 @@ const loginSchema = z.object({
 const crmOperatorCreateSchema = z.object({
   username: z.string().min(2).max(50),
   password: z.string().min(6).max(128),
+  role: z.enum(['admin', 'support']).optional(),
+})
+
+const crmOperatorSetRoleSchema = z.object({
+  role: z.enum(['admin', 'support']),
 })
 
 const crmOperatorResetPasswordSchema = z.object({
@@ -367,7 +404,7 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
     const token = jwt.sign(
       {
         username: operator.username,
-        role: 'operator',
+        role: operator.role || 'admin',
       },
       CRM_JWT_SECRET!,
       { expiresIn: ADMIN_TOKEN_EXPIRATION }
@@ -385,7 +422,7 @@ app.get('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req,
   try {
     const operators = await prisma.crmOperator.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+      select: { id: true, username: true, role: true, isActive: true, createdAt: true, updatedAt: true },
       take: 500,
     })
     return res.json({ operators })
@@ -402,6 +439,7 @@ app.post('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req
 
     const username = parsed.data.username.trim()
     const password = parsed.data.password
+    const role = parsed.data.role ?? 'admin'
 
     const existing = await prisma.crmOperator.findUnique({ where: { username } })
     if (existing) return res.status(409).json({ error: 'Username already exists' })
@@ -412,9 +450,10 @@ app.post('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req
         username,
         passwordSalt: salt,
         passwordHash: hash,
+        role,
         isActive: true,
       },
-      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+      select: { id: true, username: true, role: true, isActive: true, createdAt: true, updatedAt: true },
     })
 
     return res.json(created)
@@ -436,7 +475,7 @@ app.post('/api/admin/operators/:id/reset-password', requireAdminAuth, requireSup
     const updated = await prisma.crmOperator.update({
       where: { id },
       data: { passwordSalt: salt, passwordHash: hash },
-      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+      select: { id: true, username: true, role: true, isActive: true, createdAt: true, updatedAt: true },
     })
     return res.json(updated)
   } catch (error) {
@@ -456,7 +495,7 @@ app.post('/api/admin/operators/:id/toggle', requireAdminAuth, requireSuperAdmin,
     const updated = await prisma.crmOperator.update({
       where: { id },
       data: { isActive: !existing.isActive },
-      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+      select: { id: true, username: true, role: true, isActive: true, createdAt: true, updatedAt: true },
     })
     return res.json(updated)
   } catch (error) {
@@ -474,6 +513,26 @@ app.delete('/api/admin/operators/:id', requireAdminAuth, requireSuperAdmin, asyn
   } catch (error) {
     console.error('CRM operator delete error:', error)
     return res.status(500).json({ error: 'Failed to delete operator' })
+  }
+})
+
+app.patch('/api/admin/operators/:id/role', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+
+    const parsed = crmOperatorSetRoleSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload' })
+
+    const updated = await prisma.crmOperator.update({
+      where: { id },
+      data: { role: parsed.data.role },
+      select: { id: true, username: true, role: true, isActive: true, createdAt: true, updatedAt: true },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('CRM operator role update error:', error)
+    return res.status(500).json({ error: 'Failed to update operator role' })
   }
 })
 

@@ -50,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthState({ token: null })
   }
 
+  useEffect(() => {
+    const handler = () => logout()
+    window.addEventListener('syntrix:unauthorized', handler)
+    return () => window.removeEventListener('syntrix:unauthorized', handler)
+  }, [logout])
+
   const token = authState?.token ?? null
 
   return (

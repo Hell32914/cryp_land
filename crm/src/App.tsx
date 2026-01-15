@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from '@/lib/auth'
+import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import { LoginPage } from '@/components/LoginPage'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/components/pages/Dashboard'
@@ -22,8 +23,21 @@ import '@/lib/i18n'
 const queryClient = new QueryClient()
 
 function AppContent() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, token } = useAuth()
   const [currentPage, setCurrentPage] = useState('dashboard')
+
+  const role = useMemo(() => normalizeCrmRole(decodeJwtClaims(token).role), [token])
+  const allowedPages = useMemo(() => {
+    if (role !== 'support') return null
+    return new Set(['support', 'support-funnel'])
+  }, [role])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (role === 'support' && !allowedPages?.has(currentPage)) {
+      setCurrentPage('support')
+    }
+  }, [allowedPages, currentPage, isAuthenticated, role])
 
   const renderPage = () => {
     switch (currentPage) {
@@ -54,22 +68,31 @@ function AppContent() {
       case 'support-broadcasts':
         return <SupportBroadcasts />
       default:
-        return <Dashboard />
+        return role === 'support' ? <Support /> : <Dashboard />
     }
   }
 
   if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setCurrentPage('dashboard')} />
+    return <LoginPage onLogin={() => {}} />
   }
 
   return (
-    <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
+    <Layout
+      currentPage={currentPage}
+      onNavigate={(page) => {
+        if (allowedPages && !allowedPages.has(page)) {
+          setCurrentPage('support')
+          return
+        }
+        setCurrentPage(page)
+      }}
+    >
       {renderPage()}
     </Layout>
   )
 }
 
-function App() {
+export default function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClient}>
@@ -79,5 +102,3 @@ function App() {
     </AuthProvider>
   )
 }
-
-export default App
