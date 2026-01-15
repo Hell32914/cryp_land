@@ -1318,6 +1318,25 @@ export function Support() {
                           <span>{t('support.notAccepted')}</span>
                         )}
                       </div>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="text-xs text-muted-foreground shrink-0">{t('support.columns.funnelStatus')}</div>
+                        <Select
+                          value={selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId}
+                          onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
+                        >
+                          <SelectTrigger className="w-[220px]">
+                            <SelectValue placeholder={t('support.funnel.primary')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {funnelStages.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1498,25 +1517,6 @@ export function Support() {
                         {blockMutation.isPending ? t('support.processing') : t('support.block')}
                       </Button>
                     )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground">{t('support.requestInfo')}</div>
-                    <Select
-                      value={selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId}
-                      onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t('support.funnel.primary')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {funnelStages.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
 
                   <div className="space-y-2">
