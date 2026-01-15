@@ -19,8 +19,26 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { PushPin, PushPinSlash } from '@phosphor-icons/react'
+import {
+  getPrimaryStageId,
+  loadPinnedChatIds,
+  loadSupportChatStageMap,
+  loadSupportFunnelStages,
+  savePinnedChatIds,
+  saveSupportChatStageMap,
+  type SupportFunnelStage,
+} from '@/lib/support-funnel'
 
 type SupportChatsTab = 'new' | 'accepted' | 'archive'
 
@@ -39,6 +57,58 @@ export function Support() {
 
   const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
   const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
+
+  const defaultStages = useMemo<SupportFunnelStage[]>(
+    () => [
+      { id: getPrimaryStageId(), label: t('support.funnel.primary'), locked: true },
+      { id: 'secondary', label: t('support.funnel.secondary') },
+      { id: 'decision', label: t('support.funnel.decision') },
+      { id: 'success', label: t('support.funnel.success') },
+      { id: 'fail', label: t('support.funnel.fail') },
+      { id: 'spam', label: t('support.funnel.spam') },
+    ],
+    [t]
+  )
+
+  const [funnelStages, setFunnelStages] = useState<SupportFunnelStage[]>(defaultStages)
+  const [chatStageMap, setChatStageMap] = useState<Record<string, string>>({})
+  const [pinnedChatIds, setPinnedChatIds] = useState<string[]>([])
+
+  useEffect(() => {
+    // Load local settings for funnel labels and pinned chats.
+    setFunnelStages(loadSupportFunnelStages(defaultStages))
+    setChatStageMap(loadSupportChatStageMap())
+    setPinnedChatIds(loadPinnedChatIds())
+  }, [defaultStages])
+
+  const primaryStageId = funnelStages.find((s) => s.id === getPrimaryStageId())?.id || getPrimaryStageId()
+
+  const setChatStage = (chatId: string, stageId: string) => {
+    setChatStageMap((prev) => {
+      const next = { ...prev, [chatId]: stageId }
+      saveSupportChatStageMap(next)
+      return next
+    })
+  }
+
+  const togglePinned = (chatId: string) => {
+    setPinnedChatIds((prev) => {
+      const set = new Set(prev)
+      if (set.has(chatId)) set.delete(chatId)
+      else set.add(chatId)
+      const next = Array.from(set)
+      savePinnedChatIds(next)
+      return next
+    })
+  }
+
+  const pinnedSet = useMemo(() => new Set(pinnedChatIds), [pinnedChatIds])
+
+  const [nowTs, setNowTs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTs(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
@@ -101,6 +171,16 @@ export function Support() {
   const filteredChats = useMemo(() => {
     return chats.filter((chat) => getChatTab(chat) === activeTab)
   }, [activeTab, chats])
+
+  const sortedChats = useMemo(() => {
+    const toTs = (value: string | null) => (value ? new Date(value).getTime() : 0)
+    return [...filteredChats].sort((a, b) => {
+      const ap = pinnedSet.has(a.chatId) ? 1 : 0
+      const bp = pinnedSet.has(b.chatId) ? 1 : 0
+      if (ap !== bp) return bp - ap
+      return toTs(b.lastMessageAt) - toTs(a.lastMessageAt)
+    })
+  }, [filteredChats, pinnedSet])
 
   const selectedChat: SupportChatRecord | null = useMemo(() => {
     if (!selectedChatId) return null
@@ -270,41 +350,104 @@ export function Support() {
               <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
             ) : isChatsError ? (
               <div className="text-sm text-destructive">{t('common.error')}</div>
-            ) : filteredChats.length === 0 ? (
+            ) : sortedChats.length === 0 ? (
               <div className="text-sm text-muted-foreground">{t('support.noChats')}</div>
             ) : (
               <ScrollArea className="h-[520px]">
                 <div className="space-y-2 pr-3">
-                  {filteredChats.map((chat) => {
+                  <div className="grid grid-cols-[minmax(0,1fr),220px,120px] gap-3 px-3 text-xs text-muted-foreground">
+                    <div />
+                    <div className="truncate">{t('support.columns.funnelStatus')}</div>
+                    <div className="truncate">{t('support.columns.responseTime')}</div>
+                  </div>
+
+                  {sortedChats.map((chat) => {
                     const isActive = chat.chatId === selectedChatId
                     const title = chat.username
                       ? `@${chat.username}`
                       : [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
 
+                    const pinned = pinnedSet.has(chat.chatId)
+
+                    const stageId = chatStageMap[chat.chatId] || primaryStageId
+                    const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
+                    const lastTs = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0
+                    const baseTs = lastTs || new Date(chat.startedAt).getTime()
+                    const minutes = baseTs ? Math.max(0, Math.floor((nowTs - baseTs) / 60000)) : null
+
+                    const fallbackChar = (chat.username?.[0] || chat.firstName?.[0] || chat.telegramId?.[0] || '?')
+                      .toUpperCase()
+
                     return (
-                      <button
-                        key={chat.chatId}
-                        onClick={() => setSelectedChatId(chat.chatId)}
-                        className={
-                          'w-full text-left rounded-md border px-3 py-2 transition-colors ' +
-                          (isActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground border-sidebar-border'
-                            : 'hover:bg-muted/50 border-border')
-                        }
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="font-medium truncate">{title}</div>
-                          {chat.unreadCount > 0 && (
-                            <Badge className="bg-primary text-primary-foreground">{chat.unreadCount}</Badge>
-                          )}
+                      <div key={chat.chatId} className="grid grid-cols-[minmax(0,1fr),220px,120px] gap-3 items-center">
+                        <button
+                          onClick={() => setSelectedChatId(chat.chatId)}
+                          className={
+                            'w-full text-left rounded-md border px-3 py-2 transition-colors ' +
+                            (isActive
+                              ? 'bg-sidebar-accent text-sidebar-accent-foreground border-sidebar-border'
+                              : 'hover:bg-muted/50 border-border')
+                          }
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative group">
+                              <Avatar className="size-9">
+                                <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
+                              </Avatar>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  togglePinned(chat.chatId)
+                                }}
+                                className={
+                                  'absolute -right-1 -bottom-1 rounded-full border border-border bg-background p-1 shadow ' +
+                                  (pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                                }
+                                aria-label={pinned ? 'unpin' : 'pin'}
+                              >
+                                {pinned ? <PushPinSlash size={14} /> : <PushPin size={14} />}
+                              </button>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="font-medium truncate">{title}</div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {pinned ? <PushPin size={16} weight="fill" className="opacity-80" /> : null}
+                                  {chat.unreadCount > 0 ? (
+                                    <Badge className="bg-primary text-primary-foreground">{chat.unreadCount}</Badge>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate mt-1">
+                                {chat.lastMessageText || ''}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+
+                        <Select
+                          value={stageId}
+                          onValueChange={(v) => setChatStage(chat.chatId, v)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {funnelStages.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <div className="text-sm text-muted-foreground">
+                          {minutes === null ? '—' : `${minutes} ${t('support.minutesShort')}`}
                         </div>
-                        <div className="text-xs text-muted-foreground truncate mt-1">
-                          {chat.lastMessageText || ''}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-1">
-                          {t('support.telegramId')}: {chat.telegramId}
-                        </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>

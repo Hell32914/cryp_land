@@ -10,6 +10,7 @@ import {
   Link,
   PencilRuler,
   ChatCenteredText,
+  Funnel,
   List,
   SignOut,
   Translate,
@@ -64,6 +65,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       title: t('nav.support'),
       items: [
         { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
+        { id: 'support-funnel', label: t('nav.supportFunnel'), icon: Funnel },
       ],
     },
   ]
