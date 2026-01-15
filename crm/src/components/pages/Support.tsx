@@ -359,6 +359,20 @@ export function Support() {
     return 'new'
   }
 
+  const openChat = (chatId: string, behavior: 'open' | 'toggle' = 'open') => {
+    const chat = chats.find((c) => c.chatId === chatId)
+    if (chat) {
+      setActiveTab(getChatTab(chat))
+    }
+
+    if (behavior === 'toggle') {
+      setSelectedChatId((prev) => (prev === chatId ? null : chatId))
+      return
+    }
+
+    setSelectedChatId(chatId)
+  }
+
   const tabCounts = useMemo(() => {
     const counts: Record<SupportChatsTab, number> = { new: 0, accepted: 0, archive: 0 }
     for (const chat of chats) {
@@ -504,7 +518,7 @@ export function Support() {
           n.onclick = () => {
             try {
               window.focus()
-              setSelectedChatId(chat.chatId)
+              openChat(chat.chatId, 'open')
             } catch {
               // ignore
             }
@@ -1015,8 +1029,8 @@ export function Support() {
                           <input type="checkbox" disabled className="h-4 w-4 opacity-40" />
 
                           <button
-                            onClick={() => setSelectedChatId(chat.chatId)}
-                            className="min-w-0 text-left"
+                            onClick={() => openChat(chat.chatId, 'open')}
+                            className="min-w-0 text-left w-full overflow-hidden"
                           >
                             <div className="flex items-center gap-3">
                               <div className="relative group shrink-0">
@@ -1056,7 +1070,7 @@ export function Support() {
                             </div>
                           </button>
 
-                          <div className="min-w-0 w-full space-y-1">
+                          <div className="min-w-0 w-full space-y-1 relative z-10">
                             <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
@@ -1073,8 +1087,10 @@ export function Support() {
                               type="button"
                               className="w-full text-left text-[11px] text-muted-foreground truncate hover:underline"
                               title={chat.telegramId}
-                              onClick={() => {
-                                setSelectedChatId((prev) => (prev === chat.chatId ? null : chat.chatId))
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                openChat(chat.chatId, 'toggle')
                               }}
                             >
                               {chat.telegramId}{chat.username ? ` • @${chat.username}` : ''}
@@ -1168,7 +1184,7 @@ export function Support() {
                               (isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-muted/30')
                             }
                           >
-                            <button onClick={() => setSelectedChatId(chat.chatId)} className="min-w-0 text-left">
+                            <button onClick={() => openChat(chat.chatId, 'open')} className="min-w-0 text-left w-full overflow-hidden">
                               <div className="flex items-center gap-3">
                                 <div className="relative group shrink-0">
                                   <Avatar className="size-9">
@@ -1212,7 +1228,7 @@ export function Support() {
                               </div>
                             </button>
 
-                            <div className="min-w-0 w-full space-y-1">
+                            <div className="min-w-0 w-full space-y-1 relative z-10">
                               <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
@@ -1232,8 +1248,10 @@ export function Support() {
                                   (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground')
                                 }
                                 title={chat.telegramId}
-                                onClick={() => {
-                                  setSelectedChatId((prev) => (prev === chat.chatId ? null : chat.chatId))
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  openChat(chat.chatId, 'toggle')
                                 }}
                               >
                                 {chat.telegramId}{chat.username ? ` • @${chat.username}` : ''}
@@ -1273,7 +1291,7 @@ export function Support() {
                 </CardTitle>
 
                 {selectedChatId && sortedChats.length > 1 ? (
-                  <Select value={selectedChatId} onValueChange={(v) => setSelectedChatId(v)}>
+                  <Select value={selectedChatId} onValueChange={(v) => openChat(v, 'open')}>
                     <SelectTrigger className="w-[220px]">
                       <SelectValue placeholder={t('support.chats')} />
                     </SelectTrigger>
