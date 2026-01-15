@@ -208,7 +208,8 @@ const requireAdminAuth: RequestHandler = (req, res, next) => {
 
   try {
     const token = authHeader.slice(7)
-    jwt.verify(token, CRM_JWT_SECRET!)
+    const decoded = jwt.verify(token, CRM_JWT_SECRET!) as any
+    ;(req as any).adminUsername = typeof decoded?.username === 'string' ? decoded.username : undefined
     next()
   } catch {
     return res.status(401).json({ error: 'Unauthorized' })
@@ -399,6 +400,54 @@ app.post('/api/admin/support/chats/:chatId/read', requireAdminAuth, async (req, 
   }
 })
 
+app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+    if (chat.status === 'ARCHIVE') {
+      return res.status(409).json({ error: 'Chat is archived' })
+    }
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(409).json({ error: 'Chat already accepted by another operator' })
+    }
+
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: {
+        status: 'ACCEPTED',
+        acceptedBy: adminUsername,
+        acceptedAt: chat.acceptedAt || new Date(),
+      },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat accept error:', error)
+    return res.status(500).json({ error: 'Failed to accept chat' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/archive', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: {
+        status: 'ARCHIVE',
+        archivedAt: new Date(),
+        unreadCount: 0,
+      },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat archive error:', error)
+    return res.status(500).json({ error: 'Failed to archive chat' })
+  }
+})
+
 app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (req, res) => {
   try {
     if (!supportBotInstance) {
@@ -411,9 +460,22 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       return res.status(400).json({ error: 'Invalid message payload' })
     }
 
-    const { text, adminUsername } = parseResult.data
+    const { text } = parseResult.data
     const chat = await prisma.supportChat.findUnique({ where: { chatId } })
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    if (chat.status === 'ARCHIVE') {
+      return res.status(409).json({ error: 'Chat is archived' })
+    }
+    if (chat.status !== 'ACCEPTED') {
+      return res.status(409).json({ error: 'Chat must be accepted before replying' })
+    }
+    if (chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is accepted by another operator' })
+    }
 
     // Send to Telegram first (so we don't persist unsent messages)
     await supportBotInstance.api.sendMessage(chatId, text)
@@ -433,6 +495,7 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       data: {
         lastMessageAt: message.createdAt,
         lastMessageText: text,
+        lastOutboundAt: message.createdAt,
       },
     })
 
@@ -465,7 +528,20 @@ app.post(
       if (!parsed.success) {
         return res.status(400).json({ error: 'Invalid payload' })
       }
-      const { caption, adminUsername } = parsed.data
+      const { caption } = parsed.data
+
+      const adminUsername = String((req as any).adminUsername || '').trim()
+      if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+      if (chat.status === 'ARCHIVE') {
+        return res.status(409).json({ error: 'Chat is archived' })
+      }
+      if (chat.status !== 'ACCEPTED') {
+        return res.status(409).json({ error: 'Chat must be accepted before replying' })
+      }
+      if (chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+        return res.status(403).json({ error: 'Chat is accepted by another operator' })
+      }
 
       // Send to Telegram first
       const sent = await supportBotInstance.api.sendPhoto(
@@ -496,6 +572,7 @@ app.post(
         data: {
           lastMessageAt: message.createdAt,
           lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+          lastOutboundAt: message.createdAt,
         },
       })
 

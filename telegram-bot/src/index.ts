@@ -5680,6 +5680,7 @@ if (supportBot) {
       },
     })
 
+    const now = new Date()
     await prisma.supportChat.upsert({
       where: { telegramId },
       create: {
@@ -5688,8 +5689,10 @@ if (supportBot) {
         username: from.username || null,
         firstName: from.first_name || null,
         lastName: from.last_name || null,
-        startedAt: new Date(),
-        lastMessageAt: new Date(),
+        status: 'NEW',
+        startedAt: now,
+        lastMessageAt: now,
+        lastInboundAt: now,
         lastMessageText: '/start',
       },
       update: {
@@ -5697,10 +5700,11 @@ if (supportBot) {
         username: from.username || null,
         firstName: from.first_name || null,
         lastName: from.last_name || null,
-        lastMessageAt: new Date(),
+        lastMessageAt: now,
+        lastInboundAt: now,
         lastMessageText: '/start',
       },
-    })
+    } as any)
 
     // Claim activation bonus (best-effort). This also activates INACTIVE users.
     let bonusGranted = false
@@ -5728,29 +5732,43 @@ if (supportBot) {
 
     const telegramId = String(from.id)
 
+    const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
+    const now = new Date()
+
+    const createData: any = {
+      telegramId,
+      chatId,
+      username: from.username || null,
+      firstName: from.first_name || null,
+      lastName: from.last_name || null,
+      status: 'NEW',
+      startedAt: now,
+      lastMessageAt: now,
+      lastInboundAt: now,
+      lastMessageText: text.slice(0, 500),
+      unreadCount: 1,
+    }
+
+    const updateData: any = {
+      chatId,
+      username: from.username || null,
+      firstName: from.first_name || null,
+      lastName: from.last_name || null,
+      status: existing?.status === 'ARCHIVE' ? 'NEW' : (existing?.status || 'NEW'),
+      acceptedBy: existing?.status === 'ARCHIVE' ? null : undefined,
+      acceptedAt: existing?.status === 'ARCHIVE' ? null : undefined,
+      archivedAt: existing?.status === 'ARCHIVE' ? null : undefined,
+      lastMessageAt: now,
+      lastInboundAt: now,
+      lastMessageText: text.slice(0, 500),
+      unreadCount: { increment: 1 },
+    }
+
     const chat = await prisma.supportChat.upsert({
       where: { telegramId },
-      create: {
-        telegramId,
-        chatId,
-        username: from.username || null,
-        firstName: from.first_name || null,
-        lastName: from.last_name || null,
-        startedAt: new Date(),
-        lastMessageAt: new Date(),
-        lastMessageText: text.slice(0, 500),
-        unreadCount: 1,
-      },
-      update: {
-        chatId,
-        username: from.username || null,
-        firstName: from.first_name || null,
-        lastName: from.last_name || null,
-        lastMessageAt: new Date(),
-        lastMessageText: text.slice(0, 500),
-        unreadCount: { increment: 1 },
-      },
-    })
+      create: createData,
+      update: updateData,
+    } as any)
 
     await prisma.supportMessage.create({
       data: {
@@ -5772,29 +5790,43 @@ if (supportBot) {
     const largest = photos[photos.length - 1]
     const caption = (ctx.message as any)?.caption as string | undefined
 
+    const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
+    const now = new Date()
+
+    const createData: any = {
+      telegramId,
+      chatId,
+      username: from.username || null,
+      firstName: from.first_name || null,
+      lastName: from.last_name || null,
+      status: 'NEW',
+      startedAt: now,
+      lastMessageAt: now,
+      lastInboundAt: now,
+      lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+      unreadCount: 1,
+    }
+
+    const updateData: any = {
+      chatId,
+      username: from.username || null,
+      firstName: from.first_name || null,
+      lastName: from.last_name || null,
+      status: existing?.status === 'ARCHIVE' ? 'NEW' : (existing?.status || 'NEW'),
+      acceptedBy: existing?.status === 'ARCHIVE' ? null : undefined,
+      acceptedAt: existing?.status === 'ARCHIVE' ? null : undefined,
+      archivedAt: existing?.status === 'ARCHIVE' ? null : undefined,
+      lastMessageAt: now,
+      lastInboundAt: now,
+      lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+      unreadCount: { increment: 1 },
+    }
+
     const chat = await prisma.supportChat.upsert({
       where: { telegramId },
-      create: {
-        telegramId,
-        chatId,
-        username: from.username || null,
-        firstName: from.first_name || null,
-        lastName: from.last_name || null,
-        startedAt: new Date(),
-        lastMessageAt: new Date(),
-        lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
-        unreadCount: 1,
-      },
-      update: {
-        chatId,
-        username: from.username || null,
-        firstName: from.first_name || null,
-        lastName: from.last_name || null,
-        lastMessageAt: new Date(),
-        lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
-        unreadCount: { increment: 1 },
-      },
-    })
+      create: createData,
+      update: updateData,
+    } as any)
 
     await prisma.supportMessage.create({
       data: {

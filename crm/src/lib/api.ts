@@ -239,6 +239,12 @@ export interface SupportChatRecord {
   username: string | null
   firstName: string | null
   lastName: string | null
+  status?: string | null
+  acceptedBy?: string | null
+  acceptedAt?: string | null
+  archivedAt?: string | null
+  lastInboundAt?: string | null
+  lastOutboundAt?: string | null
   startedAt: string
   lastMessageAt: string | null
   lastMessageText: string | null
@@ -464,6 +470,12 @@ export const fetchSupportMessages = (token: string, chatId: string, opts?: { bef
 
 export const markSupportChatRead = (token: string, chatId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/read`, { method: 'POST' }, token)
+
+export const acceptSupportChat = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/accept`, { method: 'POST' }, token)
+
+export const archiveSupportChat = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/archive`, { method: 'POST' }, token)
 
 export const sendSupportMessage = (token: string, chatId: string, text: string) =>
   request<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/messages`, {

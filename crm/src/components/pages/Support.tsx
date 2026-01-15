@@ -6,6 +6,8 @@ import {
   fetchSupportChats,
   fetchSupportFileBlob,
   fetchSupportMessages,
+  acceptSupportChat,
+  archiveSupportChat,
   markSupportChatRead,
   sendSupportPhoto,
   sendSupportMessage,
@@ -29,7 +31,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PushPin, PushPinSlash } from '@phosphor-icons/react'
+import { PushPin, PushPinSlash, Bell } from '@phosphor-icons/react'
 import {
   getPrimaryStageId,
   loadPinnedChatIds,
@@ -106,9 +108,23 @@ export function Support() {
 
   const [nowTs, setNowTs] = useState(() => Date.now())
   useEffect(() => {
-    const id = window.setInterval(() => setNowTs(Date.now()), 30_000)
+    const id = window.setInterval(() => setNowTs(Date.now()), 1000)
     return () => window.clearInterval(id)
   }, [])
+
+  const RESPONSE_LIMIT_SECONDS = 5 * 60
+
+  const formatDuration = (seconds: number) => {
+    const s = Math.max(0, Math.floor(seconds))
+    const days = Math.floor(s / 86400)
+    const hours = Math.floor((s % 86400) / 3600)
+    const minutes = Math.floor((s % 3600) / 60)
+    const secs = s % 60
+
+    const pad = (v: number) => String(v).padStart(2, '0')
+    const base = hours > 0 || days > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(secs)}` : `${pad(minutes)}:${pad(secs)}`
+    return days > 0 ? `${days}d ${base}` : base
+  }
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
@@ -156,8 +172,8 @@ export function Support() {
       return 'accepted'
     }
 
-    // Product requirement: "New" is unread dialogs.
-    return chat.unreadCount > 0 ? 'new' : 'accepted'
+    // Fallback: unaccepted/unarchived chats are treated as "new".
+    return 'new'
   }
 
   const tabCounts = useMemo(() => {
@@ -188,9 +204,16 @@ export function Support() {
   }, [chats, selectedChatId])
 
   useEffect(() => {
-    // Switching tabs should collapse any open chat.
-    setSelectedChatId(null)
-  }, [activeTab])
+    if (!selectedChatId) return
+    const chat = chats.find((c) => c.chatId === selectedChatId)
+    if (!chat) {
+      setSelectedChatId(null)
+      return
+    }
+    if (getChatTab(chat) !== activeTab) {
+      setSelectedChatId(null)
+    }
+  }, [activeTab, chats, selectedChatId])
 
   const { data: messagesData, isLoading: isMessagesLoading } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportMessages>>
@@ -212,6 +235,32 @@ export function Support() {
     mutationFn: (chatId: string) => markSupportChatRead(token!, chatId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+    },
+  })
+
+  const acceptMutation = useMutation({
+    mutationFn: (chatId: string) => acceptSupportChat(token!, chatId),
+    onSuccess: async (updated) => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setActiveTab('accepted')
+      setSelectedChatId(updated.chatId)
+      toast.success(t('support.accepted'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.acceptFailed'))
+    },
+  })
+
+  const archiveMutation = useMutation({
+    mutationFn: (chatId: string) => archiveSupportChat(token!, chatId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setSelectedChatId(null)
+      setActiveTab('archive')
+      toast.success(t('support.archived'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.archiveFailed'))
     },
   })
 
@@ -256,6 +305,10 @@ export function Support() {
 
   const handleSend = () => {
     if (!selectedChatId) return
+    if (selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') {
+      toast.error(t('support.mustAcceptFirst'))
+      return
+    }
     const trimmed = messageText.trim()
     if (!trimmed) return
     sendMessageMutation.mutate({ chatId: selectedChatId, text: trimmed })
@@ -371,9 +424,12 @@ export function Support() {
 
                     const stageId = chatStageMap[chat.chatId] || primaryStageId
                     const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
-                    const lastTs = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0
-                    const baseTs = lastTs || new Date(chat.startedAt).getTime()
-                    const minutes = baseTs ? Math.max(0, Math.floor((nowTs - baseTs) / 60000)) : null
+
+                    const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
+                    const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
+                    const waiting = inboundTs > 0 && inboundTs > outboundTs
+                    const waitingSeconds = waiting ? Math.max(1, Math.floor((nowTs - inboundTs) / 1000)) : 0
+                    const showAlert = waiting && waitingSeconds >= RESPONSE_LIMIT_SECONDS
 
                     const fallbackChar = (chat.username?.[0] || chat.firstName?.[0] || chat.telegramId?.[0] || '?')
                       .toUpperCase()
@@ -445,7 +501,10 @@ export function Support() {
                         </Select>
 
                         <div className="text-sm text-muted-foreground">
-                          {minutes === null ? '—' : `${minutes} ${t('support.minutesShort')}`}
+                          <div className={"flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
+                            {showAlert ? <Bell size={16} weight="fill" /> : null}
+                            <span>{formatDuration(waiting ? waitingSeconds : 0)}</span>
+                          </div>
                         </div>
                       </div>
                     )
@@ -458,11 +517,43 @@ export function Support() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>
-              {selectedChat
-                ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
-                : t('support.selectChat')}
-            </CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>
+                {selectedChat
+                  ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
+                  : t('support.selectChat')}
+              </CardTitle>
+
+              {selectedChat ? (
+                <div className="flex items-center gap-2">
+                  {selectedChat.status && String(selectedChat.status).toUpperCase() === 'ACCEPTED' ? (
+                    <div className="text-xs text-muted-foreground">
+                      {t('support.acceptedBy')}{' '}
+                      <span className="text-foreground">{selectedChat.acceptedBy || '—'}</span>
+                    </div>
+                  ) : null}
+
+                  <Button
+                    variant="outline"
+                    onClick={() => acceptMutation.mutate(selectedChat.chatId)}
+                    disabled={
+                      acceptMutation.isPending ||
+                      String(selectedChat.status || '').toUpperCase() === 'ARCHIVE' ||
+                      String(selectedChat.status || '').toUpperCase() === 'ACCEPTED'
+                    }
+                  >
+                    {acceptMutation.isPending ? t('support.processing') : t('support.accept')}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => archiveMutation.mutate(selectedChat.chatId)}
+                    disabled={archiveMutation.isPending}
+                  >
+                    {archiveMutation.isPending ? t('support.processing') : t('support.toArchive')}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           </CardHeader>
           <CardContent>
             {!selectedChatId ? (
@@ -525,6 +616,7 @@ export function Support() {
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
                     rows={4}
+                    disabled={Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
                     <div className="md:col-span-2">
@@ -533,6 +625,7 @@ export function Support() {
                         accept="image/*"
                         ref={fileInputRef}
                         onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                        disabled={Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
                       />
                     </div>
                     <div className="md:col-span-1 flex justify-end gap-2">
@@ -542,13 +635,13 @@ export function Support() {
                           if (!selectedChatId || !photoFile) return
                           sendPhotoMutation.mutate({ chatId: selectedChatId, file: photoFile, caption: photoCaption.trim() || undefined })
                         }}
-                        disabled={!photoFile || sendPhotoMutation.isPending}
+                        disabled={!photoFile || sendPhotoMutation.isPending || Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
                       >
                         {sendPhotoMutation.isPending ? t('support.sending') : t('support.sendPhoto')}
                       </Button>
                       <Button
                         onClick={handleSend}
-                        disabled={!messageText.trim() || sendMessageMutation.isPending}
+                        disabled={!messageText.trim() || sendMessageMutation.isPending || Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
                       >
                         {sendMessageMutation.isPending ? t('support.sending') : t('support.send')}
                       </Button>
@@ -558,6 +651,7 @@ export function Support() {
                     placeholder={t('support.photoCaption')}
                     value={photoCaption}
                     onChange={(e) => setPhotoCaption(e.target.value)}
+                    disabled={Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
                   />
                 </div>
               </div>

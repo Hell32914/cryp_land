@@ -221,6 +221,12 @@ model SupportChat {
   username        String?
   firstName       String?
   lastName        String?
+  status          String    @default("NEW")
+  acceptedBy      String?
+  acceptedAt      DateTime?
+  archivedAt      DateTime?
+  lastInboundAt   DateTime?
+  lastOutboundAt  DateTime?
   startedAt       DateTime  @default(now())
   lastMessageAt   DateTime?
   lastMessageText String?
