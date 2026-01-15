@@ -8,6 +8,7 @@ import { InputFile } from 'grammy'
 import type { Bot } from 'grammy'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
+import { promisify } from 'node:util'
 import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 import multer from 'multer'
@@ -124,6 +125,21 @@ const CRM_ADMIN_PASSWORD = process.env.CRM_ADMIN_PASSWORD
 const CRM_JWT_SECRET = process.env.CRM_JWT_SECRET
 const ADMIN_TOKEN_EXPIRATION = '12h'
 
+const scryptAsync = promisify(crypto.scrypt)
+
+async function hashPassword(password: string, salt?: string) {
+  const actualSalt = salt ?? crypto.randomBytes(16).toString('hex')
+  const derived = (await scryptAsync(password, actualSalt, 64)) as Buffer
+  return { salt: actualSalt, hash: derived.toString('hex') }
+}
+
+async function verifyPassword(password: string, salt: string, expectedHashHex: string) {
+  const derived = (await scryptAsync(password, salt, 64)) as Buffer
+  const expected = Buffer.from(expectedHashHex, 'hex')
+  if (expected.length !== derived.length) return false
+  return crypto.timingSafeEqual(expected, derived)
+}
+
 // User JWT secret for mini-app authentication
 const USER_JWT_SECRET = process.env.USER_JWT_SECRET || crypto.randomBytes(32).toString('hex')
 if (!process.env.USER_JWT_SECRET) {
@@ -210,10 +226,19 @@ const requireAdminAuth: RequestHandler = (req, res, next) => {
     const token = authHeader.slice(7)
     const decoded = jwt.verify(token, CRM_JWT_SECRET!) as any
     ;(req as any).adminUsername = typeof decoded?.username === 'string' ? decoded.username : undefined
+    ;(req as any).adminRole = typeof decoded?.role === 'string' ? decoded.role : undefined
     next()
   } catch {
     return res.status(401).json({ error: 'Unauthorized' })
   }
+}
+
+function requireSuperAdmin(req: any, res: any, next: any) {
+  const role = String(req.adminRole || '')
+  if (role !== 'superadmin') {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
+  next()
 }
 
 // Middleware to verify user JWT token and extract telegramId
@@ -246,6 +271,15 @@ const requireUserAuth: RequestHandler = (req, res, next) => {
 const loginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
+})
+
+const crmOperatorCreateSchema = z.object({
+  username: z.string().min(2).max(50),
+  password: z.string().min(6).max(128),
+})
+
+const crmOperatorResetPasswordSchema = z.object({
+  password: z.string().min(6).max(128),
 })
 
 const supportChatsQuerySchema = z.object({
@@ -290,23 +324,143 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
 
   const { username, password } = parseResult.data
 
+  // 1) Superadmin (env-based) login
   const isValidUser = safeCompare(username, CRM_ADMIN_USERNAME)
   const isValidPassword = safeCompare(password, CRM_ADMIN_PASSWORD)
-
-  if (!isValidUser || !isValidPassword) {
-    return res.status(401).json({ error: 'Invalid credentials' })
+  if (isValidUser && isValidPassword) {
+    const token = jwt.sign(
+      {
+        username,
+        role: 'superadmin',
+      },
+      CRM_JWT_SECRET!,
+      { expiresIn: ADMIN_TOKEN_EXPIRATION }
+    )
+    return res.json({ token })
   }
 
-  const token = jwt.sign(
-    {
-      username,
-      role: 'admin',
-    },
-    CRM_JWT_SECRET!,
-    { expiresIn: ADMIN_TOKEN_EXPIRATION }
-  )
+  // 2) Operator login (DB)
+  ;(async () => {
+    const operator = await prisma.crmOperator.findUnique({ where: { username } })
+    if (!operator || !operator.isActive) {
+      return res.status(401).json({ error: 'Invalid credentials' })
+    }
+    const ok = await verifyPassword(password, operator.passwordSalt, operator.passwordHash)
+    if (!ok) {
+      return res.status(401).json({ error: 'Invalid credentials' })
+    }
 
-  return res.json({ token })
+    const token = jwt.sign(
+      {
+        username: operator.username,
+        role: 'operator',
+      },
+      CRM_JWT_SECRET!,
+      { expiresIn: ADMIN_TOKEN_EXPIRATION }
+    )
+    return res.json({ token })
+  })().catch((e) => {
+    console.error('Operator login error:', e)
+    return res.status(500).json({ error: 'Failed to login' })
+  })
+})
+
+// ============= CRM OPERATORS (SUPERADMIN ONLY) =============
+
+app.get('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const operators = await prisma.crmOperator.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+      take: 500,
+    })
+    return res.json({ operators })
+  } catch (error) {
+    console.error('CRM operators list error:', error)
+    return res.status(500).json({ error: 'Failed to fetch operators' })
+  }
+})
+
+app.post('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const parsed = crmOperatorCreateSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid operator payload' })
+
+    const username = parsed.data.username.trim()
+    const password = parsed.data.password
+
+    const existing = await prisma.crmOperator.findUnique({ where: { username } })
+    if (existing) return res.status(409).json({ error: 'Username already exists' })
+
+    const { salt, hash } = await hashPassword(password)
+    const created = await prisma.crmOperator.create({
+      data: {
+        username,
+        passwordSalt: salt,
+        passwordHash: hash,
+        isActive: true,
+      },
+      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+    })
+
+    return res.json(created)
+  } catch (error) {
+    console.error('CRM operator create error:', error)
+    return res.status(500).json({ error: 'Failed to create operator' })
+  }
+})
+
+app.post('/api/admin/operators/:id/reset-password', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+
+    const parsed = crmOperatorResetPasswordSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload' })
+
+    const { salt, hash } = await hashPassword(parsed.data.password)
+    const updated = await prisma.crmOperator.update({
+      where: { id },
+      data: { passwordSalt: salt, passwordHash: hash },
+      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('CRM operator password reset error:', error)
+    return res.status(500).json({ error: 'Failed to reset password' })
+  }
+})
+
+app.post('/api/admin/operators/:id/toggle', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+
+    const existing = await prisma.crmOperator.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Not found' })
+
+    const updated = await prisma.crmOperator.update({
+      where: { id },
+      data: { isActive: !existing.isActive },
+      select: { id: true, username: true, isActive: true, createdAt: true, updatedAt: true },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('CRM operator toggle error:', error)
+    return res.status(500).json({ error: 'Failed to update operator' })
+  }
+})
+
+app.delete('/api/admin/operators/:id', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+    await prisma.crmOperator.delete({ where: { id } })
+    return res.json({ success: true })
+  } catch (error) {
+    console.error('CRM operator delete error:', error)
+    return res.status(500).json({ error: 'Failed to delete operator' })
+  }
 })
 
 // ============= SUPPORT INBOX (CRM) =============

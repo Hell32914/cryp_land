@@ -278,6 +278,18 @@ export interface SupportBroadcastsResponse {
   broadcasts: SupportBroadcastRecord[]
 }
 
+export interface CrmOperatorRecord {
+  id: number
+  username: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CrmOperatorsResponse {
+  operators: CrmOperatorRecord[]
+}
+
 export interface SupportMessageRecord {
   id: number
   supportChatId: number
@@ -556,6 +568,28 @@ export const fetchSupportBroadcasts = (token: string) =>
 
 export const cancelSupportBroadcast = (token: string, id: number) =>
   request<SupportBroadcastRecord>(`/api/admin/support/broadcasts/${id}/cancel`, { method: 'POST' }, token)
+
+// CRM operators (superadmin only)
+export const fetchCrmOperators = (token: string) =>
+  request<CrmOperatorsResponse>(`/api/admin/operators`, {}, token)
+
+export const createCrmOperator = (token: string, payload: { username: string; password: string }) =>
+  request<CrmOperatorRecord>(`/api/admin/operators`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, token)
+
+export const resetCrmOperatorPassword = (token: string, id: number, password: string) =>
+  request<CrmOperatorRecord>(`/api/admin/operators/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  }, token)
+
+export const toggleCrmOperator = (token: string, id: number) =>
+  request<CrmOperatorRecord>(`/api/admin/operators/${id}/toggle`, { method: 'POST' }, token)
+
+export const deleteCrmOperator = (token: string, id: number) =>
+  request<{ success: boolean }>(`/api/admin/operators/${id}`, { method: 'DELETE' }, token)
 
 export const fetchSupportFileBlob = async (token: string, fileId: string) => {
   const response = await fetch(`${API_BASE_URL}/api/admin/support/files/${encodeURIComponent(fileId)}`, {

@@ -210,6 +210,16 @@ model GlobalSettings {
   @@map("global_settings")
 }
 
+model CrmOperator {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  passwordSalt String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 // ============= SUPPORT BOT (SEPARATE INBOX) =============
 // These tables are intentionally separate from `User` so the support bot can
 // register and chat with people who only launched the support bot.
