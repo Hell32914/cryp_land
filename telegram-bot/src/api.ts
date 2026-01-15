@@ -433,6 +433,17 @@ app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req
 app.post('/api/admin/support/chats/:chatId/archive', requireAdminAuth, async (req, res) => {
   try {
     const chatId = String(req.params.chatId)
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
     const updated = await prisma.supportChat.update({
       where: { chatId },
       data: {
@@ -447,16 +458,6 @@ app.post('/api/admin/support/chats/:chatId/archive', requireAdminAuth, async (re
     return res.status(500).json({ error: 'Failed to archive chat' })
   }
 })
-    const adminUsername = (req as any).adminUsername as string | undefined
-    if (
-      String(chat.status || '').toUpperCase() === 'ACCEPTED' &&
-      chat.acceptedBy &&
-      adminUsername &&
-      chat.acceptedBy !== adminUsername
-    ) {
-      return res.status(403).json({ error: 'Chat is assigned to another operator' })
-    }
-
 app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (req, res) => {
   try {
     if (!supportBotInstance) {
