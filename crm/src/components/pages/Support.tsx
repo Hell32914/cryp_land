@@ -308,7 +308,8 @@ export function Support() {
   >(
     ['support-chats'],
     // Fetch a wider list and filter locally so we can search by local-only "tags" (funnel stage labels).
-    (authToken) => fetchSupportChats(authToken, '', 1, 500),
+    // Backend enforces a max limit (currently 200).
+    (authToken) => fetchSupportChats(authToken, '', 1, 200),
     {
       enabled: Boolean(token),
       // Auto-refresh list so new inbound messages show up without reload.
