@@ -49,7 +49,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     {
       title: t('nav.finance'),
       items: [
-        { id: 'deposits', label: t('nav.deposits'), icon: ArrowCircleDown },
+           { id: 'support-operators', label: t('nav.supportOperators'), icon: Users },
         { id: 'withdrawals', label: t('nav.withdrawals'), icon: ArrowCircleUp },
         { id: 'expenses', label: t('nav.expenses'), icon: Receipt },
       ],

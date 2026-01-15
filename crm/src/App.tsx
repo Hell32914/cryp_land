@@ -14,6 +14,7 @@ import { RefLinks } from '@/components/pages/RefLinks'
 import { LinkBuilder } from '@/components/pages/LinkBuilder'
 import { Support } from '@/components/pages/Support'
 import { SupportFunnel } from '@/components/pages/SupportFunnel'
+import { SupportOperators } from '@/components/pages/SupportOperators'
 import '@/lib/i18n'
 
 const queryClient = new QueryClient()
@@ -44,6 +45,8 @@ function AppContent() {
         return <Support />
       case 'support-funnel':
         return <SupportFunnel />
+      case 'support-operators':
+        return <SupportOperators />
       default:
         return <Dashboard />
     }

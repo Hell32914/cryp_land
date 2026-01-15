@@ -44,10 +44,28 @@ import {
 
 type SupportChatsTab = 'new' | 'accepted' | 'archive'
 
+function getUsernameFromJwt(token?: string | null): string | null {
+  try {
+    if (!token) return null
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    const payload = parts[1]
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const json = window.atob(padded)
+    const data = JSON.parse(json)
+    return typeof data?.username === 'string' ? data.username : null
+  } catch {
+    return null
+  }
+}
+
 export function Support() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const queryClient = useQueryClient()
+
+  const myUsername = useMemo(() => getUsernameFromJwt(token), [token])
 
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
@@ -523,36 +541,6 @@ export function Support() {
                   ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
                   : t('support.selectChat')}
               </CardTitle>
-
-              {selectedChat ? (
-                <div className="flex items-center gap-2">
-                  {selectedChat.status && String(selectedChat.status).toUpperCase() === 'ACCEPTED' ? (
-                    <div className="text-xs text-muted-foreground">
-                      {t('support.acceptedBy')}{' '}
-                      <span className="text-foreground">{selectedChat.acceptedBy || '—'}</span>
-                    </div>
-                  ) : null}
-
-                  <Button
-                    variant="outline"
-                    onClick={() => acceptMutation.mutate(selectedChat.chatId)}
-                    disabled={
-                      acceptMutation.isPending ||
-                      String(selectedChat.status || '').toUpperCase() === 'ARCHIVE' ||
-                      String(selectedChat.status || '').toUpperCase() === 'ACCEPTED'
-                    }
-                  >
-                    {acceptMutation.isPending ? t('support.processing') : t('support.accept')}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => archiveMutation.mutate(selectedChat.chatId)}
-                    disabled={archiveMutation.isPending}
-                  >
-                    {archiveMutation.isPending ? t('support.processing') : t('support.toArchive')}
-                  </Button>
-                </div>
-              ) : null}
             </div>
           </CardHeader>
           <CardContent>
@@ -610,13 +598,65 @@ export function Support() {
                   )}
                 </ScrollArea>
 
+                {selectedChat ? (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+                    <div className="text-xs text-muted-foreground">
+                      {selectedChat.status && String(selectedChat.status).toUpperCase() === 'ACCEPTED' ? (
+                        <>
+                          {t('support.acceptedBy')}{' '}
+                          <span className="text-foreground">{selectedChat.acceptedBy || '—'}</span>
+                        </>
+                      ) : (
+                        <span>{t('support.notAccepted')}</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {String(selectedChat.status || '').toUpperCase() !== 'ACCEPTED' &&
+                      String(selectedChat.status || '').toUpperCase() !== 'ARCHIVE' ? (
+                        <Button
+                          onClick={() => acceptMutation.mutate(selectedChat.chatId)}
+                          disabled={acceptMutation.isPending}
+                        >
+                          {acceptMutation.isPending ? t('support.processing') : t('support.accept')}
+                        </Button>
+                      ) : null}
+
+                      <Button
+                        variant="destructive"
+                        onClick={() => archiveMutation.mutate(selectedChat.chatId)}
+                        disabled={
+                          archiveMutation.isPending ||
+                          String(selectedChat.status || '').toUpperCase() === 'ARCHIVE' ||
+                          Boolean(
+                            selectedChat.acceptedBy &&
+                              myUsername &&
+                              selectedChat.acceptedBy !== myUsername
+                          )
+                        }
+                      >
+                        {archiveMutation.isPending ? t('support.processing') : t('support.toArchive')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="space-y-2">
+                  {selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername ? (
+                    <div className="text-sm text-destructive">
+                      {t('support.lockedByOther', { name: selectedChat.acceptedBy })}
+                    </div>
+                  ) : null}
+
                   <Textarea
                     placeholder={t('support.writeMessage')}
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
                     rows={4}
-                    disabled={Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
+                    disabled={
+                      Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                      Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                    }
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
                     <div className="md:col-span-2">
@@ -625,7 +665,10 @@ export function Support() {
                         accept="image/*"
                         ref={fileInputRef}
                         onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-                        disabled={Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
+                        disabled={
+                          Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                          Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                        }
                       />
                     </div>
                     <div className="md:col-span-1 flex justify-end gap-2">
@@ -635,13 +678,23 @@ export function Support() {
                           if (!selectedChatId || !photoFile) return
                           sendPhotoMutation.mutate({ chatId: selectedChatId, file: photoFile, caption: photoCaption.trim() || undefined })
                         }}
-                        disabled={!photoFile || sendPhotoMutation.isPending || Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
+                        disabled={
+                          !photoFile ||
+                          sendPhotoMutation.isPending ||
+                          Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                          Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                        }
                       >
                         {sendPhotoMutation.isPending ? t('support.sending') : t('support.sendPhoto')}
                       </Button>
                       <Button
                         onClick={handleSend}
-                        disabled={!messageText.trim() || sendMessageMutation.isPending || Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
+                        disabled={
+                          !messageText.trim() ||
+                          sendMessageMutation.isPending ||
+                          Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                          Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                        }
                       >
                         {sendMessageMutation.isPending ? t('support.sending') : t('support.send')}
                       </Button>
@@ -651,7 +704,10 @@ export function Support() {
                     placeholder={t('support.photoCaption')}
                     value={photoCaption}
                     onChange={(e) => setPhotoCaption(e.target.value)}
-                    disabled={Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED')}
+                    disabled={
+                      Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                      Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                    }
                   />
                 </div>
               </div>

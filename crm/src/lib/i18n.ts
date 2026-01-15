@@ -26,6 +26,11 @@ const resources = {
         support: 'Support',
         supportChats: 'Support Chats',
         supportFunnel: 'Funnel',
+        supportOperators: 'Operators',
+      },
+      supportOperators: {
+        title: 'Operators',
+        description: 'Operator management will be added here (assignment, permissions, availability).',
       },
       support: {
         title: 'Support',
@@ -49,6 +54,8 @@ const resources = {
         mustAcceptFirst: 'Accept the chat before replying',
         acceptFailed: 'Failed to accept chat',
         archiveFailed: 'Failed to archive chat',
+        notAccepted: 'Not accepted',
+        lockedByOther: 'Chat is handled by {{name}}',
         funnel: {
           title: 'Funnel',
           subtitle: 'Customer statuses',
@@ -212,6 +219,11 @@ const resources = {
         support: 'Поддержка',
         supportChats: 'Чаты поддержки',
         supportFunnel: 'Воронка',
+        supportOperators: 'Операторы',
+      },
+      supportOperators: {
+        title: 'Операторы',
+        description: 'Здесь будет управление операторами (назначение, права, доступность).',
       },
       support: {
         title: 'Поддержка',
@@ -235,6 +247,8 @@ const resources = {
         mustAcceptFirst: 'Сначала примите диалог',
         acceptFailed: 'Не удалось принять диалог',
         archiveFailed: 'Не удалось отправить в архив',
+        notAccepted: 'Не принят',
+        lockedByOther: 'Диалог ведёт {{name}}',
         funnel: {
           title: 'Воронка',
           subtitle: 'Статусы клиента',
