@@ -14,6 +14,7 @@ import { RefLinks } from '@/components/pages/RefLinks'
 import { LinkBuilder } from '@/components/pages/LinkBuilder'
 import { Support } from '@/components/pages/Support'
 import { SupportFunnel } from '@/components/pages/SupportFunnel'
+import { SupportFunnelBoard } from '@/components/pages/SupportFunnelBoard'
 import { SupportOperators } from '@/components/pages/SupportOperators'
 import '@/lib/i18n'
 
@@ -44,6 +45,8 @@ function AppContent() {
       case 'support':
         return <Support />
       case 'support-funnel':
+        return <SupportFunnelBoard />
+      case 'support-funnel-settings':
         return <SupportFunnel />
       case 'support-operators':
         return <SupportOperators />

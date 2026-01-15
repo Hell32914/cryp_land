@@ -66,6 +66,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       items: [
         { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
         { id: 'support-funnel', label: t('nav.supportFunnel'), icon: Funnel },
+        { id: 'support-funnel-settings', label: t('nav.supportFunnelSettings'), icon: Funnel },
       ],
     },
   ]

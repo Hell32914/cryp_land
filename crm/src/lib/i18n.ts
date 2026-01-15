@@ -26,7 +26,13 @@ const resources = {
         support: 'Support',
         supportChats: 'Support Chats',
         supportFunnel: 'Funnel',
+        supportFunnelSettings: 'Funnel settings',
         supportOperators: 'Operators',
+      },
+      supportBoard: {
+        title: 'Funnel',
+        unaccepted: 'Unaccepted dialogs',
+        empty: 'Drag a chat here',
       },
       supportOperators: {
         title: 'Operators',
@@ -242,7 +248,13 @@ const resources = {
         support: 'Поддержка',
         supportChats: 'Чаты поддержки',
         supportFunnel: 'Воронка',
+        supportFunnelSettings: 'Настройки воронки',
         supportOperators: 'Операторы',
+      },
+      supportBoard: {
+        title: 'Воронка',
+        unaccepted: 'Непринятые диалоги',
+        empty: 'Перетащите диалог в этот этап',
       },
       supportOperators: {
         title: 'Операторы',
