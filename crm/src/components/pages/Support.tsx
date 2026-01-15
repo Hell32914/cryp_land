@@ -1023,18 +1023,23 @@ export function Support() {
                             </div>
                           </button>
 
-                          <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {funnelStages.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="min-w-0 space-y-1">
+                            <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {funnelStages.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <div className="text-[11px] text-muted-foreground truncate" title={chat.telegramId}>
+                              {chat.telegramId}{chat.username ? ` • @${chat.username}` : ''}
+                            </div>
+                          </div>
 
                           <div className={"text-sm text-muted-foreground flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
                             {showAlert ? <Bell size={16} weight="fill" /> : null}
@@ -1167,18 +1172,29 @@ export function Support() {
                               </div>
                             </button>
 
-                            <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {funnelStages.map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>
-                                    {s.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <div className="min-w-0 space-y-1">
+                              <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {funnelStages.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                      {s.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <div
+                                className={
+                                  'text-[11px] truncate ' +
+                                  (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground')
+                                }
+                                title={chat.telegramId}
+                              >
+                                {chat.telegramId}{chat.username ? ` • @${chat.username}` : ''}
+                              </div>
+                            </div>
 
                             <div className={"text-xs flex items-center gap-2 " + (showAlert ? 'text-destructive' : (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground'))}>
                               {showAlert ? <Bell size={14} weight="fill" /> : null}
@@ -1317,25 +1333,6 @@ export function Support() {
                         ) : (
                           <span>{t('support.notAccepted')}</span>
                         )}
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="text-xs text-muted-foreground shrink-0">{t('support.columns.funnelStatus')}</div>
-                        <Select
-                          value={selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId}
-                          onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
-                        >
-                          <SelectTrigger className="w-[220px]">
-                            <SelectValue placeholder={t('support.funnel.primary')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {funnelStages.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {s.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
                       </div>
                     </div>
 
