@@ -754,8 +754,15 @@ export function Support() {
     sendMessageMutation.mutate({ chatId: selectedChatId, text: trimmed })
   }
 
-  // Scroll to bottom when opening a chat.
+  // Reset drafts + scroll to bottom when switching/opening a chat.
   useEffect(() => {
+    setMessageText('')
+    setPhotoCaption('')
+    setPhotoFile(null)
+    setNoteText('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (photoPickerRef.current) photoPickerRef.current.value = ''
+
     if (!selectedChatId) return
     setScrollBehavior('auto')
     setShouldScrollMessagesToBottom(true)
@@ -1191,10 +1198,38 @@ export function Support() {
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>
-                  {selectedChat
-                    ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
-                    : t('support.selectChat')}
+                  {selectedChat ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedChatId(null)}
+                      className="min-w-0 text-left hover:underline"
+                      title={t('support.backToList')}
+                    >
+                      {`${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`}
+                    </button>
+                  ) : (
+                    t('support.selectChat')
+                  )}
                 </CardTitle>
+
+                {selectedChatId && sortedChats.length > 1 ? (
+                  <Select value={selectedChatId} onValueChange={(v) => setSelectedChatId(v)}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder={t('support.chats')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortedChats.map((chat) => {
+                        const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+                        const label = chat.username ? `@${chat.username}` : displayName
+                        return (
+                          <SelectItem key={chat.chatId} value={chat.chatId}>
+                            {label}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                ) : null}
               </div>
             </CardHeader>
             <CardContent>
@@ -1264,15 +1299,25 @@ export function Support() {
 
                 {selectedChat ? (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
-                    <div className="text-xs text-muted-foreground">
-                      {selectedChat.status && String(selectedChat.status).toUpperCase() === 'ACCEPTED' ? (
-                        <>
-                          {t('support.acceptedBy')}{' '}
-                          <span className="text-foreground">{selectedChat.acceptedBy || '—'}</span>
-                        </>
-                      ) : (
-                        <span>{t('support.notAccepted')}</span>
-                      )}
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedChatId(null)}
+                        className="block text-sm font-medium truncate hover:underline"
+                        title={t('support.backToList')}
+                      >
+                        {selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}
+                      </button>
+                      <div className="text-xs text-muted-foreground">
+                        {selectedChat.status && String(selectedChat.status).toUpperCase() === 'ACCEPTED' ? (
+                          <>
+                            {t('support.acceptedBy')}{' '}
+                            <span className="text-foreground">{selectedChat.acceptedBy || '—'}</span>
+                          </>
+                        ) : (
+                          <span>{t('support.notAccepted')}</span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1424,9 +1469,14 @@ export function Support() {
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedChatId(null)}
+                      className="min-w-0 text-sm font-medium truncate hover:underline"
+                      title={t('support.backToList')}
+                    >
                       {selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}
-                    </div>
+                    </button>
 
                     {selectedChat.isBlocked ? (
                       <Button

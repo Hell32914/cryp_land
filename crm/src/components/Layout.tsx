@@ -37,6 +37,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
+  const currentLang = String((i18n as any)?.resolvedLanguage || i18n.language || 'en').split('-')[0]
+
   const menuSections = [
     {
       title: t('nav.analyticsData'),
@@ -137,7 +139,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         <div className="p-2 border-t border-sidebar-border space-y-2">
           {isSidebarOpen && (
             <div className="px-3 pb-2">
-              <Select value={i18n.language} onValueChange={changeLanguage}>
+              <Select value={currentLang} onValueChange={changeLanguage}>
                 <SelectTrigger className="w-full bg-sidebar-accent">
                   <div className="flex items-center gap-2">
                     <Translate size={16} />

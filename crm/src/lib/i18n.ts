@@ -1,6 +1,29 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
+const SUPPORTED_LANGS = ['en', 'ru', 'ua'] as const
+type SupportedLang = (typeof SUPPORTED_LANGS)[number]
+const LANG_STORAGE_KEY = 'syntrix.crm.lang'
+
+function normalizeLang(lng?: string | null): SupportedLang | null {
+  if (!lng) return null
+  const base = String(lng).trim().toLowerCase().split(/[-_]/)[0]
+  return (SUPPORTED_LANGS as readonly string[]).includes(base) ? (base as SupportedLang) : null
+}
+
+function getInitialLang(): SupportedLang {
+  if (typeof window === 'undefined') return 'en'
+  try {
+    const stored = normalizeLang(window.localStorage.getItem(LANG_STORAGE_KEY) || window.localStorage.getItem('i18nextLng'))
+    if (stored) return stored
+    const nav = normalizeLang(window.navigator?.language)
+    if (nav) return nav
+  } catch {
+    // ignore
+  }
+  return 'en'
+}
+
 const resources = {
   en: {
     translation: {
@@ -721,11 +744,26 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en',
+    lng: getInitialLang(),
     fallbackLng: 'en',
+    supportedLngs: SUPPORTED_LANGS as unknown as string[],
+    load: 'languageOnly',
+    cleanCode: true,
     interpolation: {
       escapeValue: false,
     },
   })
+
+i18n.on('languageChanged', (lng) => {
+  if (typeof window === 'undefined') return
+  const normalized = normalizeLang(lng) || 'en'
+  try {
+    window.localStorage.setItem(LANG_STORAGE_KEY, normalized)
+    // Keep the conventional i18next key too (helps tooling / future detector usage).
+    window.localStorage.setItem('i18nextLng', normalized)
+  } catch {
+    // ignore
+  }
+})
 
 export default i18n
