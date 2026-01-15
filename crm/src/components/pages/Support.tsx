@@ -307,6 +307,8 @@ export function Support() {
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
       setActiveTab('accepted')
       setSelectedChatId(updated.chatId)
+      // Default funnel stage after accept: Primary contact
+      setChatStage(updated.chatId, primaryStageId)
       toast.success(t('support.accepted'))
     },
     onError: (e: any) => {
