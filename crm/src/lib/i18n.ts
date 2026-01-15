@@ -92,6 +92,8 @@ const resources = {
       support: {
         title: 'Support',
         chats: 'Chats',
+        backToList: 'Back to chats',
+        newMessages: 'New messages',
         tabs: {
           new: 'New',
           accepted: 'Accepted',
@@ -365,6 +367,8 @@ const resources = {
       support: {
         title: 'Поддержка',
         chats: 'Чаты',
+        backToList: 'К списку чатов',
+        newMessages: 'Новые сообщения',
         tabs: {
           new: 'Новые',
           accepted: 'Принятые',

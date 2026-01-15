@@ -614,34 +614,35 @@ export function Support() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('support.title')}</h1>
       </div>
+      {!selectedChatId ? (
+        <Card>
+          <CardHeader className="space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <CardTitle>{t('support.chats')}</CardTitle>
+              <Input
+                className="md:max-w-sm"
+                placeholder={t('support.search')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>{t('support.chats')}</CardTitle>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SupportChatsTab)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="new" className="flex-1">
+              <TabsList>
+                <TabsTrigger value="new">
                   {t('support.tabs.new')}
                   {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
                 </TabsTrigger>
-                <TabsTrigger value="accepted" className="flex-1">
+                <TabsTrigger value="accepted">
                   {t('support.tabs.accepted')}
-                  {tabCounts.accepted > 0 ? (
-                    <span className="ml-1 text-xs">({tabCounts.accepted})</span>
-                  ) : null}
+                  {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
                 </TabsTrigger>
-                <TabsTrigger value="archive" className="flex-1">
+                <TabsTrigger value="archive">
                   {t('support.tabs.archive')}
                   {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <Input
-              placeholder={t('support.search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
           </CardHeader>
           <CardContent>
             {isChatsLoading ? (
@@ -651,7 +652,7 @@ export function Support() {
             ) : sortedChats.length === 0 ? (
               <div className="text-sm text-muted-foreground">{t('support.noChats')}</div>
             ) : (
-              <div ref={chatsListContainerRef} className="relative">
+              <div ref={chatsListContainerRef} className="relative rounded-md border border-border overflow-hidden">
                 {hasNewChatsActivityAbove && !isChatsListAtTop ? (
                   <div className="absolute top-2 left-2 right-2 z-10">
                     <Button
@@ -671,130 +672,262 @@ export function Support() {
                   </div>
                 ) : null}
 
-                <ScrollArea className="h-[520px]">
-                  <div className="space-y-2 pr-3">
-                  <div className="grid grid-cols-[minmax(0,1fr),220px,120px] gap-3 px-3 text-xs text-muted-foreground">
-                    <div />
-                    <div className="truncate">{t('support.columns.funnelStatus')}</div>
-                    <div className="truncate">{t('support.columns.responseTime')}</div>
-                  </div>
+                <div className="grid grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 text-xs text-muted-foreground bg-muted/20">
+                  <div />
+                  <div className="truncate">{t('support.clientPanel')}</div>
+                  <div className="truncate">{t('support.columns.funnelStatus')}</div>
+                  <div className="truncate">{t('support.columns.responseTime')}</div>
+                </div>
 
-                  {sortedChats.map((chat) => {
-                    const isActive = chat.chatId === selectedChatId
-                    const title = chat.username
-                      ? `@${chat.username}`
-                      : [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+                <ScrollArea className="h-[640px]">
+                  <div className="divide-y divide-border">
+                    {sortedChats.map((chat) => {
+                      const title = chat.username
+                        ? `@${chat.username}`
+                        : [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
 
-                    const pinned = pinnedSet.has(chat.chatId)
+                      const pinned = pinnedSet.has(chat.chatId)
 
-                    const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
-                    const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
+                      const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+                      const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
-                    const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
-                    const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
-                    const waiting = inboundTs > 0 && inboundTs > outboundTs
-                    const waitingSeconds = waiting ? Math.max(1, Math.floor((nowTs - inboundTs) / 1000)) : 0
-                    const showAlert = waiting && waitingSeconds >= RESPONSE_LIMIT_SECONDS
+                      const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
+                      const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
+                      const waiting = inboundTs > 0 && inboundTs > outboundTs
+                      const waitingSeconds = waiting ? Math.max(1, Math.floor((nowTs - inboundTs) / 1000)) : 0
+                      const showAlert = waiting && waitingSeconds >= RESPONSE_LIMIT_SECONDS
 
-                    const fallbackChar = (chat.username?.[0] || chat.firstName?.[0] || chat.telegramId?.[0] || '?')
-                      .toUpperCase()
+                      const fallbackChar = (chat.username?.[0] || chat.firstName?.[0] || chat.telegramId?.[0] || '?')
+                        .toUpperCase()
 
-                    return (
-                      <div key={chat.chatId} className="grid grid-cols-[minmax(0,1fr),220px,120px] gap-3 items-center">
-                        <button
-                          onClick={() => setSelectedChatId(chat.chatId)}
-                          className={
-                            'w-full text-left rounded-md border px-3 py-2 transition-colors ' +
-                            (isActive
-                              ? 'bg-sidebar-accent text-sidebar-accent-foreground border-sidebar-border'
-                              : 'hover:bg-muted/50 border-border')
-                          }
+                      return (
+                        <div
+                          key={chat.chatId}
+                          className="grid grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="relative group">
-                              <Avatar className="size-9">
-                                <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
-                              </Avatar>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  togglePinned(chat.chatId)
-                                }}
-                                className={
-                                  'absolute -right-1 -bottom-1 rounded-full border border-border bg-background p-1 shadow ' +
-                                  (pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
-                                }
-                                aria-label={pinned ? 'unpin' : 'pin'}
-                              >
-                                {pinned ? <PushPinSlash size={14} /> : <PushPin size={14} />}
-                              </button>
-                            </div>
+                          <input type="checkbox" disabled className="h-4 w-4 opacity-40" />
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="font-medium truncate">{title}</div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {pinned ? <PushPin size={16} weight="fill" className="opacity-80" /> : null}
-                                  {chat.unreadCount > 0 ? (
-                                    <Badge className="bg-primary text-primary-foreground">{chat.unreadCount}</Badge>
-                                  ) : null}
+                          <button
+                            onClick={() => setSelectedChatId(chat.chatId)}
+                            className="min-w-0 text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="relative group shrink-0">
+                                <Avatar className="size-9">
+                                  <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
+                                </Avatar>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    togglePinned(chat.chatId)
+                                  }}
+                                  className={
+                                    'absolute -right-1 -bottom-1 rounded-full border border-border bg-background p-1 shadow ' +
+                                    (pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                                  }
+                                  aria-label={pinned ? 'unpin' : 'pin'}
+                                >
+                                  {pinned ? <PushPinSlash size={14} /> : <PushPin size={14} />}
+                                </button>
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="font-medium truncate">{title}</div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {pinned ? <PushPin size={16} weight="fill" className="opacity-80" /> : null}
+                                    {chat.unreadCount > 0 ? (
+                                      <Badge className="bg-primary text-primary-foreground">{chat.unreadCount}</Badge>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate mt-1">
+                                  {chat.lastMessageText || ''}
                                 </div>
                               </div>
-                              <div className="text-xs text-muted-foreground truncate mt-1">
-                                {chat.lastMessageText || ''}
-                              </div>
                             </div>
-                          </div>
-                        </button>
+                          </button>
 
-                        <Select
-                          value={stageId}
-                          onValueChange={(v) => setChatStage(chat.chatId, v)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {funnelStages.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {s.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {funnelStages.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
 
-                        <div className="text-sm text-muted-foreground">
-                          <div className={"flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
+                          <div className={"text-sm text-muted-foreground flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
                             {showAlert ? <Bell size={16} weight="fill" /> : null}
                             <span>{formatDuration(waiting ? waitingSeconds : 0)}</span>
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
                   </div>
                 </ScrollArea>
               </div>
             )}
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr_360px] gap-6">
+          <Card className="lg:col-span-1">
+            <CardHeader className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{t('support.chats')}</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setSelectedChatId(null)}>
+                  {t('support.backToList')}
+                </Button>
+              </div>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>
-                {selectedChat
-                  ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
-                  : t('support.selectChat')}
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!selectedChatId ? (
-              <div className="text-sm text-muted-foreground">{t('support.selectChatHint')}</div>
-            ) : (
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SupportChatsTab)}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="new" className="flex-1">
+                    {t('support.tabs.new')}
+                    {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger value="accepted" className="flex-1">
+                    {t('support.tabs.accepted')}
+                    {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger value="archive" className="flex-1">
+                    {t('support.tabs.archive')}
+                    {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <Input placeholder={t('support.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+            </CardHeader>
+            <CardContent>
+              {isChatsLoading ? (
+                <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
+              ) : isChatsError ? (
+                <div className="text-sm text-destructive">{t('common.error')}</div>
+              ) : sortedChats.length === 0 ? (
+                <div className="text-sm text-muted-foreground">{t('support.noChats')}</div>
+              ) : (
+                <div className="rounded-md border border-border overflow-hidden">
+                  <div className="grid grid-cols-[minmax(0,1fr)_160px_90px] gap-3 px-3 py-2 text-xs text-muted-foreground bg-muted/20">
+                    <div />
+                    <div className="truncate">{t('support.columns.funnelStatus')}</div>
+                    <div className="truncate">{t('support.columns.responseTime')}</div>
+                  </div>
+                  <ScrollArea className="h-[520px]">
+                    <div className="divide-y divide-border">
+                      {sortedChats.map((chat) => {
+                        const isActive = chat.chatId === selectedChatId
+                        const title = chat.username
+                          ? `@${chat.username}`
+                          : [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
+
+                        const pinned = pinnedSet.has(chat.chatId)
+                        const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+                        const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
+
+                        const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
+                        const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
+                        const waiting = inboundTs > 0 && inboundTs > outboundTs
+                        const waitingSeconds = waiting ? Math.max(1, Math.floor((nowTs - inboundTs) / 1000)) : 0
+                        const showAlert = waiting && waitingSeconds >= RESPONSE_LIMIT_SECONDS
+
+                        const fallbackChar = (chat.username?.[0] || chat.firstName?.[0] || chat.telegramId?.[0] || '?')
+                          .toUpperCase()
+
+                        return (
+                          <div
+                            key={chat.chatId}
+                            className={
+                              'grid grid-cols-[minmax(0,1fr)_160px_90px] gap-3 px-3 py-2 items-center transition-colors ' +
+                              (isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-muted/30')
+                            }
+                          >
+                            <button onClick={() => setSelectedChatId(chat.chatId)} className="min-w-0 text-left">
+                              <div className="flex items-center gap-3">
+                                <div className="relative group shrink-0">
+                                  <Avatar className="size-9">
+                                    <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
+                                  </Avatar>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      togglePinned(chat.chatId)
+                                    }}
+                                    className={
+                                      'absolute -right-1 -bottom-1 rounded-full border border-border bg-background p-1 shadow ' +
+                                      (pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')
+                                    }
+                                    aria-label={pinned ? 'unpin' : 'pin'}
+                                  >
+                                    {pinned ? <PushPinSlash size={14} /> : <PushPin size={14} />}
+                                  </button>
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="font-medium truncate">{title}</div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {chat.unreadCount > 0 ? (
+                                        <Badge className={isActive ? 'bg-background text-foreground' : 'bg-primary text-primary-foreground'}>
+                                          {chat.unreadCount}
+                                        </Badge>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  <div className={"text-xs truncate mt-1 " + (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground')}>
+                                    {chat.lastMessageText || ''}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+
+                            <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {funnelStages.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            <div className={"text-xs flex items-center gap-2 " + (showAlert ? 'text-destructive' : (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground'))}>
+                              {showAlert ? <Bell size={14} weight="fill" /> : null}
+                              <span>{formatDuration(waiting ? waitingSeconds : 0)}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>
+                  {selectedChat
+                    ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
+                    : t('support.selectChat')}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
                 <ScrollArea className="h-[420px] rounded-md border border-border p-3">
                   {isMessagesLoading ? (
@@ -1005,114 +1138,110 @@ export function Support() {
                   />
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>{t('support.clientPanel')}</CardTitle>
-              {selectedChat?.isBlocked ? <Badge variant="destructive">{t('support.blocked')}</Badge> : null}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!selectedChat ? (
-              <div className="text-sm text-muted-foreground">{t('support.selectChatHint')}</div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm">
-                    {selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}
-                  </div>
-
-                  {selectedChat.isBlocked ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => unblockMutation.mutate(selectedChat.chatId)}
-                      disabled={unblockMutation.isPending}
-                    >
-                      {unblockMutation.isPending ? t('support.processing') : t('support.unblock')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      onClick={() => blockMutation.mutate(selectedChat.chatId)}
-                      disabled={
-                        blockMutation.isPending ||
-                        Boolean(
-                          selectedChat.acceptedBy &&
-                            myUsername &&
-                            selectedChat.acceptedBy !== myUsername
-                        )
-                      }
-                    >
-                      {blockMutation.isPending ? t('support.processing') : t('support.block')}
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">{t('support.requestInfo')}</div>
-                  <Select
-                    value={selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId}
-                    onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t('support.funnel.primary')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {funnelStages.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">{t('support.notes')}</div>
-                  <Textarea
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    rows={4}
-                    placeholder={t('support.notesPlaceholder')}
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={() => {
-                        if (!selectedChat) return
-                        const text = noteText.trim()
-                        if (!text) return
-                        addNoteMutation.mutate({ chatId: selectedChat.chatId, text })
-                      }}
-                      disabled={!noteText.trim() || addNoteMutation.isPending}
-                    >
-                      {addNoteMutation.isPending ? t('support.processing') : t('support.addNote')}
-                    </Button>
-                  </div>
-
-                  {notes.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">{t('support.noNotes')}</div>
-                  ) : (
-                    <div className="max-h-[240px] overflow-auto rounded-md border border-border p-2 space-y-2">
-                      {notes.map((n) => (
-                        <div key={n.id} className="text-xs">
-                          <div className="text-muted-foreground">
-                            {(n.adminUsername || t('support.admin'))} • {new Date(n.createdAt).toLocaleString()}
-                          </div>
-                          <div className="whitespace-pre-wrap break-words">{n.text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{t('support.clientPanel')}</CardTitle>
+                {selectedChat?.isBlocked ? <Badge variant="destructive">{t('support.blocked')}</Badge> : null}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardHeader>
+            <CardContent>
+              {!selectedChat ? (
+                <div className="text-sm text-muted-foreground">{t('support.selectChatHint')}</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm">
+                      {selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}
+                    </div>
+
+                    {selectedChat.isBlocked ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => unblockMutation.mutate(selectedChat.chatId)}
+                        disabled={unblockMutation.isPending}
+                      >
+                        {unblockMutation.isPending ? t('support.processing') : t('support.unblock')}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        onClick={() => blockMutation.mutate(selectedChat.chatId)}
+                        disabled={
+                          blockMutation.isPending ||
+                          Boolean(selectedChat.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                        }
+                      >
+                        {blockMutation.isPending ? t('support.processing') : t('support.block')}
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs text-muted-foreground">{t('support.requestInfo')}</div>
+                    <Select
+                      value={selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId}
+                      onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t('support.funnel.primary')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {funnelStages.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs text-muted-foreground">{t('support.notes')}</div>
+                    <Textarea
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      rows={4}
+                      placeholder={t('support.notesPlaceholder')}
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => {
+                          if (!selectedChat) return
+                          const text = noteText.trim()
+                          if (!text) return
+                          addNoteMutation.mutate({ chatId: selectedChat.chatId, text })
+                        }}
+                        disabled={!noteText.trim() || addNoteMutation.isPending}
+                      >
+                        {addNoteMutation.isPending ? t('support.processing') : t('support.addNote')}
+                      </Button>
+                    </div>
+
+                    {notes.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">{t('support.noNotes')}</div>
+                    ) : (
+                      <div className="max-h-[240px] overflow-auto rounded-md border border-border p-2 space-y-2">
+                        {notes.map((n) => (
+                          <div key={n.id} className="text-xs">
+                            <div className="text-muted-foreground">
+                              {(n.adminUsername || t('support.admin'))} • {new Date(n.createdAt).toLocaleString()}
+                            </div>
+                            <div className="whitespace-pre-wrap break-words">{n.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
         <DialogContent className="sm:max-w-5xl p-4">
