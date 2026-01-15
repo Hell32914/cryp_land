@@ -568,6 +568,25 @@ app.get('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (re
   }
 })
 
+app.get('/api/admin/support/chats/:chatId/avatar', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    let tgChatId: any = chat.chatId
+    if (/^-?\d+$/.test(tgChatId)) tgChatId = Number(tgChatId)
+
+    const info = await supportBotInstance.api.getChat(tgChatId)
+    const fileId = (info as any)?.photo?.small_file_id || (info as any)?.photo?.big_file_id || null
+
+    return res.json({ fileId })
+  } catch (error) {
+    console.error('Support chat avatar fetch error:', error)
+    return res.status(500).json({ error: 'Failed to fetch avatar' })
+  }
+})
+
 app.post('/api/admin/support/chats/:chatId/read', requireAdminAuth, async (req, res) => {
   try {
     const chatId = String(req.params.chatId)

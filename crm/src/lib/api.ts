@@ -616,6 +616,9 @@ export const fetchSupportFileBlob = async (token: string, fileId: string) => {
 export const fetchSupportNotes = (token: string, chatId: string) =>
   request<SupportNotesResponse>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/notes`, {}, token)
 
+export const fetchSupportChatAvatar = (token: string, chatId: string) =>
+  request<{ fileId: string | null }>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/avatar`, {}, token)
+
 export const addSupportNote = (token: string, chatId: string, text: string) =>
   request<SupportNoteRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/notes`, {
     method: 'POST',

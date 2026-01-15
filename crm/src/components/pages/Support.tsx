@@ -7,6 +7,7 @@ import {
   fetchSupportFileBlob,
   fetchSupportMessages,
   fetchSupportNotes,
+  fetchSupportChatAvatar,
   acceptSupportChat,
   addSupportNote,
   updateSupportNote,
@@ -39,7 +40,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Select,
   SelectContent,
@@ -115,6 +116,14 @@ export function Support() {
 
   const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
   const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
+
+  const [avatarUrlByChatId, setAvatarUrlByChatId] = useState<Record<string, string>>({})
+  const avatarUrlByChatIdRef = useRef<Record<string, string>>({})
+  useEffect(() => {
+    avatarUrlByChatIdRef.current = avatarUrlByChatId
+  }, [avatarUrlByChatId])
+  const avatarFileIdByChatIdRef = useRef<Record<string, string | null>>({})
+  const avatarLoadingRef = useRef<Record<string, boolean>>({})
 
   const chatsListContainerRef = useRef<HTMLDivElement | null>(null)
   const chatsListViewportRef = useRef<HTMLElement | null>(null)
@@ -373,6 +382,42 @@ export function Support() {
     setSelectedChatId(chatId)
   }
 
+  const ensureChatAvatarLoaded = async (chatId: string) => {
+    if (!token) return
+    if (Object.prototype.hasOwnProperty.call(avatarUrlByChatIdRef.current, chatId)) return
+    if (avatarLoadingRef.current[chatId]) return
+    avatarLoadingRef.current[chatId] = true
+
+    try {
+      let fileId = avatarFileIdByChatIdRef.current[chatId]
+      if (fileId === undefined) {
+        const resp = await fetchSupportChatAvatar(token, chatId)
+        fileId = resp?.fileId ?? null
+        avatarFileIdByChatIdRef.current[chatId] = fileId
+      }
+
+      if (!fileId) {
+        setAvatarUrlByChatId((prev) => ({ ...prev, [chatId]: '' }))
+        return
+      }
+
+      const cached = fileUrlCache[fileId]
+      if (cached) {
+        setAvatarUrlByChatId((prev) => ({ ...prev, [chatId]: cached }))
+        return
+      }
+
+      const blob = await fetchSupportFileBlob(token, fileId)
+      const url = URL.createObjectURL(blob)
+      setFileUrlCache((prev) => ({ ...prev, [fileId]: url }))
+      setAvatarUrlByChatId((prev) => ({ ...prev, [chatId]: url }))
+    } catch {
+      setAvatarUrlByChatId((prev) => ({ ...prev, [chatId]: '' }))
+    } finally {
+      avatarLoadingRef.current[chatId] = false
+    }
+  }
+
   const tabCounts = useMemo(() => {
     const counts: Record<SupportChatsTab, number> = { new: 0, accepted: 0, archive: 0 }
     for (const chat of chats) {
@@ -557,6 +602,17 @@ export function Support() {
       return toTs(b.lastMessageAt) - toTs(a.lastMessageAt)
     })
   }, [filteredChats, pinnedSet])
+
+  useEffect(() => {
+    if (!token) return
+    const ids: string[] = []
+    if (selectedChatId) ids.push(selectedChatId)
+    for (const chat of sortedChats.slice(0, 12)) ids.push(chat.chatId)
+    const unique = Array.from(new Set(ids))
+    unique.forEach((id) => {
+      void ensureChatAvatarLoaded(id)
+    })
+  }, [activeTab, selectedChatId, sortedChats, token])
 
   const selectedChat: SupportChatRecord | null = useMemo(() => {
     if (!selectedChatId) return null
@@ -1030,11 +1086,13 @@ export function Support() {
 
                           <button
                             onClick={() => openChat(chat.chatId, 'open')}
-                            className="min-w-0 text-left w-full overflow-hidden"
+                            onMouseEnter={() => void ensureChatAvatarLoaded(chat.chatId)}
+                            className="min-w-0 text-left w-full"
                           >
                             <div className="flex items-center gap-3">
                               <div className="relative group shrink-0">
                                 <Avatar className="size-9">
+                                  {avatarUrlByChatId[chat.chatId] ? <AvatarImage src={avatarUrlByChatId[chat.chatId]} /> : null}
                                   <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
                                 </Avatar>
                                 <button
@@ -1054,7 +1112,7 @@ export function Support() {
                                 </button>
                               </div>
 
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 overflow-hidden">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="font-medium truncate">{title}</div>
                                   <div className="flex items-center gap-2 shrink-0">
@@ -1184,10 +1242,15 @@ export function Support() {
                               (isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-muted/30')
                             }
                           >
-                            <button onClick={() => openChat(chat.chatId, 'open')} className="min-w-0 text-left w-full overflow-hidden">
+                            <button
+                              onClick={() => openChat(chat.chatId, 'open')}
+                              onMouseEnter={() => void ensureChatAvatarLoaded(chat.chatId)}
+                              className="min-w-0 text-left w-full"
+                            >
                               <div className="flex items-center gap-3">
                                 <div className="relative group shrink-0">
                                   <Avatar className="size-9">
+                                    {avatarUrlByChatId[chat.chatId] ? <AvatarImage src={avatarUrlByChatId[chat.chatId]} /> : null}
                                     <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
                                   </Avatar>
                                   <button
@@ -1207,7 +1270,7 @@ export function Support() {
                                   </button>
                                 </div>
 
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 overflow-hidden">
                                   <div className="flex items-center justify-between gap-2">
                                     <div className="font-medium truncate">{title}</div>
                                     <div className="flex items-center gap-2 shrink-0">
