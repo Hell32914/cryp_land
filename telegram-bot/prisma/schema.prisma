@@ -225,6 +225,9 @@ model SupportChat {
   acceptedBy      String?
   acceptedAt      DateTime?
   archivedAt      DateTime?
+  isBlocked       Boolean   @default(false)
+  blockedAt       DateTime?
+  blockedBy       String?
   lastInboundAt   DateTime?
   lastOutboundAt  DateTime?
   startedAt       DateTime  @default(now())

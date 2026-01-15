@@ -243,6 +243,9 @@ export interface SupportChatRecord {
   acceptedBy?: string | null
   acceptedAt?: string | null
   archivedAt?: string | null
+  isBlocked?: boolean | null
+  blockedAt?: string | null
+  blockedBy?: string | null
   lastInboundAt?: string | null
   lastOutboundAt?: string | null
   startedAt: string
@@ -476,6 +479,15 @@ export const acceptSupportChat = (token: string, chatId: string) =>
 
 export const archiveSupportChat = (token: string, chatId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/archive`, { method: 'POST' }, token)
+
+export const unarchiveSupportChat = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/unarchive`, { method: 'POST' }, token)
+
+export const blockSupportChat = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/block`, { method: 'POST' }, token)
+
+export const unblockSupportChat = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/unblock`, { method: 'POST' }, token)
 
 export const sendSupportMessage = (token: string, chatId: string, text: string) =>
   request<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/messages`, {

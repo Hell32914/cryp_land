@@ -5733,6 +5733,7 @@ if (supportBot) {
     const telegramId = String(from.id)
 
     const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
+    if (existing?.isBlocked) return
     const now = new Date()
 
     const createData: any = {
@@ -5791,6 +5792,7 @@ if (supportBot) {
     const caption = (ctx.message as any)?.caption as string | undefined
 
     const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
+    if (existing?.isBlocked) return
     const now = new Date()
 
     const createData: any = {

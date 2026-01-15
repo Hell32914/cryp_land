@@ -408,9 +408,7 @@ app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req
 
     const chat = await prisma.supportChat.findUnique({ where: { chatId } })
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
-    if (chat.status === 'ARCHIVE') {
-      return res.status(409).json({ error: 'Chat is archived' })
-    }
+    // Allow accepting archived chat: it reopens the dialog and assigns operator.
     if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
       return res.status(409).json({ error: 'Chat already accepted by another operator' })
     }
@@ -421,12 +419,98 @@ app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req
         status: 'ACCEPTED',
         acceptedBy: adminUsername,
         acceptedAt: chat.acceptedAt || new Date(),
+        archivedAt: null,
       },
     })
     return res.json(updated)
   } catch (error) {
     console.error('Support chat accept error:', error)
     return res.status(500).json({ error: 'Failed to accept chat' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/unarchive', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: {
+        status: 'NEW',
+        archivedAt: null,
+        acceptedBy: null,
+        acceptedAt: null,
+      },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat unarchive error:', error)
+    return res.status(500).json({ error: 'Failed to unarchive chat' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/block', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: {
+        isBlocked: true,
+        blockedAt: new Date(),
+        blockedBy: adminUsername,
+      },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat block error:', error)
+    return res.status(500).json({ error: 'Failed to block user' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/unblock', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: {
+        isBlocked: false,
+        blockedAt: null,
+        blockedBy: null,
+      },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat unblock error:', error)
+    return res.status(500).json({ error: 'Failed to unblock user' })
   }
 })
 

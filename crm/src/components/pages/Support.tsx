@@ -8,6 +8,9 @@ import {
   fetchSupportMessages,
   acceptSupportChat,
   archiveSupportChat,
+  blockSupportChat,
+  unblockSupportChat,
+  unarchiveSupportChat,
   markSupportChatRead,
   sendSupportPhoto,
   sendSupportMessage,
@@ -274,11 +277,50 @@ export function Support() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
       setSelectedChatId(null)
+      setMessageText('')
+      setPhotoCaption('')
+      setPhotoFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       setActiveTab('archive')
       toast.success(t('support.archived'))
     },
     onError: (e: any) => {
       toast.error(e?.message || t('support.archiveFailed'))
+    },
+  })
+
+  const unarchiveMutation = useMutation({
+    mutationFn: (chatId: string) => unarchiveSupportChat(token!, chatId),
+    onSuccess: async (updated) => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setActiveTab('new')
+      setSelectedChatId(updated.chatId)
+      toast.success(t('support.restored'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.restoreFailed'))
+    },
+  })
+
+  const blockMutation = useMutation({
+    mutationFn: (chatId: string) => blockSupportChat(token!, chatId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      toast.success(t('support.userBlocked'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.blockFailed'))
+    },
+  })
+
+  const unblockMutation = useMutation({
+    mutationFn: (chatId: string) => unblockSupportChat(token!, chatId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      toast.success(t('support.userUnblocked'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.unblockFailed'))
     },
   })
 
@@ -388,7 +430,7 @@ export function Support() {
         <h1 className="text-3xl font-semibold tracking-tight">{t('support.title')}</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>{t('support.chats')}</CardTitle>
@@ -612,8 +654,23 @@ export function Support() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {String(selectedChat.status || '').toUpperCase() !== 'ACCEPTED' &&
-                      String(selectedChat.status || '').toUpperCase() !== 'ARCHIVE' ? (
+                      {String(selectedChat.status || '').toUpperCase() === 'ARCHIVE' ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => unarchiveMutation.mutate(selectedChat.chatId)}
+                            disabled={unarchiveMutation.isPending}
+                          >
+                            {unarchiveMutation.isPending ? t('support.processing') : t('support.toNew')}
+                          </Button>
+                          <Button
+                            onClick={() => acceptMutation.mutate(selectedChat.chatId)}
+                            disabled={acceptMutation.isPending}
+                          >
+                            {acceptMutation.isPending ? t('support.processing') : t('support.accept')}
+                          </Button>
+                        </>
+                      ) : String(selectedChat.status || '').toUpperCase() !== 'ACCEPTED' ? (
                         <Button
                           onClick={() => acceptMutation.mutate(selectedChat.chatId)}
                           disabled={acceptMutation.isPending}
@@ -709,6 +766,72 @@ export function Support() {
                       Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
                     }
                   />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>{t('support.clientPanel')}</CardTitle>
+              {selectedChat?.isBlocked ? <Badge variant="destructive">{t('support.blocked')}</Badge> : null}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!selectedChat ? (
+              <div className="text-sm text-muted-foreground">{t('support.selectChatHint')}</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm">
+                    {selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}
+                  </div>
+
+                  {selectedChat.isBlocked ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => unblockMutation.mutate(selectedChat.chatId)}
+                      disabled={unblockMutation.isPending}
+                    >
+                      {unblockMutation.isPending ? t('support.processing') : t('support.unblock')}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      onClick={() => blockMutation.mutate(selectedChat.chatId)}
+                      disabled={
+                        blockMutation.isPending ||
+                        Boolean(
+                          selectedChat.acceptedBy &&
+                            myUsername &&
+                            selectedChat.acceptedBy !== myUsername
+                        )
+                      }
+                    >
+                      {blockMutation.isPending ? t('support.processing') : t('support.block')}
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">{t('support.requestInfo')}</div>
+                  <Select
+                    value={chatStageMap[selectedChat.chatId] || primaryStageId}
+                    onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('support.funnel.primary')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {funnelStages.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
