@@ -160,6 +160,14 @@ const isAdminAuthConfigured = () => Boolean(CRM_ADMIN_USERNAME && CRM_ADMIN_PASS
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Max 5 attempts per 15 minutes
+  // Limit per IP+username so failed attempts for an operator don't lock out superadmin.
+  // Also skip successful logins so normal usage doesn't consume the quota.
+  keyGenerator: (req) => {
+    const body: any = (req as any).body
+    const username = typeof body?.username === 'string' ? body.username.trim().toLowerCase() : ''
+    return `${req.ip}:${username}`
+  },
+  skipSuccessfulRequests: true,
   message: 'Too many login attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
