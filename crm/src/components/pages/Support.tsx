@@ -9,6 +9,8 @@ import {
   fetchSupportNotes,
   acceptSupportChat,
   addSupportNote,
+  updateSupportNote,
+  deleteSupportNote,
   archiveSupportChat,
   blockSupportChat,
   unblockSupportChat,
@@ -47,7 +49,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PushPin, PushPinSlash, Bell, Paperclip, Plus, Minus, ArrowCounterClockwise } from '@phosphor-icons/react'
+import { PushPin, PushPinSlash, Bell, Paperclip, Plus, Minus, ArrowCounterClockwise, PencilSimple, TrashSimple } from '@phosphor-icons/react'
 import {
   getPrimaryStageId,
   loadPinnedChatIds,
@@ -104,6 +106,8 @@ export function Support() {
   }
 
   const [noteText, setNoteText] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
 
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
   const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null)
@@ -727,6 +731,33 @@ export function Support() {
     },
   })
 
+  const updateNoteMutation = useMutation({
+    mutationFn: ({ chatId, noteId, text }: { chatId: string; noteId: number; text: string }) =>
+      updateSupportNote(token!, chatId, noteId, text),
+    onSuccess: async () => {
+      setEditingNoteId(null)
+      setEditingNoteText('')
+      await queryClient.invalidateQueries({ queryKey: ['support-notes'] })
+      toast.success(t('support.noteUpdated'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.noteUpdateFailed'))
+    },
+  })
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: ({ chatId, noteId }: { chatId: string; noteId: number }) => deleteSupportNote(token!, chatId, noteId),
+    onSuccess: async () => {
+      setEditingNoteId(null)
+      setEditingNoteText('')
+      await queryClient.invalidateQueries({ queryKey: ['support-notes'] })
+      toast.success(t('support.noteDeleted'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.noteDeleteFailed'))
+    },
+  })
+
   const openImageViewer = (src: string) => {
     setImageViewerSrc(src)
     setImageViewerZoom(1)
@@ -760,6 +791,8 @@ export function Support() {
     setPhotoCaption('')
     setPhotoFile(null)
     setNoteText('')
+    setEditingNoteId(null)
+    setEditingNoteText('')
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (photoPickerRef.current) photoPickerRef.current.value = ''
 
@@ -1023,7 +1056,7 @@ export function Support() {
                             </div>
                           </button>
 
-                          <div className="min-w-0 space-y-1">
+                          <div className="min-w-0 w-full space-y-1">
                             <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
@@ -1036,9 +1069,16 @@ export function Support() {
                                 ))}
                               </SelectContent>
                             </Select>
-                            <div className="text-[11px] text-muted-foreground truncate" title={chat.telegramId}>
+                            <button
+                              type="button"
+                              className="w-full text-left text-[11px] text-muted-foreground truncate hover:underline"
+                              title={chat.telegramId}
+                              onClick={() => {
+                                setSelectedChatId((prev) => (prev === chat.chatId ? null : chat.chatId))
+                              }}
+                            >
                               {chat.telegramId}{chat.username ? ` • @${chat.username}` : ''}
-                            </div>
+                            </button>
                           </div>
 
                           <div className={"text-sm text-muted-foreground flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
@@ -1172,7 +1212,7 @@ export function Support() {
                               </div>
                             </button>
 
-                            <div className="min-w-0 space-y-1">
+                            <div className="min-w-0 w-full space-y-1">
                               <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
@@ -1185,15 +1225,19 @@ export function Support() {
                                   ))}
                                 </SelectContent>
                               </Select>
-                              <div
+                              <button
+                                type="button"
                                 className={
-                                  'text-[11px] truncate ' +
+                                  'w-full text-left text-[11px] truncate hover:underline ' +
                                   (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground')
                                 }
                                 title={chat.telegramId}
+                                onClick={() => {
+                                  setSelectedChatId((prev) => (prev === chat.chatId ? null : chat.chatId))
+                                }}
                               >
                                 {chat.telegramId}{chat.username ? ` • @${chat.username}` : ''}
-                              </div>
+                              </button>
                             </div>
 
                             <div className={"text-xs flex items-center gap-2 " + (showAlert ? 'text-destructive' : (isActive ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground'))}>
@@ -1544,10 +1588,79 @@ export function Support() {
                       <div className="max-h-[240px] overflow-auto rounded-md border border-border p-2 space-y-2">
                         {notes.map((n) => (
                           <div key={n.id} className="text-xs">
-                            <div className="text-muted-foreground">
-                              {(n.adminUsername || t('support.admin'))} • {new Date(n.createdAt).toLocaleString()}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 text-muted-foreground">
+                                {(n.adminUsername || t('support.admin'))} • {new Date(n.createdAt).toLocaleString()}
+                              </div>
+
+                              {selectedChat ? (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    title={t('support.editNote')}
+                                    onClick={() => {
+                                      setEditingNoteId(n.id)
+                                      setEditingNoteText(n.text || '')
+                                    }}
+                                    disabled={updateNoteMutation.isPending || deleteNoteMutation.isPending}
+                                  >
+                                    <PencilSimple size={16} />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    title={t('support.deleteNote')}
+                                    onClick={() => {
+                                      if (!window.confirm(t('support.deleteNoteConfirm'))) return
+                                      deleteNoteMutation.mutate({ chatId: selectedChat.chatId, noteId: n.id })
+                                    }}
+                                    disabled={updateNoteMutation.isPending || deleteNoteMutation.isPending}
+                                  >
+                                    <TrashSimple size={16} />
+                                  </Button>
+                                </div>
+                              ) : null}
                             </div>
-                            <div className="whitespace-pre-wrap break-words">{n.text}</div>
+
+                            {editingNoteId === n.id ? (
+                              <div className="mt-2 space-y-2">
+                                <Textarea
+                                  value={editingNoteText}
+                                  onChange={(e) => setEditingNoteText(e.target.value)}
+                                  rows={4}
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingNoteId(null)
+                                      setEditingNoteText('')
+                                    }}
+                                    disabled={updateNoteMutation.isPending}
+                                  >
+                                    {t('support.cancelEdit')}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!selectedChat) return
+                                      const text = editingNoteText.trim()
+                                      if (!text) return
+                                      updateNoteMutation.mutate({ chatId: selectedChat.chatId, noteId: n.id, text })
+                                    }}
+                                    disabled={!editingNoteText.trim() || updateNoteMutation.isPending}
+                                  >
+                                    {updateNoteMutation.isPending ? t('support.processing') : t('support.saveNote')}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="whitespace-pre-wrap break-words">{n.text}</div>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -621,3 +621,18 @@ export const addSupportNote = (token: string, chatId: string, text: string) =>
     method: 'POST',
     body: JSON.stringify({ text }),
   }, token)
+
+export const updateSupportNote = (token: string, chatId: string, noteId: number, text: string) =>
+  request<SupportNoteRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/notes/${noteId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ text }),
+    },
+    token,
+  )
+
+export const deleteSupportNote = (token: string, chatId: string, noteId: number) =>
+  request<{ success: boolean }>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/notes/${noteId}`,
+    { method: 'DELETE' },
+    token,
+  )
