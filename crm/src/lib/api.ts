@@ -267,6 +267,14 @@ export interface SupportMessageRecord {
   createdAt: string
 }
 
+export interface SupportNoteRecord {
+  id: number
+  supportChatId: number
+  text: string
+  adminUsername: string | null
+  createdAt: string
+}
+
 export interface SupportChatsResponse {
   chats: SupportChatRecord[]
   page: number
@@ -281,6 +289,10 @@ export interface SupportMessagesResponse {
   messages: SupportMessageRecord[]
   hasMore: boolean
   nextBeforeId: number | null
+}
+
+export interface SupportNotesResponse {
+  notes: SupportNoteRecord[]
 }
 
 export const adminLogin = async (username: string, password: string) =>
@@ -474,6 +486,9 @@ export const fetchSupportMessages = (token: string, chatId: string, opts?: { bef
 export const markSupportChatRead = (token: string, chatId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/read`, { method: 'POST' }, token)
 
+export const markSupportChatUnread = (token: string, chatId: string) =>
+  request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/unread`, { method: 'POST' }, token)
+
 export const acceptSupportChat = (token: string, chatId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/accept`, { method: 'POST' }, token)
 
@@ -523,3 +538,12 @@ export const fetchSupportFileBlob = async (token: string, fileId: string) => {
 
   return response.blob()
 }
+
+export const fetchSupportNotes = (token: string, chatId: string) =>
+  request<SupportNotesResponse>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/notes`, {}, token)
+
+export const addSupportNote = (token: string, chatId: string, text: string) =>
+  request<SupportNoteRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  }, token)

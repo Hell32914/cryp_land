@@ -6,16 +6,20 @@ import {
   fetchSupportChats,
   fetchSupportFileBlob,
   fetchSupportMessages,
+  fetchSupportNotes,
   acceptSupportChat,
+  addSupportNote,
   archiveSupportChat,
   blockSupportChat,
   unblockSupportChat,
   unarchiveSupportChat,
   markSupportChatRead,
+  markSupportChatUnread,
   sendSupportPhoto,
   sendSupportMessage,
   type SupportChatRecord,
   type SupportMessageRecord,
+  type SupportNoteRecord,
 } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -23,6 +27,12 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -34,7 +44,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PushPin, PushPinSlash, Bell } from '@phosphor-icons/react'
+import { PushPin, PushPinSlash, Bell, Paperclip, Plus, Minus, ArrowCounterClockwise } from '@phosphor-icons/react'
 import {
   getPrimaryStageId,
   loadPinnedChatIds,
@@ -77,6 +87,13 @@ export function Support() {
   const [photoCaption, setPhotoCaption] = useState('')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const photoPickerRef = useRef<HTMLInputElement | null>(null)
+
+  const [noteText, setNoteText] = useState('')
+
+  const [imageViewerOpen, setImageViewerOpen] = useState(false)
+  const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null)
+  const [imageViewerZoom, setImageViewerZoom] = useState(1)
 
   const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
   const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
@@ -252,10 +269,35 @@ export function Support() {
 
   const messages: SupportMessageRecord[] = messagesData?.messages ?? []
 
+  const { data: notesData } = useApiQuery<Awaited<ReturnType<typeof fetchSupportNotes>>>(
+    ['support-notes', selectedChatId],
+    (authToken) => fetchSupportNotes(authToken, selectedChatId!),
+    {
+      enabled: Boolean(token && selectedChatId),
+      refetchInterval: 5000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
+  )
+
+  const notes: SupportNoteRecord[] = (notesData as any)?.notes ?? []
+
   const markReadMutation = useMutation({
     mutationFn: (chatId: string) => markSupportChatRead(token!, chatId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+    },
+  })
+
+  const markUnreadMutation = useMutation({
+    mutationFn: (chatId: string) => markSupportChatUnread(token!, chatId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      toast.success(t('support.markedUnread'))
+      setSelectedChatId(null)
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.markUnreadFailed'))
     },
   })
 
@@ -353,6 +395,24 @@ export function Support() {
       toast.error(e?.message || t('support.sendFailed'))
     },
   })
+
+  const addNoteMutation = useMutation({
+    mutationFn: ({ chatId, text }: { chatId: string; text: string }) => addSupportNote(token!, chatId, text),
+    onSuccess: async () => {
+      setNoteText('')
+      await queryClient.invalidateQueries({ queryKey: ['support-notes'] })
+      toast.success(t('support.noteAdded'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.noteAddFailed'))
+    },
+  })
+
+  const openImageViewer = (src: string) => {
+    setImageViewerSrc(src)
+    setImageViewerZoom(1)
+    setImageViewerOpen(true)
+  }
 
   useEffect(() => {
     if (!selectedChatId) return
@@ -610,11 +670,23 @@ export function Support() {
                           {m.kind === 'PHOTO' && m.fileId ? (
                             <div className="space-y-2">
                               {fileUrlCache[m.fileId] ? (
-                                <img
-                                  src={fileUrlCache[m.fileId]}
-                                  alt="support-photo"
-                                  className="max-h-[280px] w-auto rounded border border-border"
-                                />
+                                <button
+                                  type="button"
+                                  className="block"
+                                  onClick={() => {
+                                    const fileId = m.fileId
+                                    if (!fileId) return
+                                    const src = fileUrlCache[fileId]
+                                    if (!src) return
+                                    openImageViewer(src)
+                                  }}
+                                >
+                                  <img
+                                    src={fileUrlCache[m.fileId]}
+                                    alt="support-photo"
+                                    className="max-h-[280px] w-auto rounded border border-border cursor-zoom-in"
+                                  />
+                                </button>
                               ) : fileLoadError[m.fileId] ? (
                                 <div className="text-xs text-muted-foreground">
                                   {t('support.photoLoadFailed')}
@@ -654,6 +726,14 @@ export function Support() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => markUnreadMutation.mutate(selectedChat.chatId)}
+                        disabled={markUnreadMutation.isPending}
+                      >
+                        {markUnreadMutation.isPending ? t('support.processing') : t('support.markUnread')}
+                      </Button>
+
                       {String(selectedChat.status || '').toUpperCase() === 'ARCHIVE' ? (
                         <>
                           <Button
@@ -717,33 +797,43 @@ export function Support() {
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
                     <div className="md:col-span-2">
-                      <Input
+                      <input
                         type="file"
                         accept="image/*"
-                        ref={fileInputRef}
-                        onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                        ref={photoPickerRef}
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null
+                          if (!file || !selectedChatId) return
+                          setPhotoFile(file)
+                          sendPhotoMutation.mutate({
+                            chatId: selectedChatId,
+                            file,
+                            caption: photoCaption.trim() || undefined,
+                          })
+                        }}
                         disabled={
                           Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
                           Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
                         }
                       />
-                    </div>
-                    <div className="md:col-span-1 flex justify-end gap-2">
+
                       <Button
+                        type="button"
                         variant="outline"
-                        onClick={() => {
-                          if (!selectedChatId || !photoFile) return
-                          sendPhotoMutation.mutate({ chatId: selectedChatId, file: photoFile, caption: photoCaption.trim() || undefined })
-                        }}
+                        className="w-full justify-start gap-2"
+                        onClick={() => photoPickerRef.current?.click()}
                         disabled={
-                          !photoFile ||
                           sendPhotoMutation.isPending ||
                           Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
                           Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
                         }
                       >
-                        {sendPhotoMutation.isPending ? t('support.sending') : t('support.sendPhoto')}
+                        <Paperclip size={18} />
+                        <span>{t('support.attachPhoto')}</span>
                       </Button>
+                    </div>
+                    <div className="md:col-span-1 flex justify-end gap-2">
                       <Button
                         onClick={handleSend}
                         disabled={
@@ -833,11 +923,100 @@ export function Support() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">{t('support.notes')}</div>
+                  <Textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    rows={4}
+                    placeholder={t('support.notesPlaceholder')}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => {
+                        if (!selectedChat) return
+                        const text = noteText.trim()
+                        if (!text) return
+                        addNoteMutation.mutate({ chatId: selectedChat.chatId, text })
+                      }}
+                      disabled={!noteText.trim() || addNoteMutation.isPending}
+                    >
+                      {addNoteMutation.isPending ? t('support.processing') : t('support.addNote')}
+                    </Button>
+                  </div>
+
+                  {notes.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">{t('support.noNotes')}</div>
+                  ) : (
+                    <div className="max-h-[240px] overflow-auto rounded-md border border-border p-2 space-y-2">
+                      {notes.map((n) => (
+                        <div key={n.id} className="text-xs">
+                          <div className="text-muted-foreground">
+                            {(n.adminUsername || t('support.admin'))} • {new Date(n.createdAt).toLocaleString()}
+                          </div>
+                          <div className="whitespace-pre-wrap break-words">{n.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="sm:max-w-5xl p-4">
+          <DialogHeader>
+            <DialogTitle>{t('support.photo')}</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-muted-foreground">{Math.round(imageViewerZoom * 100)}%</div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImageViewerZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
+              >
+                <Minus size={16} />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImageViewerZoom((z) => Math.min(5, Math.round((z + 0.25) * 100) / 100))}
+              >
+                <Plus size={16} />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImageViewerZoom(1)}
+              >
+                <ArrowCounterClockwise size={16} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="max-h-[75vh] overflow-auto rounded-md border border-border bg-muted/10">
+            {imageViewerSrc ? (
+              <div className="p-3">
+                <img
+                  src={imageViewerSrc}
+                  alt="support-photo-large"
+                  style={{ transform: `scale(${imageViewerZoom})`, transformOrigin: 'top left' }}
+                  className="select-none"
+                />
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

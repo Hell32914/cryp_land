@@ -264,6 +264,10 @@ const supportSendPhotoSchema = z.object({
   adminUsername: z.string().optional(),
 })
 
+const supportNoteSchema = z.object({
+  text: z.string().min(1).max(5000),
+})
+
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
@@ -397,6 +401,79 @@ app.post('/api/admin/support/chats/:chatId/read', requireAdminAuth, async (req, 
   } catch (error) {
     console.error('Support chat read error:', error)
     return res.status(500).json({ error: 'Failed to mark as read' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/unread', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const updated = await prisma.supportChat.update({
+      where: { chatId },
+      data: { unreadCount: Math.max(1, chat.unreadCount || 0) },
+    })
+    return res.json(updated)
+  } catch (error) {
+    console.error('Support chat unread error:', error)
+    return res.status(500).json({ error: 'Failed to mark as unread' })
+  }
+})
+
+app.get('/api/admin/support/chats/:chatId/notes', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    const notes = await prisma.supportNote.findMany({
+      where: { supportChatId: chat.id },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+    })
+
+    return res.json({ notes })
+  } catch (error) {
+    console.error('Support chat notes fetch error:', error)
+    return res.status(500).json({ error: 'Failed to fetch notes' })
+  }
+})
+
+app.post('/api/admin/support/chats/:chatId/notes', requireAdminAuth, async (req, res) => {
+  try {
+    const chatId = String(req.params.chatId)
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const parsed = supportNoteSchema.safeParse(req.body)
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid note payload' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const note = await prisma.supportNote.create({
+      data: {
+        supportChatId: chat.id,
+        text: parsed.data.text,
+        adminUsername,
+      },
+    })
+
+    return res.json(note)
+  } catch (error) {
+    console.error('Support chat note create error:', error)
+    return res.status(500).json({ error: 'Failed to add note' })
   }
 })
 

@@ -238,8 +238,20 @@ model SupportChat {
   updatedAt       DateTime  @updatedAt
 
   messages        SupportMessage[]
+  notes           SupportNote[]
 
   @@index([lastMessageAt])
+}
+
+model SupportNote {
+  id            Int         @id @default(autoincrement())
+  supportChatId Int
+  supportChat   SupportChat @relation(fields: [supportChatId], references: [id], onDelete: Cascade)
+  text          String
+  adminUsername String?
+  createdAt     DateTime    @default(now())
+
+  @@index([supportChatId, createdAt])
 }
 
 model SupportMessage {
