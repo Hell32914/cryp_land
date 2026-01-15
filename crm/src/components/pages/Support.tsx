@@ -18,8 +18,11 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+type SupportChatsTab = 'new' | 'accepted' | 'archive'
 
 export function Support() {
   const { t } = useTranslation()
@@ -27,6 +30,7 @@ export function Support() {
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [messageText, setMessageText] = useState('')
   const [photoCaption, setPhotoCaption] = useState('')
@@ -52,10 +56,61 @@ export function Support() {
 
   const chats = chatsData?.chats ?? []
 
+  const getChatTab = (chat: SupportChatRecord): SupportChatsTab => {
+    const anyChat = chat as any
+    const status = String(anyChat?.status ?? '').toUpperCase()
+
+    // Prefer explicit backend statuses if available.
+    if (
+      status === 'ARCHIVE' ||
+      status === 'ARCHIVED' ||
+      status === 'CLOSED' ||
+      status === 'DONE' ||
+      Boolean(anyChat?.archivedAt) ||
+      Boolean(anyChat?.closedAt) ||
+      anyChat?.isArchived === true
+    ) {
+      return 'archive'
+    }
+
+    if (
+      status === 'ACCEPTED' ||
+      status === 'TAKEN' ||
+      status === 'IN_PROGRESS' ||
+      status === 'ASSIGNED' ||
+      Boolean(anyChat?.acceptedAt) ||
+      Boolean(anyChat?.assignedAdminUsername) ||
+      Boolean(anyChat?.assignedTo) ||
+      anyChat?.isAccepted === true
+    ) {
+      return 'accepted'
+    }
+
+    // Product requirement: "New" is unread dialogs.
+    return chat.unreadCount > 0 ? 'new' : 'accepted'
+  }
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<SupportChatsTab, number> = { new: 0, accepted: 0, archive: 0 }
+    for (const chat of chats) {
+      counts[getChatTab(chat)]++
+    }
+    return counts
+  }, [chats])
+
+  const filteredChats = useMemo(() => {
+    return chats.filter((chat) => getChatTab(chat) === activeTab)
+  }, [activeTab, chats])
+
   const selectedChat: SupportChatRecord | null = useMemo(() => {
     if (!selectedChatId) return null
     return chats.find((c) => c.chatId === selectedChatId) ?? null
   }, [chats, selectedChatId])
+
+  useEffect(() => {
+    // Switching tabs should collapse any open chat.
+    setSelectedChatId(null)
+  }, [activeTab])
 
   const { data: messagesData, isLoading: isMessagesLoading } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportMessages>>
@@ -186,6 +241,24 @@ export function Support() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>{t('support.chats')}</CardTitle>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SupportChatsTab)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="new" className="flex-1">
+                  {t('support.tabs.new')}
+                  {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
+                </TabsTrigger>
+                <TabsTrigger value="accepted" className="flex-1">
+                  {t('support.tabs.accepted')}
+                  {tabCounts.accepted > 0 ? (
+                    <span className="ml-1 text-xs">({tabCounts.accepted})</span>
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger value="archive" className="flex-1">
+                  {t('support.tabs.archive')}
+                  {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
             <Input
               placeholder={t('support.search')}
               value={search}
@@ -197,12 +270,12 @@ export function Support() {
               <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
             ) : isChatsError ? (
               <div className="text-sm text-destructive">{t('common.error')}</div>
-            ) : chats.length === 0 ? (
+            ) : filteredChats.length === 0 ? (
               <div className="text-sm text-muted-foreground">{t('support.noChats')}</div>
             ) : (
               <ScrollArea className="h-[520px]">
                 <div className="space-y-2 pr-3">
-                  {chats.map((chat) => {
+                  {filteredChats.map((chat) => {
                     const isActive = chat.chatId === selectedChatId
                     const title = chat.username
                       ? `@${chat.username}`

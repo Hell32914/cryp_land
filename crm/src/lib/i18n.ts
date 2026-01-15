@@ -29,6 +29,11 @@ const resources = {
       support: {
         title: 'Support',
         chats: 'Chats',
+        tabs: {
+          new: 'New',
+          accepted: 'Accepted',
+          archive: 'Archive',
+        },
         search: 'Search by username / id...',
         noChats: 'No chats yet',
         selectChat: 'Select a chat',
@@ -182,6 +187,11 @@ const resources = {
       support: {
         title: 'Поддержка',
         chats: 'Чаты',
+        tabs: {
+          new: 'Новые',
+          accepted: 'Принятые',
+          archive: 'Архив',
+        },
         search: 'Поиск по юзернейму / id...',
         noChats: 'Чатов пока нет',
         selectChat: 'Выберите чат',
