@@ -33,6 +33,11 @@ const resources = {
         title: 'Funnel',
         unaccepted: 'Unaccepted dialogs',
         empty: 'Drag a chat here',
+        searchPlaceholder: 'Search by tag / id / username...',
+        operatorFilter: 'Operator',
+        operatorAll: 'All operators',
+        operatorMe: 'My dialogs',
+        operatorUnassigned: 'Unassigned',
       },
       supportOperators: {
         title: 'Operators',
@@ -255,6 +260,11 @@ const resources = {
         title: 'Воронка',
         unaccepted: 'Непринятые диалоги',
         empty: 'Перетащите диалог в этот этап',
+        searchPlaceholder: 'Поиск по тегу / id / нику...',
+        operatorFilter: 'Оператор',
+        operatorAll: 'Все операторы',
+        operatorMe: 'Мои диалоги',
+        operatorUnassigned: 'Без оператора',
       },
       supportOperators: {
         title: 'Операторы',

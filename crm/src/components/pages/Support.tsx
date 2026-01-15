@@ -52,6 +52,7 @@ import {
   loadSupportFunnelStages,
   savePinnedChatIds,
   saveSupportChatStageMap,
+  subscribeSupportFunnelUpdates,
   type SupportFunnelStage,
 } from '@/lib/support-funnel'
 
@@ -115,10 +116,22 @@ export function Support() {
   const [pinnedChatIds, setPinnedChatIds] = useState<string[]>([])
 
   useEffect(() => {
-    // Load local settings for funnel labels and pinned chats.
-    setFunnelStages(loadSupportFunnelStages(defaultStages))
-    setChatStageMap(loadSupportChatStageMap())
-    setPinnedChatIds(loadPinnedChatIds())
+    const reloadAll = () => {
+      // Load local settings for funnel labels and pinned chats.
+      setFunnelStages(loadSupportFunnelStages(defaultStages))
+      setChatStageMap(loadSupportChatStageMap())
+      setPinnedChatIds(loadPinnedChatIds())
+    }
+
+    reloadAll()
+
+    const unsubscribe = subscribeSupportFunnelUpdates((kind) => {
+      if (kind === 'stages') setFunnelStages(loadSupportFunnelStages(defaultStages))
+      if (kind === 'chatStageMap') setChatStageMap(loadSupportChatStageMap())
+      if (kind === 'pinnedChatIds') setPinnedChatIds(loadPinnedChatIds())
+    })
+
+    return unsubscribe
   }, [defaultStages])
 
   const primaryStageId = funnelStages.find((s) => s.id === getPrimaryStageId())?.id || getPrimaryStageId()

@@ -4,6 +4,8 @@ export type SupportFunnelStage = {
   locked?: boolean
 }
 
+export type SupportFunnelUpdateKind = 'stages' | 'chatStageMap' | 'pinnedChatIds'
+
 const STORAGE_KEYS = {
   stages: 'crm.support.funnelStages.v1',
   chatStageMap: 'crm.support.chatStageMap.v1',
@@ -11,6 +13,45 @@ const STORAGE_KEYS = {
 } as const
 
 const PRIMARY_STAGE_ID = 'primary'
+
+const SUPPORT_FUNNEL_EVENT = 'crm.supportFunnel.updated'
+
+function emitSupportFunnelUpdate(kind: SupportFunnelUpdateKind) {
+  try {
+    window.dispatchEvent(new CustomEvent(SUPPORT_FUNNEL_EVENT, { detail: { kind } }))
+  } catch {
+    // ignore
+  }
+}
+
+function kindFromStorageKey(key: string | null): SupportFunnelUpdateKind | null {
+  if (!key) return null
+  if (key === STORAGE_KEYS.stages) return 'stages'
+  if (key === STORAGE_KEYS.chatStageMap) return 'chatStageMap'
+  if (key === STORAGE_KEYS.pinnedChatIds) return 'pinnedChatIds'
+  return null
+}
+
+export function subscribeSupportFunnelUpdates(onUpdate: (kind: SupportFunnelUpdateKind) => void) {
+  const onCustom = (e: Event) => {
+    const ce = e as CustomEvent
+    const kind = ce?.detail?.kind as SupportFunnelUpdateKind | undefined
+    if (kind) onUpdate(kind)
+  }
+
+  const onStorage = (e: StorageEvent) => {
+    const kind = kindFromStorageKey(e.key)
+    if (kind) onUpdate(kind)
+  }
+
+  window.addEventListener(SUPPORT_FUNNEL_EVENT, onCustom)
+  window.addEventListener('storage', onStorage)
+
+  return () => {
+    window.removeEventListener(SUPPORT_FUNNEL_EVENT, onCustom)
+    window.removeEventListener('storage', onStorage)
+  }
+}
 
 export function getPrimaryStageId() {
   return PRIMARY_STAGE_ID
@@ -47,6 +88,7 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
 export function saveSupportFunnelStages(stages: SupportFunnelStage[]) {
   const primaryLabel = stages.find((s) => s.id === PRIMARY_STAGE_ID)?.label || 'Primary contact'
   localStorage.setItem(STORAGE_KEYS.stages, JSON.stringify(ensurePrimaryStage(stages, primaryLabel)))
+  emitSupportFunnelUpdate('stages')
 }
 
 export function loadSupportChatStageMap(): Record<string, string> {
@@ -63,6 +105,7 @@ export function loadSupportChatStageMap(): Record<string, string> {
 
 export function saveSupportChatStageMap(map: Record<string, string>) {
   localStorage.setItem(STORAGE_KEYS.chatStageMap, JSON.stringify(map))
+  emitSupportFunnelUpdate('chatStageMap')
 }
 
 export function loadPinnedChatIds(): string[] {
@@ -79,4 +122,5 @@ export function loadPinnedChatIds(): string[] {
 
 export function savePinnedChatIds(ids: string[]) {
   localStorage.setItem(STORAGE_KEYS.pinnedChatIds, JSON.stringify(Array.from(new Set(ids))))
+  emitSupportFunnelUpdate('pinnedChatIds')
 }

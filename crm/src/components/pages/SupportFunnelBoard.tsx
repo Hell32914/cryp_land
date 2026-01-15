@@ -6,6 +6,14 @@ import { fetchSupportChats, acceptSupportChat, type SupportChatRecord } from '@/
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -13,6 +21,7 @@ import {
   loadSupportChatStageMap,
   loadSupportFunnelStages,
   saveSupportChatStageMap,
+  subscribeSupportFunnelUpdates,
   type SupportFunnelStage,
 } from '@/lib/support-funnel'
 
@@ -21,6 +30,22 @@ type ColumnId = 'unaccepted' | string
 type DragPayload = {
   chatId: string
   from: ColumnId
+}
+
+function getUsernameFromJwt(token?: string | null): string | null {
+  try {
+    if (!token) return null
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    const payload = parts[1]
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const json = window.atob(padded)
+    const data = JSON.parse(json)
+    return typeof data?.username === 'string' ? data.username : null
+  } catch {
+    return null
+  }
 }
 
 function getFallbackChar(chat: SupportChatRecord) {
@@ -45,6 +70,8 @@ export function SupportFunnelBoard() {
   const { token } = useAuth()
   const queryClient = useQueryClient()
 
+  const myUsername = useMemo(() => getUsernameFromJwt(token), [token])
+
   const defaultStages = useMemo<SupportFunnelStage[]>(
     () => [
       { id: getPrimaryStageId(), label: t('support.funnel.primary'), locked: true },
@@ -60,9 +87,23 @@ export function SupportFunnelBoard() {
   const [funnelStages, setFunnelStages] = useState<SupportFunnelStage[]>(defaultStages)
   const [chatStageMap, setChatStageMap] = useState<Record<string, string>>({})
 
+  const [search, setSearch] = useState('')
+  const [operatorFilter, setOperatorFilter] = useState<string>('all')
+
   useEffect(() => {
-    setFunnelStages(loadSupportFunnelStages(defaultStages))
-    setChatStageMap(loadSupportChatStageMap())
+    const reloadAll = () => {
+      setFunnelStages(loadSupportFunnelStages(defaultStages))
+      setChatStageMap(loadSupportChatStageMap())
+    }
+
+    reloadAll()
+
+    const unsubscribe = subscribeSupportFunnelUpdates((kind) => {
+      if (kind === 'stages') setFunnelStages(loadSupportFunnelStages(defaultStages))
+      if (kind === 'chatStageMap') setChatStageMap(loadSupportChatStageMap())
+    })
+
+    return unsubscribe
   }, [defaultStages])
 
   const primaryStageId = funnelStages.find((s) => s.id === getPrimaryStageId())?.id || getPrimaryStageId()
@@ -78,16 +119,38 @@ export function SupportFunnelBoard() {
 
   const chats = chatsData?.chats ?? []
 
+  const operatorOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const chat of chats) {
+      if (chat.acceptedBy) set.add(chat.acceptedBy)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [chats])
+
   const acceptMutation = useMutation({
-    mutationFn: (chatId: string) => acceptSupportChat(token!, chatId),
-    onSuccess: async (updated) => {
+    mutationFn: ({ chatId }: { chatId: string; stageId?: string; prevStageId?: string }) =>
+      acceptSupportChat(token!, chatId),
+    onSuccess: async (updated, vars) => {
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
       await queryClient.invalidateQueries({ queryKey: ['support-chats-board'] })
-      // Default stage after accept.
-      setStage(updated.chatId, primaryStageId)
+      // Default stage after accept: keep dropped stage if provided.
+      const stageId = vars?.stageId || chatStageMap[updated.chatId] || primaryStageId
+      setStage(updated.chatId, stageId)
       toast.success(t('support.accepted'))
     },
-    onError: (e: any) => toast.error(e?.message || t('support.acceptFailed')),
+    onError: (e: any, vars) => {
+      // Rollback stage map for optimistic drop.
+      if (vars?.chatId) {
+        setChatStageMap((prev) => {
+          const next = { ...prev }
+          if (vars.prevStageId) next[vars.chatId] = vars.prevStageId
+          else delete next[vars.chatId]
+          saveSupportChatStageMap(next)
+          return next
+        })
+      }
+      toast.error(e?.message || t('support.acceptFailed'))
+    },
   })
 
   const setStage = (chatId: string, stageId: string) => {
@@ -111,6 +174,12 @@ export function SupportFunnelBoard() {
     return [...base, ...stageColumns]
   }, [funnelStages, t])
 
+  const searchTerm = useMemo(() => {
+    const raw = search.trim().toLowerCase()
+    if (!raw) return ''
+    return raw.startsWith('@') ? raw.slice(1) : raw
+  }, [search])
+
   const columnChats = useMemo(() => {
     const map: Record<string, SupportChatRecord[]> = {}
     for (const col of columns) map[col.id] = []
@@ -118,6 +187,27 @@ export function SupportFunnelBoard() {
     for (const chat of chats) {
       const status = String(chat.status || '').toUpperCase()
       if (status === 'ARCHIVE') continue
+
+      // Search filter (tag/id/nick)
+      if (searchTerm) {
+        const hay = [
+          chat.telegramId,
+          chat.chatId,
+          chat.username || '',
+          chat.firstName || '',
+          chat.lastName || '',
+        ]
+          .join(' ')
+          .toLowerCase()
+        if (!hay.includes(searchTerm)) continue
+      }
+
+      // Operator filter
+      if (operatorFilter !== 'all') {
+        if (operatorFilter === 'unassigned' && chat.acceptedBy) continue
+        if (operatorFilter === 'me' && (!myUsername || chat.acceptedBy !== myUsername)) continue
+        if (operatorFilter.startsWith('op:') && chat.acceptedBy !== operatorFilter.slice(3)) continue
+      }
 
       const col = getColumnIdForChat(chat)
       if (col in map) map[col].push(chat)
@@ -133,7 +223,7 @@ export function SupportFunnelBoard() {
     }
 
     return map
-  }, [chats, columns, chatStageMap, primaryStageId])
+  }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm])
 
   const handleDrop = async (payload: DragPayload, to: ColumnId) => {
     if (!payload?.chatId) return
@@ -142,12 +232,19 @@ export function SupportFunnelBoard() {
     const chat = chats.find((c) => c.chatId === payload.chatId)
     if (!chat) return
 
+    if (chat.acceptedBy && myUsername && chat.acceptedBy !== myUsername) {
+      toast.error(t('support.lockedByOther', { name: chat.acceptedBy }))
+      return
+    }
+
     const status = String(chat.status || '').toUpperCase()
+
+    const prevStageId = chatStageMap[payload.chatId]
 
     // Dragging from unaccepted into a funnel stage implicitly accepts.
     if (status !== 'ACCEPTED') {
-      acceptMutation.mutate(payload.chatId)
       setStage(payload.chatId, to)
+      acceptMutation.mutate({ chatId: payload.chatId, stageId: to, prevStageId })
       return
     }
 
@@ -166,6 +263,31 @@ export function SupportFunnelBoard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('supportBoard.title')}</h1>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[260px] max-w-[420px]">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('supportBoard.searchPlaceholder')}
+          />
+        </div>
+        <div className="min-w-[240px]">
+          <Select value={operatorFilter} onValueChange={setOperatorFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('supportBoard.operatorFilter')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('supportBoard.operatorAll')}</SelectItem>
+              {myUsername ? <SelectItem value="me">{t('supportBoard.operatorMe')}</SelectItem> : null}
+              <SelectItem value="unassigned">{t('supportBoard.operatorUnassigned')}</SelectItem>
+              {operatorOptions.map((name) => (
+                <SelectItem key={name} value={`op:${name}`}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-2">
@@ -203,16 +325,27 @@ export function SupportFunnelBoard() {
                     const when = formatWhen(chat.lastMessageAt)
                     const fallbackChar = getFallbackChar(chat)
 
+                    const canDrag = !chat.acceptedBy || (myUsername ? chat.acceptedBy === myUsername : false)
+
                     return (
                       <div
                         key={chat.chatId}
-                        draggable
+                        draggable={canDrag}
                         onDragStart={(e) => {
+                          if (!canDrag) {
+                            e.preventDefault()
+                            toast.error(t('support.lockedByOther', { name: chat.acceptedBy }))
+                            return
+                          }
                           const payload: DragPayload = { chatId: chat.chatId, from: getColumnIdForChat(chat) }
                           e.dataTransfer.setData('application/json', JSON.stringify(payload))
                           e.dataTransfer.effectAllowed = 'move'
                         }}
-                        className="rounded-md border border-border bg-background p-3 shadow-sm hover:bg-muted/30 cursor-grab active:cursor-grabbing"
+                        className={
+                          canDrag
+                            ? 'rounded-md border border-border bg-background p-3 shadow-sm hover:bg-muted/30 cursor-grab active:cursor-grabbing'
+                            : 'rounded-md border border-border bg-background p-3 shadow-sm opacity-70 cursor-not-allowed'
+                        }
                       >
                         <div className="flex items-start gap-3">
                           <Avatar className="size-9">
