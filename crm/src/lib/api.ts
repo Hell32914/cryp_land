@@ -324,6 +324,8 @@ export interface SupportMessageRecord {
   text: string | null
   fileId?: string | null
   adminUsername: string | null
+  userSeenAt?: string | null
+  userSeenTelegramId?: string | null
   createdAt: string
 }
 
