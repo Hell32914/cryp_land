@@ -39,6 +39,35 @@ function AppContent() {
     }
   }, [allowedPages, currentPage, isAuthenticated, role])
 
+  useEffect(() => {
+    const onNavigateEvent = (ev: Event) => {
+      const ce = ev as CustomEvent<any>
+      const page = String(ce?.detail?.page || '')
+      const supportChatId = ce?.detail?.supportChatId
+
+      if (!page) return
+
+      if (supportChatId) {
+        try {
+          sessionStorage.setItem('crm.support.openChatId', String(supportChatId))
+          window.dispatchEvent(new CustomEvent('crm:support.openChat', { detail: { chatId: String(supportChatId) } }))
+        } catch {
+          // ignore
+        }
+      }
+
+      if (allowedPages && !allowedPages.has(page)) {
+        setCurrentPage('support')
+        return
+      }
+
+      setCurrentPage(page)
+    }
+
+    window.addEventListener('crm:navigate', onNavigateEvent)
+    return () => window.removeEventListener('crm:navigate', onNavigateEvent)
+  }, [allowedPages])
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':

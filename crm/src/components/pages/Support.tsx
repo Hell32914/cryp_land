@@ -369,6 +369,37 @@ export function Support() {
     setSelectedChatId(chatId)
   }
 
+  useEffect(() => {
+    const tryOpen = (chatId: string | null) => {
+      if (!chatId) return
+      const exists = chats.some((c) => c.chatId === chatId)
+      if (!exists) return
+      openChat(chatId, 'open')
+      try {
+        sessionStorage.removeItem('crm.support.openChatId')
+      } catch {
+        // ignore
+      }
+    }
+
+    // 1) If we came from another page (e.g., Funnel) store-based deep open.
+    try {
+      const stored = sessionStorage.getItem('crm.support.openChatId')
+      if (stored) tryOpen(stored)
+    } catch {
+      // ignore
+    }
+
+    // 2) If we are already on Support, react to navigation events.
+    const onOpenEvent = (ev: Event) => {
+      const ce = ev as CustomEvent<any>
+      const chatId = ce?.detail?.chatId
+      if (typeof chatId === 'string' && chatId) tryOpen(chatId)
+    }
+    window.addEventListener('crm:support.openChat', onOpenEvent)
+    return () => window.removeEventListener('crm:support.openChat', onOpenEvent)
+  }, [chats])
+
   const ensureChatAvatarLoaded = async (chatId: string) => {
     if (!token) return
     if (Object.prototype.hasOwnProperty.call(avatarUrlByChatIdRef.current, chatId)) return

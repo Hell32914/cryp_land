@@ -559,6 +559,27 @@ const upload = multer({
 
 app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
   try {
+    // Self-heal: some legacy/buggy records may end up ACCEPTED without a funnel stage.
+    // Per business rules, such chats should be treated as unaccepted and default to Primary contact.
+    await prisma.supportChat.updateMany({
+      where: {
+        status: 'ACCEPTED',
+        OR: [
+          { funnelStageId: null },
+          { funnelStageId: '' },
+          { acceptedBy: null },
+          { acceptedAt: null },
+        ],
+      },
+      data: {
+        status: 'NEW',
+        acceptedBy: null,
+        acceptedAt: null,
+        archivedAt: null,
+        funnelStageId: 'primary',
+      },
+    })
+
     const parsed = supportChatsQuerySchema.safeParse(req.query)
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid query' })

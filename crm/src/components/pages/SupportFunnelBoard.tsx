@@ -178,6 +178,10 @@ export function SupportFunnelBoard() {
     })
   }
 
+  const openChat = (chatId: string) => {
+    window.dispatchEvent(new CustomEvent('crm:navigate', { detail: { page: 'support', supportChatId: chatId } }))
+  }
+
   const getColumnIdForChat = (chat: SupportChatRecord): ColumnId => {
     const status = String(chat.status || '').toUpperCase()
     if (status === 'ARCHIVE') return 'archived'
@@ -424,6 +428,7 @@ export function SupportFunnelBoard() {
                       <div
                         key={chat.chatId}
                         draggable={canDrag}
+                        onClick={() => openChat(chat.chatId)}
                         onDragStart={(e) => {
                           if (!canDrag) {
                             e.preventDefault()
@@ -436,7 +441,7 @@ export function SupportFunnelBoard() {
                         }}
                         className={
                           canDrag
-                            ? 'rounded-md border border-border bg-background p-3 shadow-sm hover:bg-muted/30 cursor-grab active:cursor-grabbing'
+                            ? 'rounded-md border border-border bg-background p-3 shadow-sm hover:bg-muted/30 cursor-pointer'
                             : 'rounded-md border border-border bg-background p-3 shadow-sm opacity-70 cursor-not-allowed'
                         }
                       >
