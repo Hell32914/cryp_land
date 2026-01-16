@@ -337,6 +337,9 @@ model SupportMessage {
   kind          String      @default("TEXT")
   text          String?
   telegramMessageId Int?
+  replyToId     Int?
+  replyTo       SupportMessage? @relation("SupportMessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies       SupportMessage[] @relation("SupportMessageReply")
   fileId        String?
   fileUniqueId  String?
   fileName      String?

@@ -322,6 +322,16 @@ export interface SupportMessageRecord {
   direction: 'IN' | 'OUT' | string
   kind?: 'TEXT' | 'PHOTO' | string
   text: string | null
+  replyToId?: number | null
+  replyTo?: {
+    id: number
+    direction: 'IN' | 'OUT' | string
+    kind?: 'TEXT' | 'PHOTO' | string
+    text: string | null
+    fileId?: string | null
+    adminUsername: string | null
+    createdAt: string
+  } | null
   fileId?: string | null
   adminUsername: string | null
   userSeenAt?: string | null
@@ -566,16 +576,17 @@ export const blockSupportChat = (token: string, chatId: string) =>
 export const unblockSupportChat = (token: string, chatId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/unblock`, { method: 'POST' }, token)
 
-export const sendSupportMessage = (token: string, chatId: string, text: string) =>
+export const sendSupportMessage = (token: string, chatId: string, text: string, opts?: { replyToId?: number | null }) =>
   request<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, ...(opts?.replyToId ? { replyToId: opts.replyToId } : {}) }),
   }, token)
 
-export const sendSupportPhoto = async (token: string, chatId: string, file: File, caption?: string) => {
+export const sendSupportPhoto = async (token: string, chatId: string, file: File, caption?: string, opts?: { replyToId?: number | null }) => {
   const form = new FormData()
   form.append('photo', file)
   if (caption) form.append('caption', caption)
+  if (opts?.replyToId) form.append('replyToId', String(opts.replyToId))
   return requestFormData<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/photos`, form, token)
 }
 

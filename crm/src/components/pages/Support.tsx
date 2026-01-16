@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PushPin, PushPinSlash, Bell, Paperclip, Plus, Minus, ArrowCounterClockwise, PencilSimple, TrashSimple } from '@phosphor-icons/react'
+import { PushPin, PushPinSlash, Bell, Paperclip, Plus, Minus, ArrowCounterClockwise, PencilSimple, TrashSimple, ArrowBendUpLeft, X } from '@phosphor-icons/react'
 import {
   getPrimaryStageId,
   loadPinnedChatIds,
@@ -83,6 +83,9 @@ export function Support() {
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const photoPickerRef = useRef<HTMLInputElement | null>(null)
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const [replyTo, setReplyTo] = useState<SupportMessageRecord | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const [shouldScrollMessagesToBottom, setShouldScrollMessagesToBottom] = useState(false)
@@ -787,9 +790,10 @@ export function Support() {
 
   const sendMessageMutation = useMutation({
     mutationFn: ({ chatId, text }: { chatId: string; text: string }) =>
-      sendSupportMessage(token!, chatId, text),
+      sendSupportMessage(token!, chatId, text, { replyToId: replyTo?.id || null }),
     onSuccess: async () => {
       setMessageText('')
+      setReplyTo(null)
       await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
       setScrollBehavior('smooth')
@@ -804,10 +808,11 @@ export function Support() {
 
   const sendPhotoMutation = useMutation({
     mutationFn: ({ chatId, file, caption }: { chatId: string; file: File; caption?: string }) =>
-      sendSupportPhoto(token!, chatId, file, caption),
+      sendSupportPhoto(token!, chatId, file, caption, { replyToId: replyTo?.id || null }),
     onSuccess: async () => {
       setPhotoCaption('')
       setPhotoFile(null)
+      setReplyTo(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
       await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
@@ -911,6 +916,7 @@ export function Support() {
     setMessageText('')
     setPhotoCaption('')
     setPhotoFile(null)
+    setReplyTo(null)
     setNoteText('')
     setEditingNoteId(null)
     setEditingNoteText('')
@@ -921,6 +927,26 @@ export function Support() {
     setScrollBehavior('auto')
     setShouldScrollMessagesToBottom(true)
   }, [selectedChatId])
+
+  useEffect(() => {
+    if (!replyTo) return
+    // If message list refreshed and the replied message is gone, drop the reply state.
+    if (!messages.some((m) => m.id === replyTo.id)) {
+      setReplyTo(null)
+    }
+  }, [messages, replyTo])
+
+  const replyPreviewText = (m: SupportMessageRecord | null) => {
+    if (!m) return ''
+    if (m.kind === 'PHOTO') return m.text ? m.text : `[${t('support.photo')}]`
+    return (m.text || '').trim() || '—'
+  }
+
+  const replyPreviewAuthor = (m: SupportMessageRecord | null) => {
+    if (!m) return ''
+    if (m.direction === 'OUT') return m.adminUsername || t('support.admin')
+    return t('support.user')
+  }
 
   // Perform deferred scroll after messages render.
   useEffect(() => {
@@ -1404,6 +1430,21 @@ export function Support() {
                               : 'mr-auto bg-muted/40 border-border')
                           }
                         >
+                          {m.replyTo ? (
+                            <div className="mb-2 rounded border border-border/60 bg-background/40 px-2 py-1 text-xs">
+                              <div className="text-muted-foreground truncate">
+                                {t('support.replyToLabel', {
+                                  name: m.replyTo.direction === 'OUT' ? (m.replyTo.adminUsername || t('support.admin')) : t('support.user'),
+                                })}
+                              </div>
+                              <div className="truncate">
+                                {m.replyTo.kind === 'PHOTO'
+                                  ? (m.replyTo.text ? m.replyTo.text : `[${t('support.photo')}]`)
+                                  : (m.replyTo.text ?? '')}
+                              </div>
+                            </div>
+                          ) : null}
+
                           {m.kind === 'PHOTO' && m.fileId ? (
                             <div className="space-y-2">
                               {fileUrlCache[m.fileId] ? (
@@ -1455,6 +1496,23 @@ export function Support() {
                                     : t('support.userNotSeen'))}
                               </span>
                             ) : null}
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              title={t('support.reply')}
+                              disabled={!selectedChatId}
+                              onClick={() => {
+                                setReplyTo(m)
+                                requestAnimationFrame(() => {
+                                  messageTextareaRef.current?.focus()
+                                })
+                              }}
+                            >
+                              <ArrowBendUpLeft size={14} />
+                            </Button>
 
                             {canDeleteSupportMessage(m) ? (
                               <Button
@@ -1566,6 +1624,7 @@ export function Support() {
                   ) : null}
 
                   <Textarea
+                    ref={messageTextareaRef}
                     placeholder={t('support.writeMessage')}
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
@@ -1575,6 +1634,27 @@ export function Support() {
                       Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
                     }
                   />
+
+                  {replyTo ? (
+                    <div className="flex items-start justify-between gap-2 rounded-md border border-border bg-muted/30 p-2">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground">
+                          {t('support.replyingTo', { name: replyPreviewAuthor(replyTo) })}
+                        </div>
+                        <div className="text-sm truncate">{replyPreviewText(replyTo)}</div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title={t('support.cancelReply')}
+                        onClick={() => setReplyTo(null)}
+                      >
+                        <X size={16} />
+                      </Button>
+                    </div>
+                  ) : null}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
                     <div className="md:col-span-2">
                       <input

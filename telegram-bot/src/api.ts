@@ -349,11 +349,13 @@ const supportChatsQuerySchema = z.object({
 
 const supportSendMessageSchema = z.object({
   text: z.string().min(1).max(4096),
+  replyToId: z.coerce.number().int().positive().optional(),
   adminUsername: z.string().optional(),
 })
 
 const supportSendPhotoSchema = z.object({
   caption: z.string().max(1024).optional(),
+  replyToId: z.coerce.number().int().positive().optional(),
   adminUsername: z.string().optional(),
 })
 
@@ -646,6 +648,19 @@ app.get('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (re
       },
       orderBy: { id: 'desc' },
       take: limit,
+      include: {
+        replyTo: {
+          select: {
+            id: true,
+            direction: true,
+            kind: true,
+            text: true,
+            fileId: true,
+            adminUsername: true,
+            createdAt: true,
+          },
+        },
+      },
     })
 
     return res.json({
@@ -1038,7 +1053,7 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       return res.status(400).json({ error: 'Invalid message payload' })
     }
 
-    const { text } = parseResult.data
+    const { text, replyToId } = parseResult.data
     const chat = await prisma.supportChat.findUnique({ where: { chatId } })
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
 
@@ -1055,8 +1070,27 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       return res.status(403).json({ error: 'Chat is accepted by another operator' })
     }
 
+    let replyToTelegramMessageId: number | undefined
+    if (replyToId) {
+      const replyTarget = await prisma.supportMessage.findUnique({ where: { id: replyToId } })
+      if (!replyTarget || replyTarget.supportChatId !== chat.id) {
+        return res.status(404).json({ error: 'Reply target not found' })
+      }
+      const tgId = Number((replyTarget as any).telegramMessageId)
+      if (!Number.isFinite(tgId)) {
+        return res.status(409).json({ error: 'Cannot reply in Telegram: target message id is missing' })
+      }
+      replyToTelegramMessageId = tgId
+    }
+
     // Send to Telegram first (so we don't persist unsent messages)
-    const sent = await supportBotInstance.api.sendMessage(chatId, text)
+    const sent = await supportBotInstance.api.sendMessage(
+      chatId,
+      text,
+      replyToTelegramMessageId
+        ? ({ reply_to_message_id: replyToTelegramMessageId, allow_sending_without_reply: true } as any)
+        : undefined,
+    )
     const telegramMessageId = Number((sent as any)?.message_id)
 
     const message = await prisma.supportMessage.create({
@@ -1066,6 +1100,7 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
         kind: 'TEXT',
         text,
         telegramMessageId: Number.isFinite(telegramMessageId) ? telegramMessageId : null,
+        replyToId: replyToId || null,
         adminUsername: adminUsername || null,
       },
     })
@@ -1188,7 +1223,7 @@ app.post(
       if (!parsed.success) {
         return res.status(400).json({ error: 'Invalid payload' })
       }
-      const { caption } = parsed.data
+      const { caption, replyToId } = parsed.data
 
       const adminUsername = String((req as any).adminUsername || '').trim()
       if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
@@ -1203,11 +1238,29 @@ app.post(
         return res.status(403).json({ error: 'Chat is accepted by another operator' })
       }
 
+      let replyToTelegramMessageId: number | undefined
+      if (replyToId) {
+        const replyTarget = await prisma.supportMessage.findUnique({ where: { id: replyToId } })
+        if (!replyTarget || replyTarget.supportChatId !== chat.id) {
+          return res.status(404).json({ error: 'Reply target not found' })
+        }
+        const tgId = Number((replyTarget as any).telegramMessageId)
+        if (!Number.isFinite(tgId)) {
+          return res.status(409).json({ error: 'Cannot reply in Telegram: target message id is missing' })
+        }
+        replyToTelegramMessageId = tgId
+      }
+
       // Send to Telegram first
       const sent = await supportBotInstance.api.sendPhoto(
         chatId,
         new InputFile(req.file.buffer, req.file.originalname || 'photo.jpg'),
-        caption ? { caption } : undefined,
+        {
+          ...(caption ? { caption } : {}),
+          ...(replyToTelegramMessageId
+            ? ({ reply_to_message_id: replyToTelegramMessageId, allow_sending_without_reply: true } as any)
+            : {}),
+        } as any,
       )
 
       const telegramMessageId = Number((sent as any)?.message_id)
@@ -1222,6 +1275,7 @@ app.post(
           kind: 'PHOTO',
           text: caption || null,
           telegramMessageId: Number.isFinite(telegramMessageId) ? telegramMessageId : null,
+          replyToId: replyToId || null,
           fileId: largest?.file_id || null,
           fileUniqueId: largest?.file_unique_id || null,
           fileName: req.file.originalname || null,

@@ -71,6 +71,8 @@ export function SupportFunnel() {
 
   const remove = (id: string) => {
     if (id === getPrimaryStageId()) return
+    const label = stages.find((s) => s.id === id)?.label || id
+    if (!window.confirm(t('support.funnel.deleteConfirm', { label }))) return
     persist(stages.filter((s) => s.id !== id))
   }
 
