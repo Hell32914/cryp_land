@@ -343,7 +343,8 @@ const crmOperatorResetPasswordSchema = z.object({
 const supportChatsQuerySchema = z.object({
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
+  // CRM funnel board may need a larger slice to include older chats.
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
 })
 
 const supportSendMessageSchema = z.object({
