@@ -185,6 +185,9 @@ const resources = {
         markUnread: 'Mark unread',
         markedUnread: 'Marked as unread',
         markUnreadFailed: 'Failed to mark unread',
+        userSeen: 'Seen',
+        userNotSeen: 'Not seen',
+        userSeenHint: 'Telegram does not provide read receipts for bot messages. This is an approximation: marked as seen when the user has activity after this message.',
         funnel: {
           title: 'Funnel',
           subtitle: 'Customer statuses',
@@ -484,6 +487,9 @@ const resources = {
         markUnread: 'Не прочитано',
         markedUnread: 'Отмечено как непрочитанное',
         markUnreadFailed: 'Не удалось отметить как непрочитанное',
+        userSeen: '✓ Прочитано',
+        userNotSeen: '• Не прочитано',
+        userSeenHint: 'Telegram не отдаёт отметку «прочитано» для сообщений бота. Это приблизительная оценка: считаем прочитанным, если после этого сообщения была активность пользователя.',
         funnel: {
           title: 'Воронка',
           subtitle: 'Статусы клиента',

@@ -619,6 +619,11 @@ export function Support() {
     return chats.find((c) => c.chatId === selectedChatId) ?? null
   }, [chats, selectedChatId])
 
+  const selectedChatLastInboundTs = useMemo(() => {
+    if (!selectedChat?.lastInboundAt) return 0
+    return new Date(selectedChat.lastInboundAt).getTime()
+  }, [selectedChat?.lastInboundAt])
+
   useEffect(() => {
     if (!selectedChatId) return
     const chat = chats.find((c) => c.chatId === selectedChatId)
@@ -1385,9 +1390,20 @@ export function Support() {
                           ) : (
                             <div className="whitespace-pre-wrap break-words">{m.text ?? ''}</div>
                           )}
-                          <div className="mt-1 text-[11px] text-muted-foreground">
-                            {m.direction === 'OUT' ? t('support.admin') : t('support.user')} •{' '}
-                            {new Date(m.createdAt).toLocaleString()}
+                          <div className="mt-1 text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span>
+                              {m.direction === 'OUT' ? t('support.admin') : t('support.user')} •{' '}
+                              {new Date(m.createdAt).toLocaleString()}
+                            </span>
+
+                            {m.direction === 'OUT' ? (
+                              <span title={t('support.userSeenHint')}>
+                                •{' '}
+                                {selectedChatLastInboundTs > new Date(m.createdAt).getTime()
+                                  ? t('support.userSeen')
+                                  : t('support.userNotSeen')}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       ))}
