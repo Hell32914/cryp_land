@@ -36,14 +36,22 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   })
 
   const text = await response.text()
-  const data = text ? JSON.parse(text) : null
+  let data: any = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = null
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401) emitUnauthorized()
-    const message = (data && data.error) || response.statusText || 'Request failed'
+    const message = (data && data.error) || text || response.statusText || 'Request failed'
     throw new ApiError(message, response.status)
   }
 
+  // If backend returned a non-JSON body on success, avoid crashing the app.
   return (data ?? {}) as T
 }
 
@@ -58,11 +66,18 @@ async function requestFormData<T>(path: string, formData: FormData, token?: stri
   })
 
   const text = await response.text()
-  const data = text ? JSON.parse(text) : null
+  let data: any = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = null
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401) emitUnauthorized()
-    const message = (data && data.error) || response.statusText || 'Request failed'
+    const message = (data && data.error) || text || response.statusText || 'Request failed'
     throw new ApiError(message, response.status)
   }
 

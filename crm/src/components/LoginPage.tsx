@@ -25,6 +25,8 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(error.message)
+      } else if (error instanceof Error) {
+        toast.error(error.message)
       } else {
         toast.error(t('auth.loginError'))
       }
