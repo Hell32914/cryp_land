@@ -688,12 +688,20 @@ export function Support() {
 
   const acceptMutation = useMutation({
     mutationFn: (chatId: string) => acceptSupportChat(token!, chatId),
-    onSuccess: async (updated) => {
+    onMutate: (chatId: string) => {
+      const chat = chats.find((c) => c.chatId === chatId)
+      const wasNew = chat ? getChatTab(chat) === 'new' : activeTab === 'new'
+      const hadStage = Boolean(chat?.funnelStageId || chatStageMap[chatId])
+      return { wasNew, hadStage }
+    },
+    onSuccess: async (updated, chatId, ctx) => {
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
       setActiveTab('accepted')
       setSelectedChatId(updated.chatId)
-      // Default funnel stage after accept: Primary contact
-      setChatStage(updated.chatId, primaryStageId)
+      // If accepted from "New" chats, default funnel stage to Primary contact.
+      if (ctx?.wasNew && !ctx?.hadStage) {
+        setChatStage(updated.chatId, primaryStageId)
+      }
       toast.success(t('support.accepted'))
     },
     onError: (e: any) => {
