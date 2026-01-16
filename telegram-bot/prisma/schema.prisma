@@ -290,6 +290,8 @@ model SupportBroadcast {
   startedAt       DateTime?
   completedAt     DateTime?
   cancelledAt     DateTime?
+  deletedAt       DateTime?
+  deletedBy       String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -311,6 +313,11 @@ model SupportBroadcastRecipient {
   status           SupportBroadcastRecipientStatus @default(PENDING)
   error            String?
   sentAt           DateTime?
+  telegramMessageId Int?
+  supportMessageId  Int?
+  supportMessage    SupportMessage? @relation("SupportBroadcastRecipientMessage", fields: [supportMessageId], references: [id], onDelete: SetNull)
+  deletedAt         DateTime?
+  deleteError       String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -348,6 +355,8 @@ model SupportMessage {
   userSeenAt    DateTime?
   userSeenTelegramId String?
   createdAt     DateTime    @default(now())
+
+  broadcastRecipients SupportBroadcastRecipient[] @relation("SupportBroadcastRecipientMessage")
 
   @@index([supportChatId, createdAt])
 }

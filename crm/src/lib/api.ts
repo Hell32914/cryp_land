@@ -295,6 +295,8 @@ export interface SupportBroadcastRecord {
   startedAt: string | null
   completedAt: string | null
   cancelledAt: string | null
+  deletedAt?: string | null
+  deletedBy?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -614,6 +616,13 @@ export const fetchSupportBroadcasts = (token: string) =>
 
 export const cancelSupportBroadcast = (token: string, id: number) =>
   request<SupportBroadcastRecord>(`/api/admin/support/broadcasts/${id}/cancel`, { method: 'POST' }, token)
+
+export const deleteSupportBroadcast = (token: string, id: number) =>
+  request<{ success: boolean; deletedCount: number; deleteFailedCount: number; skippedCount: number; total: number }>(
+    `/api/admin/support/broadcasts/${id}/delete`,
+    { method: 'POST' },
+    token,
+  )
 
 // CRM operators (superadmin only)
 export const fetchCrmOperators = (token: string) =>

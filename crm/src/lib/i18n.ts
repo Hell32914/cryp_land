@@ -113,6 +113,10 @@ const resources = {
         createFailed: 'Failed to create broadcast',
         cancelled: 'Broadcast cancelled',
         cancelFailed: 'Failed to cancel broadcast',
+        deleteForAll: 'Delete for all',
+        deleteConfirm: 'Delete this broadcast message for all recipients? This will remove the message in Telegram.',
+        deletedResult: 'Deleted: {{deleted}} / {{total}} (failed: {{failed}}, skipped: {{skipped}})',
+        deleteFailed: 'Failed to delete broadcast messages',
         noBroadcasts: 'No broadcasts yet',
       },
       support: {
@@ -424,6 +428,10 @@ const resources = {
         createFailed: 'Не удалось создать рассылку',
         cancelled: 'Рассылка отменена',
         cancelFailed: 'Не удалось отменить рассылку',
+        deleteForAll: 'Удалить у всех',
+        deleteConfirm: 'Удалить сообщение рассылки у всех получателей? Сообщение будет удалено в Telegram.',
+        deletedResult: 'Удалено: {{deleted}} / {{total}} (ошибок: {{failed}}, пропущено: {{skipped}})',
+        deleteFailed: 'Не удалось удалить сообщения рассылки',
         noBroadcasts: 'Рассылок пока нет',
       },
       support: {

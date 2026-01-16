@@ -723,8 +723,14 @@ export function Support() {
     },
     onSuccess: async (updated, chatId, ctx) => {
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
-      setActiveTab('accepted')
-      setSelectedChatId(updated.chatId)
+      // UX: when accepting a NEW chat, stay on the "New" list (do not auto-open the chat).
+      if (ctx?.wasNew) {
+        setActiveTab('new')
+        setSelectedChatId(null)
+      } else {
+        setActiveTab('accepted')
+        setSelectedChatId(updated.chatId)
+      }
       // If accepted from "New" chats, default funnel stage to Primary contact.
       if (ctx?.wasNew && !ctx?.hadStage) {
         setChatStage(updated.chatId, primaryStageId)

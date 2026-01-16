@@ -1424,7 +1424,8 @@ async function processSupportBroadcastTick() {
 
       try {
         // Send to Telegram first
-        await supportBotInstance.api.sendMessage(recipient.chatId, broadcast.text)
+        const sent = await supportBotInstance.api.sendMessage(recipient.chatId, broadcast.text)
+        const telegramMessageId = Number((sent as any)?.message_id)
 
         const message = await prisma.supportMessage.create({
           data: {
@@ -1432,6 +1433,7 @@ async function processSupportBroadcastTick() {
             direction: 'OUT',
             kind: 'TEXT',
             text: broadcast.text,
+            ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
             adminUsername: broadcast.adminUsername,
           },
         })
@@ -1447,7 +1449,13 @@ async function processSupportBroadcastTick() {
 
         await prisma.supportBroadcastRecipient.update({
           where: { id: recipient.id },
-          data: { status: 'SENT', sentAt: new Date(), error: null },
+          data: {
+            status: 'SENT',
+            sentAt: new Date(),
+            error: null,
+            ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
+            supportMessageId: message.id,
+          },
         })
 
         await prisma.supportBroadcast.update({
@@ -1474,6 +1482,50 @@ async function processSupportBroadcastTick() {
   } finally {
     supportBroadcastWorkerInProgress = false
   }
+}
+
+async function recomputeSupportChatLastMetaById(supportChatId: number) {
+  const [lastAny, lastOut, lastIn] = await Promise.all([
+    prisma.supportMessage.findFirst({ where: { supportChatId }, orderBy: { id: 'desc' } }),
+    prisma.supportMessage.findFirst({ where: { supportChatId, direction: 'OUT' }, orderBy: { id: 'desc' } }),
+    prisma.supportMessage.findFirst({ where: { supportChatId, direction: 'IN' }, orderBy: { id: 'desc' } }),
+  ])
+
+  const nextLastMessageTextRaw = (() => {
+    if (!lastAny) return null
+    const kind = String((lastAny as any).kind || '').toUpperCase()
+    const text = (lastAny as any).text as string | null | undefined
+    if (kind === 'PHOTO') return text ? String(text) : '[Photo]'
+    return text ?? null
+  })()
+
+  await prisma.supportChat.update({
+    where: { id: supportChatId },
+    data: {
+      lastMessageAt: lastAny ? (lastAny as any).createdAt : null,
+      lastMessageText: nextLastMessageTextRaw ? String(nextLastMessageTextRaw).slice(0, 500) : null,
+      lastOutboundAt: lastOut ? (lastOut as any).createdAt : null,
+      lastInboundAt: lastIn ? (lastIn as any).createdAt : null,
+    },
+  })
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const limit = Math.max(1, Math.floor(concurrency || 1))
+  const results: R[] = new Array(items.length)
+  let idx = 0
+
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (true) {
+      const current = idx
+      idx += 1
+      if (current >= items.length) return
+      results[current] = await fn(items[current])
+    }
+  })
+
+  await Promise.all(workers)
+  return results
 }
 
 app.post('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => {
@@ -1585,6 +1637,123 @@ app.post('/api/admin/support/broadcasts/:id/cancel', requireAdminAuth, async (re
   } catch (error) {
     console.error('Support broadcast cancel error:', error)
     return res.status(500).json({ error: 'Failed to cancel broadcast' })
+  }
+})
+
+app.post('/api/admin/support/broadcasts/:id/delete', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supportBotInstance) {
+      return res.status(503).json({ error: 'Support bot is not configured' })
+    }
+
+    const id = Number(req.params.id)
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    const adminRole = String((req as any).adminRole || '').trim().toLowerCase()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const isAdminLike = adminRole === 'superadmin' || adminRole === 'admin'
+
+    const broadcast = await prisma.supportBroadcast.findUnique({ where: { id } })
+    if (!broadcast) return res.status(404).json({ error: 'Broadcast not found' })
+    if (!isAdminLike && broadcast.adminUsername !== adminUsername) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const recipients = await prisma.supportBroadcastRecipient.findMany({
+      where: {
+        broadcastId: id,
+        status: 'SENT',
+        telegramMessageId: { not: null },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        chatId: true,
+        supportChatId: true,
+        telegramMessageId: true,
+        supportMessageId: true,
+      },
+      orderBy: { id: 'asc' },
+    })
+
+    const now = new Date()
+
+    let deletedCount = 0
+    let deleteFailedCount = 0
+    let skippedCount = 0
+    const affectedChatIds = new Set<number>()
+
+    // If there are no stored telegramMessageId values, we cannot reliably delete in Telegram.
+    // This can happen for old broadcasts created before we started saving message_id.
+    if (recipients.length === 0) {
+      // Still mark who requested deletion (audit), but don't pretend messages were deleted.
+      await prisma.supportBroadcast.update({
+        where: { id },
+        data: { deletedAt: broadcast.deletedAt || now, deletedBy: broadcast.deletedBy || adminUsername },
+      })
+      return res.json({ success: true, deletedCount, deleteFailedCount, skippedCount, total: 0 })
+    }
+
+    await mapWithConcurrency(recipients, 8, async (r) => {
+      const tgId = Number(r.telegramMessageId)
+      if (!Number.isFinite(tgId)) {
+        skippedCount += 1
+        return
+      }
+
+      try {
+        await supportBotInstance!.api.deleteMessage(r.chatId, tgId)
+
+        if (r.supportMessageId) {
+          try {
+            await prisma.supportMessage.delete({ where: { id: r.supportMessageId } })
+          } catch {
+            // ignore: message already removed
+          }
+        }
+
+        await prisma.supportBroadcastRecipient.update({
+          where: { id: r.id },
+          data: { deletedAt: now, deleteError: null },
+        })
+
+        affectedChatIds.add(r.supportChatId)
+        deletedCount += 1
+      } catch (e: any) {
+        const msg = String(e?.message || 'Failed to delete in Telegram').slice(0, 500)
+        await prisma.supportBroadcastRecipient.update({
+          where: { id: r.id },
+          data: { deleteError: msg },
+        })
+        deleteFailedCount += 1
+      }
+
+      // Gentle throttle to avoid Telegram rate limiting.
+      await new Promise((rr) => setTimeout(rr, 80))
+    })
+
+    // Recompute last-message metadata for affected chats.
+    for (const supportChatId of affectedChatIds) {
+      await recomputeSupportChatLastMetaById(supportChatId)
+    }
+
+    await prisma.supportBroadcast.update({
+      where: { id },
+      data: { deletedAt: now, deletedBy: adminUsername },
+    })
+
+    return res.json({
+      success: true,
+      deletedCount,
+      deleteFailedCount,
+      skippedCount,
+      total: recipients.length,
+    })
+  } catch (error) {
+    console.error('Support broadcast delete error:', error)
+    return res.status(500).json({ error: 'Failed to delete broadcast messages' })
   }
 })
 

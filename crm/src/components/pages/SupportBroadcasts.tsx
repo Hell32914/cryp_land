@@ -7,6 +7,7 @@ import { useApiQuery } from '@/hooks/use-api-query'
 import {
   createSupportBroadcast,
   cancelSupportBroadcast,
+  deleteSupportBroadcast,
   fetchSupportBroadcasts,
   fetchSupportChats,
   type SupportBroadcastRecord,
@@ -148,6 +149,22 @@ export function SupportBroadcasts() {
     onError: (e: any) => toast.error(e?.message || t('supportBroadcast.cancelFailed')),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteSupportBroadcast(token!, id),
+    onSuccess: async (resp) => {
+      await queryClient.invalidateQueries({ queryKey: ['support-broadcasts'] })
+      toast.success(
+        t('supportBroadcast.deletedResult', {
+          deleted: resp.deletedCount,
+          failed: resp.deleteFailedCount,
+          skipped: resp.skippedCount,
+          total: resp.total,
+        })
+      )
+    },
+    onError: (e: any) => toast.error(e?.message || t('supportBroadcast.deleteFailed')),
+  })
+
   const broadcastsMine = useMemo(() => {
     const all = broadcastsData?.broadcasts ?? []
     if (!myUsername) return all
@@ -282,6 +299,10 @@ export function SupportBroadcasts() {
               <div className="space-y-2">
                 {broadcastsMine.map((b: SupportBroadcastRecord) => {
                   const canCancel = b.status === 'PENDING' || b.status === 'RUNNING'
+                  const canDelete =
+                    !canCancel &&
+                    !b.deletedAt &&
+                    (b.status === 'COMPLETED' || b.status === 'CANCELLED' || b.status === 'FAILED')
                   const targetLabel =
                     b.target === 'ALL'
                       ? t('supportBroadcast.segments.all')
@@ -318,6 +339,21 @@ export function SupportBroadcasts() {
                               disabled={cancelMutation.isPending}
                             >
                               {t('supportBroadcast.cancel')}
+                            </Button>
+                          ) : null}
+
+                          {canDelete ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const ok = window.confirm(t('supportBroadcast.deleteConfirm'))
+                                if (!ok) return
+                                deleteMutation.mutate(b.id)
+                              }}
+                              disabled={deleteMutation.isPending}
+                            >
+                              {t('supportBroadcast.deleteForAll')}
                             </Button>
                           ) : null}
                         </div>
