@@ -5842,57 +5842,6 @@ if (supportBot) {
     })
   })
 
-  supportBot.callbackQuery(/^support_seen_(\d+)$/, async (ctx) => {
-    const telegramId = String(ctx.from?.id || '')
-    const messageId = Number((ctx.match as any)?.[1])
-    if (!telegramId || !Number.isFinite(messageId)) {
-      await safeAnswerCallback(ctx, 'Invalid')
-      return
-    }
-
-    try {
-      const message = await prisma.supportMessage.findUnique({
-        where: { id: messageId },
-        include: { supportChat: true },
-      })
-
-      if (!message) {
-        await safeAnswerCallback(ctx, 'Message not found')
-        return
-      }
-
-      if (String((message as any)?.supportChat?.telegramId || '') !== telegramId) {
-        await safeAnswerCallback(ctx, 'Not allowed')
-        return
-      }
-
-      if ((message as any).userSeenAt) {
-        await safeAnswerCallback(ctx, '✅ Already marked')
-        return
-      }
-
-      await prisma.supportMessage.update({
-        where: { id: messageId },
-        data: {
-          userSeenAt: new Date(),
-          userSeenTelegramId: telegramId,
-        } as any,
-      })
-
-      await safeAnswerCallback(ctx, '✅ Marked as read')
-
-      // Best-effort: remove the button after confirmation.
-      try {
-        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } } as any)
-      } catch {
-        // ignore
-      }
-    } catch (err) {
-      console.error('Support seen callback error:', err)
-      await safeAnswerCallback(ctx, 'Error')
-    }
-  })
-
   supportBot.catch((err) => {
     console.error('Support bot error:', err.error)
   })

@@ -3,7 +3,7 @@ import cors from 'cors'
 import { prisma } from './db.js'
 import { claimContactSupportBonus } from './contactSupportBonus.js'
 import axios from 'axios'
-import { webhookCallback, InlineKeyboard, InputFile } from 'grammy'
+import { webhookCallback, InputFile } from 'grammy'
 import type { Bot } from 'grammy'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
@@ -1003,8 +1003,6 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       return res.status(503).json({ error: 'Support bot is not configured' })
     }
 
-    const enableSeenButton = String(process.env.SUPPORT_ENABLE_SEEN_BUTTON || '').toLowerCase() !== 'false'
-
     const chatId = String(req.params.chatId)
     const parseResult = supportSendMessageSchema.safeParse(req.body)
     if (!parseResult.success) {
@@ -1028,8 +1026,9 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
       return res.status(403).json({ error: 'Chat is accepted by another operator' })
     }
 
-    // Create a message first so we can embed its id into callback_data.
-    // If Telegram send fails, we delete the DB record to avoid persisting unsent messages.
+    // Send to Telegram first (so we don't persist unsent messages)
+    await supportBotInstance.api.sendMessage(chatId, text)
+
     const message = await prisma.supportMessage.create({
       data: {
         supportChatId: chat.id,
@@ -1039,17 +1038,6 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
         adminUsername: adminUsername || null,
       },
     })
-
-    try {
-      const keyboard = enableSeenButton
-        ? new InlineKeyboard().text('✅ Прочитано', `support_seen_${message.id}`)
-        : undefined
-
-      await supportBotInstance.api.sendMessage(chatId, text, keyboard ? { reply_markup: keyboard } : undefined)
-    } catch (error) {
-      await prisma.supportMessage.delete({ where: { id: message.id } }).catch(() => undefined)
-      throw error
-    }
 
     await prisma.supportChat.update({
       where: { id: chat.id },

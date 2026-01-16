@@ -1399,8 +1399,8 @@ export function Support() {
                             {m.direction === 'OUT' ? (
                               <span title={t('support.userSeenHint')}>
                                 •{' '}
-                                {typeof (m as any).userSeenAt !== 'undefined'
-                                  ? ((m as any).userSeenAt ? t('support.userSeen') : t('support.userNotSeen'))
+                                {(m as any).userSeenAt
+                                  ? t('support.userSeen')
                                   : (selectedChatLastInboundTs > new Date(m.createdAt).getTime()
                                     ? t('support.userSeen')
                                     : t('support.userNotSeen'))}

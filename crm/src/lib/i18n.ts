@@ -187,7 +187,7 @@ const resources = {
         markUnreadFailed: 'Failed to mark unread',
         userSeen: 'Seen',
         userNotSeen: 'Not seen',
-        userSeenHint: 'Confirmed only when the user taps the “✅ Прочитано” button in Telegram. If not confirmed, the user may have read it without tapping.',
+        userSeenHint: 'Telegram does not provide read receipts for bot messages. This is an approximation: marked as seen when the user has activity after this message.',
         funnel: {
           title: 'Funnel',
           subtitle: 'Customer statuses',
@@ -489,7 +489,7 @@ const resources = {
         markUnreadFailed: 'Не удалось отметить как непрочитанное',
         userSeen: '✓ Прочитано',
         userNotSeen: '• Не прочитано',
-        userSeenHint: 'Подтверждается только если пользователь нажал кнопку “✅ Прочитано” в Telegram. Если не подтверждено — мог прочитать без нажатия.',
+        userSeenHint: 'Telegram не отдаёт отметку «прочитано» для сообщений бота. Это приблизительная оценка: считаем прочитанным, если после этого сообщения была активность пользователя.',
         funnel: {
           title: 'Воронка',
           subtitle: 'Статусы клиента',
