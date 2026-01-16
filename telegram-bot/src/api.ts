@@ -507,6 +507,22 @@ app.post('/api/admin/operators/:id/toggle', requireAdminAuth, requireSuperAdmin,
       data: { isActive: !existing.isActive },
       select: { id: true, username: true, role: true, isActive: true, createdAt: true, updatedAt: true },
     })
+
+    // If the operator is disabled, release any chats they were handling.
+    if (!updated.isActive) {
+      await prisma.supportChat.updateMany({
+        where: {
+          acceptedBy: updated.username,
+          NOT: { status: 'ARCHIVE' },
+        },
+        data: {
+          status: 'NEW',
+          acceptedBy: null,
+          acceptedAt: null,
+        },
+      })
+    }
+
     return res.json(updated)
   } catch (error) {
     console.error('CRM operator toggle error:', error)
@@ -518,6 +534,23 @@ app.delete('/api/admin/operators/:id', requireAdminAuth, requireSuperAdmin, asyn
   try {
     const id = Number(req.params.id)
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' })
+
+    const existing = await prisma.crmOperator.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Not found' })
+
+    // Release all chats assigned to this operator (move back to unaccepted).
+    await prisma.supportChat.updateMany({
+      where: {
+        acceptedBy: existing.username,
+        NOT: { status: 'ARCHIVE' },
+      },
+      data: {
+        status: 'NEW',
+        acceptedBy: null,
+        acceptedAt: null,
+      },
+    })
+
     await prisma.crmOperator.delete({ where: { id } })
     return res.json({ success: true })
   } catch (error) {

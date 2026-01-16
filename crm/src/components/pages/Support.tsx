@@ -1207,6 +1207,9 @@ export function Support() {
                                   </div>
                                 </div>
                                 <div className="text-xs text-muted-foreground truncate">{sub}</div>
+                                <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                                  {t('support.acceptedBy')} {chat.acceptedBy ? chat.acceptedBy : t('support.notAccepted')}
+                                </div>
                                 <div className="text-xs text-muted-foreground truncate mt-1">{chat.lastMessageText || ''}</div>
                               </div>
                             </div>
@@ -1355,6 +1358,9 @@ export function Support() {
 
                                 <div className="min-w-0 flex-1 overflow-hidden">
                                   <div className="font-medium truncate">{display}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                                    {t('support.acceptedBy')} {chat.acceptedBy ? chat.acceptedBy : t('support.notAccepted')}
+                                  </div>
                                 </div>
                               </div>
                             </button>
