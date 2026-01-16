@@ -1004,16 +1004,16 @@ export function Support() {
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SupportChatsTab)}>
-              <TabsList>
-                <TabsTrigger value="new">
+              <TabsList className="w-full">
+                <TabsTrigger value="new" className="flex-1">
                   {t('support.tabs.new')}
                   {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
                 </TabsTrigger>
-                <TabsTrigger value="accepted">
+                <TabsTrigger value="accepted" className="flex-1">
                   {t('support.tabs.accepted')}
                   {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
                 </TabsTrigger>
-                <TabsTrigger value="archive">
+                <TabsTrigger value="archive" className="flex-1">
                   {t('support.tabs.archive')}
                   {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
                 </TabsTrigger>
@@ -1128,7 +1128,7 @@ export function Support() {
                             </div>
                           </button>
 
-                          <div className="min-w-0 w-full space-y-1 relative z-10">
+                          <div className="min-w-0 w-full space-y-1 relative z-10 self-start pt-0.5">
                             <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
@@ -1291,7 +1291,7 @@ export function Support() {
                               </div>
                             </button>
 
-                            <div className="min-w-0 w-full space-y-1 relative z-10">
+                            <div className="min-w-0 w-full space-y-1 relative z-10 self-start pt-0.5">
                               <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
