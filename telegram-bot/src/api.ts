@@ -563,12 +563,16 @@ app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
     // Per business rules, such chats should be treated as unaccepted and default to Primary contact.
     await prisma.supportChat.updateMany({
       where: {
-        status: 'ACCEPTED',
-        OR: [
-          { funnelStageId: null },
-          { funnelStageId: '' },
-          { acceptedBy: null },
-          { acceptedAt: null },
+        AND: [
+          { NOT: { status: 'ARCHIVE' } },
+          {
+            OR: [
+              { status: { in: ['ACCEPTED', 'TAKEN', 'IN_PROGRESS', 'ASSIGNED'] } },
+              { acceptedBy: { not: null } },
+              { acceptedAt: { not: null } },
+            ],
+          },
+          { OR: [{ funnelStageId: null }, { funnelStageId: '' }] },
         ],
       },
       data: {

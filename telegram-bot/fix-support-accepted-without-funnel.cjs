@@ -12,14 +12,18 @@ async function main() {
   console.log('🔧 Fix support chats: ACCEPTED but missing funnelStageId');
   console.log(`Mode: ${apply ? 'APPLY' : 'DRY RUN'} (use --apply to write changes)`);
 
-  const broken = await prisma.supportChat.findMany({
+  const acceptedLike = await prisma.supportChat.findMany({
     where: {
-      status: 'ACCEPTED',
-      OR: [
-        { funnelStageId: null },
-        { funnelStageId: '' },
-        { acceptedBy: null },
-        { acceptedAt: null },
+      // Match what CRM treats as "Accepted" (status variants or accepted metadata).
+      AND: [
+        { NOT: { status: 'ARCHIVE' } },
+        {
+          OR: [
+            { status: { in: ['ACCEPTED', 'TAKEN', 'IN_PROGRESS', 'ASSIGNED'] } },
+            { acceptedBy: { not: null } },
+            { acceptedAt: { not: null } },
+          ],
+        },
       ],
     },
     select: {
@@ -35,6 +39,11 @@ async function main() {
     },
     orderBy: [{ lastMessageAt: 'desc' }],
   });
+
+  const broken = acceptedLike.filter((c) => {
+    const s = typeof c.funnelStageId === 'string' ? c.funnelStageId.trim() : ''
+    return !s
+  })
 
   console.log(`Found ${broken.length} broken chats.`);
 
@@ -53,16 +62,9 @@ async function main() {
     return;
   }
 
+  const ids = broken.map((c) => c.id)
   const result = await prisma.supportChat.updateMany({
-    where: {
-      status: 'ACCEPTED',
-      OR: [
-        { funnelStageId: null },
-        { funnelStageId: '' },
-        { acceptedBy: null },
-        { acceptedAt: null },
-      ],
-    },
+    where: { id: { in: ids } },
     data: {
       status: 'NEW',
       acceptedBy: null,
@@ -70,7 +72,7 @@ async function main() {
       archivedAt: null,
       funnelStageId: 'primary',
     },
-  });
+  })
 
   console.log(`\n✅ Updated ${result.count} chats.`);
 }

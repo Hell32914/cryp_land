@@ -1096,7 +1096,8 @@ export function Support() {
 
                       const pinned = pinnedSet.has(chat.chatId)
 
-                      const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+                      const rawStageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+                      const stageId = funnelStages.some((s) => s.id === rawStageId) ? rawStageId : primaryStageId
                       const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
                       const stageLockedByOther =
@@ -1614,7 +1615,8 @@ export function Support() {
               ) : (
                 <div className="space-y-4">
                   {(() => {
-                    const stageId = selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId
+                    const rawStageId = selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId
+                    const stageId = funnelStages.some((s) => s.id === rawStageId) ? rawStageId : primaryStageId
                     const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
                     const stageLockedByOther =
