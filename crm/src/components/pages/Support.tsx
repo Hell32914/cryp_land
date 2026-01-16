@@ -61,31 +61,18 @@ import {
   subscribeSupportFunnelUpdates,
   type SupportFunnelStage,
 } from '@/lib/support-funnel'
+import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 
 type SupportChatsTab = 'new' | 'accepted' | 'archive'
-
-function getUsernameFromJwt(token?: string | null): string | null {
-  try {
-    if (!token) return null
-    const parts = token.split('.')
-    if (parts.length < 2) return null
-    const payload = parts[1]
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
-    const json = window.atob(padded)
-    const data = JSON.parse(json)
-    return typeof data?.username === 'string' ? data.username : null
-  } catch {
-    return null
-  }
-}
 
 export function Support() {
   const { t } = useTranslation()
   const { token } = useAuth()
   const queryClient = useQueryClient()
 
-  const myUsername = useMemo(() => getUsernameFromJwt(token), [token])
+  const { username: myUsername, role: rawRole } = useMemo(() => decodeJwtClaims(token), [token])
+  const myRole = useMemo(() => normalizeCrmRole(rawRole), [rawRole])
+  const isAdmin = myRole === 'admin' || myRole === 'superadmin'
 
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
@@ -1081,6 +1068,12 @@ export function Support() {
                       const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
                       const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
+                      const stageLockedByOther =
+                        !isAdmin &&
+                        Boolean(myUsername) &&
+                        Boolean(chat.acceptedBy) &&
+                        chat.acceptedBy !== myUsername
+
                       const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
                       const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
                       const waiting = inboundTs > 0 && inboundTs > outboundTs
@@ -1142,7 +1135,11 @@ export function Support() {
                           </button>
 
                           <div className="min-w-0 w-full space-y-1 relative z-10 self-start pt-0.5">
-                            <Select value={stageId} onValueChange={(v) => setChatStage(chat.chatId, v)}>
+                            <Select
+                              value={stageId}
+                              onValueChange={(v) => setChatStage(chat.chatId, v)}
+                              disabled={stageLockedByOther}
+                            >
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
                               </SelectTrigger>
@@ -1588,10 +1585,20 @@ export function Support() {
                   {(() => {
                     const stageId = selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId
                     const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
+
+                    const stageLockedByOther =
+                      !isAdmin &&
+                      Boolean(myUsername) &&
+                      Boolean(selectedChat.acceptedBy) &&
+                      selectedChat.acceptedBy !== myUsername
                     return (
                       <div className="space-y-2">
                         <div className="text-xs text-muted-foreground">{t('support.columns.funnelStatus')}</div>
-                        <Select value={stageId} onValueChange={(v) => setChatStage(selectedChat.chatId, v)}>
+                        <Select
+                          value={stageId}
+                          onValueChange={(v) => setChatStage(selectedChat.chatId, v)}
+                          disabled={stageLockedByOther}
+                        >
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder={stageLabel || t('support.funnel.primary')} />
                           </SelectTrigger>

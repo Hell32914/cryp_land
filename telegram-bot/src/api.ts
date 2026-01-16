@@ -853,6 +853,9 @@ app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req,
     const adminUsername = String((req as any).adminUsername || '').trim()
     if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
 
+    const role = String((req as any).adminRole || '').toLowerCase()
+    const isAdmin = role === 'admin' || role === 'superadmin'
+
     const parsed = supportSetStageSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ error: 'Invalid stage payload' })
 
@@ -865,7 +868,7 @@ app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req,
     if (chat.status !== 'ACCEPTED') {
       return res.status(409).json({ error: 'Chat must be accepted before changing stage' })
     }
-    if (chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+    if (!isAdmin && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
       return res.status(403).json({ error: 'Chat is assigned to another operator' })
     }
 
