@@ -1077,7 +1077,7 @@ export function Support() {
                           <input type="checkbox" disabled className="h-4 w-4 opacity-40" />
 
                           <button
-                            onClick={() => openChat(chat.chatId, 'open')}
+                            onClick={() => openChat(chat.chatId, selectedChatId ? 'toggle' : 'open')}
                             onMouseEnter={() => void ensureChatAvatarLoaded(chat.chatId)}
                             className="min-w-0 text-left w-full"
                           >
@@ -1178,7 +1178,7 @@ export function Support() {
                             }
                           >
                             <button
-                              onClick={() => openChat(chat.chatId, 'open')}
+                              onClick={() => openChat(chat.chatId, 'toggle')}
                               onMouseEnter={() => void ensureChatAvatarLoaded(chat.chatId)}
                               className="min-w-0 text-left w-full"
                             >
