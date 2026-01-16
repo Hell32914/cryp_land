@@ -1056,7 +1056,8 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
     }
 
     // Send to Telegram first (so we don't persist unsent messages)
-    await supportBotInstance.api.sendMessage(chatId, text)
+    const sent = await supportBotInstance.api.sendMessage(chatId, text)
+    const telegramMessageId = Number((sent as any)?.message_id)
 
     const message = await prisma.supportMessage.create({
       data: {
@@ -1064,6 +1065,7 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
         direction: 'OUT',
         kind: 'TEXT',
         text,
+        telegramMessageId: Number.isFinite(telegramMessageId) ? telegramMessageId : null,
         adminUsername: adminUsername || null,
       },
     })
@@ -1081,6 +1083,86 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
   } catch (error) {
     console.error('Support send message error:', error)
     return res.status(500).json({ error: 'Failed to send message' })
+  }
+})
+
+app.delete('/api/admin/support/chats/:chatId/messages/:messageId', requireAdminAuth, async (req, res) => {
+  try {
+    if (!supportBotInstance) {
+      return res.status(503).json({ error: 'Support bot is not configured' })
+    }
+
+    const chatId = String(req.params.chatId)
+    const messageId = Number(req.params.messageId)
+    if (!Number.isFinite(messageId)) return res.status(400).json({ error: 'Invalid message id' })
+
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    const adminRole = String((req as any).adminRole || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+    if (chat.status === 'ACCEPTED' && chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+      return res.status(403).json({ error: 'Chat is assigned to another operator' })
+    }
+
+    const message = await prisma.supportMessage.findUnique({ where: { id: messageId } })
+    if (!message || message.supportChatId !== chat.id) return res.status(404).json({ error: 'Message not found' })
+
+    // Only delete outbound staff messages (operator/admin replies).
+    if (String(message.direction).toUpperCase() !== 'OUT' || !message.adminUsername) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const isAdminLike = adminRole === 'superadmin' || adminRole === 'admin'
+    const isAuthor = message.adminUsername === adminUsername
+    if (!isAdminLike && !isAuthor) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const tgMessageId = Number((message as any).telegramMessageId)
+    if (!Number.isFinite(tgMessageId)) {
+      return res.status(409).json({ error: 'Cannot delete from Telegram: message id is missing (sent before update)' })
+    }
+
+    try {
+      await supportBotInstance.api.deleteMessage(chatId, tgMessageId)
+    } catch (e: any) {
+      // If Telegram refuses (e.g. too old), we keep the message in CRM too.
+      return res.status(409).json({ error: e?.message || 'Failed to delete message in Telegram' })
+    }
+
+    await prisma.supportMessage.delete({ where: { id: messageId } })
+
+    const [lastAny, lastOut, lastIn] = await Promise.all([
+      prisma.supportMessage.findFirst({ where: { supportChatId: chat.id }, orderBy: { id: 'desc' } }),
+      prisma.supportMessage.findFirst({ where: { supportChatId: chat.id, direction: 'OUT' }, orderBy: { id: 'desc' } }),
+      prisma.supportMessage.findFirst({ where: { supportChatId: chat.id, direction: 'IN' }, orderBy: { id: 'desc' } }),
+    ])
+
+    const nextLastMessageTextRaw = (() => {
+      if (!lastAny) return null
+      const kind = String((lastAny as any).kind || '').toUpperCase()
+      const text = (lastAny as any).text as string | null | undefined
+      if (kind === 'PHOTO') return text ? String(text) : '[Photo]'
+      return text ?? null
+    })()
+
+    await prisma.supportChat.update({
+      where: { id: chat.id },
+      data: {
+        lastMessageAt: lastAny ? (lastAny as any).createdAt : null,
+        lastMessageText: nextLastMessageTextRaw ? String(nextLastMessageTextRaw).slice(0, 500) : null,
+        lastOutboundAt: lastOut ? (lastOut as any).createdAt : null,
+        lastInboundAt: lastIn ? (lastIn as any).createdAt : null,
+      },
+    })
+
+    return res.json({ success: true })
+  } catch (error) {
+    console.error('Support message delete error:', error)
+    return res.status(500).json({ error: 'Failed to delete message' })
   }
 })
 
@@ -1128,6 +1210,8 @@ app.post(
         caption ? { caption } : undefined,
       )
 
+      const telegramMessageId = Number((sent as any)?.message_id)
+
       const photos = (sent as any)?.photo as Array<{ file_id: string; file_unique_id: string }> | undefined
       const largest = photos?.length ? photos[photos.length - 1] : undefined
 
@@ -1137,6 +1221,7 @@ app.post(
           direction: 'OUT',
           kind: 'PHOTO',
           text: caption || null,
+          telegramMessageId: Number.isFinite(telegramMessageId) ? telegramMessageId : null,
           fileId: largest?.file_id || null,
           fileUniqueId: largest?.file_unique_id || null,
           fileName: req.file.originalname || null,

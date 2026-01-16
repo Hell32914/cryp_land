@@ -579,6 +579,13 @@ export const sendSupportPhoto = async (token: string, chatId: string, file: File
   return requestFormData<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/photos`, form, token)
 }
 
+export const deleteSupportMessage = (token: string, chatId: string, messageId: number) =>
+  request<{ success: boolean }>(
+    `/api/admin/support/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(String(messageId))}`,
+    { method: 'DELETE' },
+    token,
+  )
+
 export const setSupportChatStage = (token: string, chatId: string, stageId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/stage`, {
     method: 'POST',

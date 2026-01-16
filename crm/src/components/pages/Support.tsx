@@ -20,6 +20,7 @@ import {
   markSupportChatUnread,
   sendSupportPhoto,
   sendSupportMessage,
+  deleteSupportMessage,
   setSupportChatStage,
   type SupportChatRecord,
   type SupportMessageRecord,
@@ -859,6 +860,25 @@ export function Support() {
     },
   })
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: ({ chatId, messageId }: { chatId: string; messageId: number }) => deleteSupportMessage(token!, chatId, messageId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      toast.success(t('support.messageDeleted'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.messageDeleteFailed'))
+    },
+  })
+
+  const canDeleteSupportMessage = (m: SupportMessageRecord) => {
+    if (m.direction !== 'OUT') return false
+    if (!m.adminUsername) return false
+    if (isAdmin) return true
+    return Boolean(myUsername) && m.adminUsername === myUsername
+  }
+
   const openImageViewer = (src: string) => {
     setImageViewerSrc(src)
     setImageViewerZoom(1)
@@ -1434,6 +1454,25 @@ export function Support() {
                                     ? t('support.userSeen')
                                     : t('support.userNotSeen'))}
                               </span>
+                            ) : null}
+
+                            {canDeleteSupportMessage(m) ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                title={t('support.deleteMessage')}
+                                disabled={deleteMessageMutation.isPending || !selectedChatId}
+                                onClick={() => {
+                                  if (!selectedChatId) return
+                                  const ok = window.confirm(t('support.deleteMessageConfirm'))
+                                  if (!ok) return
+                                  deleteMessageMutation.mutate({ chatId: selectedChatId, messageId: m.id })
+                                }}
+                              >
+                                <TrashSimple size={14} />
+                              </Button>
                             ) : null}
                           </div>
                         </div>

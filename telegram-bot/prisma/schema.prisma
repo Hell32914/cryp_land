@@ -336,6 +336,7 @@ model SupportMessage {
   direction     String
   kind          String      @default("TEXT")
   text          String?
+  telegramMessageId Int?
   fileId        String?
   fileUniqueId  String?
   fileName      String?

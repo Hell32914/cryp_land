@@ -5730,6 +5730,8 @@ if (supportBot) {
     if (!from?.id || !chatId || !text) return
     if (text === '/start') return
 
+    const telegramMessageId = (ctx.message as any)?.message_id
+
     const telegramId = String(from.id)
 
     const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
@@ -5777,7 +5779,8 @@ if (supportBot) {
         direction: 'IN',
         kind: 'TEXT',
         text,
-      },
+        telegramMessageId: Number.isFinite(Number(telegramMessageId)) ? Number(telegramMessageId) : null,
+      } as any,
     })
   })
 
@@ -5790,6 +5793,7 @@ if (supportBot) {
     const telegramId = String(from.id)
     const largest = photos[photos.length - 1]
     const caption = (ctx.message as any)?.caption as string | undefined
+    const telegramMessageId = (ctx.message as any)?.message_id
 
     const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
     if (existing?.isBlocked) return
@@ -5836,9 +5840,10 @@ if (supportBot) {
         direction: 'IN',
         kind: 'PHOTO',
         text: caption || null,
+        telegramMessageId: Number.isFinite(Number(telegramMessageId)) ? Number(telegramMessageId) : null,
         fileId: largest.file_id,
         fileUniqueId: largest.file_unique_id,
-      },
+      } as any,
     })
   })
 
