@@ -231,7 +231,7 @@ export function Support() {
 
       const gain = ctx.createGain()
       gain.gain.setValueAtTime(0.0001, now)
-      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01)
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22)
       gain.connect(ctx.destination)
 
@@ -1259,71 +1259,77 @@ export function Support() {
         <Card>
           <CardHeader className="space-y-3">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <CardTitle>{t('support.chats')}</CardTitle>
-              <Input
-                className="md:max-w-sm"
-                placeholder={t('support.search')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <CardTitle>
+                {activeTab === 'analytics' ? t('support.analytics.title') : t('support.chats')}
+              </CardTitle>
+              {activeTab !== 'analytics' ? (
+                <Input
+                  className="md:max-w-sm"
+                  placeholder={t('support.search')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={notificationsEnabled}
-                  onCheckedChange={async (checked) => {
-                    if (checked) {
-                      const ok = await ensureNotificationPermission()
-                      if (!ok) {
-                        setNotificationsEnabled(false)
-                        persistNotificationSettings(false, notificationSoundEnabled)
-                        return
+            {activeTab !== 'analytics' ? (
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={notificationsEnabled}
+                    onCheckedChange={async (checked) => {
+                      if (checked) {
+                        const ok = await ensureNotificationPermission()
+                        if (!ok) {
+                          setNotificationsEnabled(false)
+                          persistNotificationSettings(false, notificationSoundEnabled)
+                          return
+                        }
                       }
+                      setNotificationsEnabled(checked)
+                      persistNotificationSettings(checked, notificationSoundEnabled)
+                    }}
+                  />
+                  <Label className="text-xs text-muted-foreground">{t('support.notifications.enable')}</Label>
+                </div>
+
+                <div className={"flex items-center gap-2 " + (!notificationsEnabled ? 'opacity-50' : '')}>
+                  <Switch
+                    checked={notificationSoundEnabled}
+                    disabled={!notificationsEnabled}
+                    onCheckedChange={async (checked) => {
+                      setNotificationSoundEnabled(checked)
+                      persistNotificationSettings(notificationsEnabled, checked)
+                      if (checked) await primeAudio()
+                    }}
+                  />
+                  <Label className="text-xs text-muted-foreground">{t('support.notifications.sound')}</Label>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    const ok = await ensureNotificationPermission()
+                    if (!ok) return
+                    await primeAudio()
+                    playChime()
+                    try {
+                      new Notification(t('support.notifications.testTitle'), {
+                        body: t('support.notifications.testBody'),
+                        tag: 'support-test',
+                        silent: true,
+                      })
+                    } catch {
+                      // ignore
                     }
-                    setNotificationsEnabled(checked)
-                    persistNotificationSettings(checked, notificationSoundEnabled)
                   }}
-                />
-                <Label className="text-xs text-muted-foreground">{t('support.notifications.enable')}</Label>
+                >
+                  {t('support.notifications.test')}
+                </Button>
               </div>
-
-              <div className={"flex items-center gap-2 " + (!notificationsEnabled ? 'opacity-50' : '')}>
-                <Switch
-                  checked={notificationSoundEnabled}
-                  disabled={!notificationsEnabled}
-                  onCheckedChange={async (checked) => {
-                    setNotificationSoundEnabled(checked)
-                    persistNotificationSettings(notificationsEnabled, checked)
-                    if (checked) await primeAudio()
-                  }}
-                />
-                <Label className="text-xs text-muted-foreground">{t('support.notifications.sound')}</Label>
-              </div>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  const ok = await ensureNotificationPermission()
-                  if (!ok) return
-                  await primeAudio()
-                  playChime()
-                  try {
-                    new Notification(t('support.notifications.testTitle'), {
-                      body: t('support.notifications.testBody'),
-                      tag: 'support-test',
-                      silent: true,
-                    })
-                  } catch {
-                    // ignore
-                  }
-                }}
-              >
-                {t('support.notifications.test')}
-              </Button>
-            </div>
+            ) : null}
 
             <Tabs value={activeTab} onValueChange={handleTabChange}>
               <TabsList className="w-full">
