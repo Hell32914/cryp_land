@@ -719,12 +719,17 @@ export function Support() {
       const chat = chats.find((c) => c.chatId === chatId)
       const wasNew = chat ? getChatTab(chat) === 'new' : activeTab === 'new'
       const hadStage = Boolean(chat?.funnelStageId || chatStageMap[chatId])
-      return { wasNew, hadStage }
+      const isSelected = selectedChatId === chatId
+      return { wasNew, hadStage, isSelected }
     },
     onSuccess: async (updated, chatId, ctx) => {
       await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
-      // UX: when accepting a NEW chat, stay on the "New" list (do not auto-open the chat).
-      if (ctx?.wasNew) {
+      // If the accepted chat is currently open, keep it open and move to Accepted.
+      if (ctx?.isSelected) {
+        setActiveTab('accepted')
+        setSelectedChatId(updated.chatId)
+      } else if (ctx?.wasNew) {
+        // If accepted from the New list without opening, keep list focus.
         setActiveTab('new')
         setSelectedChatId(null)
       } else {
