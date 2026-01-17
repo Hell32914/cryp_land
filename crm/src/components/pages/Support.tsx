@@ -196,20 +196,44 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     }
   }
 
+  const disableNotifications = useCallback(() => {
+    setNotificationsEnabled(false)
+    persistNotificationSettings(false, notificationSoundEnabled)
+  }, [notificationSoundEnabled])
+
   const ensureNotificationPermission = async () => {
     if (typeof window === 'undefined') return false
     if (!('Notification' in window)) {
       toast.error(t('support.notifications.notSupported'))
       return false
     }
-    if (Notification.permission === 'granted') return true
-    if (Notification.permission === 'denied') {
-      toast.error(t('support.notifications.permissionDenied'))
+
+    // Most browsers require a secure context (HTTPS) for notifications.
+    if (!window.isSecureContext) {
+      toast.error(t('support.notifications.secureContextRequired'), {
+        description: t('support.notifications.secureContextHelp'),
+      })
       return false
     }
-    const perm = await Notification.requestPermission()
+
+    if (Notification.permission === 'granted') return true
+    if (Notification.permission === 'denied') {
+      toast.error(t('support.notifications.permissionDenied'), {
+        description: t('support.notifications.permissionDeniedHelp'),
+      })
+      return false
+    }
+
+    let perm: NotificationPermission = 'denied'
+    try {
+      perm = await Notification.requestPermission()
+    } catch {
+      perm = 'denied'
+    }
     if (perm !== 'granted') {
-      toast.error(t('support.notifications.permissionDenied'))
+      toast.error(t('support.notifications.permissionDenied'), {
+        description: t('support.notifications.permissionDeniedHelp'),
+      })
       return false
     }
     return true
@@ -821,7 +845,13 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
       ;(async () => {
         const ok = await ensureNotificationPermission()
-        if (!ok) return
+        if (!ok) {
+          // Avoid repeated toasts if permission is blocked or context is insecure.
+          if (!window.isSecureContext || Notification.permission === 'denied') {
+            disableNotifications()
+          }
+          return
+        }
 
         try {
           const n = new Notification(t('support.notifications.newMessageTitle'), {
@@ -860,7 +890,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     if (anyEvent) {
       toast.message(t('support.notifications.toast'))
     }
-  }, [chats, notificationSoundEnabled, notificationsEnabled, selectedChatId, t])
+  }, [chats, disableNotifications, notificationSoundEnabled, notificationsEnabled, selectedChatId, t])
 
   const sortedChats = useMemo(() => {
     const toTs = (value: string | null) => (value ? new Date(value).getTime() : 0)
