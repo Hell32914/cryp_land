@@ -18,6 +18,7 @@ import { SupportFunnel } from '@/components/pages/SupportFunnel'
 import { SupportFunnelBoard } from '@/components/pages/SupportFunnelBoard'
 import { SupportOperators } from '@/components/pages/SupportOperators'
 import { SupportBroadcasts } from '@/components/pages/SupportBroadcasts'
+import { SupportAnalytics } from '@/components/pages/SupportAnalytics'
 import '@/lib/i18n'
 
 const queryClient = new QueryClient()
@@ -29,7 +30,7 @@ function AppContent() {
   const role = useMemo(() => normalizeCrmRole(decodeJwtClaims(token).role), [token])
   const allowedPages = useMemo(() => {
     if (role !== 'support') return null
-    return new Set(['support', 'support-funnel'])
+    return new Set(['support', 'support-funnel', 'support-analytics'])
   }, [role])
 
   useEffect(() => {
@@ -96,6 +97,8 @@ function AppContent() {
         return <SupportOperators />
       case 'support-broadcasts':
         return <SupportBroadcasts />
+      case 'support-analytics':
+        return <SupportAnalytics />
       default:
         return role === 'support' ? <Support /> : <Dashboard />
     }

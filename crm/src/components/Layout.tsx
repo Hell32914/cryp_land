@@ -74,6 +74,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         { id: 'support-funnel-settings', label: t('nav.supportFunnelSettings'), icon: Funnel },
         { id: 'support-broadcasts', label: t('nav.supportBroadcasts'), icon: ChatCenteredText },
         { id: 'support-operators', label: t('nav.supportOperators'), icon: Users },
+        { id: 'support-analytics', label: t('nav.supportAnalytics'), icon: ChartLine },
       ],
     },
   ]
@@ -86,6 +87,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             items: [
               { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
               { id: 'support-funnel', label: t('nav.supportFunnel'), icon: Funnel },
+              { id: 'support-analytics', label: t('nav.supportAnalytics'), icon: ChartLine },
             ],
           },
         ]

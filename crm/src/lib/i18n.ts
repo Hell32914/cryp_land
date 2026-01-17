@@ -52,6 +52,7 @@ const resources = {
         supportFunnelSettings: 'Funnel settings',
         supportOperators: 'Users',
         supportBroadcasts: 'Mass messaging',
+        supportAnalytics: 'Support analytics',
       },
       supportBoard: {
         title: 'Funnel',
@@ -140,7 +141,6 @@ const resources = {
           new: 'New',
           accepted: 'Accepted',
           archive: 'Archive',
-          analytics: 'Analytics',
         },
         analytics: {
           title: 'Support analytics',
@@ -396,6 +396,7 @@ const resources = {
         supportFunnelSettings: 'Настройки воронки',
         supportOperators: 'Users',
         supportBroadcasts: 'Рассылка',
+        supportAnalytics: 'Аналитика поддержки',
       },
       supportBoard: {
         title: 'Воронка',
@@ -484,7 +485,6 @@ const resources = {
           new: 'Новые',
           accepted: 'Принятые',
           archive: 'Архив',
-          analytics: 'Аналитика',
         },
         analytics: {
           title: 'Аналитика поддержки',
@@ -744,6 +744,7 @@ const resources = {
         supportFunnelSettings: 'Налаштування воронки',
         supportOperators: 'Users',
         supportBroadcasts: 'Розсилка',
+        supportAnalytics: 'Аналітика підтримки',
       },
       dashboard: {
         title: 'Панель аналітики',

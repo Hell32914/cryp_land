@@ -80,7 +80,13 @@ type SupportListTab = 'new' | 'accepted' | 'archive'
 type SupportChatsTab = SupportListTab | 'analytics'
 type SupportAnalyticsRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'
 
-export function Support() {
+type SupportMode = 'inbox' | 'analytics'
+
+interface SupportProps {
+  mode?: SupportMode
+}
+
+export function Support({ mode = 'inbox' }: SupportProps) {
   const { t } = useTranslation()
   const { token } = useAuth()
   const queryClient = useQueryClient()
@@ -372,6 +378,13 @@ export function Support() {
   }
 
   const refreshAnalytics = () => setAnalyticsRefreshKey((prev) => prev + 1)
+
+  useEffect(() => {
+    if (mode === 'analytics') {
+      setActiveTab('analytics')
+      setSelectedChatId(null)
+    }
+  }, [mode])
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
@@ -1331,25 +1344,24 @@ export function Support() {
               </div>
             ) : null}
 
-            <Tabs value={activeTab} onValueChange={handleTabChange}>
-              <TabsList className="w-full">
-                <TabsTrigger value="new" className="flex-1">
-                  {t('support.tabs.new')}
-                  {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
-                </TabsTrigger>
-                <TabsTrigger value="accepted" className="flex-1">
-                  {t('support.tabs.accepted')}
-                  {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
-                </TabsTrigger>
-                <TabsTrigger value="archive" className="flex-1">
-                  {t('support.tabs.archive')}
-                  {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
-                </TabsTrigger>
-                <TabsTrigger value="analytics" className="flex-1">
-                  {t('support.tabs.analytics')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {mode === 'inbox' ? (
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="new" className="flex-1">
+                    {t('support.tabs.new')}
+                    {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger value="accepted" className="flex-1">
+                    {t('support.tabs.accepted')}
+                    {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
+                  </TabsTrigger>
+                  <TabsTrigger value="archive" className="flex-1">
+                    {t('support.tabs.archive')}
+                    {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : null}
           </CardHeader>
           <CardContent>
             {activeTab === 'analytics' ? (
@@ -1646,27 +1658,28 @@ export function Support() {
                 </Button>
               </div>
 
-              <Tabs value={activeTab} onValueChange={handleTabChange}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="new" className="flex-1">
-                    {t('support.tabs.new')}
-                    {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger value="accepted" className="flex-1">
-                    {t('support.tabs.accepted')}
-                    {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger value="archive" className="flex-1">
-                    {t('support.tabs.archive')}
-                    {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
-                  </TabsTrigger>
-                  <TabsTrigger value="analytics" className="flex-1">
-                    {t('support.tabs.analytics')}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {mode === 'inbox' ? (
+                <>
+                  <Tabs value={activeTab} onValueChange={handleTabChange}>
+                    <TabsList className="w-full">
+                      <TabsTrigger value="new" className="flex-1">
+                        {t('support.tabs.new')}
+                        {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
+                      </TabsTrigger>
+                      <TabsTrigger value="accepted" className="flex-1">
+                        {t('support.tabs.accepted')}
+                        {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
+                      </TabsTrigger>
+                      <TabsTrigger value="archive" className="flex-1">
+                        {t('support.tabs.archive')}
+                        {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
 
-              <Input placeholder={t('support.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+                  <Input placeholder={t('support.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+                </>
+              ) : null}
             </CardHeader>
             <CardContent>
               {isChatsLoading ? (
