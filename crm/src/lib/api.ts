@@ -602,7 +602,7 @@ export const deleteSupportMessage = (token: string, chatId: string, messageId: n
 export const setSupportChatStage = (token: string, chatId: string, stageId: string) =>
   request<SupportChatRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/stage`, {
     method: 'POST',
-    body: JSON.stringify({ stageId }),
+    body: JSON.stringify({ stageId: String(stageId || '').trim() }),
   }, token)
 
 export const createSupportBroadcast = (token: string, payload: { target: 'ALL' | 'STAGE'; stageId?: string; text: string }) =>

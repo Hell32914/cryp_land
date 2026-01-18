@@ -63,6 +63,7 @@ const resources = {
         operatorAll: 'All operators',
         operatorMe: 'My dialogs',
         operatorUnassigned: 'Unassigned',
+        unknownStage: 'Unknown stage',
       },
       supportOperators: {
         title: 'Users',
@@ -410,6 +411,7 @@ const resources = {
         operatorAll: 'Все операторы',
         operatorMe: 'Мои диалоги',
         operatorUnassigned: 'Без оператора',
+        unknownStage: 'Неизвестный этап',
       },
       supportOperators: {
         title: 'Users',

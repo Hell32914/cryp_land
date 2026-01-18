@@ -364,7 +364,7 @@ const supportNoteSchema = z.object({
 })
 
 const supportSetStageSchema = z.object({
-  stageId: z.string().min(1).max(64),
+  stageId: z.string().trim().min(1).max(64),
 })
 
 const supportBroadcastCreateSchema = z.object({
@@ -949,7 +949,7 @@ app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req,
     const updated = await prisma.supportChat.update({
       where: { chatId },
       data: {
-        funnelStageId: parsed.data.stageId,
+        funnelStageId: parsed.data.stageId.trim(),
       },
     })
 

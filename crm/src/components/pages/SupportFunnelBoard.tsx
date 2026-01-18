@@ -25,6 +25,8 @@ import {
   type SupportFunnelStage,
 } from '@/lib/support-funnel'
 
+const UNKNOWN_STAGE_ID = '__unknown_stage__'
+
 type ColumnId = 'unaccepted' | string
 
 type DragPayload = {
@@ -63,6 +65,12 @@ function formatWhen(ts?: string | null) {
   } catch {
     return ''
   }
+}
+
+function normalizeStageId(value?: string | null): string | null {
+  if (typeof value !== 'string') return null
+  const v = value.trim()
+  return v ? v : null
 }
 
 export function SupportFunnelBoard() {
@@ -113,6 +121,8 @@ export function SupportFunnelBoard() {
   }, [defaultStages])
 
   const primaryStageId = funnelStages.find((s) => s.id === getPrimaryStageId())?.id || getPrimaryStageId()
+
+  const knownStageIds = useMemo(() => new Set(funnelStages.map((s) => s.id)), [funnelStages])
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
@@ -186,13 +196,20 @@ export function SupportFunnelBoard() {
     const status = String(chat.status || '').toUpperCase()
     if (status === 'ARCHIVE') return 'archived'
     if (status !== 'ACCEPTED') return 'unaccepted'
-    return chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+
+    const resolvedStageId =
+      normalizeStageId(chat.funnelStageId) || normalizeStageId(chatStageMap[chat.chatId]) || primaryStageId
+
+    // If DB has a stage that isn't present in this browser's local funnel config,
+    // keep the chat visible instead of dropping it from the board.
+    return knownStageIds.has(resolvedStageId) ? resolvedStageId : UNKNOWN_STAGE_ID
   }
 
   const columns = useMemo(() => {
     const base = [{ id: 'unaccepted', title: t('supportBoard.unaccepted') } as const]
     const stageColumns = funnelStages.map((s) => ({ id: s.id, title: s.label }))
-    return [...base, ...stageColumns]
+    const unknown = [{ id: UNKNOWN_STAGE_ID, title: t('supportBoard.unknownStage') }]
+    return [...base, ...stageColumns, ...unknown]
   }, [funnelStages, t])
 
   const searchTerm = useMemo(() => {
@@ -313,6 +330,7 @@ export function SupportFunnelBoard() {
   const handleDrop = async (payload: DragPayload, to: ColumnId) => {
     if (!payload?.chatId) return
     if (to === 'unaccepted') return
+    if (to === UNKNOWN_STAGE_ID) return
 
     const chat = chats.find((c) => c.chatId === payload.chatId)
     if (!chat) return
