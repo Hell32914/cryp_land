@@ -5780,6 +5780,7 @@ if (supportBot) {
         kind: 'TEXT',
         text,
         telegramMessageId: Number.isFinite(Number(telegramMessageId)) ? Number(telegramMessageId) : null,
+        createdAt: now,
       } as any,
     })
   })
@@ -5843,6 +5844,7 @@ if (supportBot) {
         telegramMessageId: Number.isFinite(Number(telegramMessageId)) ? Number(telegramMessageId) : null,
         fileId: largest.file_id,
         fileUniqueId: largest.file_unique_id,
+        createdAt: now,
       } as any,
     })
   })

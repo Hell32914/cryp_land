@@ -1126,6 +1126,10 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
     )
     const telegramMessageId = Number((sent as any)?.message_id)
 
+    // Use app time consistently across inbound/outbound so response-time calculation
+    // (lastInboundAt vs lastOutboundAt) isn't affected by DB/app clock skew.
+    const now = new Date()
+
     const message = await prisma.supportMessage.create({
       data: {
         supportChatId: chat.id,
@@ -1135,15 +1139,16 @@ app.post('/api/admin/support/chats/:chatId/messages', requireAdminAuth, async (r
         telegramMessageId: Number.isFinite(telegramMessageId) ? telegramMessageId : null,
         replyToId: replyToId || null,
         adminUsername: adminUsername || null,
+        createdAt: now,
       },
     })
 
     await prisma.supportChat.update({
       where: { id: chat.id },
       data: {
-        lastMessageAt: message.createdAt,
+        lastMessageAt: now,
         lastMessageText: text,
-        lastOutboundAt: message.createdAt,
+        lastOutboundAt: now,
       },
     })
 
@@ -1298,6 +1303,10 @@ app.post(
 
       const telegramMessageId = Number((sent as any)?.message_id)
 
+      // Use app time consistently across inbound/outbound so response-time calculation
+      // (lastInboundAt vs lastOutboundAt) isn't affected by DB/app clock skew.
+      const now = new Date()
+
       const photos = (sent as any)?.photo as Array<{ file_id: string; file_unique_id: string }> | undefined
       const largest = photos?.length ? photos[photos.length - 1] : undefined
 
@@ -1314,15 +1323,16 @@ app.post(
           fileName: req.file.originalname || null,
           mimeType: req.file.mimetype || null,
           adminUsername: adminUsername || null,
+          createdAt: now,
         },
       })
 
       await prisma.supportChat.update({
         where: { id: chat.id },
         data: {
-          lastMessageAt: message.createdAt,
+          lastMessageAt: now,
           lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
-          lastOutboundAt: message.createdAt,
+          lastOutboundAt: now,
         },
       })
 
