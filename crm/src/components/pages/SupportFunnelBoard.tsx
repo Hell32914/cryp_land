@@ -87,6 +87,11 @@ export function SupportFunnelBoard() {
       { id: 'decision', label: t('support.funnel.decision') },
       { id: 'success', label: t('support.funnel.success') },
       { id: 'fail', label: t('support.funnel.fail') },
+      { id: 'not-active-2', label: t('support.funnel.notActive2') },
+      { id: 'not-active-3', label: t('support.funnel.notActive3') },
+      { id: 'never-answer', label: t('support.funnel.neverAnswer') },
+      { id: 'not-interesting', label: t('support.funnel.notInteresting') },
+      { id: 'troll', label: t('support.funnel.troll') },
       { id: 'spam', label: t('support.funnel.spam') },
     ],
     [t]
