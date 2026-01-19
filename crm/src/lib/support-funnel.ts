@@ -65,6 +65,74 @@ export function ensurePrimaryStage(stages: SupportFunnelStage[], primaryLabel = 
   return [{ id: PRIMARY_STAGE_ID, label: primaryLabel, locked: true }, ...normalized]
 }
 
+function normalizeAndMigrateStages(
+  storedStages: SupportFunnelStage[],
+  defaultStages: SupportFunnelStage[],
+  primaryLabel: string,
+): SupportFunnelStage[] {
+  // Goal:
+  // - Keep stable IDs (so DB stages and client stage-map keep working)
+  // - Upgrade older default labels to the new labels
+  // - Ensure the new default stages exist and appear in the expected order
+  // - Preserve user-custom labels and any extra custom stages
+
+  const defaultById = new Map<string, SupportFunnelStage>()
+  for (const st of defaultStages) defaultById.set(st.id, st)
+
+  const oldDefaultLabels: Record<string, string[]> = {
+    secondary: ['Secondary contact', 'Вторичный контакт', 'Вторинний контакт'],
+    decision: ['Decision making', 'Принятие решения', 'Прийняття рішення'],
+    success: ['Successfully completed', 'Успешно завершено', 'Успішно завершено'],
+    fail: ['Unsuccessfully completed', 'Неуспешно завершено', 'Неуспішно завершено'],
+    spam: ['Spam', 'Спам'],
+  }
+
+  const storedById = new Map<string, SupportFunnelStage>()
+  for (const st of storedStages) {
+    if (!st?.id) continue
+    storedById.set(st.id, { id: String(st.id), label: String(st.label ?? ''), locked: Boolean(st.locked) })
+  }
+
+  // Upgrade labels only if they look like old defaults (avoid overwriting custom labels).
+  for (const [id, st] of storedById) {
+    const desired = defaultById.get(id)?.label
+    if (!desired) continue
+    const old = oldDefaultLabels[id]
+    if (old && old.includes(st.label)) {
+      storedById.set(id, { ...st, label: desired })
+    }
+  }
+
+  // Build result in the default order, ensuring all default stages exist.
+  const result: SupportFunnelStage[] = []
+  // Primary stage first.
+  const storedPrimary = storedById.get(PRIMARY_STAGE_ID)
+  result.push({ id: PRIMARY_STAGE_ID, label: storedPrimary?.label || primaryLabel, locked: true })
+
+  for (const def of defaultStages) {
+    if (def.id === PRIMARY_STAGE_ID) continue
+    const existing = storedById.get(def.id)
+    result.push({
+      id: def.id,
+      label: existing?.label || def.label,
+      locked: Boolean(def.locked || existing?.locked),
+    })
+  }
+
+  // Append any custom stages that are not part of defaults (keep their relative order).
+  const defaultIds = new Set(defaultStages.map((s) => s.id))
+  for (const st of storedStages) {
+    if (!st?.id) continue
+    const id = String(st.id)
+    if (defaultIds.has(id)) continue
+    const label = typeof st.label === 'string' ? st.label : String(st.label ?? '')
+    if (!label.trim()) continue
+    result.push({ id, label, locked: Boolean((st as any).locked) })
+  }
+
+  return ensurePrimaryStage(result, primaryLabel)
+}
+
 export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): SupportFunnelStage[] {
   const defaultPrimaryLabel =
     defaultStages.find((s) => s.id === PRIMARY_STAGE_ID)?.label || 'Primary contact'
@@ -79,9 +147,10 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
       .filter((s: any) => s && typeof s.id === 'string' && typeof s.label === 'string')
       .map((s: any) => ({ id: String(s.id), label: String(s.label), locked: Boolean(s.locked) }))
 
-    return ensurePrimaryStage(stages.length ? stages : defaultStages, defaultPrimaryLabel)
+    const base = stages.length ? stages : defaultStages
+    return normalizeAndMigrateStages(base, defaultStages, defaultPrimaryLabel)
   } catch {
-    return ensurePrimaryStage(defaultStages, defaultPrimaryLabel)
+    return normalizeAndMigrateStages(defaultStages, defaultStages, defaultPrimaryLabel)
   }
 }
 
