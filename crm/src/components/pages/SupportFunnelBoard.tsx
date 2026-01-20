@@ -20,12 +20,45 @@ import {
   getPrimaryStageId,
   loadSupportChatStageMap,
   loadSupportFunnelStages,
+  saveSupportFunnelStages,
   saveSupportChatStageMap,
   subscribeSupportFunnelUpdates,
   type SupportFunnelStage,
 } from '@/lib/support-funnel'
 
 const UNKNOWN_STAGE_ID = '__unknown_stage__'
+
+function prettifyStageId(id: string): string {
+  const v = String(id || '').trim()
+  if (!v) return ''
+
+  const known: Record<string, string> = {
+    primary: 'Primary contact',
+    'in-process': 'In process',
+    'first-touch': 'First touch',
+    deposit: 'Deposit',
+    'not-active-1': 'Not active 1',
+    'not-active-2': 'Not active 2',
+    'not-active-3': 'Not active 3',
+    'never-answer': 'Never answer',
+    'not-interesting': 'Not interesting',
+    troll: 'Troll',
+    spam: 'Spam',
+  }
+
+  if (known[v]) return known[v]
+
+  // Generic: kebab/snake -> Title Case.
+  const words = v
+    .replace(/[_\s]+/g, '-')
+    .split('-')
+    .filter(Boolean)
+
+  if (!words.length) return v
+  return words
+    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
+}
 
 type ColumnId = 'unaccepted' | string
 
@@ -139,6 +172,32 @@ export function SupportFunnelBoard() {
   })
 
   const chats = chatsData?.chats ?? []
+
+  // Self-heal: if local funnel config was reset/cleared, but DB contains stage IDs,
+  // auto-add those missing stages so chats don't collapse into Primary/Unknown.
+  useEffect(() => {
+    if (!chats.length) return
+    const existing = new Set(funnelStages.map((s) => s.id))
+    const missingIds: string[] = []
+
+    for (const c of chats) {
+      const id = normalizeStageId(c.funnelStageId)
+      if (!id) continue
+      if (id === UNKNOWN_STAGE_ID) continue
+      if (existing.has(id)) continue
+      missingIds.push(id)
+      existing.add(id)
+    }
+
+    if (!missingIds.length) return
+
+    setFunnelStages((prev) => {
+      const next = [...prev, ...missingIds.map((id) => ({ id, label: prettifyStageId(id) || id }))]
+      // Persist so it survives reloads.
+      saveSupportFunnelStages(next)
+      return next
+    })
+  }, [chats, funnelStages])
 
   const operatorOptions = useMemo(() => {
     const set = new Set<string>()

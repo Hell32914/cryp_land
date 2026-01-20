@@ -69,11 +69,43 @@ import {
   loadPinnedChatIds,
   loadSupportChatStageMap,
   loadSupportFunnelStages,
+  saveSupportFunnelStages,
   savePinnedChatIds,
   saveSupportChatStageMap,
   subscribeSupportFunnelUpdates,
   type SupportFunnelStage,
 } from '@/lib/support-funnel'
+
+function prettifyStageId(id: string): string {
+  const v = String(id || '').trim()
+  if (!v) return ''
+
+  const known: Record<string, string> = {
+    primary: 'Primary contact',
+    'in-process': 'In process',
+    'first-touch': 'First touch',
+    deposit: 'Deposit',
+    'not-active-1': 'Not active 1',
+    'not-active-2': 'Not active 2',
+    'not-active-3': 'Not active 3',
+    'never-answer': 'Never answer',
+    'not-interesting': 'Not interesting',
+    troll: 'Troll',
+    spam: 'Spam',
+  }
+
+  if (known[v]) return known[v]
+
+  const words = v
+    .replace(/[_\s]+/g, '-')
+    .split('-')
+    .filter(Boolean)
+
+  if (!words.length) return v
+  return words
+    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
+}
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 
 type SupportListTab = 'new' | 'accepted' | 'archive'
@@ -432,6 +464,30 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   )
 
   const chats = chatsData?.chats ?? []
+
+  // Self-heal: if local funnel config was reset/cleared, but DB contains stage IDs,
+  // auto-add those missing stages so chats keep their lanes.
+  useEffect(() => {
+    if (!Array.isArray(chats) || chats.length === 0) return
+
+    const existing = new Set(funnelStages.map((s) => s.id))
+    const missingIds: string[] = []
+    for (const c of chats) {
+      const id = typeof c?.funnelStageId === 'string' ? c.funnelStageId.trim() : ''
+      if (!id) continue
+      if (existing.has(id)) continue
+      missingIds.push(id)
+      existing.add(id)
+    }
+
+    if (!missingIds.length) return
+
+    setFunnelStages((prev) => {
+      const next = [...prev, ...missingIds.map((id) => ({ id, label: prettifyStageId(id) || id }))]
+      saveSupportFunnelStages(next)
+      return next
+    })
+  }, [chats, funnelStages])
 
   const getChatTab = (chat: SupportChatRecord): SupportListTab => {
     const anyChat = chat as any
