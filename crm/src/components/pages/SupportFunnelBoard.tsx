@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
+  canonicalizeStageId,
   getPrimaryStageId,
   loadSupportChatStageMap,
   loadSupportFunnelStages,
@@ -101,9 +102,7 @@ function formatWhen(ts?: string | null) {
 }
 
 function normalizeStageId(value?: string | null): string | null {
-  if (typeof value !== 'string') return null
-  const v = value.trim()
-  return v ? v : null
+  return canonicalizeStageId(value)
 }
 
 export function SupportFunnelBoard() {

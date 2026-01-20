@@ -14,6 +14,37 @@ const STORAGE_KEYS = {
 
 const PRIMARY_STAGE_ID = 'primary'
 
+export function canonicalizeStageId(value?: string | null): string | null {
+  if (typeof value !== 'string') return null
+  const raw = value.trim()
+  if (!raw) return null
+  // Internal UI-only column id should never be persisted.
+  if (raw === '__unknown_stage__') return null
+
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0400-\u04ff-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64)
+
+  return normalized || null
+}
+
+function dedupeStages(stages: SupportFunnelStage[]): SupportFunnelStage[] {
+  const seen = new Set<string>()
+  const result: SupportFunnelStage[] = []
+  for (const s of stages) {
+    const id = canonicalizeStageId(s?.id) || null
+    if (!id) continue
+    if (seen.has(id)) continue
+    seen.add(id)
+    result.push({ ...s, id })
+  }
+  return result
+}
+
 const SUPPORT_FUNNEL_EVENT = 'crm.supportFunnel.updated'
 
 function emitSupportFunnelUpdate(kind: SupportFunnelUpdateKind) {
@@ -89,8 +120,9 @@ function normalizeAndMigrateStages(
 
   const storedById = new Map<string, SupportFunnelStage>()
   for (const st of storedStages) {
-    if (!st?.id) continue
-    storedById.set(st.id, { id: String(st.id), label: String(st.label ?? ''), locked: Boolean(st.locked) })
+    const id = canonicalizeStageId(st?.id) || null
+    if (!id) continue
+    storedById.set(id, { id, label: String(st.label ?? ''), locked: Boolean(st.locked) })
   }
 
   // Upgrade labels only if they look like old defaults (avoid overwriting custom labels).
@@ -111,9 +143,10 @@ function normalizeAndMigrateStages(
 
   for (const def of defaultStages) {
     if (def.id === PRIMARY_STAGE_ID) continue
-    const existing = storedById.get(def.id)
+    const defId = canonicalizeStageId(def.id) || def.id
+    const existing = storedById.get(defId)
     result.push({
-      id: def.id,
+      id: defId,
       label: existing?.label || def.label,
       locked: Boolean(def.locked || existing?.locked),
     })
@@ -122,15 +155,15 @@ function normalizeAndMigrateStages(
   // Append any custom stages that are not part of defaults (keep their relative order).
   const defaultIds = new Set(defaultStages.map((s) => s.id))
   for (const st of storedStages) {
-    if (!st?.id) continue
-    const id = String(st.id)
+    const id = canonicalizeStageId(st?.id) || null
+    if (!id) continue
     if (defaultIds.has(id)) continue
     const label = typeof st.label === 'string' ? st.label : String(st.label ?? '')
     if (!label.trim()) continue
     result.push({ id, label, locked: Boolean((st as any).locked) })
   }
 
-  return ensurePrimaryStage(result, primaryLabel)
+  return ensurePrimaryStage(dedupeStages(result), primaryLabel)
 }
 
 export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): SupportFunnelStage[] {
@@ -145,18 +178,24 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
 
     const stages = parsed
       .filter((s: any) => s && typeof s.id === 'string' && typeof s.label === 'string')
-      .map((s: any) => ({ id: String(s.id), label: String(s.label), locked: Boolean(s.locked) }))
+      .map((s: any) => ({ id: canonicalizeStageId(String(s.id)) || String(s.id), label: String(s.label), locked: Boolean(s.locked) }))
 
     const base = stages.length ? stages : defaultStages
-    return normalizeAndMigrateStages(base, defaultStages, defaultPrimaryLabel)
+    return normalizeAndMigrateStages(dedupeStages(base), dedupeStages(defaultStages), defaultPrimaryLabel)
   } catch {
-    return normalizeAndMigrateStages(defaultStages, defaultStages, defaultPrimaryLabel)
+    return normalizeAndMigrateStages(dedupeStages(defaultStages), dedupeStages(defaultStages), defaultPrimaryLabel)
   }
 }
 
 export function saveSupportFunnelStages(stages: SupportFunnelStage[]) {
   const primaryLabel = stages.find((s) => s.id === PRIMARY_STAGE_ID)?.label || 'Primary contact'
-  localStorage.setItem(STORAGE_KEYS.stages, JSON.stringify(ensurePrimaryStage(stages, primaryLabel)))
+  const normalized = dedupeStages(
+    ensurePrimaryStage(
+      stages.map((s) => ({ ...s, id: canonicalizeStageId(s.id) || s.id })),
+      primaryLabel,
+    ),
+  )
+  localStorage.setItem(STORAGE_KEYS.stages, JSON.stringify(normalized))
   emitSupportFunnelUpdate('stages')
 }
 
@@ -166,7 +205,14 @@ export function loadSupportChatStageMap(): Record<string, string> {
     if (!raw) return {}
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') return {}
-    return parsed as Record<string, string>
+    const map = parsed as Record<string, string>
+    const normalized: Record<string, string> = {}
+    for (const [chatId, stageId] of Object.entries(map)) {
+      const sid = canonicalizeStageId(stageId)
+      if (!sid) continue
+      normalized[String(chatId)] = sid
+    }
+    return normalized
   } catch {
     return {}
   }

@@ -65,6 +65,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 import {
+  canonicalizeStageId,
   getPrimaryStageId,
   loadPinnedChatIds,
   loadSupportChatStageMap,
@@ -366,14 +367,15 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   })
 
   const setChatStage = (chatId: string, stageId: string) => {
+    const sid = canonicalizeStageId(stageId) || stageId
     setChatStageMap((prev) => {
-      const next = { ...prev, [chatId]: stageId }
+      const next = { ...prev, [chatId]: sid }
       saveSupportChatStageMap(next)
       return next
     })
 
     if (token) {
-      setStageMutation.mutate({ chatId, stageId })
+      setStageMutation.mutate({ chatId, stageId: sid })
     }
   }
 
@@ -473,7 +475,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     const existing = new Set(funnelStages.map((s) => s.id))
     const missingIds: string[] = []
     for (const c of chats) {
-      const id = typeof c?.funnelStageId === 'string' ? c.funnelStageId.trim() : ''
+      const id = canonicalizeStageId(c?.funnelStageId) || null
       if (!id) continue
       if (existing.has(id)) continue
       missingIds.push(id)
@@ -1622,7 +1624,8 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                       const pinned = pinnedSet.has(chat.chatId)
 
                       const rawStageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
-                      const stageId = funnelStages.some((s) => s.id === rawStageId) ? rawStageId : primaryStageId
+                      const normalizedStageId = canonicalizeStageId(rawStageId) || rawStageId
+                      const stageId = funnelStages.some((s) => s.id === normalizedStageId) ? normalizedStageId : primaryStageId
                       const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
                       const stageLockedByOther =

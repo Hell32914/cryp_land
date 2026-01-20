@@ -373,6 +373,21 @@ const supportBroadcastCreateSchema = z.object({
   text: z.string().min(1).max(4096),
 })
 
+function canonicalizeSupportStageId(value?: string | null): string | null {
+  if (typeof value !== 'string') return null
+  const raw = value.trim()
+  if (!raw) return null
+  if (raw === '__unknown_stage__') return null
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9\u0400-\u04ff-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64)
+  return normalized || null
+}
+
 app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
@@ -639,7 +654,7 @@ app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
       : undefined
 
     const skip = (page - 1) * limit
-    const [totalCount, chats] = await Promise.all([
+    const [totalCount, chatsRaw] = await Promise.all([
       prisma.supportChat.count({ where }),
       prisma.supportChat.findMany({
         where,
@@ -648,6 +663,12 @@ app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
         take: limit,
       }),
     ])
+
+    // Normalize stage ids to avoid UI splits like "Deposit" vs "deposit".
+    const chats = chatsRaw.map((c: any) => {
+      const sid = canonicalizeSupportStageId(c.funnelStageId)
+      return sid && sid !== c.funnelStageId ? { ...c, funnelStageId: sid } : c
+    })
 
     const totalPages = Math.max(1, Math.ceil(totalCount / limit))
 
@@ -933,6 +954,9 @@ app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req,
     const parsed = supportSetStageSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ error: 'Invalid stage payload' })
 
+    const stageId = canonicalizeSupportStageId(parsed.data.stageId)
+    if (!stageId) return res.status(400).json({ error: 'Invalid stage payload' })
+
     const chat = await prisma.supportChat.findUnique({ where: { chatId } })
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
 
@@ -949,7 +973,7 @@ app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req,
     const updated = await prisma.supportChat.update({
       where: { chatId },
       data: {
-        funnelStageId: parsed.data.stageId.trim(),
+        funnelStageId: stageId,
       },
     })
 
