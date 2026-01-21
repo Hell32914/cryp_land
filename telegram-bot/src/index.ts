@@ -5600,14 +5600,18 @@ async function startBot() {
     const { WEBHOOK_SECRET_TOKEN, SUPPORT_WEBHOOK_SECRET_TOKEN } = await import('./api.js')
     console.log(`🔗 Setting webhook to: ${fullWebhookUrl}/webhook`)
     await bot.api.setWebhook(`${fullWebhookUrl}/webhook`, {
-      secret_token: WEBHOOK_SECRET_TOKEN
+      secret_token: WEBHOOK_SECRET_TOKEN,
+      // Explicitly request channel join updates so CHANNEL leads show up in CRM
+      // even before a user starts the bot.
+      allowed_updates: ['message', 'callback_query', 'chat_member', 'chat_join_request', 'my_chat_member'],
     })
     console.log('✅ Webhook set successfully with secret token')
 
     if (supportBot) {
       console.log(`🔗 Setting SUPPORT webhook to: ${fullWebhookUrl}/support-webhook`)
       await supportBot.api.setWebhook(`${fullWebhookUrl}/support-webhook`, {
-        secret_token: SUPPORT_WEBHOOK_SECRET_TOKEN
+        secret_token: SUPPORT_WEBHOOK_SECRET_TOKEN,
+        allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member'],
       })
       console.log('✅ Support webhook set successfully with secret token')
     } else {

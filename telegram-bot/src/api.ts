@@ -219,6 +219,26 @@ const safeCompare = (first?: string, second?: string) => {
   return crypto.timingSafeEqual(firstBuffer, secondBuffer)
 }
 
+function normalizeInviteLink(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  let v = value.trim()
+  if (!v) return null
+  v = v.replace(/^https?:\/\//i, '')
+  v = v.replace(/^www\./i, '')
+  v = v.replace(/^t\.me\//i, '')
+  v = v.replace(/^telegram\.me\//i, '')
+  v = v.replace(/\/+$/g, '')
+  return v || null
+}
+
+function normalizeTelegramChatIdForApi(value: string): string {
+  const raw = String(value || '').trim()
+  if (!raw) return raw
+  if (raw.startsWith('-') || raw.startsWith('@')) return raw
+  if (/^\d+$/.test(raw)) return `-100${raw}`
+  return raw
+}
+
 const requireAdminAuth: RequestHandler = (req, res, next) => {
   if (!isAdminAuthConfigured()) {
     return res.status(503).json({ error: 'Admin auth is not configured' })
@@ -2921,7 +2941,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     const linksByChannelInvite = new Map(
       marketingLinks
         .filter(l => Boolean((l as any).channelInviteLink))
-        .map(l => [String((l as any).channelInviteLink), l] as const)
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
     )
 
     // Calculate additional fields and get marketing link info
@@ -2972,7 +2992,8 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             const parsed = JSON.parse(rawUtm)
             const inviteLink = parsed?.inviteLink
             if (inviteLink) {
-              marketingLink = linksByChannelInvite.get(String(inviteLink)) || null
+              const key = normalizeInviteLink(inviteLink) || String(inviteLink)
+              marketingLink = linksByChannelInvite.get(key) || null
             }
           } catch {
             // ignore JSON parse errors
@@ -4999,6 +5020,59 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     const links = await prisma.marketingLink.findMany({
       orderBy: { createdAt: 'desc' }
     })
+
+    // Include users attributed via channel joins (invite links), not only direct bot start payload.
+    // This restores per-link visibility for channel funnels.
+    const usersAll = await prisma.user.findMany({
+      where: { isHidden: false },
+      include: {
+        deposits: { where: { status: 'COMPLETED' } },
+        withdrawals: { where: { status: 'COMPLETED' } },
+      },
+    })
+
+    const mkLinkIds = new Set(links.map(l => l.linkId))
+    const linksByChannelInvite = new Map(
+      links
+        .filter(l => Boolean((l as any).channelInviteLink))
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
+    )
+
+    const extractAttributedLinkId = (user: any): string | null => {
+      const raw = user?.utmParams
+      if (typeof raw === 'string') {
+        const directMk = raw.match(/mk_[a-zA-Z0-9_]+/)
+        if (directMk && mkLinkIds.has(directMk[0])) return directMk[0]
+
+        if (raw.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(raw)
+            const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
+            const mk = candidate.match(/mk_[a-zA-Z0-9_]+/)
+            if (mk && mkLinkIds.has(mk[0])) return mk[0]
+
+            const inv = parsed?.inviteLink
+            const key = normalizeInviteLink(inv)
+            if (key) {
+              const link = linksByChannelInvite.get(key)
+              if (link) return link.linkId
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+      return null
+    }
+
+    const usersByLinkId = new Map<string, any[]>()
+    for (const u of usersAll) {
+      const linkId = extractAttributedLinkId(u)
+      if (!linkId) continue
+      const arr = usersByLinkId.get(linkId) || []
+      arr.push(u)
+      usersByLinkId.set(linkId, arr)
+    }
     
     const now = new Date()
     const startOfToday = new Date(now)
@@ -5010,22 +5084,7 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     
     // Calculate metrics for each link
     const enrichedLinks = await Promise.all(links.map(async (link) => {
-      // Get users from this link (by exact linkId stored in utmParams)
-      // Note: utmParams now stores the exact linkId (mk_...) for marketing links
-      const users = await prisma.user.findMany({
-        where: {
-          utmParams: link.linkId,
-          isHidden: false
-        },
-        include: {
-          deposits: {
-            where: { status: 'COMPLETED' }
-          },
-          withdrawals: {
-            where: { status: 'COMPLETED' }
-          }
-        }
-      })
+      const users = usersByLinkId.get(link.linkId) || []
       
       // Leads = users WITHOUT IP (only pressed /start in bot, didn't open mini-app)
       const leads = users.filter(u => !u.ipAddress)
@@ -5127,7 +5186,7 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
     const linksByChannelInvite = new Map(
       links
         .filter(l => Boolean((l as any).channelInviteLink))
-        .map(l => [String((l as any).channelInviteLink), l] as const)
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
     )
 
     const statsBySource = new Map<string, {
@@ -5188,7 +5247,8 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
             const parsed = JSON.parse(rawUtm)
             const inviteLink = parsed?.inviteLink
             if (inviteLink) {
-              const link = linksByChannelInvite.get(String(inviteLink))
+              const key = normalizeInviteLink(inviteLink) || String(inviteLink)
+              const link = linksByChannelInvite.get(key)
               if (link) source = link.linkId
             }
           } catch {
@@ -5221,10 +5281,11 @@ app.post('/api/admin/marketing-links/:linkId/channel-invite', requireAdminAuth, 
     const { linkId } = req.params
     if (!linkId) return res.status(400).json({ error: 'linkId is required' })
 
-    const channelId = process.env.CHANNEL_ID
-    if (!channelId) {
+    const channelIdRaw = process.env.CHANNEL_ID
+    if (!channelIdRaw) {
       return res.status(400).json({ error: 'CHANNEL_ID is not configured' })
     }
+    const channelId = normalizeTelegramChatIdForApi(channelIdRaw)
 
     const link = await prisma.marketingLink.findUnique({ where: { linkId } })
     if (!link) return res.status(404).json({ error: 'Link not found' })
