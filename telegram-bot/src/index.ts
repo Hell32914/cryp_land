@@ -35,6 +35,52 @@ const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 
+function normalizeInviteLink(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  let v = value.trim()
+  if (!v) return null
+  v = v.replace(/^https?:\/\//i, '')
+  v = v.replace(/^www\./i, '')
+  v = v.replace(/^t\.me\//i, '')
+  v = v.replace(/^telegram\.me\//i, '')
+  v = v.replace(/\/+$/g, '')
+  return v || null
+}
+
+function extractMkLinkId(value: unknown): string | null {
+  if (!value) return null
+  const s = typeof value === 'string' ? value : JSON.stringify(value)
+  const m = s.match(/mk_[a-zA-Z0-9_]+/)
+  return m ? m[0] : null
+}
+
+async function resolveMarketingLinkIdFromInvite(inviteLink: any): Promise<string | null> {
+  // 1) Best case: invite link has a name equal to mk_...
+  const mkFromName = extractMkLinkId(inviteLink?.name)
+  if (mkFromName) return mkFromName
+
+  // 2) Fallback: match invite URL against stored marketingLink.channelInviteLink
+  const inviteUrl = inviteLink?.invite_link || inviteLink
+  const normalizedInvite = normalizeInviteLink(inviteUrl)
+  if (!normalizedInvite) return null
+
+  try {
+    const links = await prisma.marketingLink.findMany({
+      where: { channelInviteLink: { not: null } },
+      select: { linkId: true, channelInviteLink: true },
+    })
+
+    for (const l of links as any[]) {
+      const normalizedStored = normalizeInviteLink(l.channelInviteLink)
+      if (normalizedStored && normalizedStored === normalizedInvite) return String(l.linkId)
+    }
+  } catch {
+    // ignore
+  }
+
+  return null
+}
+
 function isChannelChatId(chatId: number | string | undefined | null): boolean {
   if (chatId === undefined || chatId === null) return false
   const chatIdStr = String(chatId)
@@ -131,7 +177,8 @@ bot.on('chat_member', async (ctx) => {
     if (oldStatus && !leftStatuses.has(oldStatus)) return
 
     const telegramId = String(user.id)
-    const utmParams = buildChannelUtmParams(chatMemberUpdate.invite_link)
+    const resolvedLinkId = await resolveMarketingLinkIdFromInvite(chatMemberUpdate.invite_link)
+    const utmParams = resolvedLinkId ? resolvedLinkId : buildChannelUtmParams(chatMemberUpdate.invite_link)
 
     const existing = await prisma.user.findUnique({ where: { telegramId } })
     if (!existing) {
@@ -145,6 +192,14 @@ bot.on('chat_member', async (ctx) => {
           utmParams,
         },
       })
+
+      // Treat a successful channel join as a conversion for that marketing link.
+      if (resolvedLinkId) {
+        await prisma.marketingLink.update({
+          where: { linkId: resolvedLinkId },
+          data: { conversions: { increment: 1 } },
+        }).catch(() => {})
+      }
       return
     }
 
@@ -154,7 +209,14 @@ bot.on('chat_member', async (ctx) => {
       lastName: user.last_name,
     }
     if (!existing.marketingSource) data.marketingSource = 'Channel'
-    if (!existing.utmParams) data.utmParams = utmParams
+    // Prefer precise mk_* attribution when available.
+    if (resolvedLinkId) {
+      const cur = String(existing.utmParams || '').trim()
+      const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_]+/))
+      if (!alreadyHasMk) data.utmParams = resolvedLinkId
+    } else if (!existing.utmParams) {
+      data.utmParams = utmParams
+    }
 
     // Avoid unnecessary writes
     if (Object.keys(data).length > 0) {
@@ -235,7 +297,8 @@ bot.on('chat_join_request', async (ctx) => {
     if (!user?.id) return
 
     const telegramId = String(user.id)
-    const utmParams = buildChannelUtmParams(joinRequest.invite_link)
+    const resolvedLinkId = await resolveMarketingLinkIdFromInvite(joinRequest.invite_link)
+    const utmParams = resolvedLinkId ? resolvedLinkId : buildChannelUtmParams(joinRequest.invite_link)
 
     const existing = await prisma.user.findUnique({ where: { telegramId } })
     if (!existing) {
@@ -249,6 +312,13 @@ bot.on('chat_join_request', async (ctx) => {
           utmParams,
         },
       })
+
+      if (resolvedLinkId) {
+        await prisma.marketingLink.update({
+          where: { linkId: resolvedLinkId },
+          data: { conversions: { increment: 1 } },
+        }).catch(() => {})
+      }
       return
     }
 
@@ -258,7 +328,13 @@ bot.on('chat_join_request', async (ctx) => {
       lastName: user.last_name,
     }
     if (!existing.marketingSource) data.marketingSource = 'Channel'
-    if (!existing.utmParams) data.utmParams = utmParams
+    if (resolvedLinkId) {
+      const cur = String(existing.utmParams || '').trim()
+      const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_]+/))
+      if (!alreadyHasMk) data.utmParams = resolvedLinkId
+    } else if (!existing.utmParams) {
+      data.utmParams = utmParams
+    }
 
     if (Object.keys(data).length > 0) {
       await prisma.user.update({ where: { telegramId }, data })
@@ -648,6 +724,22 @@ bot.command('start', async (ctx) => {
       where: { telegramId },
       data: { languageCode: preferredLanguage }
     })
+  }
+
+  // If a channel lead later opens the bot via an mk_* link, keep Channel source
+  // but store the precise mk_* attribution in utmParams.
+  if (user && linkId) {
+    const cur = String(user.utmParams || '').trim()
+    const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_]+/))
+    if (!alreadyHasMk) {
+      user = await prisma.user.update({
+        where: { telegramId },
+        data: {
+          utmParams: linkId,
+          marketingSource: user.marketingSource || 'Channel',
+        },
+      })
+    }
   }
 
   // Update marketing source for existing users if they came via channel link and don't have a source yet
