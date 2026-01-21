@@ -132,161 +132,24 @@ const adminState = new Map<string, {
   currentWithdrawalsPage?: number,
 }>()
 
-type UiLang = 'en' | 'ru' | 'de' | 'es' | 'fr' | 'it' | 'nl'
-
-const ARBITRAGE_TRADE_I18N: Record<UiLang, {
-  menu: string
-  title: string
-  searchTitle: string
-  searchPrompt: string
-  enabled: string
-  disabled: string
-  enableBtn: string
-  disableBtn: string
-  backToList: string
-  backToAdmin: string
-}> = {
-  en: {
-    menu: '⚖️ Arbitrage Trade',
-    title: '⚖️ Arbitrage Trade',
-    searchTitle: '🔎 Search Users',
-    searchPrompt:
-      'Send a username or Telegram ID to search:\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (Telegram ID)\n\n' +
-      '⚠️ Send /cancel to abort',
-    enabled: '✅ Enabled',
-    disabled: '🚫 Disabled',
-    enableBtn: '✅ Enable',
-    disableBtn: '🚫 Disable',
-    backToList: '◀️ Back',
-    backToAdmin: '◀️ Back to Admin',
-  },
-  ru: {
-    menu: '⚖️ Арбитражный трейд',
-    title: '⚖️ Арбитражный трейд',
-    searchTitle: '🔎 Поиск пользователей',
-    searchPrompt:
-      'Отправьте ник или Telegram ID для поиска:\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (Telegram ID)\n\n' +
-      '⚠️ Отправьте /cancel для отмены',
-    enabled: '✅ Включено',
-    disabled: '🚫 Выключено',
-    enableBtn: '✅ Включить',
-    disableBtn: '🚫 Выключить',
-    backToList: '◀️ Назад',
-    backToAdmin: '◀️ В админку',
-  },
-  de: {
-    menu: '⚖️ Arbitrage-Handel',
-    title: '⚖️ Arbitrage-Handel',
-    searchTitle: '🔎 Benutzer suchen',
-    searchPrompt:
-      'Sende einen Benutzernamen oder Telegram-ID:\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (Telegram-ID)\n\n' +
-      '⚠️ /cancel zum Abbrechen',
-    enabled: '✅ Aktiviert',
-    disabled: '🚫 Deaktiviert',
-    enableBtn: '✅ Aktivieren',
-    disableBtn: '🚫 Deaktivieren',
-    backToList: '◀️ Zurück',
-    backToAdmin: '◀️ Zur Admin-Übersicht',
-  },
-  es: {
-    menu: '⚖️ Trading de Arbitraje',
-    title: '⚖️ Trading de Arbitraje',
-    searchTitle: '🔎 Buscar usuarios',
-    searchPrompt:
-      'Envía un usuario o ID de Telegram:\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (ID de Telegram)\n\n' +
-      '⚠️ /cancel para cancelar',
-    enabled: '✅ Activado',
-    disabled: '🚫 Desactivado',
-    enableBtn: '✅ Activar',
-    disableBtn: '🚫 Desactivar',
-    backToList: '◀️ Atrás',
-    backToAdmin: '◀️ Volver al admin',
-  },
-  fr: {
-    menu: '⚖️ Trading d’arbitrage',
-    title: '⚖️ Trading d’arbitrage',
-    searchTitle: '🔎 Rechercher des utilisateurs',
-    searchPrompt:
-      'Envoyez un pseudo ou un ID Telegram :\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (ID Telegram)\n\n' +
-      '⚠️ /cancel pour annuler',
-    enabled: '✅ Activé',
-    disabled: '🚫 Désactivé',
-    enableBtn: '✅ Activer',
-    disableBtn: '🚫 Désactiver',
-    backToList: '◀️ Retour',
-    backToAdmin: '◀️ Retour admin',
-  },
-  it: {
-    menu: '⚖️ Trading di arbitraggio',
-    title: '⚖️ Trading di arbitraggio',
-    searchTitle: '🔎 Cerca utenti',
-    searchPrompt:
-      'Invia un username o ID Telegram:\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (ID Telegram)\n\n' +
-      '⚠️ /cancel per annullare',
-    enabled: '✅ Attivato',
-    disabled: '🚫 Disattivato',
-    enableBtn: '✅ Attiva',
-    disableBtn: '🚫 Disattiva',
-    backToList: '◀️ Indietro',
-    backToAdmin: '◀️ Torna admin',
-  },
-  nl: {
-    menu: '⚖️ Arbitrage-handel',
-    title: '⚖️ Arbitrage-handel',
-    searchTitle: '🔎 Gebruikers zoeken',
-    searchPrompt:
-      'Stuur een gebruikersnaam of Telegram-ID:\n' +
-      '• `@username`\n' +
-      '• `username`\n' +
-      '• `123456789` (Telegram-ID)\n\n' +
-      '⚠️ /cancel om te annuleren',
-    enabled: '✅ Ingeschakeld',
-    disabled: '🚫 Uitgeschakeld',
-    enableBtn: '✅ Inschakelen',
-    disableBtn: '🚫 Uitschakelen',
-    backToList: '◀️ Terug',
-    backToAdmin: '◀️ Terug naar admin',
-  },
-}
-
-function normalizeUiLang(code?: string | null): UiLang {
-  if (!code) return 'en'
-  const base = code.toString().trim().toLowerCase().split(/[-_]/)[0]
-  if (base === 'ru') return 'ru'
-  if (base === 'de') return 'de'
-  if (base === 'es') return 'es'
-  if (base === 'fr') return 'fr'
-  if (base === 'it') return 'it'
-  if (base === 'nl') return 'nl'
-  return 'en'
-}
-
-async function getUiLangForTelegramUser(telegramId: string, fallback?: string | null): Promise<UiLang> {
-  try {
-    const user = await prisma.user.findUnique({ where: { telegramId }, select: { languageCode: true } })
-    return normalizeUiLang(user?.languageCode ?? fallback)
-  } catch {
-    return normalizeUiLang(fallback)
-  }
-}
+// Arbitrage Trade admin flow is English-only by request.
+const ARBITRAGE_TRADE_EN = {
+  menu: '⚖️ Arbitrage Trade',
+  title: '⚖️ Arbitrage Trade',
+  searchTitle: '🔎 Search Users',
+  searchPrompt:
+    'Send a username or Telegram ID to search:\n' +
+    '• `@username`\n' +
+    '• `username`\n' +
+    '• `123456789` (Telegram ID)\n\n' +
+    '⚠️ Send /cancel to abort',
+  enabled: '✅ Enabled',
+  disabled: '🚫 Disabled',
+  enableBtn: '✅ Enable',
+  disableBtn: '🚫 Disable',
+  backToList: '◀️ Back',
+  backToAdmin: '◀️ Back to Admin',
+} as const
 
 // Middleware to check if user is blocked (blocks all bot interactions)
 bot.use(async (ctx, next) => {
@@ -1029,7 +892,6 @@ bot.command('admin', async (ctx) => {
 
   const isAdminUser = await isAdmin(userId)
   const isSuperAdmin = ADMIN_IDS.includes(userId)
-  const uiLang = await getUiLangForTelegramUser(userId, ctx.from?.language_code)
 
   const usersCount = await prisma.user.count()
   const completedDepositsCount = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
@@ -1051,7 +913,7 @@ bot.command('admin', async (ctx) => {
 
   // Only admins can manage per-user Trade tab access
   if (isAdminUser) {
-    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].menu, 'admin_arbitrage').row()
+    keyboard.text(ARBITRAGE_TRADE_EN.menu, 'admin_arbitrage').row()
   }
 
   // Only admins can generate cards
@@ -1210,7 +1072,6 @@ bot.callbackQuery('admin_menu', async (ctx) => {
 
   const isAdminUser = await isAdmin(userId)
   const isSuperAdmin = ADMIN_IDS.includes(userId)
-  const uiLang = await getUiLangForTelegramUser(userId, ctx.from?.language_code)
 
   const usersCount = await prisma.user.count()
   const completedDepositsCount = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
@@ -1232,7 +1093,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
 
   // Only admins can manage per-user Trade tab access
   if (isAdminUser) {
-    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].menu, 'admin_arbitrage').row()
+    keyboard.text(ARBITRAGE_TRADE_EN.menu, 'admin_arbitrage').row()
   }
 
   // Only admins can generate cards
@@ -1488,7 +1349,6 @@ bot.callbackQuery(/^admin_arbitrage(?:_(\d+))?$/, async (ctx) => {
     return
   }
 
-  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
   const page = parseInt(ctx.match?.[1] || '1')
 
   const perPage = 10
@@ -1510,7 +1370,7 @@ bot.callbackQuery(/^admin_arbitrage(?:_(\d+))?$/, async (ctx) => {
     skip: safeSkip,
   })
 
-  let message = `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n`
+  let message = `${ARBITRAGE_TRADE_EN.title}\n\n`
   message += `👥 Users (Page ${safePage}/${totalPages}, Total: ${totalUsers}):\n\n`
 
   if (users.length === 0) {
@@ -1524,7 +1384,7 @@ bot.callbackQuery(/^admin_arbitrage(?:_(\d+))?$/, async (ctx) => {
           : 'no info'
 
       const num = safeSkip + index + 1
-      const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+      const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_EN.enabled : ARBITRAGE_TRADE_EN.disabled
       message += `${num}. ${displayName} — ${stateLabel}\n`
       if (!user.phoneNumber) {
         message += `   ID: ${user.telegramId}\n`
@@ -1549,7 +1409,7 @@ bot.callbackQuery(/^admin_arbitrage(?:_(\d+))?$/, async (ctx) => {
   if (safePage > 1 || safePage < totalPages) keyboard.row()
 
   keyboard.text('🔎 Search', 'admin_arbitrage_search').row()
-  keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+  keyboard.text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
   await safeAnswerCallback(ctx)
@@ -1562,8 +1422,6 @@ bot.callbackQuery('admin_arbitrage_search', async (ctx) => {
     return
   }
 
-  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
-
   // Reset previous arbitrage search + set pending input (preserve other admin state)
   const existingState = adminState.get(adminTelegramId) || {}
   adminState.set(adminTelegramId, {
@@ -1574,13 +1432,13 @@ bot.callbackQuery('admin_arbitrage_search', async (ctx) => {
   })
 
   const keyboard = new InlineKeyboard()
-    .text(ARBITRAGE_TRADE_I18N[uiLang].backToList, 'admin_arbitrage')
+    .text(ARBITRAGE_TRADE_EN.backToList, 'admin_arbitrage')
     .row()
-    .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+    .text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
   await safeEditMessage(
     ctx,
-    `${ARBITRAGE_TRADE_I18N[uiLang].searchTitle}\n\n${ARBITRAGE_TRADE_I18N[uiLang].searchPrompt}`,
+    `${ARBITRAGE_TRADE_EN.searchTitle}\n\n${ARBITRAGE_TRADE_EN.searchPrompt}`,
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
@@ -1593,8 +1451,6 @@ bot.callbackQuery(/^admin_arbitrage_search_page_(\d+)$/, async (ctx) => {
     return
   }
 
-  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
-
   const page = parseInt(ctx.match?.[1] || '1')
   const state = adminState.get(adminTelegramId)
   const searchQuery = state?.arbitrageSearchQuery
@@ -1603,7 +1459,7 @@ bot.callbackQuery(/^admin_arbitrage_search_page_(\d+)$/, async (ctx) => {
     const keyboard = new InlineKeyboard()
       .text('🔎 Search', 'admin_arbitrage_search').row()
       .text('👥 All Users', 'admin_arbitrage').row()
-      .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+      .text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
     await safeEditMessage(ctx, '⚠️ Search expired. Please start a new search.', { reply_markup: keyboard })
     await safeAnswerCallback(ctx)
@@ -1634,7 +1490,7 @@ bot.callbackQuery(/^admin_arbitrage_search_page_(\d+)$/, async (ctx) => {
     skip,
   })
 
-  let message = `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n`
+  let message = `${ARBITRAGE_TRADE_EN.title}\n\n`
   message += `🔎 Results for "${searchQuery}" (Page ${safePage}/${totalPages}, Total: ${totalUsers}):\n\n`
 
   if (users.length === 0) {
@@ -1647,7 +1503,7 @@ bot.callbackQuery(/^admin_arbitrage_search_page_(\d+)$/, async (ctx) => {
           ? `📱 ${user.phoneNumber}`
           : 'no info'
       const num = skip + index + 1
-      const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+      const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_EN.enabled : ARBITRAGE_TRADE_EN.disabled
       message += `${num}. ${displayName} — ${stateLabel}\n`
       if (!user.phoneNumber) {
         message += `   ID: ${user.telegramId}\n`
@@ -1675,7 +1531,7 @@ bot.callbackQuery(/^admin_arbitrage_search_page_(\d+)$/, async (ctx) => {
   keyboard.text('🔎 New Search', 'admin_arbitrage_search')
     .text('👥 All Users', 'admin_arbitrage')
     .row()
-    .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+    .text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
   await safeAnswerCallback(ctx)
@@ -1688,7 +1544,6 @@ bot.callbackQuery(/^arbitrage_manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
     return
   }
 
-  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
   const userId = parseInt(ctx.match![1])
   const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
 
@@ -1707,7 +1562,7 @@ bot.callbackQuery(/^arbitrage_manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
   }
 
   const enabled = Boolean(user?.arbitrageTradeEnabled)
-  const stateLabel = enabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+  const stateLabel = enabled ? ARBITRAGE_TRADE_EN.enabled : ARBITRAGE_TRADE_EN.disabled
 
   const displayName = user.username
     ? `@${user.username}`
@@ -1718,23 +1573,23 @@ bot.callbackQuery(/^arbitrage_manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
         : user.telegramId
 
   const keyboard = new InlineKeyboard()
-    .text(ARBITRAGE_TRADE_I18N[uiLang].enableBtn, `arbitrage_toggle_${userId}_on`)
-    .text(ARBITRAGE_TRADE_I18N[uiLang].disableBtn, `arbitrage_toggle_${userId}_off`)
+    .text(ARBITRAGE_TRADE_EN.enableBtn, `arbitrage_toggle_${userId}_on`)
+    .text(ARBITRAGE_TRADE_EN.disableBtn, `arbitrage_toggle_${userId}_off`)
     .row()
 
   const backState = adminState.get(adminTelegramId)
   if (backState?.arbitrageSearchQuery) {
     const backPage = backState.arbitrageSearchPage || 1
-    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_search_page_${backPage}`)
+    keyboard.text(ARBITRAGE_TRADE_EN.backToList, `admin_arbitrage_search_page_${backPage}`)
   } else {
     const savedPage = backState?.currentArbitrageUsersPage || 1
-    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_${savedPage}`)
+    keyboard.text(ARBITRAGE_TRADE_EN.backToList, `admin_arbitrage_${savedPage}`)
   }
-  keyboard.row().text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+  keyboard.row().text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
   await safeEditMessage(
     ctx,
-    `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n` +
+    `${ARBITRAGE_TRADE_EN.title}\n\n` +
       `👤 User: ${displayName}\n` +
       `ID: ${user.telegramId}\n` +
       `Trade tab: ${stateLabel}`,
@@ -1750,7 +1605,6 @@ bot.callbackQuery(/^arbitrage_toggle_(\d+)_(on|off)$/, async (ctx) => {
     return
   }
 
-  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
   const userId = parseInt(ctx.match![1])
   const mode = ctx.match![2]
   const enabled = mode === 'on'
@@ -1769,7 +1623,7 @@ bot.callbackQuery(/^arbitrage_toggle_(\d+)_(on|off)$/, async (ctx) => {
     return
   }
 
-  const stateLabel = user?.arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+  const stateLabel = user?.arbitrageTradeEnabled ? ARBITRAGE_TRADE_EN.enabled : ARBITRAGE_TRADE_EN.disabled
   const displayName = user.username
     ? `@${user.username}`
     : user.firstName
@@ -1779,23 +1633,23 @@ bot.callbackQuery(/^arbitrage_toggle_(\d+)_(on|off)$/, async (ctx) => {
         : user.telegramId
 
   const keyboard = new InlineKeyboard()
-    .text(ARBITRAGE_TRADE_I18N[uiLang].enableBtn, `arbitrage_toggle_${userId}_on`)
-    .text(ARBITRAGE_TRADE_I18N[uiLang].disableBtn, `arbitrage_toggle_${userId}_off`)
+    .text(ARBITRAGE_TRADE_EN.enableBtn, `arbitrage_toggle_${userId}_on`)
+    .text(ARBITRAGE_TRADE_EN.disableBtn, `arbitrage_toggle_${userId}_off`)
     .row()
 
   const backState = adminState.get(adminTelegramId)
   if (backState?.arbitrageSearchQuery) {
     const backPage = backState.arbitrageSearchPage || 1
-    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_search_page_${backPage}`)
+    keyboard.text(ARBITRAGE_TRADE_EN.backToList, `admin_arbitrage_search_page_${backPage}`)
   } else {
     const savedPage = backState?.currentArbitrageUsersPage || 1
-    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_${savedPage}`)
+    keyboard.text(ARBITRAGE_TRADE_EN.backToList, `admin_arbitrage_${savedPage}`)
   }
-  keyboard.row().text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+  keyboard.row().text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
   await safeEditMessage(
     ctx,
-    `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n` +
+    `${ARBITRAGE_TRADE_EN.title}\n\n` +
       `👤 User: ${displayName}\n` +
       `ID: ${user.telegramId}\n` +
       `Trade tab: ${stateLabel}`,
@@ -3192,8 +3046,6 @@ bot.on('message:text', async (ctx) => {
       return
     }
 
-    const uiLang = await getUiLangForTelegramUser(userId, ctx.from?.language_code)
-
     const raw = ctx.message?.text?.trim()
     if (!raw || raw.startsWith('/')) {
       await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)')
@@ -3232,7 +3084,7 @@ bot.on('message:text', async (ctx) => {
         skip,
       })
 
-      let message = `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n`
+      let message = `${ARBITRAGE_TRADE_EN.title}\n\n`
       message += `🔎 Results for "${query}" (Page ${page}/${totalPages}, Total: ${totalUsers}):\n\n`
 
       if (users.length === 0) {
@@ -3245,7 +3097,7 @@ bot.on('message:text', async (ctx) => {
               ? `📱 ${user.phoneNumber}`
               : 'no info'
           const num = skip + index + 1
-          const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+          const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_EN.enabled : ARBITRAGE_TRADE_EN.disabled
           message += `${num}. ${displayName} — ${stateLabel}\n`
           if (!user.phoneNumber) {
             message += `   ID: ${user.telegramId}\n`
@@ -3279,7 +3131,7 @@ bot.on('message:text', async (ctx) => {
       keyboard.text('🔎 New Search', 'admin_arbitrage_search')
         .text('👥 All Users', 'admin_arbitrage')
         .row()
-        .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+        .text(ARBITRAGE_TRADE_EN.backToAdmin, 'admin_menu')
 
       await ctx.reply(message, { reply_markup: keyboard, parse_mode: undefined })
       return
