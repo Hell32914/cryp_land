@@ -151,6 +151,7 @@ export function SupportFunnelBoard() {
   const [columnsScrollWidth, setColumnsScrollWidth] = useState(0)
   const [columnsClientWidth, setColumnsClientWidth] = useState(0)
   const isSyncingScrollRef = useRef(false)
+  const lastMeasuredRef = useRef<{ scrollWidth: number; clientWidth: number }>({ scrollWidth: 0, clientWidth: 0 })
 
   useEffect(() => {
     const reloadAll = () => {
@@ -349,14 +350,24 @@ export function SupportFunnelBoard() {
     if (!el) return
 
     const update = () => {
-      setColumnsScrollWidth(el.scrollWidth)
-      setColumnsClientWidth(el.clientWidth)
+      const scrollWidth = el.scrollWidth
+      const clientWidth = el.clientWidth
+      const prev = lastMeasuredRef.current
+      if (prev.scrollWidth !== scrollWidth) setColumnsScrollWidth(scrollWidth)
+      if (prev.clientWidth !== clientWidth) setColumnsClientWidth(clientWidth)
+      if (prev.scrollWidth !== scrollWidth || prev.clientWidth !== clientWidth) {
+        lastMeasuredRef.current = { scrollWidth, clientWidth }
+      }
     }
 
     const scheduleUpdate = () => {
       update()
+      // A few deferred re-measures helps when layout stabilizes asynchronously.
       requestAnimationFrame(update)
+      requestAnimationFrame(() => requestAnimationFrame(update))
       window.setTimeout(update, 0)
+      window.setTimeout(update, 120)
+      window.setTimeout(update, 400)
     }
 
     scheduleUpdate()
@@ -372,6 +383,11 @@ export function SupportFunnelBoard() {
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => update()) : null
     ro?.observe(el)
 
+    // scrollWidth can change without resizing the container (content changes),
+    // so also observe DOM mutations.
+    const mo = typeof MutationObserver !== 'undefined' ? new MutationObserver(() => scheduleUpdate()) : null
+    mo?.observe(el, { childList: true, subtree: true })
+
     const fontsReady: Promise<unknown> | null = (document as any)?.fonts?.ready || null
     fontsReady?.then(() => scheduleUpdate()).catch(() => {})
 
@@ -379,6 +395,7 @@ export function SupportFunnelBoard() {
       window.removeEventListener('resize', onWindowResize)
       document.removeEventListener('visibilitychange', onVisibility)
       ro?.disconnect()
+      mo?.disconnect()
     }
   }, [columns.length])
 
@@ -472,18 +489,21 @@ export function SupportFunnelBoard() {
         </div>
       </div>
 
-      {hasHorizontalOverflow ? (
-        <div
-          ref={topScrollRef}
-          onScroll={() => syncScroll('top')}
-          className="h-5 overflow-x-auto overflow-y-hidden rounded-md border border-border bg-muted/20"
-          aria-label="Horizontal scroll"
-        >
-          <div style={{ width: columnsScrollWidth, height: 1 }} />
-        </div>
-      ) : null}
+      <div
+        ref={topScrollRef}
+        onScroll={() => syncScroll('top')}
+        className={
+          'w-full overflow-x-auto overflow-y-hidden rounded-md border border-border bg-muted/20 ' +
+          // On Windows the scrollbar height + borders can exceed h-5, so keep it taller.
+          'h-7 ' +
+          (hasHorizontalOverflow ? '' : 'opacity-0 pointer-events-none')
+        }
+        aria-label="Horizontal scroll"
+      >
+        <div style={{ width: columnsScrollWidth, height: 1 }} />
+      </div>
 
-      <div ref={columnsScrollRef} onScroll={() => syncScroll('columns')} className="flex gap-4 overflow-x-auto pb-2">
+      <div ref={columnsScrollRef} onScroll={() => syncScroll('columns')} className="w-full flex gap-4 overflow-x-auto pb-2">
         {columns.map((col) => {
           const items = columnChats[col.id] || []
 
