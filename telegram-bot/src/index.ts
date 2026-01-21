@@ -414,6 +414,22 @@ export async function notifyAdmins(message: string, options?: any) {
   return results
 }
 
+// Send message to all admins except one
+export async function notifyAdminsExcept(excludeAdminId: string, message: string, options?: any) {
+  const results = []
+  for (const adminId of ADMIN_IDS) {
+    if (adminId === excludeAdminId) continue
+    try {
+      await bot.api.sendMessage(adminId, message, options)
+      results.push({ adminId, success: true })
+    } catch (error) {
+      console.error(`Failed to notify admin ${adminId}:`, error)
+      results.push({ adminId, success: false })
+    }
+  }
+  return results
+}
+
 // Check if user is admin (super admin or database admin)
 async function isAdmin(userId: string): Promise<boolean> {
   if (ADMIN_IDS.includes(userId)) return true
@@ -456,6 +472,13 @@ function formatUserDisplay(user: { username?: string | null, phoneNumber?: strin
   } else {
     return 'no\\_username'
   }
+}
+
+function formatAdminDisplay(admin: { username?: string | null } | undefined, adminId: string): string {
+  if (admin?.username) {
+    return '@' + admin.username.replace(/_/g, '\\_')
+  }
+  return adminId
 }
 
 // Send notification to support team (admins + supports)
@@ -5041,6 +5064,17 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
           console.error('Failed to notify user about withdrawal approval (PayPal):', err)
         }
 
+        const approvalNotice =
+          `✅ *Withdrawal Approved*\n\n` +
+          `🆔 ID: ${withdrawal.id}\n` +
+          `👤 User: ${formatUserDisplay(withdrawal.user)} (ID: ${withdrawal.user.telegramId})\n` +
+          `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+          `💳 Method: ${paymentMethod}\n` +
+          `📧 PayPal: \`${receiverEmail}\`\n\n` +
+          `👮 Approved by: ${formatAdminDisplay(ctx.from, adminId)}`
+
+        await notifyAdminsExcept(adminId, approvalNotice, { parse_mode: 'Markdown' })
+
         const backState = adminState.get(adminId)
         const savedPage = backState?.currentPendingWithdrawalsPage || 1
         const backKeyboard = new InlineKeyboard()
@@ -5088,6 +5122,19 @@ bot.callbackQuery(/^approve_withdrawal_(\d+)(?:_(\d+))?$/, async (ctx) => {
       } catch (err) {
         console.error('Failed to notify user about withdrawal approval (Crypto):', err)
       }
+
+      const approvalNotice =
+        `✅ *Withdrawal Approved*\n\n` +
+        `🆔 ID: ${withdrawal.id}\n` +
+        `👤 User: ${formatUserDisplay(withdrawal.user)} (ID: ${withdrawal.user.telegramId})\n` +
+        `💰 Amount: $${withdrawal.amount.toFixed(2)}\n` +
+        `💳 Method: ${paymentMethod}\n` +
+        `💎 Currency: ${withdrawal.currency}\n` +
+        `🌐 Network: ${withdrawal.network}\n` +
+        `📍 Address: \`${withdrawal.address}\`\n\n` +
+        `👮 Approved by: ${formatAdminDisplay(ctx.from, adminId)}`
+
+      await notifyAdminsExcept(adminId, approvalNotice, { parse_mode: 'Markdown' })
       
       const backState = adminState.get(adminId)
       const savedPage = backState?.currentPendingWithdrawalsPage || 1
