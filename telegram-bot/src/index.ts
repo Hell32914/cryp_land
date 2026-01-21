@@ -123,11 +123,170 @@ const adminState = new Map<string, {
   usersSearchQuery?: string,
   usersSearchPage?: number,
   currentUsersListPage?: number,
+  arbitrageSearchQuery?: string,
+  arbitrageSearchPage?: number,
+  currentArbitrageUsersPage?: number,
   currentPendingWithdrawalsPage?: number,
   currentDepositsPage?: number,
   currentPendingDepositsPage?: number,
   currentWithdrawalsPage?: number,
 }>()
+
+type UiLang = 'en' | 'ru' | 'de' | 'es' | 'fr' | 'it' | 'nl'
+
+const ARBITRAGE_TRADE_I18N: Record<UiLang, {
+  menu: string
+  title: string
+  searchTitle: string
+  searchPrompt: string
+  enabled: string
+  disabled: string
+  enableBtn: string
+  disableBtn: string
+  backToList: string
+  backToAdmin: string
+}> = {
+  en: {
+    menu: '⚖️ Arbitrage Trade',
+    title: '⚖️ Arbitrage Trade',
+    searchTitle: '🔎 Search Users',
+    searchPrompt:
+      'Send a username or Telegram ID to search:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
+      '⚠️ Send /cancel to abort',
+    enabled: '✅ Enabled',
+    disabled: '🚫 Disabled',
+    enableBtn: '✅ Enable',
+    disableBtn: '🚫 Disable',
+    backToList: '◀️ Back',
+    backToAdmin: '◀️ Back to Admin',
+  },
+  ru: {
+    menu: '⚖️ Арбитражный трейд',
+    title: '⚖️ Арбитражный трейд',
+    searchTitle: '🔎 Поиск пользователей',
+    searchPrompt:
+      'Отправьте ник или Telegram ID для поиска:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram ID)\n\n' +
+      '⚠️ Отправьте /cancel для отмены',
+    enabled: '✅ Включено',
+    disabled: '🚫 Выключено',
+    enableBtn: '✅ Включить',
+    disableBtn: '🚫 Выключить',
+    backToList: '◀️ Назад',
+    backToAdmin: '◀️ В админку',
+  },
+  de: {
+    menu: '⚖️ Arbitrage-Handel',
+    title: '⚖️ Arbitrage-Handel',
+    searchTitle: '🔎 Benutzer suchen',
+    searchPrompt:
+      'Sende einen Benutzernamen oder Telegram-ID:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram-ID)\n\n' +
+      '⚠️ /cancel zum Abbrechen',
+    enabled: '✅ Aktiviert',
+    disabled: '🚫 Deaktiviert',
+    enableBtn: '✅ Aktivieren',
+    disableBtn: '🚫 Deaktivieren',
+    backToList: '◀️ Zurück',
+    backToAdmin: '◀️ Zur Admin-Übersicht',
+  },
+  es: {
+    menu: '⚖️ Trading de Arbitraje',
+    title: '⚖️ Trading de Arbitraje',
+    searchTitle: '🔎 Buscar usuarios',
+    searchPrompt:
+      'Envía un usuario o ID de Telegram:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (ID de Telegram)\n\n' +
+      '⚠️ /cancel para cancelar',
+    enabled: '✅ Activado',
+    disabled: '🚫 Desactivado',
+    enableBtn: '✅ Activar',
+    disableBtn: '🚫 Desactivar',
+    backToList: '◀️ Atrás',
+    backToAdmin: '◀️ Volver al admin',
+  },
+  fr: {
+    menu: '⚖️ Trading d’arbitrage',
+    title: '⚖️ Trading d’arbitrage',
+    searchTitle: '🔎 Rechercher des utilisateurs',
+    searchPrompt:
+      'Envoyez un pseudo ou un ID Telegram :\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (ID Telegram)\n\n' +
+      '⚠️ /cancel pour annuler',
+    enabled: '✅ Activé',
+    disabled: '🚫 Désactivé',
+    enableBtn: '✅ Activer',
+    disableBtn: '🚫 Désactiver',
+    backToList: '◀️ Retour',
+    backToAdmin: '◀️ Retour admin',
+  },
+  it: {
+    menu: '⚖️ Trading di arbitraggio',
+    title: '⚖️ Trading di arbitraggio',
+    searchTitle: '🔎 Cerca utenti',
+    searchPrompt:
+      'Invia un username o ID Telegram:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (ID Telegram)\n\n' +
+      '⚠️ /cancel per annullare',
+    enabled: '✅ Attivato',
+    disabled: '🚫 Disattivato',
+    enableBtn: '✅ Attiva',
+    disableBtn: '🚫 Disattiva',
+    backToList: '◀️ Indietro',
+    backToAdmin: '◀️ Torna admin',
+  },
+  nl: {
+    menu: '⚖️ Arbitrage-handel',
+    title: '⚖️ Arbitrage-handel',
+    searchTitle: '🔎 Gebruikers zoeken',
+    searchPrompt:
+      'Stuur een gebruikersnaam of Telegram-ID:\n' +
+      '• `@username`\n' +
+      '• `username`\n' +
+      '• `123456789` (Telegram-ID)\n\n' +
+      '⚠️ /cancel om te annuleren',
+    enabled: '✅ Ingeschakeld',
+    disabled: '🚫 Uitgeschakeld',
+    enableBtn: '✅ Inschakelen',
+    disableBtn: '🚫 Uitschakelen',
+    backToList: '◀️ Terug',
+    backToAdmin: '◀️ Terug naar admin',
+  },
+}
+
+function normalizeUiLang(code?: string | null): UiLang {
+  if (!code) return 'en'
+  const base = code.toString().trim().toLowerCase().split(/[-_]/)[0]
+  if (base === 'ru') return 'ru'
+  if (base === 'de') return 'de'
+  if (base === 'es') return 'es'
+  if (base === 'fr') return 'fr'
+  if (base === 'it') return 'it'
+  if (base === 'nl') return 'nl'
+  return 'en'
+}
+
+async function getUiLangForTelegramUser(telegramId: string, fallback?: string | null): Promise<UiLang> {
+  try {
+    const user = await prisma.user.findUnique({ where: { telegramId }, select: { languageCode: true } })
+    return normalizeUiLang(user?.languageCode ?? fallback)
+  } catch {
+    return normalizeUiLang(fallback)
+  }
+}
 
 // Middleware to check if user is blocked (blocks all bot interactions)
 bot.use(async (ctx, next) => {
@@ -870,6 +1029,7 @@ bot.command('admin', async (ctx) => {
 
   const isAdminUser = await isAdmin(userId)
   const isSuperAdmin = ADMIN_IDS.includes(userId)
+  const uiLang = await getUiLangForTelegramUser(userId, ctx.from?.language_code)
 
   const usersCount = await prisma.user.count()
   const completedDepositsCount = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
@@ -887,6 +1047,11 @@ bot.command('admin', async (ctx) => {
   // Only admins can manage balance
   if (isAdminUser) {
     keyboard.text('💰 Manage Balance', 'admin_manage_balance').row()
+  }
+
+  // Only admins can manage per-user Trade tab access
+  if (isAdminUser) {
+    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].menu, 'admin_arbitrage').row()
   }
 
   // Only admins can generate cards
@@ -1045,6 +1210,7 @@ bot.callbackQuery('admin_menu', async (ctx) => {
 
   const isAdminUser = await isAdmin(userId)
   const isSuperAdmin = ADMIN_IDS.includes(userId)
+  const uiLang = await getUiLangForTelegramUser(userId, ctx.from?.language_code)
 
   const usersCount = await prisma.user.count()
   const completedDepositsCount = await prisma.deposit.count({ where: { status: 'COMPLETED' } })
@@ -1062,6 +1228,11 @@ bot.callbackQuery('admin_menu', async (ctx) => {
   // Only admins can manage balance
   if (isAdminUser) {
     keyboard.text('💰 Manage Balance', 'admin_manage_balance').row()
+  }
+
+  // Only admins can manage per-user Trade tab access
+  if (isAdminUser) {
+    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].menu, 'admin_arbitrage').row()
   }
 
   // Only admins can generate cards
@@ -1306,6 +1477,332 @@ bot.callbackQuery(/^admin_users_search_page_(\d+)$/, async (ctx) => {
 
   await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
   await safeAnswerCallback(ctx)
+})
+
+// ============= ADMIN: ARBITRAGE TRADE (per-user Trade tab) =============
+
+bot.callbackQuery(/^admin_arbitrage(?:_(\d+))?$/, async (ctx) => {
+  const adminTelegramId = ctx.from?.id.toString()
+  if (!adminTelegramId || !(await isAdmin(adminTelegramId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
+  const page = parseInt(ctx.match?.[1] || '1')
+
+  const perPage = 10
+  const skip = (page - 1) * perPage
+
+  const totalUsers = await prisma.user.count({ where: { isHidden: false } })
+  const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
+  const safePage = Math.min(Math.max(page, 1), totalPages)
+  const safeSkip = (safePage - 1) * perPage
+
+  // Save current page in state
+  const currentState = adminState.get(adminTelegramId) || {}
+  adminState.set(adminTelegramId, { ...currentState, currentArbitrageUsersPage: safePage })
+
+  const users = await prisma.user.findMany({
+    where: { isHidden: false },
+    orderBy: { createdAt: 'desc' },
+    take: perPage,
+    skip: safeSkip,
+  })
+
+  let message = `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n`
+  message += `👥 Users (Page ${safePage}/${totalPages}, Total: ${totalUsers}):\n\n`
+
+  if (users.length === 0) {
+    message += 'No users found.'
+  } else {
+    users.forEach((user, index) => {
+      const displayName = user.username
+        ? `@${user.username}`
+        : user.phoneNumber
+          ? `📱 ${user.phoneNumber}`
+          : 'no info'
+
+      const num = safeSkip + index + 1
+      const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+      message += `${num}. ${displayName} — ${stateLabel}\n`
+      if (!user.phoneNumber) {
+        message += `   ID: ${user.telegramId}\n`
+      }
+    })
+  }
+
+  const keyboard = new InlineKeyboard()
+
+  users.forEach((user, index) => {
+    const num = safeSkip + index + 1
+    if (index % 2 === 0) {
+      keyboard.text(`${num}`, `arbitrage_manage_${user.id}_${safePage}`)
+    } else {
+      keyboard.text(`${num}`, `arbitrage_manage_${user.id}_${safePage}`).row()
+    }
+  })
+  if (users.length % 2 === 1) keyboard.row()
+
+  if (safePage > 1) keyboard.text('◀️ Prev', `admin_arbitrage_${safePage - 1}`)
+  if (safePage < totalPages) keyboard.text('Next ▶️', `admin_arbitrage_${safePage + 1}`)
+  if (safePage > 1 || safePage < totalPages) keyboard.row()
+
+  keyboard.text('🔎 Search', 'admin_arbitrage_search').row()
+  keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery('admin_arbitrage_search', async (ctx) => {
+  const adminTelegramId = ctx.from?.id.toString()
+  if (!adminTelegramId || !(await isAdmin(adminTelegramId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
+
+  // Reset previous arbitrage search + set pending input (preserve other admin state)
+  const existingState = adminState.get(adminTelegramId) || {}
+  adminState.set(adminTelegramId, {
+    ...existingState,
+    awaitingInput: 'arbitrage_search_users',
+    arbitrageSearchQuery: undefined,
+    arbitrageSearchPage: undefined,
+  })
+
+  const keyboard = new InlineKeyboard()
+    .text(ARBITRAGE_TRADE_I18N[uiLang].backToList, 'admin_arbitrage')
+    .row()
+    .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    `${ARBITRAGE_TRADE_I18N[uiLang].searchTitle}\n\n${ARBITRAGE_TRADE_I18N[uiLang].searchPrompt}`,
+    { reply_markup: keyboard, parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery(/^admin_arbitrage_search_page_(\d+)$/, async (ctx) => {
+  const adminTelegramId = ctx.from?.id.toString()
+  if (!adminTelegramId || !(await isAdmin(adminTelegramId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
+
+  const page = parseInt(ctx.match?.[1] || '1')
+  const state = adminState.get(adminTelegramId)
+  const searchQuery = state?.arbitrageSearchQuery
+
+  if (!searchQuery) {
+    const keyboard = new InlineKeyboard()
+      .text('🔎 Search', 'admin_arbitrage_search').row()
+      .text('👥 All Users', 'admin_arbitrage').row()
+      .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+    await safeEditMessage(ctx, '⚠️ Search expired. Please start a new search.', { reply_markup: keyboard })
+    await safeAnswerCallback(ctx)
+    return
+  }
+
+  const perPage = 10
+  const isNumericQuery = /^\d+$/.test(searchQuery)
+  const where = isNumericQuery
+    ? {
+        isHidden: false,
+        telegramId: { contains: searchQuery },
+      }
+    : {
+        isHidden: false,
+        username: { contains: searchQuery, mode: 'insensitive' as const },
+      }
+
+  const totalUsers = await prisma.user.count({ where })
+  const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
+  const safePage = Math.min(Math.max(page, 1), totalPages)
+  const skip = (safePage - 1) * perPage
+
+  const users = await prisma.user.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: perPage,
+    skip,
+  })
+
+  let message = `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n`
+  message += `🔎 Results for "${searchQuery}" (Page ${safePage}/${totalPages}, Total: ${totalUsers}):\n\n`
+
+  if (users.length === 0) {
+    message += 'No users found.'
+  } else {
+    users.forEach((user, index) => {
+      const displayName = user.username
+        ? `@${user.username}`
+        : user.phoneNumber
+          ? `📱 ${user.phoneNumber}`
+          : 'no info'
+      const num = skip + index + 1
+      const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+      message += `${num}. ${displayName} — ${stateLabel}\n`
+      if (!user.phoneNumber) {
+        message += `   ID: ${user.telegramId}\n`
+      }
+    })
+  }
+
+  adminState.set(adminTelegramId, { ...state, arbitrageSearchQuery: searchQuery, arbitrageSearchPage: safePage })
+
+  const keyboard = new InlineKeyboard()
+  users.forEach((user, index) => {
+    const num = skip + index + 1
+    if (index % 2 === 0) {
+      keyboard.text(`${num}`, `arbitrage_manage_${user.id}`)
+    } else {
+      keyboard.text(`${num}`, `arbitrage_manage_${user.id}`).row()
+    }
+  })
+  if (users.length % 2 === 1) keyboard.row()
+
+  if (safePage > 1) keyboard.text('◀️ Prev', `admin_arbitrage_search_page_${safePage - 1}`)
+  if (safePage < totalPages) keyboard.text('Next ▶️', `admin_arbitrage_search_page_${safePage + 1}`)
+  if (safePage > 1 || safePage < totalPages) keyboard.row()
+
+  keyboard.text('🔎 New Search', 'admin_arbitrage_search')
+    .text('👥 All Users', 'admin_arbitrage')
+    .row()
+    .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+  await safeEditMessage(ctx, message, { reply_markup: keyboard, parse_mode: undefined })
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery(/^arbitrage_manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
+  const adminTelegramId = ctx.from?.id.toString()
+  if (!adminTelegramId || !(await isAdmin(adminTelegramId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
+  const userId = parseInt(ctx.match![1])
+  const fromPage = ctx.match![2] ? parseInt(ctx.match![2]) : undefined
+
+  if (fromPage) {
+    const currentState = adminState.get(adminTelegramId) || {}
+    adminState.set(adminTelegramId, { ...currentState, currentArbitrageUsersPage: fromPage })
+  }
+
+  const user = (await prisma.user.findUnique({
+    where: { id: userId },
+  })) as any
+
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  const enabled = Boolean(user?.arbitrageTradeEnabled)
+  const stateLabel = enabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+
+  const displayName = user.username
+    ? `@${user.username}`
+    : user.firstName
+      ? user.firstName
+      : user.phoneNumber
+        ? `📱 ${user.phoneNumber}`
+        : user.telegramId
+
+  const keyboard = new InlineKeyboard()
+    .text(ARBITRAGE_TRADE_I18N[uiLang].enableBtn, `arbitrage_toggle_${userId}_on`)
+    .text(ARBITRAGE_TRADE_I18N[uiLang].disableBtn, `arbitrage_toggle_${userId}_off`)
+    .row()
+
+  const backState = adminState.get(adminTelegramId)
+  if (backState?.arbitrageSearchQuery) {
+    const backPage = backState.arbitrageSearchPage || 1
+    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_search_page_${backPage}`)
+  } else {
+    const savedPage = backState?.currentArbitrageUsersPage || 1
+    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_${savedPage}`)
+  }
+  keyboard.row().text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n` +
+      `👤 User: ${displayName}\n` +
+      `ID: ${user.telegramId}\n` +
+      `Trade tab: ${stateLabel}`,
+    { reply_markup: keyboard, parse_mode: undefined }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery(/^arbitrage_toggle_(\d+)_(on|off)$/, async (ctx) => {
+  const adminTelegramId = ctx.from?.id.toString()
+  if (!adminTelegramId || !(await isAdmin(adminTelegramId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const uiLang = await getUiLangForTelegramUser(adminTelegramId, ctx.from?.language_code)
+  const userId = parseInt(ctx.match![1])
+  const mode = ctx.match![2]
+  const enabled = mode === 'on'
+
+  await (prisma.user.update as any)({
+    where: { id: userId },
+    data: { arbitrageTradeEnabled: enabled },
+  })
+
+  const user = (await prisma.user.findUnique({
+    where: { id: userId },
+  })) as any
+
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  const stateLabel = user?.arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+  const displayName = user.username
+    ? `@${user.username}`
+    : user.firstName
+      ? user.firstName
+      : user.phoneNumber
+        ? `📱 ${user.phoneNumber}`
+        : user.telegramId
+
+  const keyboard = new InlineKeyboard()
+    .text(ARBITRAGE_TRADE_I18N[uiLang].enableBtn, `arbitrage_toggle_${userId}_on`)
+    .text(ARBITRAGE_TRADE_I18N[uiLang].disableBtn, `arbitrage_toggle_${userId}_off`)
+    .row()
+
+  const backState = adminState.get(adminTelegramId)
+  if (backState?.arbitrageSearchQuery) {
+    const backPage = backState.arbitrageSearchPage || 1
+    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_search_page_${backPage}`)
+  } else {
+    const savedPage = backState?.currentArbitrageUsersPage || 1
+    keyboard.text(ARBITRAGE_TRADE_I18N[uiLang].backToList, `admin_arbitrage_${savedPage}`)
+  }
+  keyboard.row().text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+  await safeEditMessage(
+    ctx,
+    `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n` +
+      `👤 User: ${displayName}\n` +
+      `ID: ${user.telegramId}\n` +
+      `Trade tab: ${stateLabel}`,
+    { reply_markup: keyboard, parse_mode: undefined }
+  )
+
+  await safeAnswerCallback(ctx, stateLabel)
 })
 
 // View user from deposit list
@@ -2686,6 +3183,111 @@ bot.on('message:text', async (ctx) => {
       await ctx.reply('❌ Error searching user. Please try again.')
     }
     return
+  }
+
+  // Handle search users for Arbitrage Trade (enable Trade tab)
+  if (state.awaitingInput === 'arbitrage_search_users') {
+    if (!(await isAdmin(userId))) {
+      await ctx.reply('⛔️ Access denied')
+      return
+    }
+
+    const uiLang = await getUiLangForTelegramUser(userId, ctx.from?.language_code)
+
+    const raw = ctx.message?.text?.trim()
+    if (!raw || raw.startsWith('/')) {
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)')
+      return
+    }
+
+    const query = raw.replace(/^@+/, '').trim()
+    if (!query) {
+      await ctx.reply('❌ Please provide a username (@username) or Telegram ID (123456789)')
+      return
+    }
+
+    const perPage = 10
+    const page = 1
+    const skip = 0
+
+    try {
+      const isNumericQuery = /^\d+$/.test(query)
+      const where = isNumericQuery
+        ? {
+            isHidden: false,
+            telegramId: { contains: query },
+          }
+        : {
+            isHidden: false,
+            username: { contains: query, mode: 'insensitive' as const },
+          }
+
+      const totalUsers = await prisma.user.count({ where })
+      const totalPages = Math.max(1, Math.ceil(totalUsers / perPage))
+
+      const users = await prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: perPage,
+        skip,
+      })
+
+      let message = `${ARBITRAGE_TRADE_I18N[uiLang].title}\n\n`
+      message += `🔎 Results for "${query}" (Page ${page}/${totalPages}, Total: ${totalUsers}):\n\n`
+
+      if (users.length === 0) {
+        message += 'No users found.'
+      } else {
+        users.forEach((user, index) => {
+          const displayName = user.username
+            ? `@${user.username}`
+            : user.phoneNumber
+              ? `📱 ${user.phoneNumber}`
+              : 'no info'
+          const num = skip + index + 1
+          const stateLabel = (user as any).arbitrageTradeEnabled ? ARBITRAGE_TRADE_I18N[uiLang].enabled : ARBITRAGE_TRADE_I18N[uiLang].disabled
+          message += `${num}. ${displayName} — ${stateLabel}\n`
+          if (!user.phoneNumber) {
+            message += `   ID: ${user.telegramId}\n`
+          }
+        })
+      }
+
+      // Persist query for pagination and back-navigation
+      adminState.set(userId, {
+        ...state,
+        awaitingInput: undefined,
+        arbitrageSearchQuery: query,
+        arbitrageSearchPage: 1,
+      })
+
+      const keyboard = new InlineKeyboard()
+      users.forEach((user, index) => {
+        const num = skip + index + 1
+        if (index % 2 === 0) {
+          keyboard.text(`${num}`, `arbitrage_manage_${user.id}`)
+        } else {
+          keyboard.text(`${num}`, `arbitrage_manage_${user.id}`).row()
+        }
+      })
+      if (users.length % 2 === 1) keyboard.row()
+
+      if (page < totalPages) {
+        keyboard.text('Next ▶️', `admin_arbitrage_search_page_${page + 1}`).row()
+      }
+
+      keyboard.text('🔎 New Search', 'admin_arbitrage_search')
+        .text('👥 All Users', 'admin_arbitrage')
+        .row()
+        .text(ARBITRAGE_TRADE_I18N[uiLang].backToAdmin, 'admin_menu')
+
+      await ctx.reply(message, { reply_markup: keyboard, parse_mode: undefined })
+      return
+    } catch (error) {
+      console.error('Error searching users (arbitrage):', error)
+      await ctx.reply('❌ Error searching users. Please try again.')
+      return
+    }
   }
 
   // Handle search users by username (admin users list)

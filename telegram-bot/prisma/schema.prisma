@@ -32,6 +32,7 @@ model User {
   plan              String        @default("Bronze")
   kycRequired       Boolean       @default(false)
   isBlocked         Boolean       @default(false)
+  arbitrageTradeEnabled Boolean   @default(false)
   isAdmin           Boolean       @default(false)
   isHidden          Boolean       @default(false)
   role              String        @default("user")

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft, ChartLineUp, Gift } from '@phosphor-icons/react'
+import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft, ChartLineUp, Gift, ArrowsLeftRight } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -14,8 +14,9 @@ import { AnimatedBackground } from '@/components/AnimatedBackground'
 import { useUserData } from '@/hooks/useUserData'
 import { AiAnalyticsTab } from '@/components/AiAnalyticsTab'
 import { GameTab } from '@/components/GameTab'
+import { TradeTab } from '@/components/TradeTab'
 
-type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'game' | 'ai' | 'profile'
+type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'trade' | 'game' | 'ai' | 'profile'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home')
@@ -926,6 +927,7 @@ function App() {
     { id: 'invite' as TabType, icon: UserPlus, label: t.invite },
     { id: 'home' as TabType, icon: House, label: t.home },
     { id: 'calculator' as TabType, icon: Calculator, label: t.calculator },
+    ...(userData?.arbitrageTradeEnabled ? [{ id: 'trade' as TabType, icon: ArrowsLeftRight, label: (t as any).trade ?? 'Trade' }] : []),
     ...(GAME_ENABLED ? [{ id: 'game' as TabType, icon: Gift, label: (t as any).game ?? 'Game' }] : []),
     { id: 'ai' as TabType, icon: ChartLineUp, label: (t as any).ai ?? 'AI' },
     { id: 'profile' as TabType, icon: User, label: t.profile }
@@ -942,6 +944,13 @@ function App() {
       setActiveTab('home')
     }
   }, [GAME_ENABLED, activeTab])
+
+  // Safety: if Trade is disabled server-side while open, bounce back.
+  useEffect(() => {
+    if (activeTab !== 'trade') return
+    if (userData?.arbitrageTradeEnabled) return
+    setActiveTab('home')
+  }, [activeTab, userData?.arbitrageTradeEnabled])
 
   const incomePlans = [
     { name: 'Bronze', minAmount: '$10-$99', dailyPercent: '0.5%' },
@@ -1991,6 +2000,10 @@ function App() {
               bonusTokens={userData?.bonusTokens || 0}
               refreshData={refreshData}
             />
+          )}
+
+          {activeTab === 'trade' && userData?.arbitrageTradeEnabled && (
+            <TradeTab title={(t as any).trade ?? 'Trade'} />
           )}
           
           {activeTab === 'wallet' && (

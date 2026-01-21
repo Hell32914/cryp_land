@@ -3517,6 +3517,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
       totalDeposit: user.totalDeposit,
       totalWithdraw: user.totalWithdraw,
       bonusTokens: user.bonusTokens || 0,
+      arbitrageTradeEnabled: user.arbitrageTradeEnabled || false,
       plan: user.plan,
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,
