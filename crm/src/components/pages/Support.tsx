@@ -180,6 +180,54 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   const [shouldScrollMessagesToBottom, setShouldScrollMessagesToBottom] = useState(false)
   const [scrollBehavior, setScrollBehavior] = useState<ScrollBehavior>('auto')
 
+  const MESSAGES_PANE_HEIGHT_KEY = 'crm.support.ui.messagesPaneHeight.v1'
+  const MIN_MESSAGES_PANE_HEIGHT = 240
+  const MAX_MESSAGES_PANE_HEIGHT = 900
+  const [messagesPaneHeight, setMessagesPaneHeight] = useState<number>(() => {
+    try {
+      const raw = window.localStorage.getItem(MESSAGES_PANE_HEIGHT_KEY)
+      const parsed = raw ? Number.parseInt(raw, 10) : NaN
+      const base = Number.isFinite(parsed) ? parsed : 420
+      return Math.max(MIN_MESSAGES_PANE_HEIGHT, Math.min(MAX_MESSAGES_PANE_HEIGHT, base))
+    } catch {
+      return 420
+    }
+  })
+  const messagesPaneHeightRef = useRef(messagesPaneHeight)
+  useEffect(() => {
+    messagesPaneHeightRef.current = messagesPaneHeight
+  }, [messagesPaneHeight])
+
+  const beginResizeMessagesPane = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+
+    const startY = e.clientY
+    const startHeight = messagesPaneHeightRef.current
+
+    const onMove = (ev: PointerEvent) => {
+      const dy = ev.clientY - startY
+      const next = Math.max(
+        MIN_MESSAGES_PANE_HEIGHT,
+        Math.min(MAX_MESSAGES_PANE_HEIGHT, Math.round(startHeight + dy)),
+      )
+      messagesPaneHeightRef.current = next
+      setMessagesPaneHeight(next)
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      try {
+        window.localStorage.setItem(MESSAGES_PANE_HEIGHT_KEY, String(messagesPaneHeightRef.current))
+      } catch {
+        // ignore
+      }
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp, { once: true })
+  }, [])
+
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
@@ -1922,23 +1970,27 @@ export function Support({ mode = 'inbox' }: SupportProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <ScrollArea className="h-[420px] rounded-md border border-border p-3">
-                  {isMessagesLoading ? (
-                    <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
-                  ) : messages.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">{t('support.noMessages')}</div>
-                  ) : (
-                    <div className="space-y-3 pr-3">
-                      {messages.map((m) => (
-                        <div
-                          key={m.id}
-                          className={
-                            'max-w-[85%] rounded-md px-3 py-2 text-sm border ' +
-                            (m.direction === 'OUT'
-                              ? 'ml-auto bg-primary/10 border-primary/20'
-                              : 'mr-auto bg-muted/40 border-border')
-                          }
-                        >
+                <div className="rounded-md border border-border overflow-hidden">
+                  <ScrollArea
+                    className="p-3"
+                    style={{ height: messagesPaneHeight }}
+                  >
+                    {isMessagesLoading ? (
+                      <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">{t('support.noMessages')}</div>
+                    ) : (
+                      <div className="space-y-3 pr-3">
+                        {messages.map((m) => (
+                          <div
+                            key={m.id}
+                            className={
+                              'max-w-[85%] rounded-md px-3 py-2 text-sm border ' +
+                              (m.direction === 'OUT'
+                                ? 'ml-auto bg-primary/10 border-primary/20'
+                                : 'mr-auto bg-muted/40 border-border')
+                            }
+                          >
                           {m.replyTo ? (
                             <div className="mb-2 rounded border border-border/60 bg-background/40 px-2 py-1 text-xs">
                               <div className="text-muted-foreground truncate">
@@ -2042,12 +2094,30 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                               </Button>
                             ) : null}
                           </div>
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
-                </ScrollArea>
+                          </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    )}
+                  </ScrollArea>
+                  <div
+                    role="separator"
+                    aria-orientation="horizontal"
+                    title="Drag to resize"
+                    onPointerDown={beginResizeMessagesPane}
+                    onDoubleClick={() => {
+                      messagesPaneHeightRef.current = 420
+                      setMessagesPaneHeight(420)
+                      try {
+                        window.localStorage.setItem(MESSAGES_PANE_HEIGHT_KEY, '420')
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="h-2 cursor-row-resize bg-muted/20 hover:bg-muted/40 active:bg-muted/60"
+                    style={{ touchAction: 'none' }}
+                  />
+                </div>
 
                 {selectedChat ? (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
