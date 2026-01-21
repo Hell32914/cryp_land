@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type ExchangeIconProps = {
   name: string
@@ -45,9 +47,10 @@ function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) 
 
 type TradeTabProps = {
   title?: string
+  balance?: number
 }
 
-export function TradeTab({ title }: TradeTabProps) {
+export function TradeTab({ title, balance }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg' },
@@ -117,6 +120,69 @@ export function TradeTab({ title }: TradeTabProps) {
 
   const [selectedPriceCheckId, setSelectedPriceCheckId] = useState<string>('60s')
   const selectedPriceCheck = priceCheckOptions.find((o) => o.id === selectedPriceCheckId)
+
+  const availableBalance = Number.isFinite(balance as number) ? Math.max(0, Number(balance)) : 0
+  const [depositAmount, setDepositAmount] = useState<string>('')
+  const parsedDepositAmount = Number.parseFloat(depositAmount)
+  const depositAmountValue = Number.isFinite(parsedDepositAmount) ? parsedDepositAmount : 0
+  const depositIsValid = depositAmountValue > 0 && depositAmountValue <= availableBalance
+
+  const [riskProfile, setRiskProfile] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate')
+  const riskProfiles = useMemo(
+    () => [
+      {
+        id: 'conservative' as const,
+        title: 'Conservative',
+        spread: '0.5–1%',
+        desc: 'Only large spreads',
+      },
+      {
+        id: 'moderate' as const,
+        title: 'Moderate',
+        spread: '0.3–0.5%',
+        desc: 'Balanced spread threshold',
+      },
+      {
+        id: 'aggressive' as const,
+        title: 'Aggressive',
+        spread: '0.1–0.3%',
+        desc: 'Low spreads, higher risk',
+      },
+    ],
+    []
+  )
+
+  const [arbitrageType, setArbitrageType] = useState<'direct' | 'direct_triangular' | 'triangular_fast'>('direct_triangular')
+  const arbitrageTypes = useMemo(
+    () => [
+      {
+        id: 'direct' as const,
+        title: 'Direct arbitrage',
+        desc: 'Only direct arbitrage with large spread',
+      },
+      {
+        id: 'direct_triangular' as const,
+        title: 'Direct + Triangular',
+        desc: 'Direct + triangular with normal spread',
+      },
+      {
+        id: 'triangular_fast' as const,
+        title: 'Triangular + frequent trades',
+        desc: 'Triangular + small spread, frequent trades',
+      },
+    ],
+    []
+  )
+
+  const [botRunning, setBotRunning] = useState(false)
+
+  const canStart =
+    selectedAssets.length > 0 &&
+    Boolean(selectedExchangeId) &&
+    depositIsValid &&
+    Boolean(selectedPriceCheckId) &&
+    Boolean(riskProfile) &&
+    Boolean(arbitrageType)
 
   return (
     <div className="p-4 space-y-4">
@@ -247,6 +313,134 @@ export function TradeTab({ title }: TradeTabProps) {
 
         <div className="mt-3 text-xs text-muted-foreground">
           Tip: Very fast intervals (1s / 0.5s) increase traffic and battery usage.
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Deposit</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Choose how much balance will be used by the bot (Max button required).
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground text-right">Available: ${availableBalance.toFixed(2)}</div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <Input
+            value={depositAmount}
+            onChange={(e) => setDepositAmount(e.target.value)}
+            inputMode="decimal"
+            placeholder="Amount (USD)"
+            className="h-10 bg-background/30 border-border/50"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10"
+            onClick={() => setDepositAmount(availableBalance ? availableBalance.toFixed(2) : '0')}
+          >
+            Max
+          </Button>
+        </div>
+        {!depositIsValid && depositAmount.length > 0 && (
+          <div className="mt-2 text-xs text-red-300">Enter a value between 0 and ${availableBalance.toFixed(2)}.</div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Risk profile</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Smaller spread = higher risk (less cushion for fees and fast price moves).
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground text-right">
+            Selected: {riskProfiles.find((p) => p.id === riskProfile)?.title}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {riskProfiles.map((p) => {
+            const isSelected = p.id === riskProfile
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setRiskProfile(p.id)}
+                className={
+                  'rounded-lg border px-3 py-2 text-left transition-colors ' +
+                  (isSelected
+                    ? 'border-primary/50 bg-primary/10'
+                    : 'border-border/50 bg-background/30 hover:bg-background/50')
+                }
+              >
+                <div className="text-sm font-medium">{p.title}</div>
+                <div className="text-xs text-muted-foreground mt-1">Spread: {p.spread}</div>
+                <div className="text-xs text-muted-foreground mt-1">{p.desc}</div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Arbitrage type</div>
+            <div className="text-xs text-muted-foreground mt-1">Choose the arbitrage execution mode.</div>
+          </div>
+          <div className="text-xs text-muted-foreground text-right">
+            Selected: {arbitrageTypes.find((t) => t.id === arbitrageType)?.title}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {arbitrageTypes.map((t) => {
+            const isSelected = t.id === arbitrageType
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setArbitrageType(t.id)}
+                className={
+                  'rounded-lg border px-3 py-2 text-left transition-colors ' +
+                  (isSelected
+                    ? 'border-primary/50 bg-primary/10'
+                    : 'border-border/50 bg-background/30 hover:bg-background/50')
+                }
+              >
+                <div className="text-sm font-medium">{t.title}</div>
+                <div className="text-xs text-muted-foreground mt-1">{t.desc}</div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Bot control</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Status: {botRunning ? 'Running' : 'Stopped'}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" disabled={!canStart || botRunning} onClick={() => setBotRunning(true)}>
+              Start
+            </Button>
+            <Button type="button" variant="destructive" disabled={!botRunning} onClick={() => setBotRunning(false)}>
+              Disable
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-3 text-xs text-muted-foreground">
+          Config: {selectedExchange?.name ?? '—'} • {selectedAssets.length || 0} assets • {selectedPriceCheck?.label ?? '—'} •
+          Deposit ${depositAmountValue.toFixed(2)}
         </div>
       </div>
     </div>
