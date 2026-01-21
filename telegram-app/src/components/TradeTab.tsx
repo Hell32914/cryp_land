@@ -1,5 +1,48 @@
 import { useMemo, useState } from 'react'
 
+type ExchangeIconProps = {
+  name: string
+  src: string
+  fallbackText: string
+  selected?: boolean
+}
+
+function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) {
+  const [failed, setFailed] = useState(false)
+
+  if (!failed) {
+    return (
+      <span
+        aria-hidden="true"
+        className={
+          'inline-flex h-7 w-7 items-center justify-center rounded-md overflow-hidden ' +
+          (selected ? 'bg-primary/15' : 'bg-muted')
+        }
+      >
+        <img
+          src={src}
+          alt={`${name} logo`}
+          className="h-5 w-5 object-contain"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className={
+        'inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-semibold ' +
+        (selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')
+      }
+    >
+      {fallbackText}
+    </span>
+  )
+}
+
 type TradeTabProps = {
   title?: string
 }
@@ -7,16 +50,16 @@ type TradeTabProps = {
 export function TradeTab({ title }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
-      { id: 'binance', name: 'Binance', iconText: 'B' },
-      { id: 'bybit', name: 'Bybit', iconText: 'BY' },
-      { id: 'okx', name: 'OKX', iconText: 'OKX' },
-      { id: 'coinbase', name: 'Coinbase', iconText: 'C' },
-      { id: 'kraken', name: 'Kraken', iconText: 'K' },
-      { id: 'kucoin', name: 'KuCoin', iconText: 'KU' },
-      { id: 'bitget', name: 'Bitget', iconText: 'BG' },
-      { id: 'gate', name: 'Gate.io', iconText: 'G' },
-      { id: 'mexc', name: 'MEXC', iconText: 'MX' },
-      { id: 'htx', name: 'HTX (Huobi)', iconText: 'HTX' },
+      { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg' },
+      { id: 'bybit', name: 'Bybit', iconText: 'BY', iconSrc: '/logo_trade/bybit.jpg' },
+      { id: 'okx', name: 'OKX', iconText: 'OKX', iconSrc: '/logo_trade/okx.jpg' },
+      { id: 'coinbase', name: 'Coinbase', iconText: 'C', iconSrc: '/logo_trade/coinbase.jpg' },
+      { id: 'kraken', name: 'Kraken', iconText: 'K', iconSrc: '/logo_trade/kraken.jpg' },
+      { id: 'kucoin', name: 'KuCoin', iconText: 'KU', iconSrc: '/logo_trade/kucoin.jpg' },
+      { id: 'bitget', name: 'Bitget', iconText: 'BG', iconSrc: '/logo_trade/bitget.jpg' },
+      { id: 'gate', name: 'Gate.io', iconText: 'G', iconSrc: '/logo_trade/gateio.jpg' },
+      { id: 'mexc', name: 'MEXC', iconText: 'MX', iconSrc: '/logo_trade/mexc.jpg' },
+      { id: 'htx', name: 'HTX (Huobi)', iconText: 'HTX', iconSrc: '/logo_trade/htx.jpg' },
     ],
     []
   )
@@ -58,15 +101,12 @@ export function TradeTab({ title }: TradeTabProps) {
                     : 'border-border/50 bg-background/30 hover:bg-background/50')
                 }
               >
-                <span
-                  aria-hidden="true"
-                  className={
-                    'inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-semibold ' +
-                    (isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')
-                  }
-                >
-                  {exchange.iconText}
-                </span>
+                <ExchangeIcon
+                  name={exchange.name}
+                  src={(exchange as any).iconSrc}
+                  fallbackText={exchange.iconText}
+                  selected={isSelected}
+                />
                 <span className="text-sm">{exchange.name}</span>
               </button>
             )
