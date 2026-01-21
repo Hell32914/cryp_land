@@ -68,6 +68,41 @@ export function TradeTab({ title }: TradeTabProps) {
 
   const selectedExchange = exchanges.find((e) => e.id === selectedExchangeId)
 
+  const assets = useMemo(
+    () => [
+      'BTC',
+      'ETH',
+      'USDT',
+      'BNB',
+      'SOL',
+      'USDC',
+      'XRP',
+      'ADA',
+      'AVAX',
+      'DOGE',
+      'DOT',
+      'MATIC',
+      'LTC',
+      'TRX',
+      'LINK',
+      'SHIB',
+      'DAI',
+      'UNI',
+      'WBTC',
+      'BCH',
+    ],
+    []
+  )
+
+  const [selectedAssets, setSelectedAssets] = useState<string[]>(['BTC', 'ETH', 'USDT'])
+
+  const toggleAsset = (symbol: string) => {
+    setSelectedAssets((prev) => {
+      if (prev.includes(symbol)) return prev.filter((s) => s !== symbol)
+      return [...prev, symbol]
+    })
+  }
+
   return (
     <div className="p-4 space-y-4">
       <div>
@@ -108,6 +143,39 @@ export function TradeTab({ title }: TradeTabProps) {
                   selected={isSelected}
                 />
                 <span className="text-sm">{exchange.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Assets</div>
+            <div className="text-xs text-muted-foreground mt-1">Select assets to include</div>
+          </div>
+          <div className="text-xs text-muted-foreground text-right">
+            Selected ({selectedAssets.length}): {selectedAssets.length ? selectedAssets.join(', ') : '—'}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {assets.map((symbol) => {
+            const isSelected = selectedAssets.includes(symbol)
+            return (
+              <button
+                key={symbol}
+                type="button"
+                onClick={() => toggleAsset(symbol)}
+                className={
+                  'rounded-full border px-3 py-1.5 text-sm transition-colors ' +
+                  (isSelected
+                    ? 'border-primary/50 bg-primary/10 text-foreground'
+                    : 'border-border/50 bg-background/30 text-muted-foreground hover:bg-background/50 hover:text-foreground')
+                }
+              >
+                {symbol}
               </button>
             )
           })}
