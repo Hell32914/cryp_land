@@ -14,6 +14,7 @@ import {
   List,
   SignOut,
   Translate,
+  Wrench,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import {
@@ -72,6 +73,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
         { id: 'support-funnel', label: t('nav.supportFunnel'), icon: Funnel },
         { id: 'support-funnel-settings', label: t('nav.supportFunnelSettings'), icon: Funnel },
+        { id: 'support-fix-duplicates', label: t('nav.supportFixDuplicates'), icon: Wrench },
         { id: 'support-broadcasts', label: t('nav.supportBroadcasts'), icon: ChatCenteredText },
         { id: 'support-operators', label: t('nav.supportOperators'), icon: Users },
         { id: 'support-analytics', label: t('nav.supportAnalytics'), icon: ChartLine },
