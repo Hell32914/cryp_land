@@ -70,6 +70,7 @@ import {
   loadPinnedChatIds,
   loadSupportChatStageMap,
   loadSupportFunnelStages,
+  loadSupportStageAliases,
   saveSupportFunnelStages,
   savePinnedChatIds,
   saveSupportChatStageMap,
@@ -334,6 +335,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
   const [funnelStages, setFunnelStages] = useState<SupportFunnelStage[]>(defaultStages)
   const [chatStageMap, setChatStageMap] = useState<Record<string, string>>({})
+  const [stageAliases, setStageAliases] = useState<Record<string, string>>({})
   const [pinnedChatIds, setPinnedChatIds] = useState<string[]>([])
 
   useEffect(() => {
@@ -341,6 +343,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
       // Load local settings for funnel labels and pinned chats.
       setFunnelStages(loadSupportFunnelStages(defaultStages))
       setChatStageMap(loadSupportChatStageMap())
+      setStageAliases(loadSupportStageAliases())
       setPinnedChatIds(loadPinnedChatIds())
     }
 
@@ -349,6 +352,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     const unsubscribe = subscribeSupportFunnelUpdates((kind) => {
       if (kind === 'stages') setFunnelStages(loadSupportFunnelStages(defaultStages))
       if (kind === 'chatStageMap') setChatStageMap(loadSupportChatStageMap())
+      if (kind === 'stageAliases') setStageAliases(loadSupportStageAliases())
       if (kind === 'pinnedChatIds') setPinnedChatIds(loadPinnedChatIds())
     })
 
@@ -2227,7 +2231,16 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                 <div className="space-y-4">
                   {(() => {
                     const rawStageId = selectedChat.funnelStageId || chatStageMap[selectedChat.chatId] || primaryStageId
-                    const stageId = funnelStages.some((s) => s.id === rawStageId) ? rawStageId : primaryStageId
+
+                    const normalizedRaw = canonicalizeStageId(rawStageId) || primaryStageId
+                    let resolved = normalizedRaw
+                    const seen = new Set<string>()
+                    while (stageAliases[resolved] && !seen.has(resolved)) {
+                      seen.add(resolved)
+                      resolved = canonicalizeStageId(stageAliases[resolved]) || stageAliases[resolved]
+                    }
+
+                    const stageId = funnelStages.some((s) => s.id === resolved) ? resolved : primaryStageId
                     const stageLabel = funnelStages.find((s) => s.id === stageId)?.label
 
                     const stageLockedByOther =

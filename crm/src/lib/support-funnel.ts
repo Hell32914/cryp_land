@@ -4,12 +4,13 @@ export type SupportFunnelStage = {
   locked?: boolean
 }
 
-export type SupportFunnelUpdateKind = 'stages' | 'chatStageMap' | 'pinnedChatIds'
+export type SupportFunnelUpdateKind = 'stages' | 'chatStageMap' | 'pinnedChatIds' | 'stageAliases'
 
 const STORAGE_KEYS = {
   stages: 'crm.support.funnelStages.v1',
   chatStageMap: 'crm.support.chatStageMap.v1',
   pinnedChatIds: 'crm.support.pinnedChatIds.v1',
+  stageAliases: 'crm.support.funnelStageAliases.v1',
 } as const
 
 const PRIMARY_STAGE_ID = 'primary'
@@ -60,7 +61,134 @@ function kindFromStorageKey(key: string | null): SupportFunnelUpdateKind | null 
   if (key === STORAGE_KEYS.stages) return 'stages'
   if (key === STORAGE_KEYS.chatStageMap) return 'chatStageMap'
   if (key === STORAGE_KEYS.pinnedChatIds) return 'pinnedChatIds'
+  if (key === STORAGE_KEYS.stageAliases) return 'stageAliases'
   return null
+}
+
+function resolveAlias(id: string, aliases: Record<string, string>): string {
+  let cur = canonicalizeStageId(id) || id
+  const seen = new Set<string>()
+  while (aliases[cur] && !seen.has(cur)) {
+    seen.add(cur)
+    cur = canonicalizeStageId(aliases[cur]) || aliases[cur]
+  }
+  return cur
+}
+
+function mergeStageAliases(a: Record<string, string>, b: Record<string, string>): Record<string, string> {
+  const merged: Record<string, string> = { ...a }
+  for (const [fromRaw, toRaw] of Object.entries(b)) {
+    const from = canonicalizeStageId(fromRaw)
+    const to = canonicalizeStageId(toRaw)
+    if (!from || !to) continue
+    if (from === to) continue
+    merged[from] = to
+  }
+
+  // Resolve chains (a->b, b->c => a->c)
+  const out: Record<string, string> = {}
+  for (const [from, to] of Object.entries(merged)) {
+    const resolved = resolveAlias(to, merged)
+    if (from !== resolved) out[from] = resolved
+  }
+  return out
+}
+
+function buildImplicitAliasesFromDefaults(defaultStages: SupportFunnelStage[]): Record<string, string> {
+  // Map slug(label) -> stable default id.
+  // Example (EN/RU in this app): label "Deposit" => slug "deposit" should map to id "success".
+  const aliases: Record<string, string> = {}
+  for (const st of defaultStages) {
+    const id = canonicalizeStageId(st?.id)
+    const labelKey = canonicalizeStageId(String(st?.label ?? ''))
+    if (!id || !labelKey) continue
+    if (id === labelKey) continue
+    // Don't alias the UI-only column.
+    if (labelKey === '__unknown_stage__') continue
+    aliases[labelKey] = id
+  }
+  return aliases
+}
+
+function areAliasMapsEqual(a: Record<string, string>, b: Record<string, string>): boolean {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const k of aKeys) {
+    if (a[k] !== b[k]) return false
+  }
+  return true
+}
+
+function dedupeStagesByLabel(
+  stages: SupportFunnelStage[],
+  defaultStages: SupportFunnelStage[],
+): { stages: SupportFunnelStage[]; aliases: Record<string, string>; changed: boolean } {
+  // Note: duplicates we need to fix are often not by id, but by label.
+  // Example: default id "success" has label "Deposit", and user created custom id "deposit" with label "Deposit".
+
+  const defaultIdSet = new Set<string>()
+  for (const s of defaultStages) {
+    const id = canonicalizeStageId(s?.id) || null
+    if (id) defaultIdSet.add(id)
+  }
+
+  const groups = new Map<string, SupportFunnelStage[]>()
+  for (const st of stages) {
+    const labelKey = canonicalizeStageId(String(st?.label ?? ''))
+    if (!labelKey) continue
+    const arr = groups.get(labelKey) || []
+    arr.push(st)
+    groups.set(labelKey, arr)
+  }
+
+  const winnerByLabel = new Map<string, string>()
+  const aliases: Record<string, string> = {}
+  let hasDupes = false
+
+  for (const [labelKey, items] of groups) {
+    if (items.length <= 1) continue
+    hasDupes = true
+
+    // Prefer keeping default stage id (so DB stage ids keep matching expected columns).
+    const winner =
+      items.find((s) => {
+        const sid = canonicalizeStageId(s?.id) || null
+        return Boolean(sid && defaultIdSet.has(sid))
+      }) || items[0]
+
+    const winnerId = canonicalizeStageId(winner.id) || winner.id
+    winnerByLabel.set(labelKey, winnerId)
+
+    for (const it of items) {
+      const itId = canonicalizeStageId(it.id) || it.id
+      if (itId === winnerId) continue
+      aliases[itId] = winnerId
+    }
+  }
+
+  if (!hasDupes) return { stages, aliases: {}, changed: false }
+
+  const addedWinnerFor = new Set<string>()
+  const out: SupportFunnelStage[] = []
+  for (const st of stages) {
+    const labelKey = canonicalizeStageId(String(st?.label ?? ''))
+    if (!labelKey) continue
+
+    const winnerId = winnerByLabel.get(labelKey)
+    if (!winnerId) {
+      out.push(st)
+      continue
+    }
+
+    const sid = canonicalizeStageId(st.id) || st.id
+    if (sid !== winnerId) continue
+    if (addedWinnerFor.has(labelKey)) continue
+    addedWinnerFor.add(labelKey)
+    out.push({ ...st, id: winnerId })
+  }
+
+  return { stages: out, aliases, changed: out.length !== stages.length || Object.keys(aliases).length > 0 }
 }
 
 export function subscribeSupportFunnelUpdates(onUpdate: (kind: SupportFunnelUpdateKind) => void) {
@@ -172,18 +300,79 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
 
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.stages)
-    if (!raw) return ensurePrimaryStage(defaultStages, defaultPrimaryLabel)
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return ensurePrimaryStage(defaultStages, defaultPrimaryLabel)
+    let stages: SupportFunnelStage[] = []
 
-    const stages = parsed
-      .filter((s: any) => s && typeof s.id === 'string' && typeof s.label === 'string')
-      .map((s: any) => ({ id: canonicalizeStageId(String(s.id)) || String(s.id), label: String(s.label), locked: Boolean(s.locked) }))
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        stages = parsed
+          .filter((s: any) => s && typeof s.id === 'string' && typeof s.label === 'string')
+          .map((s: any) => ({
+            id: canonicalizeStageId(String(s.id)) || String(s.id),
+            label: String(s.label),
+            locked: Boolean(s.locked),
+          }))
+      }
+    }
 
     const base = stages.length ? stages : defaultStages
-    return normalizeAndMigrateStages(dedupeStages(base), dedupeStages(defaultStages), defaultPrimaryLabel)
+    const normalized = normalizeAndMigrateStages(dedupeStages(base), dedupeStages(defaultStages), defaultPrimaryLabel)
+
+    // Deduplicate duplicate columns by identical labels.
+    const dedupedDefaults = dedupeStages(defaultStages)
+    const { stages: labelDeduped, aliases: labelAliases, changed: stagesChanged } = dedupeStagesByLabel(normalized, dedupedDefaults)
+
+    // Always keep implicit aliases for defaults so DB stage ids like "deposit" or "first-touch"
+    // collapse into the stable default ids.
+    const implicitAliases = buildImplicitAliasesFromDefaults(dedupedDefaults)
+
+    const prevAliases = loadSupportStageAliases()
+    const mergedAliases = mergeStageAliases(prevAliases, { ...implicitAliases, ...labelAliases })
+    const aliasesChanged = !areAliasMapsEqual(prevAliases, mergedAliases)
+    if (aliasesChanged) saveSupportStageAliases(mergedAliases)
+
+    // Migrate local per-chat stage map (used for drag-and-drop + accept flow).
+    const map = loadSupportChatStageMap()
+    let mapChanged = false
+    const nextMap: Record<string, string> = {}
+    for (const [chatId, stageId] of Object.entries(map)) {
+      const sid = canonicalizeStageId(stageId)
+      if (!sid) continue
+      const resolved = resolveAlias(sid, mergedAliases)
+      nextMap[String(chatId)] = resolved
+      if (resolved !== sid) mapChanged = true
+    }
+    if (mapChanged) saveSupportChatStageMap(nextMap)
+
+    if (stagesChanged) {
+      // Persist fixed stages.
+      saveSupportFunnelStages(labelDeduped)
+    }
+
+    return labelDeduped
   } catch {
-    return normalizeAndMigrateStages(dedupeStages(defaultStages), dedupeStages(defaultStages), defaultPrimaryLabel)
+    const dedupedDefaults = dedupeStages(defaultStages)
+    const normalized = normalizeAndMigrateStages(dedupedDefaults, dedupedDefaults, defaultPrimaryLabel)
+    const { stages: labelDeduped } = dedupeStagesByLabel(normalized, dedupedDefaults)
+
+    const implicitAliases = buildImplicitAliasesFromDefaults(dedupedDefaults)
+    const prevAliases = loadSupportStageAliases()
+    const mergedAliases = mergeStageAliases(prevAliases, implicitAliases)
+    if (!areAliasMapsEqual(prevAliases, mergedAliases)) saveSupportStageAliases(mergedAliases)
+
+    const map = loadSupportChatStageMap()
+    let mapChanged = false
+    const nextMap: Record<string, string> = {}
+    for (const [chatId, stageId] of Object.entries(map)) {
+      const sid = canonicalizeStageId(stageId)
+      if (!sid) continue
+      const resolved = resolveAlias(sid, mergedAliases)
+      nextMap[String(chatId)] = resolved
+      if (resolved !== sid) mapChanged = true
+    }
+    if (mapChanged) saveSupportChatStageMap(nextMap)
+
+    return labelDeduped
   }
 }
 
@@ -197,6 +386,34 @@ export function saveSupportFunnelStages(stages: SupportFunnelStage[]) {
   )
   localStorage.setItem(STORAGE_KEYS.stages, JSON.stringify(normalized))
   emitSupportFunnelUpdate('stages')
+}
+
+export function loadSupportStageAliases(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.stageAliases)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+
+    const obj = parsed as Record<string, string>
+    const normalized: Record<string, string> = {}
+    for (const [fromRaw, toRaw] of Object.entries(obj)) {
+      const from = canonicalizeStageId(fromRaw)
+      const to = canonicalizeStageId(toRaw)
+      if (!from || !to) continue
+      if (from === to) continue
+      normalized[from] = to
+    }
+
+    return mergeStageAliases({}, normalized)
+  } catch {
+    return {}
+  }
+}
+
+export function saveSupportStageAliases(map: Record<string, string>) {
+  localStorage.setItem(STORAGE_KEYS.stageAliases, JSON.stringify(map))
+  emitSupportFunnelUpdate('stageAliases')
 }
 
 export function loadSupportChatStageMap(): Record<string, string> {

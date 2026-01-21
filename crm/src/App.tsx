@@ -19,11 +19,7 @@ import { SupportFunnelBoard } from '@/components/pages/SupportFunnelBoard'
 import { SupportOperators } from '@/components/pages/SupportOperators'
 import { SupportBroadcasts } from '@/components/pages/SupportBroadcasts'
 import { SupportAnalytics } from '@/components/pages/SupportAnalytics'
-import { FixDuplicateStages } from '@/components/pages/FixDuplicateStages'
 import '@/lib/i18n'
-import '@/lib/window-fix-duplicates'
-// Раскомментируйте следующую строку для автоматического исправления дублей при загрузке:
-// import { runAutoMigration } from '@/lib/auto-fix-duplicates'
 
 const queryClient = new QueryClient()
 
@@ -36,13 +32,6 @@ function AppContent() {
     if (role !== 'support') return null
     return new Set(['support', 'support-funnel', 'support-analytics'])
   }, [role])
-
-  // Автоматическая миграция дублей (раскомментируйте для включения)
-  // useEffect(() => {
-  //   if (isAuthenticated) {
-  //     runAutoMigration()
-  //   }
-  // }, [isAuthenticated])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -104,8 +93,6 @@ function AppContent() {
         return <SupportFunnelBoard />
       case 'support-funnel-settings':
         return <SupportFunnel />
-      case 'support-fix-duplicates':
-        return <FixDuplicateStages />
       case 'support-operators':
         return <SupportOperators />
       case 'support-broadcasts':

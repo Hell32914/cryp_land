@@ -21,6 +21,7 @@ import {
   getPrimaryStageId,
   loadSupportChatStageMap,
   loadSupportFunnelStages,
+  loadSupportStageAliases,
   saveSupportFunnelStages,
   saveSupportChatStageMap,
   subscribeSupportFunnelUpdates,
@@ -101,8 +102,17 @@ function formatWhen(ts?: string | null) {
   }
 }
 
-function normalizeStageId(value?: string | null): string | null {
-  return canonicalizeStageId(value)
+function normalizeStageId(value: string | null | undefined, aliases: Record<string, string>): string | null {
+  const base = canonicalizeStageId(value)
+  if (!base) return null
+
+  let cur = base
+  const seen = new Set<string>()
+  while (aliases[cur] && !seen.has(cur)) {
+    seen.add(cur)
+    cur = canonicalizeStageId(aliases[cur]) || aliases[cur]
+  }
+  return cur
 }
 
 export function SupportFunnelBoard() {
@@ -131,6 +141,7 @@ export function SupportFunnelBoard() {
 
   const [funnelStages, setFunnelStages] = useState<SupportFunnelStage[]>(defaultStages)
   const [chatStageMap, setChatStageMap] = useState<Record<string, string>>({})
+  const [stageAliases, setStageAliases] = useState<Record<string, string>>({})
 
   const [search, setSearch] = useState('')
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
@@ -145,6 +156,7 @@ export function SupportFunnelBoard() {
     const reloadAll = () => {
       setFunnelStages(loadSupportFunnelStages(defaultStages))
       setChatStageMap(loadSupportChatStageMap())
+      setStageAliases(loadSupportStageAliases())
     }
 
     reloadAll()
@@ -152,6 +164,7 @@ export function SupportFunnelBoard() {
     const unsubscribe = subscribeSupportFunnelUpdates((kind) => {
       if (kind === 'stages') setFunnelStages(loadSupportFunnelStages(defaultStages))
       if (kind === 'chatStageMap') setChatStageMap(loadSupportChatStageMap())
+      if (kind === 'stageAliases') setStageAliases(loadSupportStageAliases())
     })
 
     return unsubscribe
@@ -180,7 +193,7 @@ export function SupportFunnelBoard() {
     const missingIds: string[] = []
 
     for (const c of chats) {
-      const id = normalizeStageId(c.funnelStageId)
+      const id = normalizeStageId(c.funnelStageId, stageAliases)
       if (!id) continue
       if (id === UNKNOWN_STAGE_ID) continue
       if (existing.has(id)) continue
@@ -261,7 +274,9 @@ export function SupportFunnelBoard() {
     if (status !== 'ACCEPTED') return 'unaccepted'
 
     const resolvedStageId =
-      normalizeStageId(chat.funnelStageId) || normalizeStageId(chatStageMap[chat.chatId]) || primaryStageId
+      normalizeStageId(chat.funnelStageId, stageAliases) ||
+      normalizeStageId(chatStageMap[chat.chatId], stageAliases) ||
+      primaryStageId
 
     // If DB has a stage that isn't present in this browser's local funnel config,
     // keep the chat visible instead of dropping it from the board.
@@ -324,7 +339,7 @@ export function SupportFunnelBoard() {
     }
 
     return map
-  }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm])
+  }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm, stageAliases])
 
   // Keep a top horizontal scrollbar synced with the columns scroller.
   // Use layout-timed measurement + a few re-measures so the scrollbar is correct
