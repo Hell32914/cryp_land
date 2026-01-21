@@ -108,6 +108,19 @@ function prettifyStageId(id: string): string {
     .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : w))
     .join(' ')
 }
+
+function normalizeStageId(value: string | null | undefined, aliases: Record<string, string>): string | null {
+  const base = canonicalizeStageId(value)
+  if (!base) return null
+
+  let cur = base
+  const seen = new Set<string>()
+  while (aliases[cur] && !seen.has(cur)) {
+    seen.add(cur)
+    cur = canonicalizeStageId(aliases[cur]) || aliases[cur]
+  }
+  return cur
+}
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 
 type SupportListTab = 'new' | 'accepted' | 'archive'
@@ -479,7 +492,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     const existing = new Set(funnelStages.map((s) => s.id))
     const missingIds: string[] = []
     for (const c of chats) {
-      const id = canonicalizeStageId(c?.funnelStageId) || null
+      const id = normalizeStageId(c?.funnelStageId, stageAliases)
       if (!id) continue
       if (existing.has(id)) continue
       missingIds.push(id)
@@ -493,7 +506,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
       saveSupportFunnelStages(next)
       return next
     })
-  }, [chats, funnelStages])
+  }, [chats, funnelStages, stageAliases])
 
   const getChatTab = (chat: SupportChatRecord): SupportListTab => {
     const anyChat = chat as any

@@ -209,7 +209,7 @@ export function SupportFunnelBoard() {
       saveSupportFunnelStages(next)
       return next
     })
-  }, [chats, funnelStages])
+  }, [chats, funnelStages, stageAliases])
 
   const operatorOptions = useMemo(() => {
     const set = new Set<string>()
