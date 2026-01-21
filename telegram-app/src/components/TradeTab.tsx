@@ -103,6 +103,21 @@ export function TradeTab({ title }: TradeTabProps) {
     })
   }
 
+  const priceCheckOptions = useMemo(
+    () => [
+      { id: '60s', label: '1x per minute', intervalMs: 60_000, note: 'Standard', paid: false },
+      { id: '30s', label: '1x per 30 seconds', intervalMs: 30_000, note: 'Arbitrage', paid: true },
+      { id: '10s', label: '1x per 10 seconds', intervalMs: 10_000, note: 'Advanced', paid: true },
+      { id: '5s', label: '1x per 5 seconds', intervalMs: 5_000, note: 'Pro', paid: true },
+      { id: '1s', label: '1x per 1 second', intervalMs: 1_000, note: 'Ultra', paid: true },
+      { id: '0_5s', label: '1x per 0.5 seconds', intervalMs: 500, note: 'Max', paid: true },
+    ],
+    []
+  )
+
+  const [selectedPriceCheckId, setSelectedPriceCheckId] = useState<string>('60s')
+  const selectedPriceCheck = priceCheckOptions.find((o) => o.id === selectedPriceCheckId)
+
   return (
     <div className="p-4 space-y-4">
       <div>
@@ -179,6 +194,59 @@ export function TradeTab({ title }: TradeTabProps) {
               </button>
             )
           })}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Price check frequency</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              More frequent checks = more data points for analysis. Faster options can be monetized.
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground text-right">
+            Selected: {selectedPriceCheck?.label ?? '—'}
+            {selectedPriceCheck?.note ? ` (${selectedPriceCheck.note})` : ''}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {priceCheckOptions.map((opt) => {
+            const isSelected = opt.id === selectedPriceCheckId
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSelectedPriceCheckId(opt.id)}
+                className={
+                  'rounded-lg border px-3 py-2 text-left transition-colors ' +
+                  (isSelected
+                    ? 'border-primary/50 bg-primary/10'
+                    : 'border-border/50 bg-background/30 hover:bg-background/50')
+                }
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium">{opt.label}</div>
+                  <div
+                    className={
+                      'text-[10px] rounded-full px-2 py-0.5 border ' +
+                      (opt.paid
+                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200')
+                    }
+                  >
+                    {opt.paid ? 'PAID' : 'FREE'}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">{opt.note}</div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-3 text-xs text-muted-foreground">
+          Tip: Very fast intervals (1s / 0.5s) increase traffic and battery usage.
         </div>
       </div>
     </div>
