@@ -56,6 +56,14 @@ function emitSupportFunnelUpdate(kind: SupportFunnelUpdateKind) {
   }
 }
 
+function setLocalStorageJsonSilently(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // ignore
+  }
+}
+
 function kindFromStorageKey(key: string | null): SupportFunnelUpdateKind | null {
   if (!key) return null
   if (key === STORAGE_KEYS.stages) return 'stages'
@@ -329,7 +337,10 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
     const prevAliases = loadSupportStageAliases()
     const mergedAliases = mergeStageAliases(prevAliases, { ...implicitAliases, ...labelAliases })
     const aliasesChanged = !areAliasMapsEqual(prevAliases, mergedAliases)
-    if (aliasesChanged) saveSupportStageAliases(mergedAliases)
+    if (aliasesChanged) {
+      // Silent write to avoid event recursion during initial load.
+      setLocalStorageJsonSilently(STORAGE_KEYS.stageAliases, mergedAliases)
+    }
 
     // Migrate local per-chat stage map (used for drag-and-drop + accept flow).
     const map = loadSupportChatStageMap()
@@ -342,11 +353,22 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
       nextMap[String(chatId)] = resolved
       if (resolved !== sid) mapChanged = true
     }
-    if (mapChanged) saveSupportChatStageMap(nextMap)
+    if (mapChanged) {
+      // Silent write to avoid event recursion during initial load.
+      setLocalStorageJsonSilently(STORAGE_KEYS.chatStageMap, nextMap)
+    }
 
     if (stagesChanged) {
       // Persist fixed stages.
-      saveSupportFunnelStages(labelDeduped)
+      // Silent write to avoid event recursion during initial load.
+      const primaryLabel = labelDeduped.find((s) => s.id === PRIMARY_STAGE_ID)?.label || defaultPrimaryLabel
+      const normalizedToStore = dedupeStages(
+        ensurePrimaryStage(
+          labelDeduped.map((s) => ({ ...s, id: canonicalizeStageId(s.id) || s.id })),
+          primaryLabel,
+        ),
+      )
+      setLocalStorageJsonSilently(STORAGE_KEYS.stages, normalizedToStore)
     }
 
     return labelDeduped
@@ -358,7 +380,9 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
     const implicitAliases = buildImplicitAliasesFromDefaults(dedupedDefaults)
     const prevAliases = loadSupportStageAliases()
     const mergedAliases = mergeStageAliases(prevAliases, implicitAliases)
-    if (!areAliasMapsEqual(prevAliases, mergedAliases)) saveSupportStageAliases(mergedAliases)
+    if (!areAliasMapsEqual(prevAliases, mergedAliases)) {
+      setLocalStorageJsonSilently(STORAGE_KEYS.stageAliases, mergedAliases)
+    }
 
     const map = loadSupportChatStageMap()
     let mapChanged = false
@@ -370,7 +394,9 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
       nextMap[String(chatId)] = resolved
       if (resolved !== sid) mapChanged = true
     }
-    if (mapChanged) saveSupportChatStageMap(nextMap)
+    if (mapChanged) {
+      setLocalStorageJsonSilently(STORAGE_KEYS.chatStageMap, nextMap)
+    }
 
     return labelDeduped
   }
