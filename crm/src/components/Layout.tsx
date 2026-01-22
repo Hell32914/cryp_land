@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChartLine,
@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface LayoutProps {
   children: ReactNode
@@ -37,6 +38,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { t, i18n } = useTranslation()
   const { token, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const isMobile = useIsMobile()
 
   const role = normalizeCrmRole(decodeJwtClaims(token).role)
 
@@ -97,12 +99,27 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     i18n.changeLanguage(lng)
   }
 
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false)
+    }
+  }, [isMobile])
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      {isMobile && isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/50"
+        />
+      )}
       <aside
         className={cn(
           'bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col',
-          isSidebarOpen ? 'w-64' : 'w-16'
+          'fixed inset-y-0 left-0 z-40 md:static md:z-auto',
+          isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-16 md:translate-x-0'
         )}
       >
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
@@ -136,7 +153,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => onNavigate(item.id)}
+                      onClick={() => {
+                        onNavigate(item.id)
+                        if (isMobile) setIsSidebarOpen(false)
+                      }}
                       className={cn(
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all',
                         isActive
@@ -186,8 +206,19 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
+      <main className="flex-1 min-w-0 overflow-y-auto">
+        <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden">
+          <div className="text-sm font-semibold">{t('nav.' + currentPage) || 'CRM'}</div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarOpen(true)}
+            className="h-8 w-8"
+          >
+            <List weight="bold" />
+          </Button>
+        </div>
+        <div className="p-4 md:p-6">
           {children}
         </div>
       </main>
