@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   fetchSupportChats,
   fetchSupportFileBlob,
@@ -59,6 +60,7 @@ import {
   Plus,
   Minus,
   ArrowCounterClockwise,
+  ArrowLeft,
   PencilSimple,
   TrashSimple,
   ArrowBendUpLeft,
@@ -136,6 +138,7 @@ interface SupportProps {
 export function Support({ mode = 'inbox' }: SupportProps) {
   const { t } = useTranslation()
   const { token } = useAuth()
+  const isMobile = useIsMobile()
   const queryClient = useQueryClient()
 
   const { username: myUsername, role: rawRole } = useMemo(() => decodeJwtClaims(token), [token])
@@ -1808,7 +1811,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr_360px] gap-6">
-          <Card className="lg:col-span-1">
+          <Card className={isMobile && selectedChatId ? 'hidden' : 'lg:col-span-1'}>
             <CardHeader className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>{t('support.chats')}</CardTitle>
@@ -1930,8 +1933,27 @@ export function Support({ mode = 'inbox' }: SupportProps) {
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-1">
+          <Card className={isMobile && !selectedChatId ? 'hidden' : 'lg:col-span-1'}>
             <CardHeader>
+              {isMobile ? (
+                <div className="flex items-center gap-2 pb-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setSelectedChatId(null)}
+                    disabled={!selectedChatId}
+                  >
+                    <ArrowLeft size={16} />
+                  </Button>
+                  <div className="min-w-0 text-sm font-semibold truncate">
+                    {selectedChat
+                      ? `${t('support.chatWith')} ${selectedChat.username ? `@${selectedChat.username}` : selectedChat.telegramId}`
+                      : t('support.selectChat')}
+                  </div>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>
                   {selectedChat ? (
@@ -1973,7 +1995,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                 <div className="rounded-md border border-border overflow-hidden">
                   <ScrollArea
                     className="p-3"
-                    style={{ height: messagesPaneHeight }}
+                    style={{ height: isMobile ? '40vh' : messagesPaneHeight }}
                   >
                     {isMessagesLoading ? (
                       <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
@@ -2114,7 +2136,10 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                         // ignore
                       }
                     }}
-                    className="h-2 cursor-row-resize bg-muted/20 hover:bg-muted/40 active:bg-muted/60"
+                    className={
+                      'h-2 cursor-row-resize bg-muted/20 hover:bg-muted/40 active:bg-muted/60 ' +
+                      (isMobile ? 'hidden' : '')
+                    }
                     style={{ touchAction: 'none' }}
                   />
                 </div>
@@ -2300,7 +2325,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-1">
+          <Card className={isMobile ? 'hidden' : 'lg:col-span-1'}>
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>{t('support.clientPanel')}</CardTitle>
