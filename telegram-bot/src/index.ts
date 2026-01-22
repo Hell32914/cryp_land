@@ -34,6 +34,8 @@ console.log(`🔐 ADMIN_IDS loaded: [${ADMIN_IDS.join(', ')}]`)
 const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://syntrix.website'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
+const CHANNEL_ID_CONFIG = process.env.CHANNEL_ID
+const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME
 
 function normalizeInviteLink(value: unknown): string | null {
   if (typeof value !== 'string') return null
@@ -81,16 +83,28 @@ async function resolveMarketingLinkIdFromInvite(inviteLink: any): Promise<string
   return null
 }
 
-function isChannelChatId(chatId: number | string | undefined | null): boolean {
-  if (chatId === undefined || chatId === null) return false
-  const chatIdStr = String(chatId)
-  const envIdStr = String(CHANNEL_ID)
+function isChannelChatId(chat: any): boolean {
+  if (!chat) return false
+  const chatIdStr = chat?.id === undefined || chat?.id === null ? '' : String(chat.id)
+  const envIdStr = CHANNEL_ID_CONFIG ? String(CHANNEL_ID_CONFIG) : ''
+  const chatUsername = String(chat?.username || '').replace(/^@/, '')
+  const envUsername = String(CHANNEL_USERNAME || '').replace(/^@/, '')
 
-  if (chatIdStr === envIdStr) return true
+  if (envIdStr) {
+    if (chatIdStr === envIdStr) return true
+    // Allow passing channel id without the "-100" prefix in env.
+    // Telegram often represents channels/supergroups as -100xxxxxxxxxx.
+    if (/^\d+$/.test(envIdStr) && chatIdStr === `-100${envIdStr}`) return true
+  }
 
-  // Allow passing channel id without the "-100" prefix in env.
-  // Telegram often represents channels/supergroups as -100xxxxxxxxxx.
-  if (/^\d+$/.test(envIdStr) && chatIdStr === `-100${envIdStr}`) return true
+  if (envUsername && chatUsername && chatUsername.toLowerCase() === envUsername.toLowerCase()) {
+    return true
+  }
+
+  // If no explicit channel is configured, accept any channel chat updates.
+  if (!envIdStr && !envUsername) {
+    return chat?.type === 'channel'
+  }
 
   return false
 }
@@ -183,8 +197,8 @@ bot.on('chat_member', async (ctx) => {
     const chatMemberUpdate = update?.chat_member
     if (!chatMemberUpdate) return
 
-    const chatId = chatMemberUpdate.chat?.id
-    if (!isChannelChatId(chatId)) return
+    const chatInfo = chatMemberUpdate.chat
+    if (!isChannelChatId(chatInfo)) return
 
     const user = chatMemberUpdate.new_chat_member?.user
     if (!user?.id) return
@@ -312,8 +326,8 @@ bot.on('chat_join_request', async (ctx) => {
     const joinRequest = update?.chat_join_request
     if (!joinRequest) return
 
-    const chatId = joinRequest.chat?.id
-    if (!isChannelChatId(chatId)) return
+    const chatInfo = joinRequest.chat
+    if (!isChannelChatId(chatInfo)) return
 
     const user = joinRequest.from
     if (!user?.id) return
