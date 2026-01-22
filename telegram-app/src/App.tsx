@@ -2003,7 +2003,7 @@ function App() {
           )}
 
           {activeTab === 'trade' && userData?.arbitrageTradeEnabled && (
-            <TradeTab title={(t as any).trade ?? 'Trade'} balance={userData?.balance ?? 0} />
+            <TradeTab title={(t as any).trade ?? 'Trade'} />
           )}
           
           {activeTab === 'wallet' && (
