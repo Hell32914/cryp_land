@@ -144,6 +144,17 @@
             
             const description = document.querySelector('.tgme_page_description');
             if (description) description.innerHTML = 'The first auto-trading bot that uses real-time AI to trade crypto for you!<br/><br/>Maximum profit — minimum time<br/><br/>SyntrixtBot: <a href="https://t.me/AiSyntrixTrade_bot">@AiSyntrixTrade_bot</a><br/>Website: <a href="https://syntrix.website/">https://syntrix.website/</a><br/><br/>Support: <a href="https://t.me/syntrix_support_bot">@syntrix_support_bot</a>';
+
+            // Если есть ref, используем персональный инвайт для точной атрибуции
+            if (refParam && refParam.startsWith('mk_')) {
+                const apiBase = 'https://api.syntrix.website';
+                fetch(`${apiBase}/api/marketing-links/${encodeURIComponent(refParam)}/channel-invite`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (data && data.inviteLink) startBtn.href = data.inviteLink;
+                    })
+                    .catch(() => {});
+            }
         } else if (refParam) {
             // Для доменов бота - переход на бота с ref
             startBtn.href = `tg://resolve?domain=AiSyntrixTrade_bot&start=${refParam}`;

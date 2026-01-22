@@ -93,7 +93,11 @@ const allowedOrigins = [
   'https://www.syntrix.website',
   'https://crypto.syntrix.website',
   'https://trade.syntrix.website',
+  'https://info.syntrix.website',
+  'https://ss.syntrix.website',
+  'https://road.syntrix.website',
   'https://invest.syntrix.website',
+  'https://invests.syntrix.website',
   'https://official.syntrix.website',
   'https://app.syntrix.website',
   'https://admin.syntrix.website',
@@ -5067,6 +5071,45 @@ app.get('/api/marketing-links/:linkId/pixel', async (req, res) => {
   } catch (error) {
     console.error('Get marketing link pixel error:', error)
     return res.status(500).json({ error: 'Failed to load tracking pixel' })
+  }
+})
+
+// Public: fetch (or create) a Telegram channel invite link for a marketing link.
+// Used by landing pages to attribute channel joins to the correct mk_* link.
+app.get('/api/marketing-links/:linkId/channel-invite', async (req, res) => {
+  try {
+    const { linkId } = req.params
+    if (!linkId) return res.status(400).json({ error: 'linkId is required' })
+    if (!/^mk_[a-zA-Z0-9_]+$/.test(linkId)) {
+      return res.status(400).json({ error: 'Invalid linkId' })
+    }
+
+    const channelIdRaw = process.env.CHANNEL_ID
+    if (!channelIdRaw) {
+      return res.status(400).json({ error: 'CHANNEL_ID is not configured' })
+    }
+    const channelId = normalizeTelegramChatIdForApi(channelIdRaw)
+
+    const link = await prisma.marketingLink.findUnique({ where: { linkId } })
+    if (!link || !link.isActive) return res.status(404).json({ error: 'Link not found' })
+
+    const existingInvite = (link as any).channelInviteLink
+    if (existingInvite) {
+      return res.json({ inviteLink: String(existingInvite) })
+    }
+
+    const { bot } = await import('./index.js')
+    const invite = await bot.api.createChatInviteLink(channelId, { name: linkId })
+
+    await prisma.marketingLink.update({
+      where: { linkId },
+      data: { channelInviteLink: invite.invite_link },
+    })
+
+    return res.json({ inviteLink: invite.invite_link })
+  } catch (error) {
+    console.error('Public channel invite link error:', error)
+    return res.status(500).json({ error: 'Failed to load channel invite link' })
   }
 })
 
