@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { Plus, ArrowSquareOut } from '@phosphor-icons/react'
+import { Plus, ArrowSquareOut, Paperclip, X } from '@phosphor-icons/react'
 
 type TargetKey = { kind: 'ALL' } | { kind: 'STAGE'; stageId: string }
 
@@ -88,10 +88,23 @@ export function SupportBroadcasts() {
   const [activeTab, setActiveTab] = useState<'new' | 'stats'>('new')
   const [target, setTarget] = useState<TargetKey>({ kind: 'ALL' })
   const [messageText, setMessageText] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setFunnelStages(loadSupportFunnelStages(defaultStages))
   }, [defaultStages])
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(photoFile)
+    setPhotoPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [photoFile])
 
   const { data: chatsData } = useApiQuery<Awaited<ReturnType<typeof fetchSupportChats>>>(
     ['support-chats-broadcasts'],
@@ -126,12 +139,14 @@ export function SupportBroadcasts() {
   }, [acceptedChatsByMe.length, stageCounts, target])
 
   const createMutation = useMutation({
-    mutationFn: (payload: { target: 'ALL' | 'STAGE'; stageId?: string; text: string }) =>
+    mutationFn: (payload: { target: 'ALL' | 'STAGE'; stageId?: string; text?: string; photoFile?: File | null }) =>
       createSupportBroadcast(token!, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['support-broadcasts'] })
       toast.success(t('supportBroadcast.created'))
       setMessageText('')
+      setPhotoFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       setActiveTab('stats')
     },
     onError: (e: any) => toast.error(e?.message || t('supportBroadcast.createFailed')),
@@ -178,14 +193,14 @@ export function SupportBroadcasts() {
 
   const send = () => {
     const text = messageText.trim()
-    if (!text) return
+    if (!text && !photoFile) return
 
     if (target.kind === 'ALL') {
-      createMutation.mutate({ target: 'ALL', text })
+      createMutation.mutate({ target: 'ALL', text, photoFile })
       return
     }
 
-    createMutation.mutate({ target: 'STAGE', stageId: target.stageId, text })
+    createMutation.mutate({ target: 'STAGE', stageId: target.stageId, text, photoFile })
   }
 
   const segments = useMemo(() => {
@@ -276,13 +291,66 @@ export function SupportBroadcasts() {
                 className="min-h-[240px]"
               />
 
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null
+                  if (!file) return
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast.error(t('supportBroadcast.photoTooLarge'))
+                    e.currentTarget.value = ''
+                    return
+                  }
+                  setPhotoFile(file)
+                }}
+              />
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip size={18} />
+                  <span className="ml-2">{t('supportBroadcast.attachPhoto')}</span>
+                </Button>
+
+                {photoFile ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1">
+                    {photoPreviewUrl ? (
+                      <img
+                        src={photoPreviewUrl}
+                        alt="broadcast-preview"
+                        className="h-10 w-10 rounded object-cover"
+                      />
+                    ) : null}
+                    <div className="text-xs text-muted-foreground max-w-[180px] truncate">{photoFile.name}</div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setPhotoFile(null)
+                        if (fileInputRef.current) fileInputRef.current.value = ''
+                      }}
+                    >
+                      <X size={14} />
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-muted-foreground">
                   {t('supportBroadcast.noteCannotUndo')}
                 </div>
                 <Button
                   onClick={send}
-                  disabled={!token || createMutation.isPending || !messageText.trim() || selectedCount === 0}
+                  disabled={!token || createMutation.isPending || (!messageText.trim() && !photoFile) || selectedCount === 0}
                 >
                   {createMutation.isPending ? t('support.processing') : t('supportBroadcast.send')}
                 </Button>
@@ -325,7 +393,12 @@ export function SupportBroadcasts() {
                           <div className="text-xs text-muted-foreground mt-1">
                             {t('supportBroadcast.target')}: <span className="font-medium">{targetLabel}</span>
                           </div>
-                          <div className="text-sm mt-2">{shortText(b.text)}</div>
+                          <div className="text-sm mt-2">
+                            {b.text ? shortText(b.text) : (b.hasPhoto ? t('supportBroadcast.photoOnly') : '')}
+                            {b.text && b.hasPhoto ? (
+                              <span className="ml-2 text-xs text-muted-foreground">📷</span>
+                            ) : null}
+                          </div>
                           <div className="text-xs text-muted-foreground mt-2">
                             {t('supportBroadcast.progress', {
                               sent: b.sentCount,

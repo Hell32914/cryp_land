@@ -390,7 +390,7 @@ const supportSetStageSchema = z.object({
 const supportBroadcastCreateSchema = z.object({
   target: z.enum(['ALL', 'STAGE']),
   stageId: z.string().min(1).max(64).optional(),
-  text: z.string().min(1).max(4096),
+  text: z.string().max(4096).optional(),
 })
 
 function canonicalizeSupportStageId(value?: string | null): string | null {
@@ -1477,45 +1477,98 @@ async function processSupportBroadcastTick() {
       }
 
       try {
-        // Send to Telegram first
-        const sent = await supportBotInstance.api.sendMessage(recipient.chatId, broadcast.text)
-        const telegramMessageId = Number((sent as any)?.message_id)
+        const hasPhoto = Boolean(broadcast.photoData && (broadcast.photoData as any).length)
+        const caption = broadcast.text ? String(broadcast.text).trim() : ''
 
-        const message = await prisma.supportMessage.create({
-          data: {
-            supportChatId: recipient.supportChatId,
-            direction: 'OUT',
-            kind: 'TEXT',
-            text: broadcast.text,
-            ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
-            adminUsername: broadcast.adminUsername,
-          },
-        })
+        if (hasPhoto) {
+          const sent = await supportBotInstance.api.sendPhoto(
+            recipient.chatId,
+            new InputFile(broadcast.photoData as Buffer, broadcast.photoFileName || 'broadcast.jpg'),
+            caption ? ({ caption: caption.slice(0, 1024) } as any) : ({} as any),
+          )
+          const telegramMessageId = Number((sent as any)?.message_id)
+          const photos = (sent as any)?.photo as Array<{ file_id: string; file_unique_id: string }> | undefined
+          const largest = photos?.length ? photos[photos.length - 1] : undefined
 
-        await prisma.supportChat.update({
-          where: { id: recipient.supportChatId },
-          data: {
-            lastMessageAt: message.createdAt,
-            lastMessageText: broadcast.text,
-            lastOutboundAt: message.createdAt,
-          },
-        })
+          const message = await prisma.supportMessage.create({
+            data: {
+              supportChatId: recipient.supportChatId,
+              direction: 'OUT',
+              kind: 'PHOTO',
+              text: caption || null,
+              ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
+              fileId: largest?.file_id || null,
+              fileUniqueId: largest?.file_unique_id || null,
+              fileName: broadcast.photoFileName || null,
+              mimeType: broadcast.photoMimeType || null,
+              adminUsername: broadcast.adminUsername,
+            },
+          })
 
-        await prisma.supportBroadcastRecipient.update({
-          where: { id: recipient.id },
-          data: {
-            status: 'SENT',
-            sentAt: new Date(),
-            error: null,
-            ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
-            supportMessageId: message.id,
-          },
-        })
+          await prisma.supportChat.update({
+            where: { id: recipient.supportChatId },
+            data: {
+              lastMessageAt: message.createdAt,
+              lastMessageText: caption ? caption.slice(0, 500) : '[Photo]',
+              lastOutboundAt: message.createdAt,
+            },
+          })
 
-        await prisma.supportBroadcast.update({
-          where: { id: broadcast.id },
-          data: { sentCount: { increment: 1 } },
-        })
+          await prisma.supportBroadcastRecipient.update({
+            where: { id: recipient.id },
+            data: {
+              status: 'SENT',
+              sentAt: new Date(),
+              error: null,
+              ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
+              supportMessageId: message.id,
+            },
+          })
+
+          await prisma.supportBroadcast.update({
+            where: { id: broadcast.id },
+            data: { sentCount: { increment: 1 } },
+          })
+        } else {
+          const sent = await supportBotInstance.api.sendMessage(recipient.chatId, caption)
+          const telegramMessageId = Number((sent as any)?.message_id)
+
+          const message = await prisma.supportMessage.create({
+            data: {
+              supportChatId: recipient.supportChatId,
+              direction: 'OUT',
+              kind: 'TEXT',
+              text: caption,
+              ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
+              adminUsername: broadcast.adminUsername,
+            },
+          })
+
+          await prisma.supportChat.update({
+            where: { id: recipient.supportChatId },
+            data: {
+              lastMessageAt: message.createdAt,
+              lastMessageText: caption,
+              lastOutboundAt: message.createdAt,
+            },
+          })
+
+          await prisma.supportBroadcastRecipient.update({
+            where: { id: recipient.id },
+            data: {
+              status: 'SENT',
+              sentAt: new Date(),
+              error: null,
+              ...(Number.isFinite(telegramMessageId) ? { telegramMessageId } : {}),
+              supportMessageId: message.id,
+            },
+          })
+
+          await prisma.supportBroadcast.update({
+            where: { id: broadcast.id },
+            data: { sentCount: { increment: 1 } },
+          })
+        }
       } catch (error: any) {
         const msg = String(error?.message || 'Send failed').slice(0, 500)
         await prisma.supportBroadcastRecipient.update({
@@ -1582,7 +1635,7 @@ async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (it
   return results
 }
 
-app.post('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => {
+app.post('/api/admin/support/broadcasts', requireAdminAuth, upload.single('photo'), async (req, res) => {
   try {
     if (!supportBotInstance) {
       return res.status(503).json({ error: 'Support bot is not configured' })
@@ -1591,11 +1644,21 @@ app.post('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => 
     const adminUsername = String((req as any).adminUsername || '').trim()
     if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
 
-    const parsed = supportBroadcastCreateSchema.safeParse(req.body)
+    const parsed = supportBroadcastCreateSchema.safeParse({
+      target: req.body?.target,
+      stageId: req.body?.stageId,
+      text: req.body?.text,
+    })
     if (!parsed.success) return res.status(400).json({ error: 'Invalid broadcast payload' })
 
     if (parsed.data.target === 'STAGE' && !parsed.data.stageId) {
       return res.status(400).json({ error: 'stageId is required for STAGE target' })
+    }
+
+    const text = String(parsed.data.text || '').trim()
+    const hasPhoto = Boolean(req.file && req.file.buffer)
+    if (!text && !hasPhoto) {
+      return res.status(400).json({ error: 'Text or photo is required' })
     }
 
     const where: any = {
@@ -1619,7 +1682,11 @@ app.post('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => 
           adminUsername,
           target: parsed.data.target,
           stageId: parsed.data.target === 'STAGE' ? parsed.data.stageId! : null,
-          text: parsed.data.text,
+          text,
+          photoData: hasPhoto ? req.file!.buffer : null,
+          photoFileName: hasPhoto ? req.file!.originalname : null,
+          photoMimeType: hasPhoto ? req.file!.mimetype : null,
+          photoSize: hasPhoto ? req.file!.size : null,
           totalRecipients: recipients.length,
           status: recipients.length ? 'PENDING' : 'COMPLETED',
           completedAt: recipients.length ? null : new Date(),
@@ -1639,7 +1706,8 @@ app.post('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => 
       return broadcast
     })
 
-    return res.json(created)
+    const { photoData, ...rest } = created as any
+    return res.json({ ...rest, hasPhoto: Boolean(created.photoSize || photoData) })
   } catch (error) {
     console.error('Support broadcast create error:', error)
     return res.status(500).json({ error: 'Failed to create broadcast' })
@@ -1651,8 +1719,34 @@ app.get('/api/admin/support/broadcasts', requireAdminAuth, async (req, res) => {
     const broadcasts = await prisma.supportBroadcast.findMany({
       orderBy: { createdAt: 'desc' },
       take: 200,
+      select: {
+        id: true,
+        adminUsername: true,
+        target: true,
+        stageId: true,
+        text: true,
+        status: true,
+        totalRecipients: true,
+        sentCount: true,
+        failedCount: true,
+        startedAt: true,
+        completedAt: true,
+        cancelledAt: true,
+        deletedAt: true,
+        deletedBy: true,
+        createdAt: true,
+        updatedAt: true,
+        photoFileName: true,
+        photoMimeType: true,
+        photoSize: true,
+      },
     })
-    return res.json({ broadcasts })
+    return res.json({
+      broadcasts: broadcasts.map((b) => ({
+        ...b,
+        hasPhoto: Boolean(b.photoSize),
+      })),
+    })
   } catch (error) {
     console.error('Support broadcast list error:', error)
     return res.status(500).json({ error: 'Failed to fetch broadcasts' })

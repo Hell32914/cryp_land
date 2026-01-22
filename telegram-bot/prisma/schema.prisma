@@ -284,6 +284,10 @@ model SupportBroadcast {
   target          SupportBroadcastTarget
   stageId         String?
   text            String
+  photoData       Bytes?
+  photoFileName   String?
+  photoMimeType   String?
+  photoSize       Int?
   status          SupportBroadcastStatus @default(PENDING)
   totalRecipients Int       @default(0)
   sentCount       Int       @default(0)

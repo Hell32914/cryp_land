@@ -288,6 +288,9 @@ export interface SupportBroadcastRecord {
   target: 'ALL' | 'STAGE'
   stageId: string | null
   text: string
+  hasPhoto?: boolean
+  photoFileName?: string | null
+  photoMimeType?: string | null
   status: 'PENDING' | 'RUNNING' | 'CANCELLED' | 'COMPLETED' | 'FAILED'
   totalRecipients: number
   sentCount: number
@@ -605,11 +608,32 @@ export const setSupportChatStage = (token: string, chatId: string, stageId: stri
     body: JSON.stringify({ stageId: String(stageId || '').trim() }),
   }, token)
 
-export const createSupportBroadcast = (token: string, payload: { target: 'ALL' | 'STAGE'; stageId?: string; text: string }) =>
-  request<SupportBroadcastRecord>(`/api/admin/support/broadcasts`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  }, token)
+export const createSupportBroadcast = (
+  token: string,
+  payload: { target: 'ALL' | 'STAGE'; stageId?: string; text?: string; photoFile?: File | null }
+) => {
+  if (payload.photoFile) {
+    const form = new FormData()
+    form.append('target', payload.target)
+    if (payload.stageId) form.append('stageId', payload.stageId)
+    if (payload.text) form.append('text', payload.text)
+    form.append('photo', payload.photoFile)
+    return requestFormData<SupportBroadcastRecord>(`/api/admin/support/broadcasts`, form, token)
+  }
+
+  return request<SupportBroadcastRecord>(
+    `/api/admin/support/broadcasts`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        target: payload.target,
+        stageId: payload.stageId,
+        text: payload.text,
+      }),
+    },
+    token,
+  )
+}
 
 export const fetchSupportBroadcasts = (token: string) =>
   request<SupportBroadcastsResponse>(`/api/admin/support/broadcasts`, {}, token)
