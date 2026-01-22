@@ -2220,7 +2220,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                   </div>
                 ) : null}
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:static md:pt-0 sticky bottom-0 bg-background/95 backdrop-blur border-t border-border px-2 py-3 -mx-2">
                   {selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername ? (
                     <div className="text-sm text-destructive">
                       {t('support.lockedByOther', { name: selectedChat.acceptedBy })}
@@ -2232,7 +2232,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                     placeholder={t('support.writeMessage')}
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
-                    rows={4}
+                    rows={isMobile ? 3 : 4}
                     disabled={
                       Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
                       Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
@@ -2259,7 +2259,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                       </Button>
                     </div>
                   ) : null}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-start">
+                  <div className="flex flex-col gap-2 md:grid md:grid-cols-3 md:items-start">
                     <div className="md:col-span-2">
                       <input
                         type="file"
@@ -2299,6 +2299,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                     </div>
                     <div className="md:col-span-1 flex justify-end gap-2">
                       <Button
+                        className="w-full md:w-auto"
                         onClick={handleSend}
                         disabled={
                           !messageText.trim() ||
