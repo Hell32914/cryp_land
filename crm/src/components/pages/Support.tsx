@@ -1671,14 +1671,14 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                   </div>
                 ) : null}
 
-                <div className="grid grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 text-xs text-muted-foreground bg-muted/20">
+                <div className="hidden sm:grid grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 text-xs text-muted-foreground bg-muted/20">
                   <div />
                   <div className="truncate">{t('support.clientPanel')}</div>
                   <div className="truncate">{t('support.columns.funnelStatus')}</div>
                   <div className="truncate">{t('support.columns.responseTime')}</div>
                 </div>
 
-                <ScrollArea className="h-[640px]">
+                <ScrollArea className="h-[60vh] sm:h-[640px]">
                   <div className="divide-y divide-border">
                     {sortedChats.map((chat) => {
                       const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
@@ -1711,7 +1711,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                       return (
                         <div
                           key={chat.chatId}
-                          className="grid grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30"
+                          className="grid grid-cols-[44px_minmax(0,1fr)] sm:grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30"
                         >
                           <input type="checkbox" disabled className="h-4 w-4 opacity-40" />
 
@@ -1762,7 +1762,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                             </div>
                           </button>
 
-                          <div className="min-w-0 w-full space-y-1 relative z-10 self-start pt-0.5">
+                          <div className="min-w-0 w-full space-y-1 relative z-10 self-start pt-0.5 col-span-2 sm:col-span-1">
                             <Select
                               value={stageId}
                               onValueChange={(v) => setChatStage(chat.chatId, v)}
@@ -1793,7 +1793,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                             </button>
                           </div>
 
-                          <div className={"text-sm text-muted-foreground flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
+                          <div className={"col-span-2 sm:col-span-1 text-sm text-muted-foreground flex items-center gap-2 " + (showAlert ? 'text-destructive' : '')}>
                             {showAlert ? <Bell size={16} weight="fill" /> : null}
                             <span>{formatDuration(waiting ? waitingSeconds : 0)}</span>
                           </div>
