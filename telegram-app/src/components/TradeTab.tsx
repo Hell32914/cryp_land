@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 type ExchangeIconProps = {
   name: string
@@ -47,10 +46,9 @@ function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) 
 
 type TradeTabProps = {
   title?: string
-  balance?: number
 }
 
-export function TradeTab({ title, balance }: TradeTabProps) {
+export function TradeTab({ title }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg' },
