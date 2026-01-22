@@ -1990,12 +1990,12 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                 ) : null}
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className={isMobile ? 'flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-200px)] pb-24' : 'flex flex-col gap-4 md:block'}>
+              <div className="flex flex-col gap-4 md:block">
                 <div className="rounded-md border border-border overflow-hidden">
                   <ScrollArea
                     className="p-3"
-                    style={{ height: isMobile ? '40vh' : messagesPaneHeight }}
+                    style={{ height: isMobile ? '42vh' : messagesPaneHeight }}
                   >
                     {isMessagesLoading ? (
                       <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
@@ -2145,7 +2145,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                 </div>
 
                 {selectedChat ? (
-                  <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-md border border-border p-3">
                     <div className="min-w-0">
                       <button
                         type="button"
@@ -2167,9 +2167,10 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
+                        className="w-full md:w-auto"
                         onClick={() => markUnreadMutation.mutate(selectedChat.chatId)}
                         disabled={markUnreadMutation.isPending}
                       >
@@ -2180,12 +2181,14 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                         <>
                           <Button
                             variant="outline"
+                            className="w-full md:w-auto"
                             onClick={() => unarchiveMutation.mutate(selectedChat.chatId)}
                             disabled={unarchiveMutation.isPending}
                           >
                             {unarchiveMutation.isPending ? t('support.processing') : t('support.toNew')}
                           </Button>
                           <Button
+                            className="w-full md:w-auto"
                             onClick={() => acceptMutation.mutate(selectedChat.chatId)}
                             disabled={acceptMutation.isPending}
                           >
@@ -2194,6 +2197,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
                         </>
                       ) : String(selectedChat.status || '').toUpperCase() !== 'ACCEPTED' ? (
                         <Button
+                          className="w-full md:w-auto"
                           onClick={() => acceptMutation.mutate(selectedChat.chatId)}
                           disabled={acceptMutation.isPending}
                         >
@@ -2203,6 +2207,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
                       <Button
                         variant="destructive"
+                        className="w-full md:w-auto"
                         onClick={() => archiveMutation.mutate(selectedChat.chatId)}
                         disabled={
                           archiveMutation.isPending ||
