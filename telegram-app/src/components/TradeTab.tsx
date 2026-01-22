@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -67,7 +67,10 @@ export function TradeTab({ title, balance }: TradeTabProps) {
     []
   )
 
-  const [selectedExchangeId, setSelectedExchangeId] = useState<string>(exchanges[0]?.id ?? 'binance')
+  const [selectedExchangeId, setSelectedExchangeId] = useState<string>(() => {
+    const saved = localStorage.getItem('trade_selectedExchangeId')
+    return saved ?? exchanges[0]?.id ?? 'binance'
+  })
 
   const selectedExchange = exchanges.find((e) => e.id === selectedExchangeId)
 
@@ -97,7 +100,10 @@ export function TradeTab({ title, balance }: TradeTabProps) {
     []
   )
 
-  const [selectedAssets, setSelectedAssets] = useState<string[]>(['BTC', 'ETH', 'USDT'])
+  const [selectedAssets, setSelectedAssets] = useState<string[]>(() => {
+    const saved = localStorage.getItem('trade_selectedAssets')
+    return saved ? JSON.parse(saved) : ['BTC', 'ETH', 'USDT']
+  })
 
   const toggleAsset = (symbol: string) => {
     setSelectedAssets((prev) => {
@@ -118,16 +124,18 @@ export function TradeTab({ title, balance }: TradeTabProps) {
     []
   )
 
-  const [selectedPriceCheckId, setSelectedPriceCheckId] = useState<string>('60s')
+  const [selectedPriceCheckId, setSelectedPriceCheckId] = useState<string>(() => {
+    const saved = localStorage.getItem('trade_selectedPriceCheckId')
+    return saved ?? '60s'
+  })
   const selectedPriceCheck = priceCheckOptions.find((o) => o.id === selectedPriceCheckId)
 
-  const availableBalance = Number.isFinite(balance as number) ? Math.max(0, Number(balance)) : 0
-  const [depositAmount, setDepositAmount] = useState<string>('')
-  const parsedDepositAmount = Number.parseFloat(depositAmount)
-  const depositAmountValue = Number.isFinite(parsedDepositAmount) ? parsedDepositAmount : 0
-  const depositIsValid = depositAmountValue > 0 && depositAmountValue <= availableBalance
+  // Removed deposit section
 
-  const [riskProfile, setRiskProfile] = useState<'conservative' | 'moderate' | 'aggressive'>('moderate')
+  const [riskProfile, setRiskProfile] = useState<'conservative' | 'moderate' | 'aggressive'>(() => {
+    const saved = localStorage.getItem('trade_riskProfile')
+    return (saved as 'conservative' | 'moderate' | 'aggressive') ?? 'moderate'
+  })
   const riskProfiles = useMemo(
     () => [
       {
@@ -152,7 +160,10 @@ export function TradeTab({ title, balance }: TradeTabProps) {
     []
   )
 
-  const [arbitrageType, setArbitrageType] = useState<'direct' | 'direct_triangular' | 'triangular_fast'>('direct_triangular')
+  const [arbitrageType, setArbitrageType] = useState<'direct' | 'direct_triangular' | 'triangular_fast'>(() => {
+    const saved = localStorage.getItem('trade_arbitrageType')
+    return (saved as 'direct' | 'direct_triangular' | 'triangular_fast') ?? 'direct_triangular'
+  })
   const arbitrageTypes = useMemo(
     () => [
       {
@@ -179,10 +190,30 @@ export function TradeTab({ title, balance }: TradeTabProps) {
   const canStart =
     selectedAssets.length > 0 &&
     Boolean(selectedExchangeId) &&
-    depositIsValid &&
     Boolean(selectedPriceCheckId) &&
     Boolean(riskProfile) &&
     Boolean(arbitrageType)
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('trade_selectedExchangeId', selectedExchangeId)
+  }, [selectedExchangeId])
+
+  useEffect(() => {
+    localStorage.setItem('trade_selectedAssets', JSON.stringify(selectedAssets))
+  }, [selectedAssets])
+
+  useEffect(() => {
+    localStorage.setItem('trade_selectedPriceCheckId', selectedPriceCheckId)
+  }, [selectedPriceCheckId])
+
+  useEffect(() => {
+    localStorage.setItem('trade_riskProfile', riskProfile)
+  }, [riskProfile])
+
+  useEffect(() => {
+    localStorage.setItem('trade_arbitrageType', arbitrageType)
+  }, [arbitrageType])
 
   return (
     <div className="p-4 space-y-4">
@@ -319,39 +350,6 @@ export function TradeTab({ title, balance }: TradeTabProps) {
       <div className="rounded-xl border border-border/50 bg-card/40 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-medium">Deposit</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Choose how much balance will be used by the bot (Max button required).
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground text-right">Available: ${availableBalance.toFixed(2)}</div>
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <Input
-            value={depositAmount}
-            onChange={(e) => setDepositAmount(e.target.value)}
-            inputMode="decimal"
-            placeholder="Amount (USD)"
-            className="h-10 bg-background/30 border-border/50"
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            className="h-10"
-            onClick={() => setDepositAmount(availableBalance ? availableBalance.toFixed(2) : '0')}
-          >
-            Max
-          </Button>
-        </div>
-        {!depositIsValid && depositAmount.length > 0 && (
-          <div className="mt-2 text-xs text-red-300">Enter a value between 0 and ${availableBalance.toFixed(2)}.</div>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border/50 bg-card/40 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
             <div className="text-sm font-medium">Risk profile</div>
             <div className="text-xs text-muted-foreground mt-1">
               Smaller spread = higher risk (less cushion for fees and fast price moves).
@@ -439,8 +437,7 @@ export function TradeTab({ title, balance }: TradeTabProps) {
         </div>
 
         <div className="mt-3 text-xs text-muted-foreground">
-          Config: {selectedExchange?.name ?? '—'} • {selectedAssets.length || 0} assets • {selectedPriceCheck?.label ?? '—'} •
-          Deposit ${depositAmountValue.toFixed(2)}
+          Config: {selectedExchange?.name ?? '—'} • {selectedAssets.length || 0} assets • {selectedPriceCheck?.label ?? '—'}
         </div>
       </div>
     </div>
