@@ -123,6 +123,8 @@ function normalizeStageId(value: string | null | undefined, aliases: Record<stri
   }
   return cur
 }
+
+const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 
 type SupportListTab = 'new' | 'accepted' | 'archive'
@@ -545,6 +547,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     for (const c of chats) {
       const id = normalizeStageId(c?.funnelStageId, stageAliases)
       if (!id) continue
+      if (id === LEGACY_PENDING_DEPOSIT_ID) continue
       if (existing.has(id)) continue
       missingIds.push(id)
       existing.add(id)
