@@ -33,6 +33,14 @@ export function canonicalizeStageId(value?: string | null): string | null {
   return normalized || null
 }
 
+const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
+
+function isLegacyPendingDepositStage(stage: SupportFunnelStage): boolean {
+  const id = canonicalizeStageId(stage?.id)
+  const labelId = canonicalizeStageId(stage?.label)
+  return id === LEGACY_PENDING_DEPOSIT_ID || labelId === LEGACY_PENDING_DEPOSIT_ID
+}
+
 function dedupeStages(stages: SupportFunnelStage[]): SupportFunnelStage[] {
   const seen = new Set<string>()
   const result: SupportFunnelStage[] = []
@@ -330,6 +338,9 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
     const dedupedDefaults = dedupeStages(defaultStages)
     const { stages: labelDeduped, aliases: labelAliases, changed: stagesChanged } = dedupeStagesByLabel(normalized, dedupedDefaults)
 
+    const filteredStages = labelDeduped.filter((s) => !isLegacyPendingDepositStage(s))
+    const removedLegacyPending = filteredStages.length !== labelDeduped.length
+
     // Always keep implicit aliases for defaults so DB stage ids like "deposit" or "first-touch"
     // collapse into the stable default ids.
     const implicitAliases = buildImplicitAliasesFromDefaults(dedupedDefaults)
@@ -358,24 +369,25 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
       setLocalStorageJsonSilently(STORAGE_KEYS.chatStageMap, nextMap)
     }
 
-    if (stagesChanged) {
+    if (stagesChanged || removedLegacyPending) {
       // Persist fixed stages.
       // Silent write to avoid event recursion during initial load.
-      const primaryLabel = labelDeduped.find((s) => s.id === PRIMARY_STAGE_ID)?.label || defaultPrimaryLabel
+      const primaryLabel = filteredStages.find((s) => s.id === PRIMARY_STAGE_ID)?.label || defaultPrimaryLabel
       const normalizedToStore = dedupeStages(
         ensurePrimaryStage(
-          labelDeduped.map((s) => ({ ...s, id: canonicalizeStageId(s.id) || s.id })),
+          filteredStages.map((s) => ({ ...s, id: canonicalizeStageId(s.id) || s.id })),
           primaryLabel,
         ),
       )
       setLocalStorageJsonSilently(STORAGE_KEYS.stages, normalizedToStore)
     }
 
-    return labelDeduped
+    return filteredStages
   } catch {
     const dedupedDefaults = dedupeStages(defaultStages)
     const normalized = normalizeAndMigrateStages(dedupedDefaults, dedupedDefaults, defaultPrimaryLabel)
     const { stages: labelDeduped } = dedupeStagesByLabel(normalized, dedupedDefaults)
+    const filteredStages = labelDeduped.filter((s) => !isLegacyPendingDepositStage(s))
 
     const implicitAliases = buildImplicitAliasesFromDefaults(dedupedDefaults)
     const prevAliases = loadSupportStageAliases()
@@ -398,7 +410,7 @@ export function loadSupportFunnelStages(defaultStages: SupportFunnelStage[]): Su
       setLocalStorageJsonSilently(STORAGE_KEYS.chatStageMap, nextMap)
     }
 
-    return labelDeduped
+    return filteredStages
   }
 }
 
@@ -406,7 +418,7 @@ export function saveSupportFunnelStages(stages: SupportFunnelStage[]) {
   const primaryLabel = stages.find((s) => s.id === PRIMARY_STAGE_ID)?.label || 'Primary contact'
   const normalized = dedupeStages(
     ensurePrimaryStage(
-      stages.map((s) => ({ ...s, id: canonicalizeStageId(s.id) || s.id })),
+      stages.filter((s) => !isLegacyPendingDepositStage(s)).map((s) => ({ ...s, id: canonicalizeStageId(s.id) || s.id })),
       primaryLabel,
     ),
   )

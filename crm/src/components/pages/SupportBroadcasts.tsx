@@ -10,8 +10,10 @@ import {
   deleteSupportBroadcast,
   fetchSupportBroadcasts,
   fetchSupportChats,
+  fetchDeposits,
   type SupportBroadcastRecord,
   type SupportChatRecord,
+  type DepositRecord,
 } from '@/lib/api'
 import {
   getPrimaryStageId,
@@ -28,6 +30,8 @@ import { cn } from '@/lib/utils'
 import { Plus, ArrowSquareOut, Paperclip, X } from '@phosphor-icons/react'
 
 type TargetKey = { kind: 'ALL' } | { kind: 'STAGE'; stageId: string }
+
+const PENDING_DEPOSIT_STAGE_ID = '__deposit_processing__'
 
 function getUsernameFromJwt(token?: string | null): string | null {
   try {
@@ -58,6 +62,12 @@ function shortText(text: string, max = 80) {
   const trimmed = (text || '').trim()
   if (trimmed.length <= max) return trimmed
   return trimmed.slice(0, max - 1) + '…'
+}
+
+function isPendingDeposit(deposit: DepositRecord) {
+  const status = String(deposit.status || '').toUpperCase()
+  const depStatus = String(deposit.depStatus || '').toLowerCase()
+  return depStatus === 'processing' || status === 'PENDING' || status === 'PROCESSING'
 }
 
 export function SupportBroadcasts() {
@@ -116,7 +126,27 @@ export function SupportBroadcasts() {
     }
   )
 
+  const { data: depositsData } = useApiQuery<Awaited<ReturnType<typeof fetchDeposits>>>(
+    ['support-broadcasts-deposits'],
+    (authToken) => fetchDeposits(authToken, { page: 1, limit: 1000 }),
+    {
+      enabled: Boolean(token),
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+    }
+  )
+
   const chats = chatsData?.chats ?? []
+
+  const pendingDepositTelegramIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const deposit of depositsData?.deposits ?? []) {
+      if (!deposit?.user?.telegramId) continue
+      if (!isPendingDeposit(deposit)) continue
+      set.add(String(deposit.user.telegramId))
+    }
+    return set
+  }, [depositsData])
 
   const acceptedChatsByMe = useMemo(() => {
     if (!myUsername) return [] as SupportChatRecord[]
@@ -133,10 +163,20 @@ export function SupportBroadcasts() {
     return map
   }, [acceptedChatsByMe, funnelStages])
 
+  const pendingDepositCount = useMemo(() => {
+    if (!pendingDepositTelegramIds.size) return 0
+    let count = 0
+    for (const chat of acceptedChatsByMe) {
+      if (pendingDepositTelegramIds.has(String(chat.telegramId))) count += 1
+    }
+    return count
+  }, [acceptedChatsByMe, pendingDepositTelegramIds])
+
   const selectedCount = useMemo(() => {
     if (target.kind === 'ALL') return acceptedChatsByMe.length
+    if (target.stageId === PENDING_DEPOSIT_STAGE_ID) return pendingDepositCount
     return stageCounts[target.stageId] || 0
-  }, [acceptedChatsByMe.length, stageCounts, target])
+  }, [acceptedChatsByMe.length, pendingDepositCount, stageCounts, target])
 
   const createMutation = useMutation({
     mutationFn: (payload: { target: 'ALL' | 'STAGE'; stageId?: string; text?: string; photoFile?: File | null }) =>
@@ -214,8 +254,14 @@ export function SupportBroadcasts() {
       count: stageCounts[st.id] || 0,
     }))
 
-    return [...base, ...stageSegs]
-  }, [acceptedChatsByMe.length, funnelStages, stageCounts, t])
+    const depositSeg = {
+      key: { kind: 'STAGE', stageId: PENDING_DEPOSIT_STAGE_ID } as TargetKey,
+      label: t('supportBoard.depositProcessing'),
+      count: pendingDepositCount,
+    }
+
+    return [...base, ...stageSegs, depositSeg]
+  }, [acceptedChatsByMe.length, funnelStages, pendingDepositCount, stageCounts, t])
 
   return (
     <div className="space-y-6">
@@ -379,7 +425,9 @@ export function SupportBroadcasts() {
                   const targetLabel =
                     b.target === 'ALL'
                       ? t('supportBroadcast.segments.all')
-                      : funnelStages.find((s) => s.id === b.stageId)?.label || b.stageId || ''
+                      : b.stageId === PENDING_DEPOSIT_STAGE_ID
+                        ? t('supportBoard.depositProcessing')
+                        : funnelStages.find((s) => s.id === b.stageId)?.label || b.stageId || ''
 
                   return (
                     <div key={b.id} className="rounded-md border border-border p-3">
