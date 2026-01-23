@@ -38,6 +38,7 @@ import {
 const UNKNOWN_STAGE_ID = '__unknown_stage__'
 const PENDING_DEPOSIT_STAGE_ID = '__deposit_processing__'
 const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
+const DEPOSIT_STAGE_ID = 'success'
 
 function prettifyStageId(id: string): string {
   const v = String(id || '').trim()
@@ -310,12 +311,17 @@ export function SupportFunnelBoard() {
     if (status === 'ARCHIVE') return 'archived'
     if (status !== 'ACCEPTED') return 'unaccepted'
 
-    if (pendingDepositTelegramIds.has(String(chat.telegramId))) return PENDING_DEPOSIT_STAGE_ID
-
     const resolvedStageId =
       normalizeStageId(chat.funnelStageId, stageAliases) ||
       normalizeStageId(chatStageMap[chat.chatId], stageAliases) ||
       primaryStageId
+
+    if (
+      pendingDepositTelegramIds.has(String(chat.telegramId)) &&
+      resolvedStageId !== DEPOSIT_STAGE_ID
+    ) {
+      return PENDING_DEPOSIT_STAGE_ID
+    }
 
     // If DB has a stage that isn't present in this browser's local funnel config,
     // keep the chat visible instead of dropping it from the board.
