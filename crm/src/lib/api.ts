@@ -455,6 +455,7 @@ export interface MarketingLink {
   leadsToday: number
   leadsWeek: number
   totalLeads: number
+  channelLeads?: number
   usersToday: number
   usersWeek: number
   totalUsers: number

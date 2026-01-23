@@ -5231,6 +5231,12 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       // Users = users WITH IP (opened mini-app)
       const appUsers = users.filter(u => u.ipAddress)
       const totalUsers = appUsers.length
+
+      // Channel-only users (joined channel, did not open mini-app)
+      const channelLeads = users.filter(u => {
+        const isChannel = String(u.marketingSource || '').toLowerCase() === 'channel'
+        return isChannel && !u.ipAddress
+      }).length
       
       // Leads today (without IP)
       const leadsToday = leads.filter(u => u.createdAt >= startOfToday).length
@@ -5290,6 +5296,7 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         leadsToday,
         leadsWeek,
         totalLeads,
+        channelLeads,
         usersToday,
         usersWeek,
         totalUsers,
