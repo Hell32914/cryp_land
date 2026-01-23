@@ -64,6 +64,7 @@ const resources = {
         operatorMe: 'My dialogs',
         operatorUnassigned: 'Unassigned',
         unknownStage: 'Unknown stage',
+        depositProcessing: 'Deposit processing',
       },
       supportOperators: {
         title: 'Users',
@@ -420,6 +421,7 @@ const resources = {
         operatorMe: 'Мои диалоги',
         operatorUnassigned: 'Без оператора',
         unknownStage: 'Неизвестный этап',
+        depositProcessing: 'Обработка Депозита',
       },
       supportOperators: {
         title: 'Users',

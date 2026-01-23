@@ -2,7 +2,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
-import { fetchSupportChats, acceptSupportChat, setSupportChatStage, type SupportChatRecord } from '@/lib/api'
+import {
+  fetchSupportChats,
+  acceptSupportChat,
+  setSupportChatStage,
+  fetchDeposits,
+  type SupportChatRecord,
+  type DepositRecord,
+} from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -29,6 +36,7 @@ import {
 } from '@/lib/support-funnel'
 
 const UNKNOWN_STAGE_ID = '__unknown_stage__'
+const PENDING_DEPOSIT_STAGE_ID = '__deposit_processing__'
 
 function prettifyStageId(id: string): string {
   const v = String(id || '').trim()
@@ -100,6 +108,12 @@ function formatWhen(ts?: string | null) {
   } catch {
     return ''
   }
+}
+
+function isPendingDeposit(deposit: DepositRecord) {
+  const status = String(deposit.status || '').toUpperCase()
+  const depStatus = String(deposit.depStatus || '').toLowerCase()
+  return depStatus === 'processing' || status === 'PENDING' || status === 'PROCESSING'
 }
 
 function normalizeStageId(value: string | null | undefined, aliases: Record<string, string>): string | null {
@@ -184,7 +198,28 @@ export function SupportFunnelBoard() {
     refetchOnWindowFocus: true,
   })
 
+  const { data: depositsData } = useApiQuery<Awaited<ReturnType<typeof fetchDeposits>>>(
+    ['support-pending-deposits'],
+    (authToken) => fetchDeposits(authToken, { page: 1, limit: 1000 }),
+    {
+      enabled: Boolean(token),
+      refetchInterval: 10000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    },
+  )
+
   const chats = chatsData?.chats ?? []
+
+  const pendingDepositTelegramIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const deposit of depositsData?.deposits ?? []) {
+      if (!deposit?.user?.telegramId) continue
+      if (!isPendingDeposit(deposit)) continue
+      set.add(String(deposit.user.telegramId))
+    }
+    return set
+  }, [depositsData])
 
   // Self-heal: if local funnel config was reset/cleared, but DB contains stage IDs,
   // auto-add those missing stages so chats don't collapse into Primary/Unknown.
@@ -274,6 +309,8 @@ export function SupportFunnelBoard() {
     if (status === 'ARCHIVE') return 'archived'
     if (status !== 'ACCEPTED') return 'unaccepted'
 
+    if (pendingDepositTelegramIds.has(String(chat.telegramId))) return PENDING_DEPOSIT_STAGE_ID
+
     const resolvedStageId =
       normalizeStageId(chat.funnelStageId, stageAliases) ||
       normalizeStageId(chatStageMap[chat.chatId], stageAliases) ||
@@ -288,7 +325,8 @@ export function SupportFunnelBoard() {
     const base = [{ id: 'unaccepted', title: t('supportBoard.unaccepted') } as const]
     const stageColumns = funnelStages.map((s) => ({ id: s.id, title: s.label }))
     const unknown = [{ id: UNKNOWN_STAGE_ID, title: t('supportBoard.unknownStage') }]
-    return [...base, ...stageColumns, ...unknown]
+    const depositProcessing = [{ id: PENDING_DEPOSIT_STAGE_ID, title: t('supportBoard.depositProcessing') }]
+    return [...base, ...stageColumns, ...unknown, ...depositProcessing]
   }, [funnelStages, t])
 
   const searchTerm = useMemo(() => {
@@ -340,7 +378,7 @@ export function SupportFunnelBoard() {
     }
 
     return map
-  }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm, stageAliases])
+  }, [chats, columns, chatStageMap, primaryStageId, operatorFilter, myUsername, searchTerm, stageAliases, pendingDepositTelegramIds])
 
   // Keep a top horizontal scrollbar synced with the columns scroller.
   // Use layout-timed measurement + a few re-measures so the scrollbar is correct
@@ -426,6 +464,7 @@ export function SupportFunnelBoard() {
     if (!payload?.chatId) return
     if (to === 'unaccepted') return
     if (to === UNKNOWN_STAGE_ID) return
+    if (to === PENDING_DEPOSIT_STAGE_ID) return
 
     const chat = chats.find((c) => c.chatId === payload.chatId)
     if (!chat) return
