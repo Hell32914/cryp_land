@@ -51,16 +51,16 @@ type TradeTabProps = {
 export function TradeTab({ title }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
-      { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg' },
-      { id: 'bybit', name: 'Bybit', iconText: 'BY', iconSrc: '/logo_trade/bybit.jpg' },
-      { id: 'okx', name: 'OKX', iconText: 'OKX', iconSrc: '/logo_trade/okx.jpg' },
-      { id: 'coinbase', name: 'Coinbase', iconText: 'C', iconSrc: '/logo_trade/coinbase.jpg' },
-      { id: 'kraken', name: 'Kraken', iconText: 'K', iconSrc: '/logo_trade/kraken.jpg' },
-      { id: 'kucoin', name: 'KuCoin', iconText: 'KU', iconSrc: '/logo_trade/kucoin.jpg' },
-      { id: 'bitget', name: 'Bitget', iconText: 'BG', iconSrc: '/logo_trade/bitget.jpg' },
-      { id: 'gate', name: 'Gate.io', iconText: 'G', iconSrc: '/logo_trade/gateio.jpg' },
-      { id: 'mexc', name: 'MEXC', iconText: 'MX', iconSrc: '/logo_trade/mexc.jpg' },
-      { id: 'htx', name: 'HTX (Huobi)', iconText: 'HTX', iconSrc: '/logo_trade/htx.jpg' },
+      { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg?v=20260123' },
+      { id: 'bybit', name: 'Bybit', iconText: 'BY', iconSrc: '/logo_trade/bybit.jpg?v=20260123' },
+      { id: 'okx', name: 'OKX', iconText: 'OKX', iconSrc: '/logo_trade/okx.jpg?v=20260123' },
+      { id: 'coinbase', name: 'Coinbase', iconText: 'C', iconSrc: '/logo_trade/coinbase.jpg?v=20260123' },
+      { id: 'kraken', name: 'Kraken', iconText: 'K', iconSrc: '/logo_trade/kraken.jpg?v=20260123' },
+      { id: 'kucoin', name: 'KuCoin', iconText: 'KU', iconSrc: '/logo_trade/kucoin.jpg?v=20260123' },
+      { id: 'bitget', name: 'Bitget', iconText: 'BG', iconSrc: '/logo_trade/bitget.jpg?v=20260123' },
+      { id: 'gate', name: 'Gate.io', iconText: 'G', iconSrc: '/logo_trade/gateio.jpg?v=20260123' },
+      { id: 'mexc', name: 'MEXC', iconText: 'MX', iconSrc: '/logo_trade/mexc.jpg?v=20260123' },
+      { id: 'htx', name: 'HTX (Huobi)', iconText: 'HTX', iconSrc: '/logo_trade/htx.jpg?v=20260123' },
     ],
     []
   )
