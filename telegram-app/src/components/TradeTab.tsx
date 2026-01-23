@@ -16,14 +16,14 @@ function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) 
       <span
         aria-hidden="true"
         className={
-          'inline-flex h-7 w-7 items-center justify-center rounded-md overflow-hidden ' +
+          'inline-flex h-7 w-7 items-center justify-center rounded-full overflow-hidden ' +
           (selected ? 'bg-primary/15' : 'bg-muted')
         }
       >
         <img
           src={src}
           alt={`${name} logo`}
-          className="h-5 w-5 object-contain"
+          className="h-full w-full object-cover"
           loading="lazy"
           onError={() => setFailed(true)}
         />
@@ -35,7 +35,7 @@ function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) 
     <span
       aria-hidden="true"
       className={
-        'inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-semibold ' +
+        'inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold ' +
         (selected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')
       }
     >
