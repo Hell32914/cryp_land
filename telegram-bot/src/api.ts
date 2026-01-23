@@ -4978,6 +4978,12 @@ app.post('/api/oxapay-callback', async (req, res) => {
       
       let userMessage = `✅ *Deposit Successful!*\n\n`
       userMessage += `💰 Amount: $${deposit.amount.toFixed(2)} ${deposit.currency}\n`
+      if (deposit.network) {
+        userMessage += `🌐 Network: ${deposit.network}\n`
+      }
+      if (deposit.txHash) {
+        userMessage += `🔗 TX Hash: ${deposit.txHash}\n`
+      }
       userMessage += `💳 New Deposit: $${updatedUser.totalDeposit.toFixed(2)}\n\n`
       
       // Add activation message if account was just activated
@@ -5011,12 +5017,17 @@ app.post('/api/oxapay-callback', async (req, res) => {
     try {
       const { notifySupport } = await import('./index.js')
       const escapedUsername = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
+      const safeCurrency = (deposit.currency || '—').replace(/_/g, '\\_')
+      const safeNetwork = (deposit.network || '—').replace(/_/g, '\\_')
+      const safeTxHash = (deposit.txHash || '—').replace(/_/g, '\\_')
       
       await notifySupport(
         `💰 *New Deposit Received*\n\n` +
         `👤 User: @${escapedUsername} (ID: ${deposit.user.telegramId})\n` +
         `💵 Amount: $${deposit.amount.toFixed(2)}\n` +
-        `💎 Currency: ${deposit.currency}\n` +
+        `💎 Crypto: ${safeCurrency}\n` +
+        `🌐 Network: ${safeNetwork}\n` +
+        `🔗 TX Hash: ${safeTxHash}\n` +
         `📊 Total Deposited: $${(updatedUser.lifetimeDeposit || updatedUser.totalDeposit).toFixed(2)}\n` +
         `📈 Plan: ${planInfo.currentPlan}`,
         { parse_mode: 'Markdown' }
@@ -5224,19 +5235,19 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     const enrichedLinks = await Promise.all(links.map(async (link) => {
       const users = usersByLinkId.get(link.linkId) || []
       
-      // Leads = users WITHOUT IP (only pressed /start in bot, didn't open mini-app)
-      const leads = users.filter(u => !u.ipAddress)
+      const isChannelUser = (u: any) => String(u.marketingSource || '').toLowerCase() === 'channel'
+
+      // Channel-only users (joined channel, did not open mini-app)
+      const channelLeadsArr = users.filter(u => isChannelUser(u) && !u.ipAddress)
+      const channelLeads = channelLeadsArr.length
+
+      // Leads = users WITHOUT IP (only pressed /start in bot, didn't open mini-app), excluding channel-only
+      const leads = users.filter(u => !u.ipAddress && !isChannelUser(u))
       const totalLeads = leads.length
       
       // Users = users WITH IP (opened mini-app)
       const appUsers = users.filter(u => u.ipAddress)
       const totalUsers = appUsers.length
-
-      // Channel-only users (joined channel, did not open mini-app)
-      const channelLeads = users.filter(u => {
-        const isChannel = String(u.marketingSource || '').toLowerCase() === 'channel'
-        return isChannel && !u.ipAddress
-      }).length
       
       // Leads today (without IP)
       const leadsToday = leads.filter(u => u.createdAt >= startOfToday).length
