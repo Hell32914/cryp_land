@@ -37,6 +37,7 @@ import {
 
 const UNKNOWN_STAGE_ID = '__unknown_stage__'
 const PENDING_DEPOSIT_STAGE_ID = '__deposit_processing__'
+const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
 
 function prettifyStageId(id: string): string {
   const v = String(id || '').trim()
@@ -231,7 +232,7 @@ export function SupportFunnelBoard() {
     for (const c of chats) {
       const id = normalizeStageId(c.funnelStageId, stageAliases)
       if (!id) continue
-      if (id === UNKNOWN_STAGE_ID) continue
+      if (id === UNKNOWN_STAGE_ID || id === LEGACY_PENDING_DEPOSIT_ID) continue
       if (existing.has(id)) continue
       missingIds.push(id)
       existing.add(id)
