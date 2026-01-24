@@ -4156,7 +4156,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
         status: 'PENDING',
         currency,
         paymentMethod: 'OXAPAY',
-        txHash: invoice.trackId
+        trackId: invoice.trackId
       }
     })
 
@@ -4805,6 +4805,9 @@ app.post('/api/oxapay-callback', async (req, res) => {
     console.log('📥 OxaPay callback received:', req.body)
     
     const { trackId, status, orderid, amount, txID, type } = req.body
+    const callbackNetwork = req.body.network || req.body.chain || req.body.blockchain || req.body.payNetwork || req.body.pay_network
+    const callbackCurrencyRaw = req.body.payCurrency || req.body.pay_currency || req.body.currency
+    const callbackCurrency = callbackCurrencyRaw ? String(callbackCurrencyRaw).toUpperCase() : null
     
     // SECURITY: Validate required fields
     if (!trackId) {
@@ -4893,9 +4896,9 @@ app.post('/api/oxapay-callback', async (req, res) => {
       return res.json({ success: true })
     }
 
-    // Find deposit by trackId
+    // Find deposit by trackId (or legacy txHash)
     const deposit = await prisma.deposit.findFirst({
-      where: { txHash: trackId },
+      where: { OR: [{ trackId }, { txHash: trackId }] },
       include: { user: true }
     })
 
@@ -4915,12 +4918,21 @@ app.post('/api/oxapay-callback', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Amount mismatch' })
     }
 
+    const normalizedTxHash = typeof txID === 'string' && /[a-f0-9]{16,}/i.test(txID) ? txID : null
+    const shouldClearLegacyTxHash = !normalizedTxHash && deposit.txHash === trackId
+
     // SECURITY: Use transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {
       // Update deposit status to COMPLETED
       await tx.deposit.update({
         where: { id: deposit.id },
-        data: { status: 'COMPLETED' }
+        data: {
+          status: 'COMPLETED',
+          trackId: deposit.trackId || trackId,
+          ...(callbackNetwork ? { network: String(callbackNetwork) } : {}),
+          ...(callbackCurrency && callbackCurrency !== 'USD' ? { currency: callbackCurrency } : {}),
+          ...(normalizedTxHash ? { txHash: normalizedTxHash } : (shouldClearLegacyTxHash ? { txHash: null } : {}))
+        }
       })
 
       // Add amount to user totalDeposit and activate account if needed
@@ -4972,17 +4984,24 @@ app.post('/api/oxapay-callback', async (req, res) => {
     const planInfo = calculateTariffPlan(updatedUser.totalDeposit)
     const progressBar = '█'.repeat(Math.floor(planInfo.progress / 10)) + '░'.repeat(10 - Math.floor(planInfo.progress / 10))
     
+    const updatedDeposit = await prisma.deposit.findUnique({
+      where: { id: deposit.id }
+    })
+
     // Notify user about successful deposit
     try {
       const { bot: botInstance } = await import('./index.js')
       
       let userMessage = `✅ *Deposit Successful!*\n\n`
-      userMessage += `💰 Amount: $${deposit.amount.toFixed(2)} ${deposit.currency}\n`
-      if (deposit.network) {
-        userMessage += `🌐 Network: ${deposit.network}\n`
+      const userCurrency = (updatedDeposit?.currency || deposit.currency).toUpperCase()
+      const userNetwork = updatedDeposit?.network
+      const userTxHash = updatedDeposit?.txHash
+      userMessage += `💰 Amount: $${deposit.amount.toFixed(2)} ${userCurrency}\n`
+      if (userNetwork) {
+        userMessage += `🌐 Network: ${userNetwork}\n`
       }
-      if (deposit.txHash) {
-        userMessage += `🔗 TX Hash: ${deposit.txHash}\n`
+      if (userTxHash) {
+        userMessage += `🔗 TX Hash: ${userTxHash}\n`
       }
       userMessage += `💳 New Deposit: $${updatedUser.totalDeposit.toFixed(2)}\n\n`
       
@@ -5017,9 +5036,9 @@ app.post('/api/oxapay-callback', async (req, res) => {
     try {
       const { notifySupport } = await import('./index.js')
       const escapedUsername = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
-      const safeCurrency = (deposit.currency || '—').replace(/_/g, '\\_')
-      const safeNetwork = (deposit.network || '—').replace(/_/g, '\\_')
-      const safeTxHash = (deposit.txHash || '—').replace(/_/g, '\\_')
+      const safeCurrency = ((updatedDeposit?.currency || deposit.currency) || '—').toString().replace(/_/g, '\\_').toUpperCase()
+      const safeNetwork = ((updatedDeposit?.network) || '—').toString().replace(/_/g, '\\_')
+      const safeTxHash = ((updatedDeposit?.txHash) || '—').toString().replace(/_/g, '\\_')
       
       await notifySupport(
         `💰 *New Deposit Received*\n\n` +
