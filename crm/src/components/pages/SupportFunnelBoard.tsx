@@ -308,10 +308,13 @@ export function SupportFunnelBoard() {
     try {
       const columnsScrollLeft = columnsScrollRef.current?.scrollLeft ?? 0
       const topScrollLeft = topScrollRef.current?.scrollLeft ?? columnsScrollLeft
+      const mainEl = document.querySelector('main') as HTMLElement | null
+      const mainScrollTop = mainEl?.scrollTop ?? 0
       const payload = {
         page: 'support-funnel',
         scrollLeft: columnsScrollLeft,
         topScrollLeft,
+        mainScrollTop,
         pageScrollY: window.scrollY,
         search,
         operatorFilter,
@@ -338,8 +341,14 @@ export function SupportFunnelBoard() {
         const topLeft = Number(parsed?.topScrollLeft || left)
         if (columnsScrollRef.current) columnsScrollRef.current.scrollLeft = left
         if (topScrollRef.current) topScrollRef.current.scrollLeft = topLeft
-        const y = Number(parsed?.pageScrollY || 0)
-        if (Number.isFinite(y)) window.scrollTo(0, y)
+        const mainEl = document.querySelector('main') as HTMLElement | null
+        const mainTop = Number(parsed?.mainScrollTop)
+        if (mainEl && Number.isFinite(mainTop)) {
+          mainEl.scrollTop = mainTop
+        } else {
+          const y = Number(parsed?.pageScrollY || 0)
+          if (Number.isFinite(y)) window.scrollTo(0, y)
+        }
       }
 
       requestAnimationFrame(() => setTimeout(restore, 0))
