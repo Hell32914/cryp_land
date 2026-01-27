@@ -28,17 +28,42 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard')
 
   const role = useMemo(() => normalizeCrmRole(decodeJwtClaims(token).role), [token])
-  const allowedPages = useMemo(() => {
-    if (role !== 'support') return null
-    return new Set(['support', 'support-funnel', 'support-analytics'])
+  const access = useMemo(() => {
+    if (role === 'support') {
+      return {
+        allowedPages: new Set(['support', 'support-funnel', 'support-analytics']),
+        fallbackPage: 'support',
+      }
+    }
+    if (role === 'tester') {
+      return {
+        allowedPages: new Set([
+          'dashboard',
+          'geo',
+          'deposits',
+          'withdrawals',
+          'expenses',
+          'reflinks',
+          'linkbuilder',
+          'support',
+          'support-funnel',
+          'support-funnel-settings',
+          'support-broadcasts',
+          'support-operators',
+          'support-analytics',
+        ]),
+        fallbackPage: 'dashboard',
+      }
+    }
+    return { allowedPages: null, fallbackPage: 'dashboard' }
   }, [role])
 
   useEffect(() => {
     if (!isAuthenticated) return
-    if (role === 'support' && !allowedPages?.has(currentPage)) {
-      setCurrentPage('support')
+    if (access.allowedPages && !access.allowedPages.has(currentPage)) {
+      setCurrentPage(access.fallbackPage)
     }
-  }, [allowedPages, currentPage, isAuthenticated, role])
+  }, [access.allowedPages, access.fallbackPage, currentPage, isAuthenticated])
 
   useEffect(() => {
     const onNavigateEvent = (ev: Event) => {
@@ -57,8 +82,8 @@ function AppContent() {
         }
       }
 
-      if (allowedPages && !allowedPages.has(page)) {
-        setCurrentPage('support')
+      if (access.allowedPages && !access.allowedPages.has(page)) {
+        setCurrentPage(access.fallbackPage)
         return
       }
 
@@ -67,14 +92,14 @@ function AppContent() {
 
     window.addEventListener('crm:navigate', onNavigateEvent)
     return () => window.removeEventListener('crm:navigate', onNavigateEvent)
-  }, [allowedPages])
+  }, [access.allowedPages, access.fallbackPage])
 
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard />
       case 'users':
-        return <Users />
+        return role === 'tester' ? <Dashboard /> : <Users />
       case 'geo':
         return <GeoData />
       case 'deposits':
@@ -112,8 +137,8 @@ function AppContent() {
     <Layout
       currentPage={currentPage}
       onNavigate={(page) => {
-        if (allowedPages && !allowedPages.has(page)) {
-          setCurrentPage('support')
+        if (access.allowedPages && !access.allowedPages.has(page)) {
+          setCurrentPage(access.fallbackPage)
           return
         }
         setCurrentPage(page)

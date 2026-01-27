@@ -143,6 +143,15 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
 
+  const FUNNEL_RETURN_KEY = 'crm.support.funnelReturn'
+  const [canReturnToFunnel, setCanReturnToFunnel] = useState(() => {
+    try {
+      return Boolean(sessionStorage.getItem(FUNNEL_RETURN_KEY))
+    } catch {
+      return false
+    }
+  })
+
   const { username: myUsername, role: rawRole } = useMemo(() => decodeJwtClaims(token), [token])
   const myRole = useMemo(() => normalizeCrmRole(rawRole), [rawRole])
   const isAdmin = myRole === 'admin' || myRole === 'superadmin'
@@ -1431,6 +1440,21 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('support.title')}</h1>
+        {canReturnToFunnel ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setCanReturnToFunnel(false)
+              window.dispatchEvent(new CustomEvent('crm:navigate', { detail: { page: 'support-funnel' } }))
+            }}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft size={16} />
+            {t('support.backToFunnel')}
+          </Button>
+        ) : null}
       </div>
       {!selectedChatId ? (
         <Card>

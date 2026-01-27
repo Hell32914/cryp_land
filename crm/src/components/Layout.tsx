@@ -93,7 +93,14 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             ],
           },
         ]
-      : menuSections
+      : role === 'tester'
+        ? menuSections
+            .map((section) => ({
+              ...section,
+              items: section.items.filter((item) => item.id !== 'users'),
+            }))
+            .filter((section) => section.items.length > 0)
+        : menuSections
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng)

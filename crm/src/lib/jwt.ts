@@ -1,4 +1,4 @@
-export type CrmRole = 'superadmin' | 'admin' | 'support' | 'operator' | string
+export type CrmRole = 'superadmin' | 'admin' | 'support' | 'operator' | 'tester' | string
 
 export function decodeJwtClaims(token?: string | null): { username: string | null; role: CrmRole | null } {
   try {
@@ -34,12 +34,13 @@ export function decodeJwtClaims(token?: string | null): { username: string | nul
   }
 }
 
-export function normalizeCrmRole(role: CrmRole | null | undefined): 'superadmin' | 'admin' | 'support' | 'operator' | null {
+export function normalizeCrmRole(role: CrmRole | null | undefined): 'superadmin' | 'admin' | 'support' | 'operator' | 'tester' | null {
   if (!role) return null
   const r = String(role).toLowerCase()
   if (r === 'superadmin') return 'superadmin'
   if (r === 'admin') return 'admin'
   if (r === 'support') return 'support'
   if (r === 'operator') return 'operator'
+  if (r === 'tester') return 'tester'
   return null
 }

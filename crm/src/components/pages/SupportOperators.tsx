@@ -40,7 +40,7 @@ export function SupportOperators() {
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [newRole, setNewRole] = useState<'admin' | 'support'>('admin')
+  const [newRole, setNewRole] = useState<'admin' | 'support' | 'tester'>('admin')
 
   const [resetId, setResetId] = useState<number | null>(null)
   const [resetPassword, setResetPassword] = useState('')
@@ -59,7 +59,7 @@ export function SupportOperators() {
   const operators = useMemo(() => (data as any)?.operators ?? [], [data]) as CrmOperatorRecord[]
 
   const createMutation = useMutation({
-    mutationFn: (payload: { username: string; password: string; role: 'admin' | 'support' }) => createCrmOperator(token!, payload),
+    mutationFn: (payload: { username: string; password: string; role: 'admin' | 'support' | 'tester' }) => createCrmOperator(token!, payload),
     onSuccess: async () => {
       setUsername('')
       setPassword('')
@@ -71,7 +71,7 @@ export function SupportOperators() {
   })
 
   const roleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: number; role: 'admin' | 'support' }) => setCrmOperatorRole(token!, id, role),
+    mutationFn: ({ id, role }: { id: number; role: 'admin' | 'support' | 'tester' }) => setCrmOperatorRole(token!, id, role),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['crm-operators'] })
       toast.success(t('supportOperators.updated'))
@@ -150,6 +150,7 @@ export function SupportOperators() {
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="support">Support</SelectItem>
+                  <SelectItem value="tester">Tester</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -216,6 +217,7 @@ export function SupportOperators() {
                           <SelectContent>
                             <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="support">Support</SelectItem>
+                            <SelectItem value="tester">Tester</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : null}

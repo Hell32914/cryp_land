@@ -353,11 +353,11 @@ const loginSchema = z.object({
 const crmOperatorCreateSchema = z.object({
   username: z.string().min(2).max(50),
   password: z.string().min(6).max(128),
-  role: z.enum(['admin', 'support']).optional(),
+  role: z.enum(['admin', 'support', 'tester']).optional(),
 })
 
 const crmOperatorSetRoleSchema = z.object({
-  role: z.enum(['admin', 'support']),
+  role: z.enum(['admin', 'support', 'tester']),
 })
 
 const crmOperatorResetPasswordSchema = z.object({

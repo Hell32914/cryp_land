@@ -162,6 +162,8 @@ export function SupportFunnelBoard() {
   const [search, setSearch] = useState('')
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
 
+  const FUNNEL_RETURN_KEY = 'crm.support.funnelReturn'
+
   const columnsScrollRef = useRef<HTMLDivElement | null>(null)
   const topScrollRef = useRef<HTMLDivElement | null>(null)
   const [columnsScrollWidth, setColumnsScrollWidth] = useState(0)
@@ -303,8 +305,50 @@ export function SupportFunnelBoard() {
   }
 
   const openChat = (chatId: string) => {
+    try {
+      const columnsScrollLeft = columnsScrollRef.current?.scrollLeft ?? 0
+      const topScrollLeft = topScrollRef.current?.scrollLeft ?? columnsScrollLeft
+      const payload = {
+        page: 'support-funnel',
+        scrollLeft: columnsScrollLeft,
+        topScrollLeft,
+        pageScrollY: window.scrollY,
+        search,
+        operatorFilter,
+        chatId,
+      }
+      sessionStorage.setItem(FUNNEL_RETURN_KEY, JSON.stringify(payload))
+    } catch {
+      // ignore
+    }
     window.dispatchEvent(new CustomEvent('crm:navigate', { detail: { page: 'support', supportChatId: chatId } }))
   }
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(FUNNEL_RETURN_KEY)
+    if (!raw) return
+
+    try {
+      const parsed = JSON.parse(raw) as any
+      if (typeof parsed?.search === 'string') setSearch(parsed.search)
+      if (typeof parsed?.operatorFilter === 'string') setOperatorFilter(parsed.operatorFilter)
+
+      const restore = () => {
+        const left = Number(parsed?.scrollLeft || 0)
+        const topLeft = Number(parsed?.topScrollLeft || left)
+        if (columnsScrollRef.current) columnsScrollRef.current.scrollLeft = left
+        if (topScrollRef.current) topScrollRef.current.scrollLeft = topLeft
+        const y = Number(parsed?.pageScrollY || 0)
+        if (Number.isFinite(y)) window.scrollTo(0, y)
+      }
+
+      requestAnimationFrame(() => setTimeout(restore, 0))
+    } catch {
+      // ignore
+    }
+
+    sessionStorage.removeItem(FUNNEL_RETURN_KEY)
+  }, [])
 
   const getColumnIdForChat = (chat: SupportChatRecord): ColumnId => {
     const status = String(chat.status || '').toUpperCase()

@@ -129,6 +129,7 @@ const resources = {
         title: 'Support',
         chats: 'Chats',
         backToList: 'Back to chats',
+        backToFunnel: 'Back to funnel',
         newMessages: 'New messages',
         notifications: {
           enable: 'Notifications',
@@ -486,6 +487,7 @@ const resources = {
         title: 'Поддержка',
         chats: 'Чаты',
         backToList: 'К списку чатов',
+        backToFunnel: 'Назад в воронку',
         newMessages: 'Новые сообщения',
         notifications: {
           enable: 'Уведомления',
