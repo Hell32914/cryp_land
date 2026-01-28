@@ -135,7 +135,11 @@ export function RefLinks() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLinks.map((link) => (
+                  {filteredLinks.map((link) => {
+                    const leadCount = (link.totalLeads || 0) + (link.channelLeads || 0)
+                    const totalUsers = link.totalUsers || 0
+                    const totalCount = leadCount + totalUsers
+                    return (
                     <TableRow key={link.linkId}>
                       <TableCell className="font-medium text-blue-400">
                         {link.trafficerName || 'Unknown'}
@@ -155,16 +159,16 @@ export function RefLinks() {
                       <TableCell className="text-orange-400">
                         {link.creative || '-'}
                       </TableCell>
-                      <TableCell className="text-right text-purple-400 font-semibold">{link.totalLeads + (link.channelLeads || 0) + (link.totalUsers || 0)}</TableCell>
-                      <TableCell className="text-right text-green-400 font-semibold">{link.totalUsers || 0}</TableCell>
+                      <TableCell className="text-right text-purple-400 font-semibold">{totalCount}</TableCell>
+                      <TableCell className="text-right text-green-400 font-semibold">{totalUsers}</TableCell>
                       <TableCell className="text-right text-blue-400">{link.usersToday || 0}</TableCell>
                       <TableCell className="text-right text-cyan-400">{link.usersWeek || 0}</TableCell>
-                      <TableCell className="text-right text-yellow-400">{link.totalLeads}</TableCell>
+                      <TableCell className="text-right text-yellow-400">{leadCount}</TableCell>
                       <TableCell className="text-right text-sky-400">{link.channelLeads || 0}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
-                          {(link.totalLeads + (link.channelLeads || 0) + (link.totalUsers || 0)) > 0 
-                            ? formatPercent(((link.totalUsers || 0) / (link.totalLeads + (link.channelLeads || 0) + (link.totalUsers || 0))) * 100)
+                          {totalCount > 0 
+                            ? formatPercent((totalUsers / totalCount) * 100)
                             : '0.00%'}
                         </Badge>
                       </TableCell>
@@ -246,7 +250,7 @@ export function RefLinks() {
                         {formatDate(link.createdAt)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )})}
                 </TableBody>
               </Table>
             </div>

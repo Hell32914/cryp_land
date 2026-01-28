@@ -1,7 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
@@ -56,6 +64,18 @@ export function Dashboard() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
 
+  const formatDate = (value: string) => {
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+      }).format(new Date(value))
+    } catch {
+      return value
+    }
+  }
+
   // Use period-based values for all filters (depositsPeriod contains all time data when no filter)
   const depositsLabel = period === 'today' ? t('dashboard.depositsToday') : 
                         period === 'all' ? 'Total Deposits' : 'Deposits (Period)'
@@ -107,6 +127,24 @@ export function Dashboard() {
 
   const financialData = data?.financialData ?? []
   const geoData = data?.geoData ?? []
+
+  const dailyRows = useMemo(() => {
+    const rows = [...financialData]
+    rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return rows
+  }, [financialData])
+
+  const dailyTotals = useMemo(() => {
+    return dailyRows.reduce(
+      (acc, row) => {
+        acc.deposits += row.deposits
+        acc.withdrawals += row.withdrawals
+        acc.profit += row.profit
+        return acc
+      },
+      { deposits: 0, withdrawals: 0, profit: 0 }
+    )
+  }, [dailyRows])
 
   return (
     <div className="space-y-6">
@@ -300,6 +338,73 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily Summary</CardTitle>
+          <p className="text-sm text-muted-foreground">Aggregated by day for the selected period</p>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
+          ) : !dailyRows.length ? (
+            <div className="text-center text-muted-foreground py-8">No daily data</div>
+          ) : (
+            <div className="rounded-md border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Deposits</TableHead>
+                    <TableHead className="text-right">Withdrawals</TableHead>
+                    <TableHead className="text-right">Profit</TableHead>
+                    <TableHead className="text-right">Net Flow</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dailyRows.map((row) => {
+                    const netFlow = row.deposits - row.withdrawals
+                    return (
+                      <TableRow key={row.date}>
+                        <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
+                        <TableCell className="text-right text-green-500">
+                          {formatCurrency(row.deposits)}
+                        </TableCell>
+                        <TableCell className="text-right text-orange-500">
+                          {formatCurrency(row.withdrawals)}
+                        </TableCell>
+                        <TableCell className="text-right text-cyan-500">
+                          {formatCurrency(row.profit)}
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {formatCurrency(netFlow)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableCell className="font-semibold">Total</TableCell>
+                    <TableCell className="text-right font-semibold text-green-500">
+                      {formatCurrency(dailyTotals.deposits)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-orange-500">
+                      {formatCurrency(dailyTotals.withdrawals)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-cyan-500">
+                      {formatCurrency(dailyTotals.profit)}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-semibold ${(dailyTotals.deposits - dailyTotals.withdrawals) >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                    >
+                      {formatCurrency(dailyTotals.deposits - dailyTotals.withdrawals)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Users Block */}
