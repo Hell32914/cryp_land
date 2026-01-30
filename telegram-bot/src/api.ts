@@ -3704,11 +3704,17 @@ app.get('/api/user/:telegramId/support-bot-started', requireUserAuth, async (req
     const baseLink = process.env.SUPPORT_BOT_LINK || `https://t.me/${username}`
     const supportBotLink = process.env.SUPPORT_BOT_START_LINK || `${baseLink}?start=activate`
 
-    const chat = await prisma.supportChat.findUnique({ where: { telegramId } })
+    const [user, chat] = await Promise.all([
+      prisma.user.findUnique({ where: { telegramId } }),
+      prisma.supportChat.findUnique({ where: { telegramId } }),
+    ])
+
+    const started = Boolean(user?.contactSupportSeen)
+    const startedAt = user?.contactSupportBonusGrantedAt || chat?.startedAt || null
 
     return res.json({
-      started: Boolean(chat),
-      startedAt: chat?.startedAt || null,
+      started,
+      startedAt,
       supportBotLink,
       supportBotConfigured: Boolean(process.env.SUPPORT_BOT_TOKEN) || Boolean(supportBotInstance),
     })
