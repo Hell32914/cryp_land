@@ -368,7 +368,7 @@ const supportChatsQuerySchema = z.object({
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).optional(),
   // CRM funnel board may need a larger slice to include older chats.
-  limit: z.coerce.number().int().min(1).max(3000).optional(),
+  limit: z.coerce.number().int().min(1).max(10000).optional(),
 })
 
 const supportSendMessageSchema = z.object({
@@ -2632,6 +2632,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const [
       totalUsers,
       balanceAgg,
+      usersForBalance,
+      adminCreditsAgg,
       depositsTodayAgg,
       withdrawalsTodayAgg,
       profitAgg,
@@ -2649,6 +2651,15 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       prisma.user.count({ where: userWhere }),
       // totalDeposit is the working balance; legacy `balance` may be stale in old data.
       prisma.user.aggregate({ _sum: { totalDeposit: true }, where: { isHidden: false } }),
+      prisma.user.findMany({
+        where: { isHidden: false },
+        select: { id: true, totalDeposit: true },
+      }),
+      prisma.deposit.groupBy({
+        by: ['userId'],
+        where: { status: 'COMPLETED', paymentMethod: 'ADMIN' },
+        _sum: { amount: true },
+      }),
       prisma.deposit.aggregate({
         _sum: { amount: true },
         where: {
@@ -2725,6 +2736,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         },
       }),
     ])
+
+    const adminCreditsByUser = new Map<number, number>()
+    adminCreditsAgg.forEach((row) => {
+      adminCreditsByUser.set(row.userId, Number(row._sum.amount ?? 0))
+    })
+
+    const totalBalanceNoAdmin = usersForBalance.reduce((sum, user) => {
+      const adminCredits = adminCreditsByUser.get(user.id) || 0
+      return sum + Math.max(user.totalDeposit - adminCredits, 0)
+    }, 0)
 
     // Build date series dynamically based on period
     const effectiveStart = periodStart || chartStart
@@ -2915,6 +2936,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       kpis: {
         totalUsers,
         totalBalance: Number((balanceAgg as any)._sum.totalDeposit ?? 0),
+        totalBalanceNoAdmin,
         depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
         withdrawalsToday: Number(withdrawalsTodayAgg._sum.amount ?? 0),
         profitPeriod: Number(profitAgg._sum.amount ?? 0),

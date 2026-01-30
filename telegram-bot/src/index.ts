@@ -2536,13 +2536,14 @@ bot.on('message:text', async (ctx) => {
       await createReferralChain(user)
     }
 
-    // Create deposit record
+    // Create deposit record (mark as admin credit)
     await prisma.deposit.create({
       data: {
         userId: user.id,
         amount,
         status: 'COMPLETED',
-        currency: 'USDT'
+        currency: 'USDT',
+        paymentMethod: 'ADMIN',
       }
     })
 

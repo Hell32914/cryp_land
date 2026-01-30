@@ -91,6 +91,7 @@ async function requestFormData<T>(path: string, formData: FormData, token?: stri
 export interface KPIResponse {
   totalUsers: number
   totalBalance: number
+  totalBalanceNoAdmin: number
   depositsToday: number
   withdrawalsToday: number
   profitPeriod: number
@@ -485,6 +486,7 @@ const MOCK_OVERVIEW: OverviewResponse = {
   kpis: {
     totalUsers: 1280,
     totalBalance: 240_000,
+    totalBalanceNoAdmin: 240_000,
     depositsToday: 12_400,
     withdrawalsToday: 4_200,
     profitPeriod: 18_600,

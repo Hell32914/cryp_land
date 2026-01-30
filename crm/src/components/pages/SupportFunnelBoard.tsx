@@ -195,7 +195,7 @@ export function SupportFunnelBoard() {
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
-  >(['support-chats-board'], (authToken) => fetchSupportChats(authToken, undefined, 1, 3000), {
+  >(['support-chats-board'], (authToken) => fetchSupportChats(authToken, undefined, 1, 10000), {
     enabled: Boolean(token),
     refetchInterval: 5000,
     refetchIntervalInBackground: true,

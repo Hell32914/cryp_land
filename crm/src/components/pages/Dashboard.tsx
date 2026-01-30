@@ -96,6 +96,12 @@ export function Dashboard() {
       gradient: 'from-purple-500 to-purple-600',
     },
     {
+      title: t('dashboard.totalBalanceNoAdmin'),
+      value: data ? formatCurrency(data.kpis.totalBalanceNoAdmin) : '—',
+      icon: Wallet,
+      gradient: 'from-indigo-500 to-indigo-600',
+    },
+    {
       title: depositsLabel,
       value: data ? formatCurrency(period === 'today' ? data.kpis.depositsToday : data.kpis.depositsPeriod) : '—',
       icon: ArrowCircleDown,
