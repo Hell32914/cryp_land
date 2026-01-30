@@ -407,7 +407,7 @@ export function Dashboard() {
                     </LineChart>
                   </ResponsiveContainer>
 
-                  <ResponsiveContainer width="100%" height={100}>
+                  <ResponsiveContainer width="100%" height={140}>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
                       <XAxis
@@ -422,6 +422,14 @@ export function Dashboard() {
                         }}
                       />
                       <YAxis
+                        yAxisId="left"
+                        stroke="#9ca3af"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        tickFormatter={(value) => `$${value.toLocaleString()}`}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
                         stroke="#9ca3af"
                         tick={{ fill: '#9ca3af', fontSize: 12 }}
                         tickFormatter={(value) => value.toLocaleString()}
@@ -444,18 +452,22 @@ export function Dashboard() {
                         }}
                       />
                       <Bar
-                        dataKey="traffic"
-                        fill="#6366f1"
-                        name={t('dashboard.traffic')}
-                        hide={!!hiddenSeries.traffic}
-                        barSize={12}
-                      />
-                      <Bar
                         dataKey="spend"
+                        yAxisId="left"
                         fill="#ef4444"
                         name={t('dashboard.spend')}
                         hide={!!hiddenSeries.spend}
-                        barSize={12}
+                        barSize={14}
+                        minPointSize={2}
+                      />
+                      <Bar
+                        dataKey="traffic"
+                        yAxisId="right"
+                        fill="#6366f1"
+                        name={t('dashboard.traffic')}
+                        hide={!!hiddenSeries.traffic}
+                        barSize={14}
+                        minPointSize={2}
                       />
                     </BarChart>
                   </ResponsiveContainer>

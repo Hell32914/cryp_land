@@ -2639,7 +2639,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     }
     
     // Chart always shows based on period or last 7 days
-    const chartDays = 7
+    const chartDays = 30
     const chartStart = periodStart || new Date(startOfToday)
     if (!periodStart) {
       chartStart.setDate(startOfToday.getDate() - (chartDays - 1))
