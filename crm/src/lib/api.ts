@@ -104,6 +104,8 @@ export interface FinancialPoint {
   deposits: number
   withdrawals: number
   profit: number
+  traffic: number
+  spend: number
 }
 
 export interface GeoEntry {
@@ -127,6 +129,10 @@ export interface OverviewResponse {
   kpis: KPIResponse
   financialData: FinancialPoint[]
   geoData: GeoEntry[]
+  filters?: {
+    geos: string[]
+    streams: string[]
+  }
   generatedAt: string
   topUsers: Array<{
     telegramId: number
@@ -498,6 +504,8 @@ const MOCK_OVERVIEW: OverviewResponse = {
     deposits: 8000 + idx * 1200,
     withdrawals: 3000 + idx * 700,
     profit: 2000 + idx * 400,
+    traffic: 120 + idx * 10,
+    spend: 1500 + idx * 120,
   })),
   geoData: [
     {
@@ -579,6 +587,10 @@ const MOCK_OVERVIEW: OverviewResponse = {
     withdrawalsCount: 142,
     totalReinvest: 24,
     reinvestCount: 54,
+  },
+  filters: {
+    geos: ['United States', 'Canada', 'Germany'],
+    streams: ['stream-1', 'stream-2'],
   },
   period: {
     from: isoDaysAgo(30),
@@ -969,11 +981,13 @@ export const adminLogin = async (username: string, password: string) =>
     body: JSON.stringify({ username, password }),
   })
 
-export const fetchOverview = (token: string, from?: string, to?: string) => {
+export const fetchOverview = (token: string, from?: string, to?: string, geo?: string, stream?: string) => {
   if (isTesterToken(token)) return Promise.resolve(MOCK_OVERVIEW)
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
+  if (geo) params.set('geo', geo)
+  if (stream) params.set('stream', stream)
   const query = params.toString()
   return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
 }

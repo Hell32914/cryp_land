@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { ComposedChart, Line, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
@@ -21,6 +21,9 @@ export function Dashboard() {
   const [period, setPeriod] = useState<PeriodType>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [geoFilter, setGeoFilter] = useState('')
+  const [streamFilter, setStreamFilter] = useState('')
+  const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
   
   // Calculate date range based on period
   const getDateRange = () => {
@@ -56,9 +59,9 @@ export function Dashboard() {
   const dateRange = getDateRange()
   
   const { data, isLoading, isError, error } = useApiQuery<OverviewResponse>(
-    ['overview', period, customFrom, customTo], 
-    (token) => fetchOverview(token, dateRange.from, dateRange.to), 
-    { staleTime: 60_000 }
+    ['overview', period, customFrom, customTo, geoFilter, streamFilter], 
+    (token) => fetchOverview(token, dateRange.from, dateRange.to, geoFilter || undefined, streamFilter || undefined), 
+    { staleTime: 10_000, refetchInterval: 10_000, refetchIntervalInBackground: true, refetchOnWindowFocus: true }
   )
 
   const formatCurrency = (value: number) =>
@@ -133,6 +136,15 @@ export function Dashboard() {
 
   const financialData = data?.financialData ?? []
   const geoData = data?.geoData ?? []
+  const availableGeos = data?.filters?.geos ?? []
+  const availableStreams = data?.filters?.streams ?? []
+
+  const toggleSeries = (key: string) => {
+    setHiddenSeries((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }))
+  }
 
   const dailyRows = useMemo(() => {
     const rows = [...financialData]
@@ -146,9 +158,11 @@ export function Dashboard() {
         acc.deposits += row.deposits
         acc.withdrawals += row.withdrawals
         acc.profit += row.profit
+        acc.traffic += row.traffic
+        acc.spend += row.spend
         return acc
       },
-      { deposits: 0, withdrawals: 0, profit: 0 }
+      { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, spend: 0 }
     )
   }, [dailyRows])
 
@@ -174,6 +188,32 @@ export function Dashboard() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="text-sm text-muted-foreground">{t('dashboard.filterGeo')}</div>
+        <select
+          value={geoFilter}
+          onChange={(e) => setGeoFilter(e.target.value)}
+          className="bg-muted/50 border border-border rounded-md px-3 py-1.5 text-sm text-foreground"
+        >
+          <option value="">{t('dashboard.filterAll')}</option>
+          {availableGeos.map((geo) => (
+            <option key={geo} value={geo}>{geo}</option>
+          ))}
+        </select>
+
+        <div className="text-sm text-muted-foreground">{t('dashboard.filterStream')}</div>
+        <select
+          value={streamFilter}
+          onChange={(e) => setStreamFilter(e.target.value)}
+          className="bg-muted/50 border border-border rounded-md px-3 py-1.5 text-sm text-foreground"
+        >
+          <option value="">{t('dashboard.filterAll')}</option>
+          {availableStreams.map((stream) => (
+            <option key={stream} value={stream}>{stream}</option>
+          ))}
+        </select>
       </div>
       
       {/* Custom Date Range */}
@@ -243,48 +283,94 @@ export function Dashboard() {
               <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={financialData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#9ca3af"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis 
-                  stroke="#9ca3af"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#22252f', 
-                    border: '1px solid #3f4456',
-                    borderRadius: '8px',
-                    color: '#f8f9fa'
-                  }}
-                  formatter={(value: number) => `$${value.toLocaleString()}`}
-                />
-                <Legend 
-                  wrapperStyle={{ color: '#9ca3af' }}
-                  iconType="circle"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="deposits" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={{ fill: '#10b981', r: 4 }}
-                  name={t('dashboard.deposits')}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="withdrawals" 
-                  stroke="#f59e0b" 
-                  strokeWidth={2}
-                  dot={{ fill: '#f59e0b', r: 4 }}
-                  name={t('dashboard.withdrawals')}
-                />
+                <ComposedChart data={financialData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#9ca3af"
+                    tick={{ fill: '#9ca3af', fontSize: 12 }}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    stroke="#9ca3af"
+                    tick={{ fill: '#9ca3af', fontSize: 12 }}
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#9ca3af"
+                    tick={{ fill: '#9ca3af', fontSize: 12 }}
+                    tickFormatter={(value) => value.toLocaleString()}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#22252f', 
+                      border: '1px solid #3f4456',
+                      borderRadius: '8px',
+                      color: '#f8f9fa'
+                    }}
+                    formatter={(value: number, name: string) => {
+                      const labelMap: Record<string, string> = {
+                        deposits: t('dashboard.deposits'),
+                        withdrawals: t('dashboard.withdrawals'),
+                        profit: t('dashboard.profit'),
+                        traffic: t('dashboard.traffic'),
+                        spend: t('dashboard.spend'),
+                      }
+                      const label = labelMap[name] || name
+                      if (name === 'traffic') return [value.toLocaleString(), label]
+                      return [`$${value.toLocaleString()}`, label]
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ color: '#9ca3af', cursor: 'pointer' }}
+                    iconType="circle"
+                    onClick={(e: any) => {
+                      if (e?.dataKey) toggleSeries(String(e.dataKey))
+                    }}
+                    formatter={(value: string, entry: any) => {
+                      const key = String(entry?.dataKey || value)
+                      return (
+                        <span className={hiddenSeries[key] ? 'opacity-40 line-through' : ''}>{value}</span>
+                      )
+                    }}
+                  />
+                  <Bar
+                    dataKey="traffic"
+                    yAxisId="right"
+                    fill="#6366f1"
+                    name={t('dashboard.traffic')}
+                    hide={!!hiddenSeries.traffic}
+                    barSize={12}
+                  />
+                  <Bar
+                    dataKey="spend"
+                    yAxisId="left"
+                    fill="#ef4444"
+                    name={t('dashboard.spend')}
+                    hide={!!hiddenSeries.spend}
+                    barSize={12}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="deposits" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    dot={{ fill: '#10b981', r: 4 }}
+                    name={t('dashboard.deposits')}
+                    hide={!!hiddenSeries.deposits}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="withdrawals" 
+                    stroke="#f59e0b" 
+                    strokeWidth={2}
+                    dot={{ fill: '#f59e0b', r: 4 }}
+                    name={t('dashboard.withdrawals')}
+                    hide={!!hiddenSeries.withdrawals}
+                  />
                   <Line 
                     type="monotone" 
                     dataKey="profit" 
@@ -292,8 +378,9 @@ export function Dashboard() {
                     strokeWidth={2}
                     dot={{ fill: '#06b6d4', r: 4 }}
                     name={t('dashboard.profit')}
+                    hide={!!hiddenSeries.profit}
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -360,16 +447,20 @@ export function Dashboard() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Deposits</TableHead>
-                    <TableHead className="text-right">Withdrawals</TableHead>
-                    <TableHead className="text-right">Profit</TableHead>
-                    <TableHead className="text-right">Net Flow</TableHead>
+                    <TableHead>{t('dashboard.date')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.deposits')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.spend')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.netFlow')}</TableHead>
+                    <TableHead className="text-right">{t('dashboard.roi')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {dailyRows.map((row) => {
                     const netFlow = row.deposits - row.withdrawals
+                    const roi = row.spend > 0 ? ((row.profit - row.spend) / row.spend) * 100 : null
                     return (
                       <TableRow key={row.date}>
                         <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
@@ -382,8 +473,17 @@ export function Dashboard() {
                         <TableCell className="text-right text-cyan-500">
                           {formatCurrency(row.profit)}
                         </TableCell>
+                        <TableCell className="text-right text-indigo-400">
+                          {row.traffic.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-red-400">
+                          {formatCurrency(row.spend)}
+                        </TableCell>
                         <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                           {formatCurrency(netFlow)}
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${roi === null ? 'text-muted-foreground' : roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {roi === null ? '—' : `${roi.toFixed(1)}%`}
                         </TableCell>
                       </TableRow>
                     )
@@ -399,10 +499,19 @@ export function Dashboard() {
                     <TableCell className="text-right font-semibold text-cyan-500">
                       {formatCurrency(dailyTotals.profit)}
                     </TableCell>
+                    <TableCell className="text-right font-semibold text-indigo-400">
+                      {dailyTotals.traffic.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-red-400">
+                      {formatCurrency(dailyTotals.spend)}
+                    </TableCell>
                     <TableCell
                       className={`text-right font-semibold ${(dailyTotals.deposits - dailyTotals.withdrawals) >= 0 ? 'text-green-500' : 'text-red-500'}`}
                     >
                       {formatCurrency(dailyTotals.deposits - dailyTotals.withdrawals)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {dailyTotals.spend > 0 ? `${(((dailyTotals.profit - dailyTotals.spend) / dailyTotals.spend) * 100).toFixed(1)}%` : '—'}
                     </TableCell>
                   </TableRow>
                 </TableBody>

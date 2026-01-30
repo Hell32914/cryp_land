@@ -2603,6 +2603,40 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     // Period for filtering (defaults to all time if not specified)
     const periodStart = fromParam ? new Date(fromParam) : null
     const periodEnd = toParam ? new Date(toParam) : now
+
+    const geoFilter = typeof req.query.geo === 'string' ? req.query.geo.trim() : ''
+    const streamFilter = typeof req.query.stream === 'string' ? req.query.stream.trim() : ''
+
+    const [marketingLinks, geoOptions] = await Promise.all([
+      prisma.marketingLink.findMany({ select: { linkId: true, stream: true } }),
+      prisma.user.groupBy({ by: ['country'], where: { isHidden: false } }),
+    ])
+
+    const availableStreams = Array.from(new Set(marketingLinks.map(l => l.stream).filter(Boolean)))
+      .map((s) => String(s))
+      .sort()
+    const availableGeos = geoOptions
+      .map((g) => g.country || 'Unknown')
+      .filter(Boolean)
+      .sort()
+
+    const streamLinkIds = streamFilter
+      ? marketingLinks.filter(l => l.stream === streamFilter).map(l => l.linkId)
+      : []
+
+    const streamWhere = streamFilter
+      ? (streamLinkIds.length
+          ? { OR: streamLinkIds.map(id => ({ utmParams: { contains: id } })) }
+          : { id: { in: [] as any[] } })
+      : {}
+
+    const hasFilters = Boolean(geoFilter || streamFilter)
+
+    const userWhere = {
+      isHidden: false,
+      ...(geoFilter ? { country: geoFilter } : {}),
+      ...(streamFilter ? streamWhere : {}),
+    }
     
     // Chart always shows based on period or last 7 days
     const chartDays = 7
@@ -2617,17 +2651,17 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       lte: periodEnd
     } : undefined
 
-    const userWhere = periodWhere
-      ? { isHidden: false, createdAt: periodWhere }
-      : { isHidden: false }
+    const userWherePeriod = periodWhere
+      ? { ...userWhere, createdAt: periodWhere }
+      : userWhere
 
     const depositWhere = periodWhere
-      ? { status: 'COMPLETED', createdAt: periodWhere }
-      : { status: 'COMPLETED' }
+      ? { status: 'COMPLETED', createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: 'COMPLETED', ...(hasFilters ? { user: userWhere } : {}) }
 
     const withdrawalWhere = periodWhere
-      ? { status: 'COMPLETED', createdAt: periodWhere }
-      : { status: 'COMPLETED' }
+      ? { status: 'COMPLETED', createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: 'COMPLETED', ...(hasFilters ? { user: userWhere } : {}) }
 
     const [
       totalUsers,
@@ -2645,14 +2679,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       recentProfits,
       geoGroups,
       geoUsers,
+      trafficUsers,
       geoDeposits,
       geoWithdrawals,
+      expenses,
     ] = await Promise.all([
-      prisma.user.count({ where: userWhere }),
+      prisma.user.count({ where: userWherePeriod }),
       // totalDeposit is the working balance; legacy `balance` may be stale in old data.
-      prisma.user.aggregate({ _sum: { totalDeposit: true }, where: { isHidden: false } }),
+      prisma.user.aggregate({ _sum: { totalDeposit: true }, where: userWhere }),
       prisma.user.findMany({
-        where: { isHidden: false },
+        where: userWhere,
         select: { id: true, totalDeposit: true },
       }),
       prisma.deposit.groupBy({
@@ -2669,6 +2705,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
               currency: 'USDT',
             },
           ],
+          ...(hasFilters ? { user: userWhere } : {}),
         },
         _sum: { amount: true },
       }),
@@ -2677,6 +2714,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         where: {
           status: 'COMPLETED',
           createdAt: { gte: startOfToday },
+          ...(hasFilters ? { user: userWhere } : {}),
         },
       }),
       prisma.withdrawal.aggregate({
@@ -2684,13 +2722,15 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         where: {
           status: 'COMPLETED',
           createdAt: { gte: startOfToday },
+          ...(hasFilters ? { user: userWhere } : {}),
         },
       }),
       prisma.dailyProfitUpdate.aggregate({
         _sum: { amount: true },
         where: periodWhere ? {
           timestamp: periodWhere,
-        } : undefined,
+          ...(hasFilters ? { user: userWhere } : {}),
+        } : (hasFilters ? { user: userWhere } : undefined),
       }),
       // Deposits in selected period (for KPI)
       prisma.deposit.aggregate({
@@ -2706,6 +2746,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         where: {
           status: 'COMPLETED',
           createdAt: periodWhere || { gte: chartStart },
+          ...(hasFilters ? { user: userWhere } : {}),
         },
         select: { amount: true, createdAt: true },
       }),
@@ -2713,12 +2754,14 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         where: {
           status: 'COMPLETED',
           createdAt: periodWhere || { gte: chartStart },
+          ...(hasFilters ? { user: userWhere } : {}),
         },
         select: { amount: true, createdAt: true },
       }),
       prisma.dailyProfitUpdate.findMany({
         where: {
           timestamp: periodWhere || { gte: chartStart },
+          ...(hasFilters ? { user: userWhere } : {}),
         },
         select: { amount: true, timestamp: true },
       }),
@@ -2729,7 +2772,14 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.user.findMany({
         where: userWhere,
-        select: { telegramId: true, username: true, firstName: true, lastName: true, country: true },
+        select: { telegramId: true, username: true, firstName: true, lastName: true, country: true, createdAt: true },
+      }),
+      prisma.user.findMany({
+        where: {
+          ...userWhere,
+          createdAt: periodWhere || { gte: chartStart },
+        },
+        select: { createdAt: true },
       }),
       prisma.deposit.findMany({
         where: depositWhere,
@@ -2746,6 +2796,12 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
             select: { country: true },
           },
         },
+      }),
+      prisma.expense.findMany({
+        where: {
+          createdAt: periodWhere || { gte: chartStart },
+        },
+        select: { amount: true, createdAt: true },
       }),
     ])
 
@@ -2786,6 +2842,22 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       const entry = seriesMap.get(key)
       if (entry) {
         entry.profit += profit.amount
+      }
+    })
+
+    trafficUsers.forEach((u) => {
+      const key = getDateKey(u.createdAt)
+      const entry = seriesMap.get(key)
+      if (entry) {
+        entry.traffic += 1
+      }
+    })
+
+    expenses.forEach((expense) => {
+      const key = getDateKey(expense.createdAt)
+      const entry = seriesMap.get(key)
+      if (entry) {
+        entry.spend += Number(expense.amount)
       }
     })
 
@@ -2960,6 +3032,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       geoData,
       topUsers,
       transactionStats,
+      filters: {
+        geos: availableGeos,
+        streams: availableStreams,
+      },
       generatedAt: now.toISOString(),
       period: periodStart ? {
         from: periodStart.toISOString(),
@@ -3515,7 +3591,7 @@ app.get('/api/admin/referrals', requireAdminAuth, async (_req, res) => {
 const getDateKey = (date: Date) => date.toISOString().split('T')[0]
 
 const buildDateSeries = (days: number, startDate?: Date) => {
-  const map = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number }>()
+  const map = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; spend: number }>()
   const baseDate = startDate ? new Date(startDate) : new Date()
   baseDate.setHours(0, 0, 0, 0)
 
@@ -3528,6 +3604,8 @@ const buildDateSeries = (days: number, startDate?: Date) => {
       deposits: 0,
       withdrawals: 0,
       profit: 0,
+      traffic: 0,
+      spend: 0,
     })
   }
 
