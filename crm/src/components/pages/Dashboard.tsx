@@ -16,7 +16,7 @@ import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
 type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
 
-class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+class DashboardErrorBoundary extends Component<{ children: ReactNode; label?: string }, { hasError: boolean }> {
   state = { hasError: false }
 
   static getDerivedStateFromError() {
@@ -27,7 +27,7 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasErr
     if (this.state.hasError) {
       return (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          Dashboard render error. Please refresh.
+          {this.props.label ? `${this.props.label} render error.` : 'Render error.'}
         </div>
       )
     }
@@ -205,7 +205,6 @@ export function Dashboard() {
   }, [dailyRows])
 
   return (
-    <DashboardErrorBoundary>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-3xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
@@ -337,102 +336,104 @@ export function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#9ca3af"
-                    tick={{ fill: '#9ca3af', fontSize: 12 }}
-                    tickFormatter={(value) => {
-                      const parsed = parseDateSafe(String(value))
-                      return parsed
-                        ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                        : String(value)
-                    }}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    stroke="#9ca3af"
-                    tick={{ fill: '#9ca3af', fontSize: 12 }}
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    stroke="#9ca3af"
-                    tick={{ fill: '#9ca3af', fontSize: 12 }}
-                    tickFormatter={(value) => value.toLocaleString()}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#22252f', 
-                      border: '1px solid #3f4456',
-                      borderRadius: '8px',
-                      color: '#f8f9fa'
-                    }}
-                    formatter={(value: number, name: string) => {
-                      const labelMap: Record<string, string> = {
-                        deposits: t('dashboard.deposits'),
-                        withdrawals: t('dashboard.withdrawals'),
-                        profit: t('dashboard.profit'),
-                        traffic: t('dashboard.traffic'),
-                        spend: t('dashboard.spend'),
-                      }
-                      const label = labelMap[name] || name
-                      if (name === 'traffic') return [value.toLocaleString(), label]
-                      return [`$${value.toLocaleString()}`, label]
-                    }}
-                  />
-                  <Bar
-                    dataKey="traffic"
-                    yAxisId="right"
-                    fill="#6366f1"
-                    name={t('dashboard.traffic')}
-                    hide={!!hiddenSeries.traffic}
-                    barSize={12}
-                  />
-                  <Bar
-                    dataKey="spend"
-                    yAxisId="left"
-                    fill="#ef4444"
-                    name={t('dashboard.spend')}
-                    hide={!!hiddenSeries.spend}
-                    barSize={12}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="deposits" 
-                    stroke="#10b981" 
-                    strokeWidth={2}
-                    dot={{ fill: '#10b981', r: 4 }}
-                    name={t('dashboard.deposits')}
-                    hide={!!hiddenSeries.deposits}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="withdrawals" 
-                    stroke="#f59e0b" 
-                    strokeWidth={2}
-                    dot={{ fill: '#f59e0b', r: 4 }}
-                    name={t('dashboard.withdrawals')}
-                    hide={!!hiddenSeries.withdrawals}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="profit" 
-                    stroke="#06b6d4" 
-                    strokeWidth={2}
-                    dot={{ fill: '#06b6d4', r: 4 }}
-                    name={t('dashboard.profit')}
-                    hide={!!hiddenSeries.profit}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
+            <DashboardErrorBoundary label="Chart">
+              {isLoading ? (
+                <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#9ca3af"
+                      tick={{ fill: '#9ca3af', fontSize: 12 }}
+                      tickFormatter={(value) => {
+                        const parsed = parseDateSafe(String(value))
+                        return parsed
+                          ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : String(value)
+                      }}
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      stroke="#9ca3af"
+                      tick={{ fill: '#9ca3af', fontSize: 12 }}
+                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#9ca3af"
+                      tick={{ fill: '#9ca3af', fontSize: 12 }}
+                      tickFormatter={(value) => value.toLocaleString()}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#22252f', 
+                        border: '1px solid #3f4456',
+                        borderRadius: '8px',
+                        color: '#f8f9fa'
+                      }}
+                      formatter={(value: number, name: string) => {
+                        const labelMap: Record<string, string> = {
+                          deposits: t('dashboard.deposits'),
+                          withdrawals: t('dashboard.withdrawals'),
+                          profit: t('dashboard.profit'),
+                          traffic: t('dashboard.traffic'),
+                          spend: t('dashboard.spend'),
+                        }
+                        const label = labelMap[name] || name
+                        if (name === 'traffic') return [value.toLocaleString(), label]
+                        return [`$${value.toLocaleString()}`, label]
+                      }}
+                    />
+                    <Bar
+                      dataKey="traffic"
+                      yAxisId="right"
+                      fill="#6366f1"
+                      name={t('dashboard.traffic')}
+                      hide={!!hiddenSeries.traffic}
+                      barSize={12}
+                    />
+                    <Bar
+                      dataKey="spend"
+                      yAxisId="left"
+                      fill="#ef4444"
+                      name={t('dashboard.spend')}
+                      hide={!!hiddenSeries.spend}
+                      barSize={12}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="deposits" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      dot={{ fill: '#10b981', r: 4 }}
+                      name={t('dashboard.deposits')}
+                      hide={!!hiddenSeries.deposits}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="withdrawals" 
+                      stroke="#f59e0b" 
+                      strokeWidth={2}
+                      dot={{ fill: '#f59e0b', r: 4 }}
+                      name={t('dashboard.withdrawals')}
+                      hide={!!hiddenSeries.withdrawals}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="profit" 
+                      stroke="#06b6d4" 
+                      strokeWidth={2}
+                      dot={{ fill: '#06b6d4', r: 4 }}
+                      name={t('dashboard.profit')}
+                      hide={!!hiddenSeries.profit}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </DashboardErrorBoundary>
           </CardContent>
         </Card>
 
@@ -442,42 +443,44 @@ export function Dashboard() {
             <p className="text-sm text-muted-foreground">Distribution by country</p>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={geoData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    paddingAngle={2}
-                    dataKey="userCount"
-                    label={({ country, percentage }) => `${country}: ${percentage}%`}
-                    labelLine={false}
-                  >
-                    {geoData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#22252f', 
-                      border: '1px solid #3f4456',
-                      borderRadius: '8px',
-                      color: '#f8f9fa'
-                    }}
-                    formatter={(value: number, name: string, props: any) => [
-                      `${value.toLocaleString()} users (${props.payload.percentage}%)`,
-                      props.payload.country
-                    ]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
+            <DashboardErrorBoundary label="Geo chart">
+              {isLoading ? (
+                <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={geoData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      paddingAngle={2}
+                      dataKey="userCount"
+                      label={({ country, percentage }) => `${country}: ${percentage}%`}
+                      labelLine={false}
+                    >
+                      {geoData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#22252f', 
+                        border: '1px solid #3f4456',
+                        borderRadius: '8px',
+                        color: '#f8f9fa'
+                      }}
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value.toLocaleString()} users (${props.payload.percentage}%)`,
+                        props.payload.country
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </DashboardErrorBoundary>
           </CardContent>
         </Card>
       </div>
@@ -735,6 +738,5 @@ export function Dashboard() {
         </Card>
       </div>
     </div>
-    </DashboardErrorBoundary>
   )
 }
