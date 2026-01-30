@@ -1,5 +1,6 @@
 import express, { type RequestHandler } from 'express'
 import cors from 'cors'
+import { Prisma } from '@prisma/client'
 import { prisma } from './db.js'
 import { claimContactSupportBonus } from './contactSupportBonus.js'
 import axios from 'axios'
@@ -3095,7 +3096,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     const searchValue = String(search).trim()
     const countryValue = String(country).trim()
 
-    const baseWhere = searchValue
+    const baseWhere: Prisma.UserWhereInput = searchValue
       ? {
           isHidden: false,
           OR: [
@@ -3107,18 +3108,21 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         }
       : { isHidden: false }
 
-    const where = countryValue
-      ? {
-          ...baseWhere,
-          OR: countryValue.toLowerCase() === 'unknown'
-            ? [
+    const countryFilter: Prisma.UserWhereInput | null = countryValue
+      ? (countryValue.toLowerCase() === 'unknown'
+          ? {
+              OR: [
                 { country: null },
                 { country: '' },
-                { country: { equals: 'Unknown', mode: 'insensitive' } },
-              ]
-            : [{ country: { equals: countryValue, mode: 'insensitive' } }],
-        }
-      : baseWhere
+                { country: { equals: 'Unknown', mode: Prisma.QueryMode.insensitive } },
+              ],
+            }
+          : { country: { equals: countryValue, mode: Prisma.QueryMode.insensitive } })
+      : null
+
+    const where: Prisma.UserWhereInput = {
+      AND: [baseWhere, countryFilter].filter(Boolean) as Prisma.UserWhereInput[],
+    }
 
     // Get total count for pagination
     const totalCount = await prisma.user.count({ where })
@@ -3155,7 +3159,13 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
           select: { amount: true },
         },
       },
-    })
+    }) as Array<Prisma.UserGetPayload<{
+      include: {
+        referrals: { select: { id: true } }
+        deposits: { select: { amount: true } }
+        dailyUpdates: { select: { amount: true } }
+      }
+    }>>
 
     // Get all marketing links to match with users
     const marketingLinks = await prisma.marketingLink.findMany()
@@ -3169,7 +3179,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     // Calculate additional fields and get marketing link info
     const enrichedUsers = await Promise.all(users.map(async (user) => {
       const firstDeposit = user.deposits[0]
-      const totalProfit = user.dailyUpdates.reduce((sum, update) => sum + update.amount, 0)
+      const totalProfit = user.dailyUpdates.reduce((sum: number, update: { amount: number }) => sum + update.amount, 0)
       
       // Find marketing link for this user by linkId stored in utmParams
       let marketingLink = null
