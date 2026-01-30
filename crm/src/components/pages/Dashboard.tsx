@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Component, type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +15,25 @@ import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
 type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
+
+class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          Dashboard render error. Please refresh.
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export function Dashboard() {
   const { t } = useTranslation()
@@ -186,6 +205,7 @@ export function Dashboard() {
   }, [dailyRows])
 
   return (
+    <DashboardErrorBoundary>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-3xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
@@ -715,5 +735,6 @@ export function Dashboard() {
         </Card>
       </div>
     </div>
+    </DashboardErrorBoundary>
   )
 }
