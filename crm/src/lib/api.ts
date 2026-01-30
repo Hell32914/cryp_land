@@ -992,7 +992,7 @@ export const fetchOverview = (token: string, from?: string, to?: string, geo?: s
   return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
 }
 
-export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc', page?: number, country?: string) => {
+export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc', page?: number, country?: string, limit?: number) => {
   if (isTesterToken(token)) {
     const filteredUsers = country
       ? MOCK_USERS.filter((user) => user.country?.toLowerCase() === country.toLowerCase())
@@ -1022,6 +1022,9 @@ export const fetchUsers = (token: string, search?: string, sortBy?: string, sort
   }
   if (country) {
     params.set('country', country)
+  }
+  if (limit) {
+    params.set('limit', String(limit))
   }
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)

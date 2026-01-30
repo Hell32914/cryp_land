@@ -3087,14 +3087,15 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
 
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   try {
-    const { search = '', limit = '50', page = '1', sortBy = 'createdAt', sortOrder = 'desc' } = req.query
+    const { search = '', limit = '50', page = '1', sortBy = 'createdAt', sortOrder = 'desc', country = '' } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 50, 100)
     const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
     const skip = (pageNum - 1) * take
 
     const searchValue = String(search).trim()
+    const countryValue = String(country).trim()
 
-    const where = searchValue
+    const baseWhere = searchValue
       ? {
           isHidden: false,
           OR: [
@@ -3105,6 +3106,19 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
           ],
         }
       : { isHidden: false }
+
+    const where = countryValue
+      ? {
+          ...baseWhere,
+          OR: countryValue.toLowerCase() === 'unknown'
+            ? [
+                { country: null },
+                { country: '' },
+                { country: { equals: 'Unknown', mode: 'insensitive' } },
+              ]
+            : [{ country: { equals: countryValue, mode: 'insensitive' } }],
+        }
+      : baseWhere
 
     // Get total count for pagination
     const totalCount = await prisma.user.count({ where })
