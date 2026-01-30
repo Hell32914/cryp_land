@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ComposedChart, Line, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, BarChart, Line, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
@@ -340,98 +340,126 @@ export function Dashboard() {
               {isLoading ? (
                 <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#9ca3af"
-                      tick={{ fill: '#9ca3af', fontSize: 12 }}
-                      tickFormatter={(value) => {
-                        const parsed = parseDateSafe(String(value))
-                        return parsed
-                          ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                          : String(value)
-                      }}
-                    />
-                    <YAxis 
-                      yAxisId="left"
-                      stroke="#9ca3af"
-                      tick={{ fill: '#9ca3af', fontSize: 12 }}
-                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      stroke="#9ca3af"
-                      tick={{ fill: '#9ca3af', fontSize: 12 }}
-                      tickFormatter={(value) => value.toLocaleString()}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#22252f', 
-                        border: '1px solid #3f4456',
-                        borderRadius: '8px',
-                        color: '#f8f9fa'
-                      }}
-                      formatter={(value: number, name: string) => {
-                        const labelMap: Record<string, string> = {
-                          deposits: t('dashboard.deposits'),
-                          withdrawals: t('dashboard.withdrawals'),
-                          profit: t('dashboard.profit'),
-                          traffic: t('dashboard.traffic'),
-                          spend: t('dashboard.spend'),
-                        }
-                        const label = labelMap[name] || name
-                        if (name === 'traffic') return [value.toLocaleString(), label]
-                        return [`$${value.toLocaleString()}`, label]
-                      }}
-                    />
-                    <Bar
-                      dataKey="traffic"
-                      yAxisId="right"
-                      fill="#6366f1"
-                      name={t('dashboard.traffic')}
-                      hide={!!hiddenSeries.traffic}
-                      barSize={12}
-                    />
-                    <Bar
-                      dataKey="spend"
-                      yAxisId="left"
-                      fill="#ef4444"
-                      name={t('dashboard.spend')}
-                      hide={!!hiddenSeries.spend}
-                      barSize={12}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="deposits" 
-                      stroke="#10b981" 
-                      strokeWidth={2}
-                      dot={{ fill: '#10b981', r: 4 }}
-                      name={t('dashboard.deposits')}
-                      hide={!!hiddenSeries.deposits}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="withdrawals" 
-                      stroke="#f59e0b" 
-                      strokeWidth={2}
-                      dot={{ fill: '#f59e0b', r: 4 }}
-                      name={t('dashboard.withdrawals')}
-                      hide={!!hiddenSeries.withdrawals}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="profit" 
-                      stroke="#06b6d4" 
-                      strokeWidth={2}
-                      dot={{ fill: '#06b6d4', r: 4 }}
-                      name={t('dashboard.profit')}
-                      hide={!!hiddenSeries.profit}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <div className="space-y-4">
+                  <ResponsiveContainer width="100%" height={190}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#9ca3af"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          const parsed = parseDateSafe(String(value))
+                          return parsed
+                            ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                            : String(value)
+                        }}
+                      />
+                      <YAxis 
+                        stroke="#9ca3af"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#22252f', 
+                          border: '1px solid #3f4456',
+                          borderRadius: '8px',
+                          color: '#f8f9fa'
+                        }}
+                        formatter={(value: number, name: string) => {
+                          const labelMap: Record<string, string> = {
+                            deposits: t('dashboard.deposits'),
+                            withdrawals: t('dashboard.withdrawals'),
+                            profit: t('dashboard.profit'),
+                          }
+                          const label = labelMap[name] || name
+                          return [`$${value.toLocaleString()}`, label]
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="deposits" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        dot={{ fill: '#10b981', r: 4 }}
+                        name={t('dashboard.deposits')}
+                        hide={!!hiddenSeries.deposits}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="withdrawals" 
+                        stroke="#f59e0b" 
+                        strokeWidth={2}
+                        dot={{ fill: '#f59e0b', r: 4 }}
+                        name={t('dashboard.withdrawals')}
+                        hide={!!hiddenSeries.withdrawals}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="profit" 
+                        stroke="#06b6d4" 
+                        strokeWidth={2}
+                        dot={{ fill: '#06b6d4', r: 4 }}
+                        name={t('dashboard.profit')}
+                        hide={!!hiddenSeries.profit}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+
+                  <ResponsiveContainer width="100%" height={100}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#9ca3af"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          const parsed = parseDateSafe(String(value))
+                          return parsed
+                            ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                            : String(value)
+                        }}
+                      />
+                      <YAxis
+                        stroke="#9ca3af"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        tickFormatter={(value) => value.toLocaleString()}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#22252f', 
+                          border: '1px solid #3f4456',
+                          borderRadius: '8px',
+                          color: '#f8f9fa'
+                        }}
+                        formatter={(value: number, name: string) => {
+                          const labelMap: Record<string, string> = {
+                            traffic: t('dashboard.traffic'),
+                            spend: t('dashboard.spend'),
+                          }
+                          const label = labelMap[name] || name
+                          if (name === 'traffic') return [value.toLocaleString(), label]
+                          return [`$${value.toLocaleString()}`, label]
+                        }}
+                      />
+                      <Bar
+                        dataKey="traffic"
+                        fill="#6366f1"
+                        name={t('dashboard.traffic')}
+                        hide={!!hiddenSeries.traffic}
+                        barSize={12}
+                      />
+                      <Bar
+                        dataKey="spend"
+                        fill="#ef4444"
+                        name={t('dashboard.spend')}
+                        hide={!!hiddenSeries.spend}
+                        barSize={12}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </DashboardErrorBoundary>
           </CardContent>
