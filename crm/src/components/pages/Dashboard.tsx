@@ -140,10 +140,18 @@ export function Dashboard() {
   const availableStreams = data?.filters?.streams ?? []
 
   const chartData = useMemo(() => {
+    const toNumber = (value: unknown) => {
+      const num = typeof value === 'number' ? value : Number(value)
+      return Number.isFinite(num) ? num : 0
+    }
+
     return financialData.map((row) => ({
       ...row,
-      traffic: row.traffic ?? 0,
-      spend: row.spend ?? 0,
+      deposits: toNumber((row as any).deposits),
+      withdrawals: toNumber((row as any).withdrawals),
+      profit: toNumber((row as any).profit),
+      traffic: toNumber((row as any).traffic),
+      spend: toNumber((row as any).spend),
     }))
   }, [financialData])
 
