@@ -51,6 +51,9 @@ export function Dashboard() {
     today.setHours(0, 0, 0, 0)
     
     switch (period) {
+      case 'all': {
+        return { from: new Date(0).toISOString(), to: now.toISOString() }
+      }
       case 'today': {
         return { from: today.toISOString(), to: now.toISOString() }
       }
@@ -309,7 +312,7 @@ export function Dashboard() {
           <CardHeader>
             <CardTitle>{t('dashboard.financialDynamics')}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {period === 'all' ? t('dashboard.last7Days') : 
+              {period === 'all' ? 'All Time' : 
                period === 'today' ? 'Today' :
                period === 'week' ? 'Last 7 Days' :
                period === 'month' ? 'Last 30 Days' :
