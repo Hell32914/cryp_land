@@ -3643,7 +3643,8 @@ bot.on('message:text', async (ctx) => {
             userId: targetUserId,
             amount,
             status: 'COMPLETED',
-            currency: 'USDT'
+            currency: 'USDT',
+            paymentMethod: 'ADMIN',
           }
         })
       }
@@ -3692,12 +3693,25 @@ bot.on('message:text', async (ctx) => {
       }
 
       const oldDeposit = user.totalDeposit
+      const delta = amount - oldDeposit
 
       // Set new totalDeposit
       await prisma.user.update({
         where: { id: targetUserId },
         data: { totalDeposit: amount }
       })
+
+      if (delta > 0) {
+        await prisma.deposit.create({
+          data: {
+            userId: targetUserId,
+            amount: delta,
+            status: 'COMPLETED',
+            currency: 'USDT',
+            paymentMethod: 'ADMIN',
+          }
+        })
+      }
 
       // Notify user
       await bot.api.sendMessage(

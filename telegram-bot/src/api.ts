@@ -2657,7 +2657,19 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.deposit.groupBy({
         by: ['userId'],
-        where: { status: 'COMPLETED', paymentMethod: 'ADMIN' },
+        where: {
+          status: 'COMPLETED',
+          OR: [
+            { paymentMethod: 'ADMIN' },
+            {
+              paymentMethod: { in: ['OXAPAY', 'PAYPAL'] },
+              trackId: null,
+              txHash: null,
+              network: null,
+              currency: 'USDT',
+            },
+          ],
+        },
         _sum: { amount: true },
       }),
       prisma.deposit.aggregate({
