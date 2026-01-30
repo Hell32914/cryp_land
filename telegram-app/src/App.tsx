@@ -60,13 +60,6 @@ function App() {
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
 
-  // Gate access: require membership in a specific chat/channel before allowing use of the mini-app.
-  const requiredMembershipLink = 'https://t.me/+T-daFo58lL4yNDY6'
-  const [membershipChecked, setMembershipChecked] = useState(false)
-  const [isMember, setIsMember] = useState<boolean | null>(null)
-  const [membershipError, setMembershipError] = useState<string | null>(null)
-  const [membershipLink, setMembershipLink] = useState<string>(requiredMembershipLink)
-
   // Additional gate: user must press Start in the Support bot.
   const requiredSupportBotLink = 'https://t.me/syntrix_support_bot?start=activate'
   const [supportChecked, setSupportChecked] = useState(false)
@@ -350,44 +343,16 @@ function App() {
   const runAccessGateChecks = async () => {
     if (!telegramUserId || !authToken) return
 
-    setMembershipError(null)
     setSupportError(null)
-    setMembershipChecked(false)
     setSupportChecked(false)
-    setIsMember(null)
     setSupportBotStarted(null)
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
 
-      const [membershipRes, supportRes] = await Promise.all([
-        fetch(`${API_URL}/api/user/${telegramUserId}/membership`, {
-          headers: getAuthHeaders(),
-        }),
-        fetch(`${API_URL}/api/user/${telegramUserId}/support-bot-started`, {
-          headers: getAuthHeaders(),
-        }),
-      ])
-
-      // Membership
-      try {
-        const data = await membershipRes.json().catch(() => ({} as any))
-        const effectiveLink = (data?.chatLink as string) || requiredMembershipLink
-        setMembershipLink(effectiveLink)
-
-        if (!membershipRes.ok) {
-          setMembershipError(data?.error || 'Failed to check membership')
-          setIsMember(false)
-        } else {
-          setIsMember(Boolean(data?.isMember))
-        }
-      } catch (e) {
-        console.error('Membership check parse error:', e)
-        setMembershipError('Failed to check membership. Please try again.')
-        setIsMember(false)
-      } finally {
-        setMembershipChecked(true)
-      }
+      const supportRes = await fetch(`${API_URL}/api/user/${telegramUserId}/support-bot-started`, {
+        headers: getAuthHeaders(),
+      })
 
       // Support bot started
       try {
@@ -410,9 +375,6 @@ function App() {
       }
     } catch (error) {
       console.error('Access gate checks error:', error)
-      setMembershipError('Failed to check membership. Please try again.')
-      setIsMember(false)
-      setMembershipChecked(true)
       setSupportError('Failed to check support bot status. Please try again.')
       setSupportBotStarted(false)
       setSupportChecked(true)
@@ -752,8 +714,14 @@ function App() {
     return () => document.removeEventListener('focusin', handleFocus)
   }, [])
 
+  const CONTACT_SUPPORT_MODAL_ENABLED = import.meta.env.VITE_ENABLE_CONTACT_SUPPORT_MODAL === 'true'
+
   // Check and show Contact Support modal
   useEffect(() => {
+    if (!CONTACT_SUPPORT_MODAL_ENABLED) {
+      setContactSupportOpen(false)
+      return
+    }
     let intervalId: ReturnType<typeof setInterval> | null = null
     
     const checkContactSupport = async () => {
@@ -828,7 +796,7 @@ function App() {
         clearInterval(intervalId)
       }
     }
-  }, [userData])
+  }, [userData, CONTACT_SUPPORT_MODAL_ENABLED])
 
   // User profile with real data from bot API
   const userProfile = {
@@ -1027,7 +995,7 @@ function App() {
   }
 
   // Access gates (require auth, so they won't block local unauthenticated dev flows)
-  if (authToken && (!membershipChecked || !supportChecked)) {
+  if (authToken && !supportChecked) {
     return (
       <>
         <AnimatedBackground />
@@ -1041,9 +1009,8 @@ function App() {
     )
   }
 
-  const needsMembership = isMember !== true
   const needsSupportBot = supportBotStarted !== true
-  const accessBlocked = authToken && membershipChecked && supportChecked && (needsMembership || needsSupportBot)
+  const accessBlocked = authToken && supportChecked && needsSupportBot
 
   if (accessBlocked) {
     return (
@@ -1055,32 +1022,10 @@ function App() {
           <div className="relative z-10 text-center space-y-4 max-w-md">
             <div className="text-destructive text-6xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
-            <p className="text-foreground/70">
-              {needsMembership
-                ? 'To use this mini app, please join the required channel first.'
-                : 'Next step: activate the support bot to continue.'}
-            </p>
-            {membershipError && <p className="text-foreground/60 text-sm">{membershipError}</p>}
+            <p className="text-foreground/70">Next step: activate the support bot to continue.</p>
             {supportError && <p className="text-foreground/60 text-sm">{supportError}</p>}
             <div className="flex flex-col gap-2">
-              {needsMembership && (
-                <Button
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={() => {
-                    const url = membershipLink || requiredMembershipLink
-                    const tg = (window as any).Telegram?.WebApp
-                    if (tg?.openTelegramLink) {
-                      tg.openTelegramLink(url)
-                    } else {
-                      window.open(url, '_blank')
-                    }
-                  }}
-                >
-                  Join the channel
-                </Button>
-              )}
-
-              {!needsMembership && needsSupportBot && (
+              {needsSupportBot && (
                 <>
                   <p className="text-foreground/70 text-sm">
                     Activate the support bot to activate your account and receive 25 Syntrix tokens.
@@ -2724,9 +2669,9 @@ function App() {
       </nav>
 
       {/* Contact Support Modal */}
-      <Dialog open={contactSupportOpen} onOpenChange={(open) => {
+      <Dialog open={CONTACT_SUPPORT_MODAL_ENABLED && contactSupportOpen} onOpenChange={(open) => {
         // Do not allow dismissing this modal (only closes after SEND or when timer expires)
-        if (open) setContactSupportOpen(true)
+        if (CONTACT_SUPPORT_MODAL_ENABLED && open) setContactSupportOpen(true)
       }}>
         <DialogContent
           hideClose

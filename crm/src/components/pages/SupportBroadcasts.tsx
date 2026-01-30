@@ -118,7 +118,7 @@ export function SupportBroadcasts() {
 
   const { data: chatsData } = useApiQuery<Awaited<ReturnType<typeof fetchSupportChats>>>(
     ['support-chats-broadcasts'],
-    (authToken) => fetchSupportChats(authToken, undefined, 1, 200),
+    (authToken) => fetchSupportChats(authToken, undefined, 1, 3000),
     {
       enabled: Boolean(token),
       refetchInterval: 10000,
