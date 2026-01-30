@@ -994,7 +994,7 @@ function App() {
     )
   }
 
-  const isTelegramWebApp = Boolean(window.Telegram?.WebApp?.initData)
+  const isTelegramWebApp = Boolean(window.Telegram?.WebApp)
 
   // Access gates (require auth, so they won't block local unauthenticated dev flows)
   if (isTelegramWebApp && (!authToken || !supportChecked)) {
