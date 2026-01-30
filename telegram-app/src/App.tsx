@@ -994,8 +994,10 @@ function App() {
     )
   }
 
+  const isTelegramWebApp = Boolean(window.Telegram?.WebApp?.initData)
+
   // Access gates (require auth, so they won't block local unauthenticated dev flows)
-  if (authToken && !supportChecked) {
+  if (isTelegramWebApp && (!authToken || !supportChecked)) {
     return (
       <>
         <AnimatedBackground />
@@ -1010,7 +1012,7 @@ function App() {
   }
 
   const needsSupportBot = supportBotStarted !== true
-  const accessBlocked = authToken && supportChecked && needsSupportBot
+  const accessBlocked = isTelegramWebApp && supportChecked && needsSupportBot
 
   if (accessBlocked) {
     return (
