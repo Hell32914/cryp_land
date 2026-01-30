@@ -10,10 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
-import { fetchOverview } from '@/lib/api'
+import { fetchOverview, fetchUsers, type UserRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 
 type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
@@ -26,6 +32,10 @@ export function GeoData() {
   const [period, setPeriod] = useState<PeriodType>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
+  const [countryUsersOpen, setCountryUsersOpen] = useState(false)
+  const [countryUsersLoading, setCountryUsersLoading] = useState(false)
+  const [countryUsers, setCountryUsers] = useState<UserRecord[]>([])
 
   // Calculate date range based on period
   const getDateRange = () => {
@@ -85,6 +95,25 @@ export function GeoData() {
   ]
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1']
+
+  const handleCountryClick = async (country: string) => {
+    if (!token) return
+    setSelectedCountry(country)
+    setCountryUsersOpen(true)
+    setCountryUsers([])
+    try {
+      setCountryUsersLoading(true)
+      const response = await fetchUsers(token, undefined, undefined, undefined, 1, country)
+      const normalized = country.toLowerCase()
+      const filtered = response.users.filter((user) => user.country?.toLowerCase() === normalized)
+      setCountryUsers(filtered)
+    } catch (error) {
+      console.error('Failed to load country users:', error)
+      toast.error('Failed to load users for selected country')
+    } finally {
+      setCountryUsersLoading(false)
+    }
+  }
 
   const exportCSV = () => {
     const headers = ['Country', 'User Count', 'Percentage', 'FTD Count', 'Conversion Rate (%)', 'Total Deposits', 'Total Withdrawals', 'Total Profit']
@@ -190,7 +219,17 @@ export function GeoData() {
                   dataKey="userCount"
                 >
                   {geoData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        const country = geoData[index]?.country
+                        if (country) {
+                          handleCountryClick(country)
+                        }
+                      }}
+                    />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -331,6 +370,68 @@ export function GeoData() {
           ))}
         </div>
       </div>
+
+      <Dialog
+        open={countryUsersOpen}
+        onOpenChange={(open) => {
+          setCountryUsersOpen(open)
+          if (!open) {
+            setSelectedCountry(null)
+            setCountryUsers([])
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              Users from {selectedCountry || '—'}
+            </DialogTitle>
+          </DialogHeader>
+          {countryUsersLoading ? (
+            <div className="space-y-2">
+              {[...Array(6)].map((_, idx) => (
+                <div key={idx} className="h-10 w-full animate-pulse rounded bg-muted/50" />
+              ))}
+            </div>
+          ) : countryUsers.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No users found for this country.</div>
+          ) : (
+            <div className="rounded-md border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>User</TableHead>
+                    <TableHead className="text-right">User ID</TableHead>
+                    <TableHead className="text-right">Deposits</TableHead>
+                    <TableHead className="text-right">Withdrawals</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {countryUsers.map((user) => (
+                    <TableRow key={user.telegramId} className="hover:bg-muted/30">
+                      <TableCell>
+                        <div className="font-medium text-sm">
+                          {user.username ? `@${user.username}` : user.fullName}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{user.fullName}</div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        {user.telegramId}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-green-400">
+                        ${user.totalDeposit.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm text-orange-400">
+                        ${user.totalWithdraw.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

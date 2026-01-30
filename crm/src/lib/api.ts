@@ -992,12 +992,15 @@ export const fetchOverview = (token: string, from?: string, to?: string, geo?: s
   return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
 }
 
-export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc', page?: number) => {
+export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc', page?: number, country?: string) => {
   if (isTesterToken(token)) {
+    const filteredUsers = country
+      ? MOCK_USERS.filter((user) => user.country?.toLowerCase() === country.toLowerCase())
+      : MOCK_USERS
     return Promise.resolve({
-      users: MOCK_USERS,
-      count: MOCK_USERS.length,
-      totalCount: MOCK_USERS.length,
+      users: filteredUsers,
+      count: filteredUsers.length,
+      totalCount: filteredUsers.length,
       page: 1,
       totalPages: 1,
       hasNextPage: false,
@@ -1016,6 +1019,9 @@ export const fetchUsers = (token: string, search?: string, sortBy?: string, sort
   }
   if (page) {
     params.set('page', String(page))
+  }
+  if (country) {
+    params.set('country', country)
   }
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)
