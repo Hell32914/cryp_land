@@ -67,16 +67,19 @@ export function Dashboard() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
 
+  const parseDateSafe = (value: string) => {
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+
   const formatDate = (value: string) => {
-    try {
-      return new Intl.DateTimeFormat('en-GB', {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-      }).format(new Date(value))
-    } catch {
-      return value
-    }
+    const parsed = parseDateSafe(value)
+    if (!parsed) return value
+    return new Intl.DateTimeFormat('en-GB', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    }).format(parsed)
   }
 
   // Use period-based values for all filters (depositsPeriod contains all time data when no filter)
@@ -152,7 +155,7 @@ export function Dashboard() {
       profit: toNumber((row as any).profit),
       traffic: toNumber((row as any).traffic),
       spend: toNumber((row as any).spend),
-    }))
+    })).filter((row) => Boolean((row as any).date))
   }, [financialData])
 
   const toggleSeries = (key: string) => {
@@ -324,7 +327,12 @@ export function Dashboard() {
                     dataKey="date" 
                     stroke="#9ca3af"
                     tick={{ fill: '#9ca3af', fontSize: 12 }}
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    tickFormatter={(value) => {
+                      const parsed = parseDateSafe(String(value))
+                      return parsed
+                        ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        : String(value)
+                    }}
                   />
                   <YAxis 
                     yAxisId="left"
