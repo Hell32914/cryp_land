@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Wallet, UserPlus, House, Calculator, User, DotsThreeVertical, X, Copy, Info, TelegramLogo, ChatCircleDots, ShareNetwork, ArrowLeft, ChartLineUp, Gift, ArrowsLeftRight } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -59,6 +59,8 @@ function App() {
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState(25)
   const [syntrixTokenInfoOpen, setSyntrixTokenInfoOpen] = useState(false)
   const [authToken, setAuthToken] = useState<string | null>(null)
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   // Additional gate: user must press Start in the Support bot.
   const requiredSupportBotLink = 'https://t.me/syntrix_support_bot?start=activate'
@@ -144,40 +146,55 @@ function App() {
   // Get Telegram user ID (fallback to 503856039 for local testing)
   const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
 
-  // Authenticate user and get JWT token
-  useEffect(() => {
-    const authenticateUser = async () => {
-      try {
-        const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
-        const initData = window.Telegram?.WebApp?.initData || ''
-        
-        const response = await fetch(`${API_URL}/api/user/auth`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            telegramId: telegramUserId,
-            initData
-          })
-        })
+  const authenticateUser = useCallback(async () => {
+    if (!telegramUserId) return
+    setAuthLoading(true)
+    setAuthError(null)
 
-        if (response.ok) {
-          const data = await response.json()
-          setAuthToken(data.token)
-          console.log('✅ User authenticated successfully')
-        } else {
-          console.error('❌ Authentication failed:', await response.text())
-        }
-      } catch (error) {
-        console.error('❌ Authentication error:', error)
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+    const initData = window.Telegram?.WebApp?.initData || ''
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000)
+
+    try {
+      const response = await fetch(`${API_URL}/api/user/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          telegramId: telegramUserId,
+          initData,
+        }),
+        signal: controller.signal,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setAuthToken(data.token)
+        console.log('✅ User authenticated successfully')
+      } else {
+        const text = await response.text().catch(() => '')
+        console.error('❌ Authentication failed:', text)
+        setAuthError('Authentication failed. Please try again.')
       }
-    }
-
-    if (telegramUserId) {
-      authenticateUser()
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        setAuthError('Authentication timed out. Please try again.')
+      } else {
+        console.error('❌ Authentication error:', error)
+        setAuthError('Authentication error. Please try again.')
+      }
+    } finally {
+      window.clearTimeout(timeoutId)
+      setAuthLoading(false)
     }
   }, [telegramUserId])
+
+  // Authenticate user and get JWT token
+  useEffect(() => {
+    void authenticateUser()
+  }, [authenticateUser])
 
   // Handle PayPal return after payment - automatic confirmation
   useEffect(() => {
@@ -1003,8 +1020,27 @@ function App() {
         <AnimatedBackground />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
           <div className="text-center space-y-4">
-            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-foreground/70">Checking access...</p>
+            {authError && !authToken ? (
+              <>
+                <div className="text-destructive text-4xl">⚠️</div>
+                <p className="text-foreground/70">{authError}</p>
+                <Button
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={() => {
+                    void authenticateUser()
+                  }}
+                >
+                  Retry
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-foreground/70">
+                  {authLoading || !authToken ? 'Authenticating…' : 'Checking access…'}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </>
