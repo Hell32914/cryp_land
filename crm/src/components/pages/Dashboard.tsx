@@ -139,6 +139,14 @@ export function Dashboard() {
   const availableGeos = data?.filters?.geos ?? []
   const availableStreams = data?.filters?.streams ?? []
 
+  const chartData = useMemo(() => {
+    return financialData.map((row) => ({
+      ...row,
+      traffic: row.traffic ?? 0,
+      spend: row.spend ?? 0,
+    }))
+  }, [financialData])
+
   const toggleSeries = (key: string) => {
     setHiddenSeries((prev) => ({
       ...prev,
@@ -147,10 +155,10 @@ export function Dashboard() {
   }
 
   const dailyRows = useMemo(() => {
-    const rows = [...financialData]
+    const rows = [...chartData]
     rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return rows
-  }, [financialData])
+  }, [chartData])
 
   const dailyTotals = useMemo(() => {
     return dailyRows.reduce(
@@ -277,13 +285,32 @@ export function Dashboard() {
                period === 'month' ? 'Last 30 Days' :
                customFrom && customTo ? `${customFrom} - ${customTo}` : 'Select dates'}
             </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {[
+                { key: 'deposits', label: t('dashboard.deposits'), color: '#10b981' },
+                { key: 'withdrawals', label: t('dashboard.withdrawals'), color: '#f59e0b' },
+                { key: 'profit', label: t('dashboard.profit'), color: '#06b6d4' },
+                { key: 'traffic', label: t('dashboard.traffic'), color: '#6366f1' },
+                { key: 'spend', label: t('dashboard.spend'), color: '#ef4444' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => toggleSeries(item.key)}
+                  className={`px-2 py-1 rounded border border-border/60 ${hiddenSeries[item.key] ? 'opacity-40 line-through' : ''}`}
+                  style={{ color: item.color }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={financialData}>
+                <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2d3142" />
                   <XAxis 
                     dataKey="date" 
@@ -322,19 +349,6 @@ export function Dashboard() {
                       const label = labelMap[name] || name
                       if (name === 'traffic') return [value.toLocaleString(), label]
                       return [`$${value.toLocaleString()}`, label]
-                    }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ color: '#9ca3af', cursor: 'pointer' }}
-                    iconType="circle"
-                    onClick={(e: any) => {
-                      if (e?.dataKey) toggleSeries(String(e.dataKey))
-                    }}
-                    formatter={(value: string, entry: any) => {
-                      const key = String(entry?.dataKey || value)
-                      return (
-                        <span className={hiddenSeries[key] ? 'opacity-40 line-through' : ''}>{value}</span>
-                      )
                     }}
                   />
                   <Bar
