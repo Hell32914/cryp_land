@@ -265,14 +265,14 @@ export function Dashboard() {
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+            className="date-input px-3 py-1.5 text-sm rounded-md bg-background border border-border"
           />
           <label className="text-sm text-muted-foreground">To:</label>
           <input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+            className="date-input px-3 py-1.5 text-sm rounded-md bg-background border border-border"
           />
         </div>
       )}

@@ -91,3 +91,13 @@
   --radius-2xl: calc(var(--radius) * 3);
   --radius-full: 9999px;
 }
+
+/* Bright calendar icon for date inputs */
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.6);
+  opacity: 1;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1) brightness(1.9);
+}
