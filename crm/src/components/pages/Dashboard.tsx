@@ -46,6 +46,8 @@ export function Dashboard() {
   const [streamFilter, setStreamFilter] = useState('')
   const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
   const [statsPage, setStatsPage] = useState(1)
+  const compactTopScrollRef = useRef<HTMLDivElement>(null)
+  const compactBottomScrollRef = useRef<HTMLDivElement>(null)
   const fullTopScrollRef = useRef<HTMLDivElement>(null)
   const fullBottomScrollRef = useRef<HTMLDivElement>(null)
   
@@ -233,6 +235,16 @@ export function Dashboard() {
   const handleFullBottomScroll = () => {
     if (!fullTopScrollRef.current || !fullBottomScrollRef.current) return
     fullTopScrollRef.current.scrollLeft = fullBottomScrollRef.current.scrollLeft
+  }
+
+  const handleCompactTopScroll = () => {
+    if (!compactTopScrollRef.current || !compactBottomScrollRef.current) return
+    compactBottomScrollRef.current.scrollLeft = compactTopScrollRef.current.scrollLeft
+  }
+
+  const handleCompactBottomScroll = () => {
+    if (!compactTopScrollRef.current || !compactBottomScrollRef.current) return
+    compactTopScrollRef.current.scrollLeft = compactBottomScrollRef.current.scrollLeft
   }
 
   const renderDailyTable = (rows: DailyRow[]) => {
@@ -687,7 +699,18 @@ export function Dashboard() {
                       →
                     </button>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div
+                    ref={compactTopScrollRef}
+                    onScroll={handleCompactTopScroll}
+                    className="h-3 overflow-x-auto"
+                  >
+                    <div className="min-w-[1200px]" />
+                  </div>
+                  <div
+                    ref={compactBottomScrollRef}
+                    onScroll={handleCompactBottomScroll}
+                    className="overflow-x-auto"
+                  >
                     {renderDailyTable(compactRows)}
                   </div>
                 </div>

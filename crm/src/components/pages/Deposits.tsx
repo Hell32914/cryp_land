@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel, User } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -35,6 +35,10 @@ export function Deposits() {
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null)
+  const tableScrollRef = useRef<HTMLDivElement | null>(null)
+  const topScrollRef = useRef<HTMLDivElement | null>(null)
+  const [scrollWidth, setScrollWidth] = useState(0)
   const { token } = useAuth()
   const { data } = useQuery({
     queryKey: ['deposits', token, page, search],
@@ -42,6 +46,44 @@ export function Deposits() {
     enabled: !!token,
     refetchInterval: 10000, // Auto-refresh every 10 seconds
   })
+
+  const handleTopScroll = useCallback(() => {
+    if (topScrollRef.current && tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+    }
+  }, [])
+
+  const handleTableScroll = useCallback(() => {
+    if (topScrollRef.current && tableScrollRef.current) {
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft
+    }
+  }, [])
+
+  const refreshScrollWidth = useCallback(() => {
+    const tableWidth = tableScrollRef.current?.scrollWidth || 0
+    const containerWidth = tableScrollRef.current?.clientWidth || 0
+    setScrollWidth(Math.max(tableWidth, containerWidth))
+  }, [])
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current
+    if (!wrapper) return
+    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
+    if (!container) return
+
+    tableScrollRef.current = container
+    const onScroll = () => handleTableScroll()
+    container.addEventListener('scroll', onScroll, { passive: true })
+    requestAnimationFrame(refreshScrollWidth)
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [handleTableScroll, refreshScrollWidth, groupedDeposits.length])
+
+  useEffect(() => {
+    const updateWidth = () => refreshScrollWidth()
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [refreshScrollWidth, groupedDeposits.length])
 
   const deposits = data?.deposits || []
 
@@ -160,7 +202,15 @@ export function Deposits() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-hidden">
-            <Table>
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              className="overflow-x-auto overflow-y-hidden bg-muted/20 border-b border-border/60 h-4"
+            >
+              <div style={{ width: scrollWidth, height: 16 }} />
+            </div>
+            <div ref={tableWrapperRef} className="overflow-hidden">
+              <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>Order ID</TableHead>
@@ -327,7 +377,8 @@ export function Deposits() {
                   )
                 })}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-4">
