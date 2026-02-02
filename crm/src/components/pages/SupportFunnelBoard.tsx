@@ -89,7 +89,13 @@ function getUsernameFromJwt(token?: string | null): string | null {
     const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
     const json = window.atob(padded)
     const data = JSON.parse(json)
-    return typeof data?.username === 'string' ? data.username : null
+    const usernameCandidate =
+      data?.username ??
+      data?.adminUsername ??
+      data?.login ??
+      data?.user ??
+      data?.sub
+    return typeof usernameCandidate === 'string' ? usernameCandidate : null
   } catch {
     return null
   }
@@ -608,7 +614,7 @@ export function SupportFunnelBoard() {
 
           return (
             <Card key={col.id} className="min-w-[320px] max-w-[360px] flex-shrink-0">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm font-semibold truncate">{col.title}</CardTitle>
                   <Badge variant="secondary">{items.length}</Badge>
