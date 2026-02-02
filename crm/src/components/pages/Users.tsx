@@ -98,6 +98,19 @@ export function Users() {
     setScrollWidth(Math.max(tableWidth, containerWidth))
   }, [])
 
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('crm.users.filterCountry')
+      if (stored) {
+        setFilterCountry(stored)
+        setPage(1)
+        sessionStorage.removeItem('crm.users.filterCountry')
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
   const { data, isLoading, isError } = useApiQuery(
     ['users', debouncedSearch, sortBy, sortOrder, page, filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo], 
     (authToken) => fetchUsers(authToken, {

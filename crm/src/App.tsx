@@ -72,6 +72,7 @@ function AppContent() {
       const ce = ev as CustomEvent<any>
       const page = String(ce?.detail?.page || '')
       const supportChatId = ce?.detail?.supportChatId
+      const usersCountry = ce?.detail?.usersCountry
 
       if (!page) return
 
@@ -79,6 +80,14 @@ function AppContent() {
         try {
           sessionStorage.setItem('crm.support.openChatId', String(supportChatId))
           window.dispatchEvent(new CustomEvent('crm:support.openChat', { detail: { chatId: String(supportChatId) } }))
+        } catch {
+          // ignore
+        }
+      }
+
+      if (usersCountry) {
+        try {
+          sessionStorage.setItem('crm.users.filterCountry', String(usersCountry))
         } catch {
           // ignore
         }
