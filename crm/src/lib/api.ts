@@ -128,6 +128,7 @@ export interface GeoEntry {
 export interface OverviewResponse {
   kpis: KPIResponse
   financialData: FinancialPoint[]
+  dailySummary?: FinancialPoint[]
   geoData: GeoEntry[]
   filters?: {
     geos: string[]
@@ -501,6 +502,14 @@ const MOCK_OVERVIEW: OverviewResponse = {
   },
   financialData: Array.from({ length: 7 }).map((_, idx) => ({
     date: isoDaysAgo(6 - idx),
+    deposits: 8000 + idx * 1200,
+    withdrawals: 3000 + idx * 700,
+    profit: 2000 + idx * 400,
+    traffic: 120 + idx * 10,
+    spend: 1500 + idx * 120,
+  })),
+  dailySummary: Array.from({ length: 30 }).map((_, idx) => ({
+    date: isoDaysAgo(29 - idx),
     deposits: 8000 + idx * 1200,
     withdrawals: 3000 + idx * 700,
     profit: 2000 + idx * 400,
@@ -983,13 +992,14 @@ export const adminLogin = async (username: string, password: string) =>
     body: JSON.stringify({ username, password }),
   })
 
-export const fetchOverview = (token: string, from?: string, to?: string, geo?: string, stream?: string) => {
+export const fetchOverview = (token: string, from?: string, to?: string, geo?: string, stream?: string, fullDaily?: boolean) => {
   if (isTesterToken(token)) return Promise.resolve(MOCK_OVERVIEW)
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   if (geo) params.set('geo', geo)
   if (stream) params.set('stream', stream)
+  if (fullDaily) params.set('fullDaily', '1')
   const query = params.toString()
   return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
 }

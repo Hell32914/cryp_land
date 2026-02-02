@@ -2,7 +2,6 @@ import { Component, type ReactNode, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -17,6 +16,7 @@ import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
 type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
+type DailyRow = { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; spend: number }
 
 class DashboardErrorBoundary extends Component<{ children: ReactNode; label?: string }, { hasError: boolean }> {
   state = { hasError: false }
@@ -45,10 +45,9 @@ export function Dashboard() {
   const [geoFilter, setGeoFilter] = useState('')
   const [streamFilter, setStreamFilter] = useState('')
   const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
-  const [statsOpen, setStatsOpen] = useState(false)
   const [statsPage, setStatsPage] = useState(1)
-  const topScrollRef = useRef<HTMLDivElement>(null)
-  const bottomScrollRef = useRef<HTMLDivElement>(null)
+  const fullTopScrollRef = useRef<HTMLDivElement>(null)
+  const fullBottomScrollRef = useRef<HTMLDivElement>(null)
   
   // Calculate date range based on period
   const getDateRange = () => {
@@ -95,7 +94,7 @@ export function Dashboard() {
 
   const { data: allTimeData, isLoading: isAllTimeLoading } = useApiQuery<OverviewResponse>(
     ['overview-all-time', geoFilter, streamFilter],
-    (token) => fetchOverview(token, allTimeRange.from, allTimeRange.to, geoFilter || undefined, streamFilter || undefined),
+    (token) => fetchOverview(token, allTimeRange.from, allTimeRange.to, geoFilter || undefined, streamFilter || undefined, true),
     { staleTime: 30_000, refetchInterval: 30_000, refetchIntervalInBackground: true, refetchOnWindowFocus: false }
   )
 
@@ -206,7 +205,7 @@ export function Dashboard() {
   }
 
   const chartData = useMemo(() => normalizeFinancialData(financialData), [financialData])
-  const allTimeChartData = useMemo(() => normalizeFinancialData(allTimeData?.financialData ?? []), [allTimeData])
+  const allTimeChartData = useMemo(() => normalizeFinancialData(allTimeData?.dailySummary ?? allTimeData?.financialData ?? []), [allTimeData])
 
   const toggleSeries = (key: string) => {
     setHiddenSeries((prev) => ({
@@ -214,12 +213,6 @@ export function Dashboard() {
       [key]: !prev[key],
     }))
   }
-
-  const dailyRows = useMemo(() => {
-    const rows = [...chartData]
-    rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    return rows
-  }, [chartData])
 
   const allTimeRows = useMemo(() => {
     const rows = [...allTimeChartData]
@@ -230,20 +223,20 @@ export function Dashboard() {
   const pageSize = 20
   const statsPageCount = Math.max(1, Math.ceil(allTimeRows.length / pageSize))
   const statsPageSafe = Math.min(statsPage, statsPageCount)
-  const statsRows = allTimeRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
+  const compactRows = allTimeRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
 
-  const handleTopScroll = () => {
-    if (!topScrollRef.current || !bottomScrollRef.current) return
-    bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+  const handleFullTopScroll = () => {
+    if (!fullTopScrollRef.current || !fullBottomScrollRef.current) return
+    fullBottomScrollRef.current.scrollLeft = fullTopScrollRef.current.scrollLeft
   }
 
-  const handleBottomScroll = () => {
-    if (!topScrollRef.current || !bottomScrollRef.current) return
-    topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft
+  const handleFullBottomScroll = () => {
+    if (!fullTopScrollRef.current || !fullBottomScrollRef.current) return
+    fullTopScrollRef.current.scrollLeft = fullBottomScrollRef.current.scrollLeft
   }
 
-  const dailyTotals = useMemo(() => {
-    return dailyRows.reduce(
+  const renderDailyTable = (rows: DailyRow[]) => {
+    const totals = rows.reduce(
       (acc, row) => {
         acc.deposits += row.deposits
         acc.withdrawals += row.withdrawals
@@ -254,84 +247,84 @@ export function Dashboard() {
       },
       { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, spend: 0 }
     )
-  }, [dailyRows])
 
-  const renderDailyTable = (rows: typeof dailyRows) => (
-    <div className="rounded-md border border-border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <TableHead>{t('dashboard.date')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.deposits')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.spend')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.netFlow')}</TableHead>
-            <TableHead className="text-right">{t('dashboard.roi')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const netFlow = row.deposits - row.withdrawals
-            const roi = row.spend > 0 ? ((row.profit - row.spend) / row.spend) * 100 : null
-            return (
-              <TableRow key={row.date}>
-                <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
-                <TableCell className="text-right text-green-500">
-                  {formatCurrency(row.deposits)}
-                </TableCell>
-                <TableCell className="text-right text-orange-500">
-                  {formatCurrency(row.withdrawals)}
-                </TableCell>
-                <TableCell className="text-right text-cyan-500">
-                  {formatCurrency(row.profit)}
-                </TableCell>
-                <TableCell className="text-right text-indigo-400">
-                  {row.traffic.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-right text-red-400">
-                  {formatCurrency(row.spend)}
-                </TableCell>
-                <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {formatCurrency(netFlow)}
-                </TableCell>
-                <TableCell className={`text-right font-semibold ${roi === null ? 'text-muted-foreground' : roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {roi === null ? '—' : `${roi.toFixed(1)}%`}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-          <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableCell className="font-semibold">Total</TableCell>
-            <TableCell className="text-right font-semibold text-green-500">
-              {formatCurrency(dailyTotals.deposits)}
-            </TableCell>
-            <TableCell className="text-right font-semibold text-orange-500">
-              {formatCurrency(dailyTotals.withdrawals)}
-            </TableCell>
-            <TableCell className="text-right font-semibold text-cyan-500">
-              {formatCurrency(dailyTotals.profit)}
-            </TableCell>
-            <TableCell className="text-right font-semibold text-indigo-400">
-              {dailyTotals.traffic.toLocaleString()}
-            </TableCell>
-            <TableCell className="text-right font-semibold text-red-400">
-              {formatCurrency(dailyTotals.spend)}
-            </TableCell>
-            <TableCell
-              className={`text-right font-semibold ${(dailyTotals.deposits - dailyTotals.withdrawals) >= 0 ? 'text-green-500' : 'text-red-500'}`}
-            >
-              {formatCurrency(dailyTotals.deposits - dailyTotals.withdrawals)}
-            </TableCell>
-            <TableCell className="text-right font-semibold">
-              {dailyTotals.spend > 0 ? `${(((dailyTotals.profit - dailyTotals.spend) / dailyTotals.spend) * 100).toFixed(1)}%` : '—'}
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
-  )
+    return (
+      <div className="rounded-md border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead>{t('dashboard.date')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.deposits')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.spend')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.netFlow')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.roi')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => {
+              const netFlow = row.deposits - row.withdrawals
+              const roi = row.spend > 0 ? ((row.profit - row.spend) / row.spend) * 100 : null
+              return (
+                <TableRow key={row.date}>
+                  <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
+                  <TableCell className="text-right text-green-500">
+                    {formatCurrency(row.deposits)}
+                  </TableCell>
+                  <TableCell className="text-right text-orange-500">
+                    {formatCurrency(row.withdrawals)}
+                  </TableCell>
+                  <TableCell className="text-right text-cyan-500">
+                    {formatCurrency(row.profit)}
+                  </TableCell>
+                  <TableCell className="text-right text-indigo-400">
+                    {row.traffic.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right text-red-400">
+                    {formatCurrency(row.spend)}
+                  </TableCell>
+                  <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {formatCurrency(netFlow)}
+                  </TableCell>
+                  <TableCell className={`text-right font-semibold ${roi === null ? 'text-muted-foreground' : roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {roi === null ? '—' : `${roi.toFixed(1)}%`}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableCell className="font-semibold">Total</TableCell>
+              <TableCell className="text-right font-semibold text-green-500">
+                {formatCurrency(totals.deposits)}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-orange-500">
+                {formatCurrency(totals.withdrawals)}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-cyan-500">
+                {formatCurrency(totals.profit)}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-indigo-400">
+                {totals.traffic.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-red-400">
+                {formatCurrency(totals.spend)}
+              </TableCell>
+              <TableCell
+                className={`text-right font-semibold ${(totals.deposits - totals.withdrawals) >= 0 ? 'text-green-500' : 'text-red-500'}`}
+              >
+                {formatCurrency(totals.deposits - totals.withdrawals)}
+              </TableCell>
+              <TableCell className="text-right font-semibold">
+                {totals.spend > 0 ? `${(((totals.profit - totals.spend) / totals.spend) * 100).toFixed(1)}%` : '—'}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -657,116 +650,78 @@ export function Dashboard() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>Daily Summary</CardTitle>
-                <p className="text-sm text-muted-foreground">Aggregated by day for the selected period</p>
+                <p className="text-sm text-muted-foreground">Aggregated by day for the full period</p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <TabsList>
-                  <TabsTrigger value="compact">Compact</TabsTrigger>
-                  <TabsTrigger value="full">Full</TabsTrigger>
-                </TabsList>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatsPage(1)
-                    setStatsOpen(true)
-                  }}
-                  className="px-3 py-1.5 text-sm rounded-md transition-colors bg-muted hover:bg-muted/80 text-muted-foreground"
-                >
-                  Статистика за время
-                </button>
-              </div>
+              <TabsList>
+                <TabsTrigger value="compact">Compact</TabsTrigger>
+                <TabsTrigger value="full">Full</TabsTrigger>
+              </TabsList>
             </div>
           </CardHeader>
           <CardContent>
             <TabsContent value="compact">
-              {isLoading ? (
+              {isAllTimeLoading ? (
                 <div className="h-[220px] w-full animate-pulse rounded-md bg-muted/50" />
-              ) : !dailyRows.length ? (
+              ) : !allTimeRows.length ? (
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
-                <div className="max-h-[320px] overflow-auto">
-                  {renderDailyTable(dailyRows.slice(0, 7))}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded border border-border/60 disabled:opacity-50"
+                      onClick={() => setStatsPage((p) => Math.max(1, p - 1))}
+                      disabled={statsPageSafe <= 1}
+                    >
+                      ←
+                    </button>
+                    <span>
+                      {statsPageSafe} / {statsPageCount}
+                    </span>
+                    <button
+                      type="button"
+                      className="px-2 py-1 rounded border border-border/60 disabled:opacity-50"
+                      onClick={() => setStatsPage((p) => Math.min(statsPageCount, p + 1))}
+                      disabled={statsPageSafe >= statsPageCount}
+                    >
+                      →
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {renderDailyTable(compactRows)}
+                  </div>
                 </div>
               )}
             </TabsContent>
             <TabsContent value="full">
-              {isLoading ? (
+              {isAllTimeLoading ? (
                 <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
-              ) : !dailyRows.length ? (
+              ) : !allTimeRows.length ? (
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
-                renderDailyTable(dailyRows)
+                <div className="space-y-2">
+                  <div
+                    ref={fullTopScrollRef}
+                    onScroll={handleFullTopScroll}
+                    className="h-3 overflow-x-auto"
+                  >
+                    <div className="min-w-[1100px]" />
+                  </div>
+                  <div
+                    ref={fullBottomScrollRef}
+                    onScroll={handleFullBottomScroll}
+                    className="max-h-[60vh] overflow-auto"
+                  >
+                    <div className="min-w-[1100px]">
+                      {renderDailyTable(allTimeRows)}
+                    </div>
+                  </div>
+                </div>
               )}
             </TabsContent>
           </CardContent>
         </Tabs>
       </Card>
-
-      <Dialog
-        open={statsOpen}
-        onOpenChange={(open) => {
-          setStatsOpen(open)
-          if (open) setStatsPage(1)
-        }}
-      >
-        <DialogContent className="max-w-5xl w-[90vw]">
-          <DialogHeader>
-            <DialogTitle>Статистика за время</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-              <div>
-                {allTimeRows.length ? `Всего записей: ${allTimeRows.length}` : 'Нет данных'}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded border border-border/60 disabled:opacity-50"
-                  onClick={() => setStatsPage((p) => Math.max(1, p - 1))}
-                  disabled={statsPageSafe <= 1}
-                >
-                  ←
-                </button>
-                <span>
-                  {statsPageSafe} / {statsPageCount}
-                </span>
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded border border-border/60 disabled:opacity-50"
-                  onClick={() => setStatsPage((p) => Math.min(statsPageCount, p + 1))}
-                  disabled={statsPageSafe >= statsPageCount}
-                >
-                  →
-                </button>
-              </div>
-            </div>
-
-            <div
-              ref={topScrollRef}
-              onScroll={handleTopScroll}
-              className="h-3 overflow-x-auto"
-            >
-              <div className="min-w-[1100px]" />
-            </div>
-
-            <div
-              ref={bottomScrollRef}
-              onScroll={handleBottomScroll}
-              className="max-h-[60vh] overflow-auto"
-            >
-              <div className="min-w-[1100px]">
-                {isAllTimeLoading ? (
-                  <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
-                ) : !statsRows.length ? (
-                  <div className="text-center text-muted-foreground py-8">No data</div>
-                ) : (
-                  renderDailyTable(statsRows)
-                )}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Users Block */}

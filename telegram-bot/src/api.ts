@@ -2596,6 +2596,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     // Parse period parameters
     const fromParam = req.query.from as string | undefined
     const toParam = req.query.to as string | undefined
+    const fullDaily = String(req.query.fullDaily || '') === '1'
     
     // Default: start of today for "today" stats
     const startOfToday = new Date(now)
@@ -2822,11 +2823,22 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const daysDiff = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
     const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
+    const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; spend: number }>()
+    const ensureDailyEntry = (key: string) => {
+      if (!dailySummaryMap.has(key)) {
+        dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, spend: 0 })
+      }
+      return dailySummaryMap.get(key)!
+    }
+
     recentDeposits.forEach((deposit) => {
       const key = getDateKey(deposit.createdAt)
       const entry = seriesMap.get(key)
       if (entry) {
         entry.deposits += deposit.amount
+      }
+      if (fullDaily) {
+        ensureDailyEntry(key).deposits += deposit.amount
       }
     })
 
@@ -2836,6 +2848,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       if (entry) {
         entry.withdrawals += withdrawal.amount
       }
+      if (fullDaily) {
+        ensureDailyEntry(key).withdrawals += withdrawal.amount
+      }
     })
 
     recentProfits.forEach((profit) => {
@@ -2843,6 +2858,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       const entry = seriesMap.get(key)
       if (entry) {
         entry.profit += profit.amount
+      }
+      if (fullDaily) {
+        ensureDailyEntry(key).profit += profit.amount
       }
     })
 
@@ -2852,6 +2870,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       if (entry) {
         entry.traffic += 1
       }
+      if (fullDaily) {
+        ensureDailyEntry(key).traffic += 1
+      }
     })
 
     expenses.forEach((expense) => {
@@ -2859,6 +2880,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       const entry = seriesMap.get(key)
       if (entry) {
         entry.spend += Number(expense.amount)
+      }
+      if (fullDaily) {
+        ensureDailyEntry(key).spend += Number(expense.amount)
       }
     })
 
@@ -3017,6 +3041,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       reinvestCount: profitsCount,
     }
 
+    const dailySummary = fullDaily
+      ? Array.from(dailySummaryMap.values()).sort((a, b) => (a.date > b.date ? -1 : 1))
+      : undefined
+
     return res.json({
       kpis: {
         totalUsers,
@@ -3030,6 +3058,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         withdrawalsPeriod: Number(withdrawalsInPeriodAgg._sum.amount ?? 0),
       },
       financialData: Array.from(seriesMap.values()),
+      dailySummary,
       geoData,
       topUsers,
       transactionStats,
