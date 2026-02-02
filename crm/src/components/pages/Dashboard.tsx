@@ -1,7 +1,8 @@
-import { Component, type ReactNode, useMemo, useState } from 'react'
+import { Component, type ReactNode, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -44,6 +45,10 @@ export function Dashboard() {
   const [geoFilter, setGeoFilter] = useState('')
   const [streamFilter, setStreamFilter] = useState('')
   const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
+  const [statsOpen, setStatsOpen] = useState(false)
+  const [statsPage, setStatsPage] = useState(1)
+  const topScrollRef = useRef<HTMLDivElement>(null)
+  const bottomScrollRef = useRef<HTMLDivElement>(null)
   
   // Calculate date range based on period
   const getDateRange = () => {
@@ -80,6 +85,7 @@ export function Dashboard() {
   }
   
   const dateRange = getDateRange()
+  const allTimeRange = useMemo(() => ({ from: new Date(0).toISOString(), to: new Date().toISOString() }), [])
   
   const { data, isLoading, isError, error } = useApiQuery<OverviewResponse>(
     ['overview', period, customFrom, customTo, geoFilter, streamFilter], 
@@ -87,10 +93,28 @@ export function Dashboard() {
     { staleTime: 10_000, refetchInterval: 10_000, refetchIntervalInBackground: true, refetchOnWindowFocus: true }
   )
 
+  const { data: allTimeData, isLoading: isAllTimeLoading } = useApiQuery<OverviewResponse>(
+    ['overview-all-time', geoFilter, streamFilter],
+    (token) => fetchOverview(token, allTimeRange.from, allTimeRange.to, geoFilter || undefined, streamFilter || undefined),
+    { staleTime: 30_000, refetchInterval: 30_000, refetchIntervalInBackground: true, refetchOnWindowFocus: false }
+  )
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
 
-  const parseDateSafe = (value: string) => {
+  const parseDateSafe = (value: string | number) => {
+    if (typeof value === 'number') {
+      const ms = value < 1_000_000_000_000 ? value * 1000 : value
+      const d = new Date(ms)
+      return Number.isNaN(d.getTime()) ? null : d
+    }
+    const trimmed = value.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed)
+      const ms = num < 1_000_000_000_000 ? num * 1000 : num
+      const d = new Date(ms)
+      return Number.isNaN(d.getTime()) ? null : d
+    }
     const d = new Date(value)
     return Number.isNaN(d.getTime()) ? null : d
   }
@@ -165,13 +189,13 @@ export function Dashboard() {
   const availableGeos = data?.filters?.geos ?? []
   const availableStreams = data?.filters?.streams ?? []
 
-  const chartData = useMemo(() => {
+  const normalizeFinancialData = (rows: typeof financialData) => {
     const toNumber = (value: unknown) => {
       const num = typeof value === 'number' ? value : Number(value)
       return Number.isFinite(num) ? num : 0
     }
 
-    return financialData.map((row) => ({
+    return rows.map((row) => ({
       ...row,
       deposits: toNumber((row as any).deposits),
       withdrawals: toNumber((row as any).withdrawals),
@@ -179,7 +203,10 @@ export function Dashboard() {
       traffic: toNumber((row as any).traffic),
       spend: toNumber((row as any).spend),
     })).filter((row) => Boolean((row as any).date))
-  }, [financialData])
+  }
+
+  const chartData = useMemo(() => normalizeFinancialData(financialData), [financialData])
+  const allTimeChartData = useMemo(() => normalizeFinancialData(allTimeData?.financialData ?? []), [allTimeData])
 
   const toggleSeries = (key: string) => {
     setHiddenSeries((prev) => ({
@@ -193,6 +220,27 @@ export function Dashboard() {
     rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     return rows
   }, [chartData])
+
+  const allTimeRows = useMemo(() => {
+    const rows = [...allTimeChartData]
+    rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return rows
+  }, [allTimeChartData])
+
+  const pageSize = 20
+  const statsPageCount = Math.max(1, Math.ceil(allTimeRows.length / pageSize))
+  const statsPageSafe = Math.min(statsPage, statsPageCount)
+  const statsRows = allTimeRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
+
+  const handleTopScroll = () => {
+    if (!topScrollRef.current || !bottomScrollRef.current) return
+    bottomScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+  }
+
+  const handleBottomScroll = () => {
+    if (!topScrollRef.current || !bottomScrollRef.current) return
+    topScrollRef.current.scrollLeft = bottomScrollRef.current.scrollLeft
+  }
 
   const dailyTotals = useMemo(() => {
     return dailyRows.reduce(
@@ -611,10 +659,22 @@ export function Dashboard() {
                 <CardTitle>Daily Summary</CardTitle>
                 <p className="text-sm text-muted-foreground">Aggregated by day for the selected period</p>
               </div>
-              <TabsList>
-                <TabsTrigger value="compact">Compact</TabsTrigger>
-                <TabsTrigger value="full">Full</TabsTrigger>
-              </TabsList>
+              <div className="flex flex-wrap items-center gap-2">
+                <TabsList>
+                  <TabsTrigger value="compact">Compact</TabsTrigger>
+                  <TabsTrigger value="full">Full</TabsTrigger>
+                </TabsList>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatsPage(1)
+                    setStatsOpen(true)
+                  }}
+                  className="px-3 py-1.5 text-sm rounded-md transition-colors bg-muted hover:bg-muted/80 text-muted-foreground"
+                >
+                  Статистика за время
+                </button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -641,6 +701,72 @@ export function Dashboard() {
           </CardContent>
         </Tabs>
       </Card>
+
+      <Dialog
+        open={statsOpen}
+        onOpenChange={(open) => {
+          setStatsOpen(open)
+          if (open) setStatsPage(1)
+        }}
+      >
+        <DialogContent className="max-w-5xl w-[90vw]">
+          <DialogHeader>
+            <DialogTitle>Статистика за время</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+              <div>
+                {allTimeRows.length ? `Всего записей: ${allTimeRows.length}` : 'Нет данных'}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border border-border/60 disabled:opacity-50"
+                  onClick={() => setStatsPage((p) => Math.max(1, p - 1))}
+                  disabled={statsPageSafe <= 1}
+                >
+                  ←
+                </button>
+                <span>
+                  {statsPageSafe} / {statsPageCount}
+                </span>
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border border-border/60 disabled:opacity-50"
+                  onClick={() => setStatsPage((p) => Math.min(statsPageCount, p + 1))}
+                  disabled={statsPageSafe >= statsPageCount}
+                >
+                  →
+                </button>
+              </div>
+            </div>
+
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              className="h-3 overflow-x-auto"
+            >
+              <div className="min-w-[1100px]" />
+            </div>
+
+            <div
+              ref={bottomScrollRef}
+              onScroll={handleBottomScroll}
+              className="max-h-[60vh] overflow-auto"
+            >
+              <div className="min-w-[1100px]">
+                {isAllTimeLoading ? (
+                  <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
+                ) : !statsRows.length ? (
+                  <div className="text-center text-muted-foreground py-8">No data</div>
+                ) : (
+                  renderDailyTable(statsRows)
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Users Block */}
