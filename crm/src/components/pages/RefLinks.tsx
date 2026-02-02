@@ -16,6 +16,12 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { fetchMarketingLinks, updateLinkTrafficCost, type MarketingLink } from '@/lib/api'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export function RefLinks() {
   const { t } = useTranslation()
@@ -26,6 +32,7 @@ export function RefLinks() {
   const [traffickerFilter, setTraffickerFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [expandedTrafficker, setExpandedTrafficker] = useState<string | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false)
   const tableWrapperRef = useRef<HTMLDivElement | null>(null)
   const tableScrollRef = useRef<HTMLDivElement | null>(null)
   const topScrollRef = useRef<HTMLDivElement | null>(null)
@@ -132,7 +139,18 @@ export function RefLinks() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('refLinks.title')}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-semibold tracking-tight">{t('refLinks.title')}</h1>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setHelpOpen(true)}
+            aria-label="Referral links help"
+            className="h-8 w-8"
+          >
+            ?
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -407,6 +425,37 @@ export function RefLinks() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Referral links: columns legend</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2 text-sm text-muted-foreground">
+            <div><span className="text-foreground">Trafficker</span> — owner/partner of the link.</div>
+            <div><span className="text-foreground">Source</span> — traffic source (e.g., Facebook).</div>
+            <div><span className="text-foreground">Link ID</span> — unique tracking id.</div>
+            <div><span className="text-foreground">Stream</span> — stream name.</div>
+            <div><span className="text-foreground">Geo</span> — target country/region.</div>
+            <div><span className="text-foreground">Creative</span> — creative name (clickable if link provided).</div>
+            <div><span className="text-foreground">Total</span> — total leads + users.</div>
+            <div><span className="text-foreground">TOTAL USER</span> — total registered users.</div>
+            <div><span className="text-foreground">TODAY USERS</span> — users registered today.</div>
+            <div><span className="text-foreground">WEEK USER</span> — users registered this week.</div>
+            <div><span className="text-foreground">LEADS</span> — total leads.</div>
+            <div><span className="text-foreground">CHANNEL</span> — channel leads.</div>
+            <div><span className="text-foreground">CR% Lead→User</span> — lead to user conversion rate.</div>
+            <div><span className="text-foreground">FTD</span> — first-time deposits count.</div>
+            <div><span className="text-foreground">CR %</span> — deposit conversion rate.</div>
+            <div><span className="text-foreground">Deps</span> — total deposits count.</div>
+            <div><span className="text-foreground">Dep Amount</span> — total deposit amount.</div>
+            <div><span className="text-foreground">Traffic Cost</span> — total traffic spend.</div>
+            <div><span className="text-foreground">CFPD</span> — cost per first deposit.</div>
+            <div><span className="text-foreground">ROI %</span> — return on investment.</div>
+            <div><span className="text-foreground">Created</span> — link creation date.</div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
