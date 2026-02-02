@@ -34,6 +34,7 @@ export function Deposits() {
   const [filterDepStatus, setFilterDepStatus] = useState('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const { token } = useAuth()
   const { data } = useQuery({
     queryKey: ['deposits', token, page, search],
@@ -63,17 +64,37 @@ export function Deposits() {
       if (fromTs !== null && created < fromTs) return false
       if (toTs !== null && created > toTs) return false
     }
+    if (selectedUserId && String(deposit.user.telegramId) !== selectedUserId) return false
     return true
   })
 
+  const latestDeposits = useMemo(() => {
+    if (selectedUserId) return filteredDeposits
+    const latestByUser = new Map<string, DepositRecord>()
+    for (const deposit of filteredDeposits) {
+      const key = String(deposit.user.telegramId)
+      const existing = latestByUser.get(key)
+      if (!existing) {
+        latestByUser.set(key, deposit)
+        continue
+      }
+      const currentTs = new Date(deposit.createdAt).getTime()
+      const existingTs = new Date(existing.createdAt).getTime()
+      if (currentTs > existingTs) {
+        latestByUser.set(key, deposit)
+      }
+    }
+    return Array.from(latestByUser.values())
+  }, [filteredDeposits, selectedUserId])
+
   // Calculate totals
   const totals = useMemo(() => {
-    const completedDeposits = filteredDeposits.filter(d => d.status === 'COMPLETED')
+    const completedDeposits = latestDeposits.filter(d => d.status === 'COMPLETED')
     return {
       totalAmount: completedDeposits.reduce((sum, d) => sum + d.amount, 0),
       totalCount: completedDeposits.length
     }
-  }, [filteredDeposits])
+  }, [latestDeposits])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -124,6 +145,18 @@ export function Deposits() {
                 className="pl-10"
               />
             </div>
+            {selectedUserId ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedUserId(null)
+                  setSearch('')
+                  setPage(1)
+                }}
+              >
+                Clear user filter
+              </Button>
+            ) : null}
             <Button variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
               <Funnel size={18} />
             </Button>
@@ -150,7 +183,7 @@ export function Deposits() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDeposits.map((deposit) => (
+                {latestDeposits.map((deposit) => (
                   <TableRow key={deposit.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-sm">#{deposit.id}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -160,7 +193,20 @@ export function Deposits() {
                       {getPaymentMethodLabel(deposit.paymentMethod)}
                     </TableCell>
                     <TableCell className="font-mono text-sm text-muted-foreground">{deposit.user.telegramId}</TableCell>
-                    <TableCell className="font-medium text-sm">{deposit.user.username || 'N/A'}</TableCell>
+                    <TableCell className="font-medium text-sm">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const userId = String(deposit.user.telegramId)
+                          setSelectedUserId(userId)
+                          setSearch(userId)
+                          setPage(1)
+                        }}
+                        className="hover:underline text-left"
+                      >
+                        {deposit.user.username || 'N/A'}
+                      </button>
+                    </TableCell>
                     <TableCell className="text-sm">{deposit.user.fullName}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
                       ${deposit.amount.toFixed(2)}
