@@ -249,7 +249,7 @@ export function Dashboard() {
     )
 
     return (
-      <div className="rounded-md border border-border overflow-hidden">
+      <div className="rounded-md border border-border overflow-hidden min-w-[1200px]">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -705,14 +705,14 @@ export function Dashboard() {
                     onScroll={handleFullTopScroll}
                     className="h-3 overflow-x-auto"
                   >
-                    <div className="min-w-[1100px]" />
+                    <div className="min-w-[1200px]" />
                   </div>
                   <div
                     ref={fullBottomScrollRef}
                     onScroll={handleFullBottomScroll}
                     className="max-h-[60vh] overflow-auto"
                   >
-                    <div className="min-w-[1100px]">
+                    <div className="min-w-[1200px]">
                       {renderDailyTable(allTimeRows)}
                     </div>
                   </div>
