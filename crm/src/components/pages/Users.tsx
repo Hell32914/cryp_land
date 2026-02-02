@@ -79,17 +79,6 @@ export function Users() {
     setFiltersOpen(false)
   }
 
-  useEffect(() => {
-    const updateWidth = () => {
-      if (tableScrollRef.current) {
-        setScrollWidth(tableScrollRef.current.scrollWidth)
-      }
-    }
-    updateWidth()
-    window.addEventListener('resize', updateWidth)
-    return () => window.removeEventListener('resize', updateWidth)
-  }, [users.length, sortBy, sortOrder])
-
   const handleTopScroll = () => {
     if (topScrollRef.current && tableScrollRef.current) {
       tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
@@ -126,6 +115,17 @@ export function Users() {
   const totalPages = data?.totalPages ?? 1
   const hasNextPage = data?.hasNextPage ?? false
   const hasPrevPage = data?.hasPrevPage ?? false
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (tableScrollRef.current) {
+        setScrollWidth(tableScrollRef.current.scrollWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [users.length, sortBy, sortOrder])
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
