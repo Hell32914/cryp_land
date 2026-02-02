@@ -65,26 +65,6 @@ export function Deposits() {
     setScrollWidth(Math.max(tableWidth, containerWidth))
   }, [])
 
-  useEffect(() => {
-    const wrapper = tableWrapperRef.current
-    if (!wrapper) return
-    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
-    if (!container) return
-
-    tableScrollRef.current = container
-    const onScroll = () => handleTableScroll()
-    container.addEventListener('scroll', onScroll, { passive: true })
-    requestAnimationFrame(refreshScrollWidth)
-    return () => container.removeEventListener('scroll', onScroll)
-  }, [handleTableScroll, refreshScrollWidth, groupedDeposits.length])
-
-  useEffect(() => {
-    const updateWidth = () => refreshScrollWidth()
-    updateWidth()
-    window.addEventListener('resize', updateWidth)
-    return () => window.removeEventListener('resize', updateWidth)
-  }, [refreshScrollWidth, groupedDeposits.length])
-
   const deposits = data?.deposits || []
 
   const normalizeDepStatus = (deposit: DepositRecord) => {
@@ -134,6 +114,26 @@ export function Deposits() {
 
     return groups
   }, [filteredDeposits])
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current
+    if (!wrapper) return
+    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
+    if (!container) return
+
+    tableScrollRef.current = container
+    const onScroll = () => handleTableScroll()
+    container.addEventListener('scroll', onScroll, { passive: true })
+    requestAnimationFrame(refreshScrollWidth)
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [handleTableScroll, refreshScrollWidth, groupedDeposits.length])
+
+  useEffect(() => {
+    const updateWidth = () => refreshScrollWidth()
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [refreshScrollWidth, groupedDeposits.length])
 
   const latestDeposits = useMemo(() => groupedDeposits.map((g) => g.deposits[0]), [groupedDeposits])
 
