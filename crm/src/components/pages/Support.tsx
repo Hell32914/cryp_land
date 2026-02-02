@@ -279,6 +279,25 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   const [newChatsActivityCount, setNewChatsActivityCount] = useState(0)
   const prevChatMetaRef = useRef<Record<string, { lastMessageAt: string | null; unreadCount: number }>>({})
 
+  const RESPONSE_MUTE_KEY = 'crm.support.responseMuted.v1'
+  const [responseMutedMap, setResponseMutedMap] = useState<Record<string, string>>(() => {
+    try {
+      const raw = window.localStorage.getItem(RESPONSE_MUTE_KEY)
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  })
+
+  const persistResponseMuted = (next: Record<string, string>) => {
+    try {
+      window.localStorage.setItem(RESPONSE_MUTE_KEY, JSON.stringify(next))
+    } catch {
+      // ignore
+    }
+  }
+
   const NOTIFY_ENABLED_KEY = 'crm.support.notifications.enabled'
   const NOTIFY_SOUND_KEY = 'crm.support.notifications.sound'
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
@@ -1091,6 +1110,41 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
     })
   }, [filteredChats, pinnedSet])
 
+  const isResponseMuted = useCallback(
+    (chat: SupportChatRecord) => {
+      const key = responseMutedMap[chat.chatId]
+      if (!key) return false
+      const inboundKey = chat.lastInboundAt ? String(chat.lastInboundAt) : 'none'
+      return key === inboundKey
+    },
+    [responseMutedMap]
+  )
+
+  useEffect(() => {
+    if (chats.length === 0) return
+    const validIds = new Set(chats.map((c) => c.chatId))
+    let changed = false
+    const next = { ...responseMutedMap }
+    for (const [chatId, stored] of Object.entries(responseMutedMap)) {
+      if (!validIds.has(chatId)) {
+        delete next[chatId]
+        changed = true
+        continue
+      }
+      const chat = chats.find((c) => c.chatId === chatId)
+      if (!chat) continue
+      const inboundKey = chat.lastInboundAt ? String(chat.lastInboundAt) : 'none'
+      if (stored !== inboundKey) {
+        delete next[chatId]
+        changed = true
+      }
+    }
+    if (changed) {
+      setResponseMutedMap(next)
+      persistResponseMuted(next)
+    }
+  }, [chats, responseMutedMap])
+
   useEffect(() => {
     if (!token) return
     const ids: string[] = []
@@ -1811,9 +1865,10 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                         Boolean(chat.acceptedBy) &&
                         chat.acceptedBy !== myUsername
 
+                      const muted = isResponseMuted(chat)
                       const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
                       const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
-                      const waiting = inboundTs > 0 && inboundTs > outboundTs
+                      const waiting = !muted && inboundTs > 0 && inboundTs > outboundTs
                       const waitingSeconds = waiting ? Math.max(1, Math.floor((nowTs - inboundTs) / 1000)) : 0
                       const showAlert = waiting && waitingSeconds >= RESPONSE_LIMIT_SECONDS
 
@@ -1974,9 +2029,10 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
                         const pinned = pinnedSet.has(chat.chatId)
 
+                        const muted = isResponseMuted(chat)
                         const inboundTs = chat.lastInboundAt ? new Date(chat.lastInboundAt).getTime() : 0
                         const outboundTs = chat.lastOutboundAt ? new Date(chat.lastOutboundAt).getTime() : 0
-                        const waiting = inboundTs > 0 && inboundTs > outboundTs
+                        const waiting = !muted && inboundTs > 0 && inboundTs > outboundTs
                         const waitingSeconds = waiting ? Math.max(1, Math.floor((nowTs - inboundTs) / 1000)) : 0
                         const showAlert = waiting && waitingSeconds >= RESPONSE_LIMIT_SECONDS
 
@@ -2098,6 +2154,31 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                   </Select>
                 ) : null}
               </div>
+              {selectedChat ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={isResponseMuted(selectedChat) ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      const chatId = selectedChat.chatId
+                      const inboundKey = selectedChat.lastInboundAt ? String(selectedChat.lastInboundAt) : 'none'
+                      setResponseMutedMap((prev) => {
+                        const next = { ...prev }
+                        if (next[chatId]) {
+                          delete next[chatId]
+                        } else {
+                          next[chatId] = inboundKey
+                        }
+                        persistResponseMuted(next)
+                        return next
+                      })
+                    }}
+                  >
+                    {isResponseMuted(selectedChat) ? t('support.responseNeeded') : t('support.responseNotNeeded')}
+                  </Button>
+                </div>
+              ) : null}
             </CardHeader>
             <CardContent className={isMobile ? 'flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-200px)] pb-24' : 'flex flex-col gap-4 md:block'}>
               <div className="flex flex-col gap-4 md:block">
