@@ -348,7 +348,26 @@ export function Users() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {users.map((user) => {
+                    const isChannel = (user.marketingSource || '').toLowerCase() === 'channel'
+                    const hasStartedBot = Boolean(user.botStartedAt)
+                    const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
+                    const isChannelOnly = isChannel && !hasStartedBot && isInactive
+                    const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
+
+                    const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
+                    const badgeClass = isChannelOnly
+                      ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                      : (isKnownUser
+                        ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                        : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20')
+
+                    const isLeadLike = label !== 'user'
+                    const normalizedStatus = String(user.status || '').toUpperCase()
+                    const displayStatus = isLeadLike && normalizedStatus === 'ACTIVE' ? 'INACTIVE' : user.status
+                    const statusClass = getStatusColor(isLeadLike && normalizedStatus === 'ACTIVE' ? 'INACTIVE' : user.status)
+
+                    return (
                     <TableRow key={user.id} className="hover:bg-muted/30">
                       <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 z-20 bg-card w-[72px] min-w-[72px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                         {user.id}
@@ -370,26 +389,9 @@ export function Users() {
                         </button>
                       </TableCell>
                       <TableCell>
-                        {(() => {
-                          const isChannel = (user.marketingSource || '').toLowerCase() === 'channel'
-                          const hasStartedBot = Boolean(user.botStartedAt)
-                          const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
-                          const isChannelOnly = isChannel && !hasStartedBot && isInactive
-                          const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
-
-                          const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
-                          const badgeClass = isChannelOnly
-                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                            : (isKnownUser
-                              ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                              : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20')
-
-                          return (
-                            <Badge variant="outline" className={badgeClass}>
-                              {label}
-                            </Badge>
-                          )
-                        })()}
+                        <Badge variant="outline" className={badgeClass}>
+                          {label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-sm">{user.country}</TableCell>
                       <TableCell className="text-right font-mono text-sm">
@@ -423,8 +425,8 @@ export function Users() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getStatusColor(user.status)}>
-                          {user.status}
+                        <Badge variant="outline" className={statusClass}>
+                          {displayStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
@@ -440,7 +442,8 @@ export function Users() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
                 </Table>
               </div>

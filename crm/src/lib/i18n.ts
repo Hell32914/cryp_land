@@ -425,6 +425,7 @@ const resources = {
         analyticsData: 'Аналитика и данные',
         analytics: 'Аналитика',
         users: 'Пользователи',
+        depositUsers: 'Депозиторы',
         geoData: 'Гео-Данные',
         finance: 'Финансы',
         deposits: 'Депозиты',
