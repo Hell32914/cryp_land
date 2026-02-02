@@ -272,9 +272,9 @@ export function Users() {
                     <div
                       ref={topScrollRef}
                       onScroll={handleTopScroll}
-                      className="overflow-x-auto bg-muted/20 border-b border-border/60 h-3"
+                      className="overflow-x-auto overflow-y-hidden bg-muted/20 border-b border-border/60 h-4"
                     >
-                      <div style={{ width: scrollWidth, height: 12 }} />
+                      <div style={{ width: scrollWidth, height: 16 }} />
                     </div>
                 {isLoading ? (
                   <div className="space-y-2 p-6">
@@ -295,7 +295,7 @@ export function Users() {
                     >
                       ID {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
-                        <TableHead className="sticky left-[72px] z-20 bg-muted/50 min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">User ID</TableHead>
+                        <TableHead className="sticky left-[72px] z-20 bg-muted/50 min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">Telegram ID</TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70"
                       onClick={() => handleSort('username')}
@@ -357,18 +357,17 @@ export function Users() {
                         {user.telegramId}
                       </TableCell>
                       <TableCell className="font-medium text-sm">
-                        <a
-                          href={
-                            user.username
-                              ? `https://t.me/${String(user.username).replace(/^@/, '')}`
-                              : `tg://user?id=${String(user.telegramId).replace(/\D/g, '')}`
-                          }
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const chatId = String(user.telegramId).trim()
+                            if (!chatId) return
+                            window.dispatchEvent(new CustomEvent('crm:navigate', { detail: { page: 'support', supportChatId: chatId } }))
+                          }}
                           className={user.username ? 'text-primary hover:underline' : 'text-foreground hover:underline'}
                         >
                           {user.username ? `@${String(user.username).replace(/^@/, '')}` : user.fullName}
-                        </a>
+                        </button>
                       </TableCell>
                       <TableCell>
                         {(() => {
