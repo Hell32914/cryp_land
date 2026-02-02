@@ -53,6 +53,7 @@ const resources = {
         supportOperators: 'Users',
         supportBroadcasts: 'Mass messaging',
         supportAnalytics: 'Support analytics',
+        supportOperatorsAnalytics: 'Operators analytics',
          depositUsers: 'Depositors',
       },
       supportBoard: {
@@ -285,6 +286,19 @@ const resources = {
         admin: 'Admin',
         user: 'User',
       },
+      supportOperatorsAnalytics: {
+        title: 'Operators analytics',
+        subtitle: 'Performance by operator',
+        columns: {
+          operator: 'Operator',
+          chats: 'Chats',
+          totalMessages: 'Messages',
+          inbound: 'Inbound',
+          outbound: 'Outbound',
+          avgResponse: 'Avg response',
+          responseRate: 'Response rate',
+        },
+      },
       dashboard: {
         title: 'Analytics Dashboard',
         totalUsers: 'Total Users',
@@ -441,6 +455,7 @@ const resources = {
         supportOperators: 'Users',
         supportBroadcasts: 'Рассылка',
         supportAnalytics: 'Аналитика поддержки',
+        supportOperatorsAnalytics: 'Аналитика операторов',
       },
       supportBoard: {
         title: 'Воронка',
@@ -666,6 +681,19 @@ const resources = {
          role: 'Роль',
         user: 'Пользователь',
       },
+      supportOperatorsAnalytics: {
+        title: 'Аналитика операторов',
+        subtitle: 'Показатели по операторам',
+        columns: {
+          operator: 'Оператор',
+          chats: 'Чаты',
+          totalMessages: 'Сообщения',
+          inbound: 'Входящие',
+          outbound: 'Исходящие',
+          avgResponse: 'Средний ответ',
+          responseRate: 'Доля ответов',
+        },
+      },
       dashboard: {
         title: 'Панель аналитики',
         totalUsers: 'Всего пользователей',
@@ -830,7 +858,21 @@ const resources = {
         supportOperators: 'Users',
         supportBroadcasts: 'Розсилка',
         supportAnalytics: 'Аналітика підтримки',
+        supportOperatorsAnalytics: 'Аналітика операторів',
          depositUsers: 'Депозитори',
+      },
+      supportOperatorsAnalytics: {
+        title: 'Аналітика операторів',
+        subtitle: 'Показники по операторах',
+        columns: {
+          operator: 'Оператор',
+          chats: 'Чати',
+          totalMessages: 'Повідомлення',
+          inbound: 'Вхідні',
+          outbound: 'Вихідні',
+          avgResponse: 'Середня відповідь',
+          responseRate: 'Частка відповідей',
+        },
       },
       dashboard: {
         title: 'Панель аналітики',

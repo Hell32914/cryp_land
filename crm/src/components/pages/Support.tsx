@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { SupportOperatorsAnalytics } from '@/components/pages/SupportOperatorsAnalytics'
 import {
   fetchSupportChats,
   fetchSupportFileBlob,
@@ -130,14 +131,16 @@ import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 type SupportListTab = 'new' | 'accepted' | 'archive'
 type SupportChatsTab = SupportListTab | 'analytics'
 type SupportAnalyticsRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'
+type SupportAnalyticsTab = 'overview' | 'operators'
 
 type SupportMode = 'inbox' | 'analytics'
 
 interface SupportProps {
   mode?: SupportMode
+  analyticsTab?: SupportAnalyticsTab
 }
 
-export function Support({ mode = 'inbox' }: SupportProps) {
+export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'overview' }: SupportProps) {
   const { t } = useTranslation()
   const { token } = useAuth()
   const isMobile = useIsMobile()
@@ -161,6 +164,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('week')
+  const [analyticsTab, setAnalyticsTab] = useState<SupportAnalyticsTab>(initialAnalyticsTab)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [analyticsData, setAnalyticsData] = useState<{
@@ -526,8 +530,9 @@ export function Support({ mode = 'inbox' }: SupportProps) {
     if (mode === 'analytics') {
       setActiveTab('analytics')
       setSelectedChatId(null)
+      setAnalyticsTab(initialAnalyticsTab)
     }
-  }, [mode])
+  }, [initialAnalyticsTab, mode])
 
   const { data: chatsData, isLoading: isChatsLoading, isError: isChatsError } = useApiQuery<
     Awaited<ReturnType<typeof fetchSupportChats>>
@@ -813,10 +818,29 @@ export function Support({ mode = 'inbox' }: SupportProps) {
           return ts >= fromTs && ts <= toTs
         }).length
 
-        const PAGE_LIMIT = 100
-        const MAX_PAGES = 10
+        const getChatActivityTs = (chat: SupportChatRecord) => {
+          const lastMessageTs = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0
+          const startedTs = getChatStartedTs(chat)
+          return Math.max(lastMessageTs, startedTs)
+        }
 
-        for (const chat of chatsSnapshot) {
+        const candidateChats = chatsSnapshot.filter((chat) => {
+          const lastMessageTs = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0
+          const startedTs = getChatStartedTs(chat)
+          if (lastMessageTs && lastMessageTs >= fromTs) return true
+          if (startedTs && startedTs >= fromTs) return true
+          return false
+        })
+
+        const sortedCandidates = [...candidateChats].sort((a, b) => getChatActivityTs(b) - getChatActivityTs(a))
+        const MAX_CHATS = range === 'all' ? 400 : range === 'year' ? 600 : 800
+        const chatsToScan = sortedCandidates.slice(0, MAX_CHATS)
+        if (sortedCandidates.length > MAX_CHATS) truncated = true
+
+        const PAGE_LIMIT = range === 'all' ? 100 : range === 'year' ? 80 : 50
+        const MAX_PAGES = range === 'all' ? 8 : range === 'year' ? 6 : 4
+
+        for (const chat of chatsToScan) {
           let beforeId: number | undefined
           let pages = 0
           let hasMore = false
@@ -915,9 +939,9 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   )
 
   useEffect(() => {
-    if (activeTab !== 'analytics' || !token) return
+    if (activeTab !== 'analytics' || analyticsTab !== 'overview' || !token) return
     void loadSupportAnalytics(analyticsRange)
-  }, [activeTab, analyticsRange, analyticsRefreshKey, loadSupportAnalytics, token])
+  }, [activeTab, analyticsRange, analyticsRefreshKey, analyticsTab, loadSupportAnalytics, token])
 
   // Track chat-list scroll position so we can notify about new activity when scrolled down.
   useEffect(() => {
@@ -1595,124 +1619,141 @@ export function Support({ mode = 'inbox' }: SupportProps) {
           <CardContent>
             {activeTab === 'analytics' ? (
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="text-sm text-muted-foreground">{t('support.analytics.range')}</div>
-                  <Select
-                    value={analyticsRange}
-                    onValueChange={(value) => {
-                      setAnalyticsRange(value as SupportAnalyticsRange)
-                    }}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder={t('support.analytics.range')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {analyticsRangeOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="secondary" size="sm" onClick={refreshAnalytics}>
-                    {t('support.analytics.refresh')}
-                  </Button>
-                  {analyticsData ? (
-                    <Badge variant="secondary">
-                      {analyticsData.fromTs
-                        ? `${formatDate(analyticsData.fromTs)} — ${formatDate(analyticsData.toTs)}`
-                        : t('support.analytics.rangeOptions.all')}
-                    </Badge>
-                  ) : null}
-                </div>
+                <Tabs value={analyticsTab} onValueChange={(value) => setAnalyticsTab(value as SupportAnalyticsTab)}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="overview" className="flex-1">
+                      {t('support.analytics.title')}
+                    </TabsTrigger>
+                    <TabsTrigger value="operators" className="flex-1">
+                      {t('supportOperatorsAnalytics.title')}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-                {analyticsLoading ? (
-                  <div className="text-sm text-muted-foreground">{t('support.analytics.loading')}</div>
-                ) : analyticsError ? (
-                  <div className="text-sm text-destructive">{analyticsError}</div>
-                ) : !analyticsData ? (
-                  <div className="text-sm text-muted-foreground">{t('support.analytics.empty')}</div>
-                ) : (
+                {analyticsTab === 'overview' ? (
                   <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.averageResponseTime')}</div>
-                        <div className="text-2xl font-semibold">
-                          {analyticsData.avgResponseSeconds !== null
-                            ? formatDuration(analyticsData.avgResponseSeconds)
-                            : '—'}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.messagesPerDay')}</div>
-                        <div className="text-2xl font-semibold">
-                          {(analyticsData.totalMessages / analyticsData.days).toFixed(1)}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.inquiriesPerDay')}</div>
-                        <div className="text-2xl font-semibold">
-                          {(analyticsData.totalInquiries / analyticsData.days).toFixed(1)}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.totalMessages')}</div>
-                        <div className="text-2xl font-semibold">{analyticsData.totalMessages}</div>
-                      </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="text-sm text-muted-foreground">{t('support.analytics.range')}</div>
+                      <Select
+                        value={analyticsRange}
+                        onValueChange={(value) => {
+                          setAnalyticsRange(value as SupportAnalyticsRange)
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder={t('support.analytics.range')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {analyticsRangeOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="secondary" size="sm" onClick={refreshAnalytics}>
+                        {t('support.analytics.refresh')}
+                      </Button>
+                      {analyticsData ? (
+                        <Badge variant="secondary">
+                          {analyticsData.fromTs
+                            ? `${formatDate(analyticsData.fromTs)} — ${formatDate(analyticsData.toTs)}`
+                            : t('support.analytics.rangeOptions.all')}
+                        </Badge>
+                      ) : null}
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.inboundMessages')}</div>
-                        <div className="text-2xl font-semibold">{analyticsData.inboundMessages}</div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.outboundMessages')}</div>
-                        <div className="text-2xl font-semibold">{analyticsData.outboundMessages}</div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.totalInquiries')}</div>
-                        <div className="text-2xl font-semibold">{analyticsData.totalInquiries}</div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.responsesCount')}</div>
-                        <div className="text-2xl font-semibold">{analyticsData.responseCount}</div>
-                      </div>
-                    </div>
+                    {analyticsLoading ? (
+                      <div className="text-sm text-muted-foreground">{t('support.analytics.loading')}</div>
+                    ) : analyticsError ? (
+                      <div className="text-sm text-destructive">{analyticsError}</div>
+                    ) : !analyticsData ? (
+                      <div className="text-sm text-muted-foreground">{t('support.analytics.empty')}</div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.averageResponseTime')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.avgResponseSeconds !== null
+                                ? formatDuration(analyticsData.avgResponseSeconds)
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.messagesPerDay')}</div>
+                            <div className="text-2xl font-semibold">
+                              {(analyticsData.totalMessages / analyticsData.days).toFixed(1)}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.inquiriesPerDay')}</div>
+                            <div className="text-2xl font-semibold">
+                              {(analyticsData.totalInquiries / analyticsData.days).toFixed(1)}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.totalMessages')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.totalMessages}</div>
+                          </div>
+                        </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.activeChats')}</div>
-                        <div className="text-2xl font-semibold">{analyticsData.activeChats}</div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.avgMessagesPerChat')}</div>
-                        <div className="text-2xl font-semibold">
-                          {analyticsData.avgMessagesPerChat !== null
-                            ? analyticsData.avgMessagesPerChat.toFixed(1)
-                            : '—'}
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.inboundMessages')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.inboundMessages}</div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.outboundMessages')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.outboundMessages}</div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.totalInquiries')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.totalInquiries}</div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.responsesCount')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.responseCount}</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.responseRate')}</div>
-                        <div className="text-2xl font-semibold">
-                          {analyticsData.responseRate !== null
-                            ? `${Math.round(analyticsData.responseRate * 100)}%`
-                            : '—'}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border p-4">
-                        <div className="text-xs text-muted-foreground">{t('support.analytics.avgResponsesPerDay')}</div>
-                        <div className="text-2xl font-semibold">
-                          {(analyticsData.responseCount / analyticsData.days).toFixed(1)}
-                        </div>
-                      </div>
-                    </div>
 
-                    {analyticsTruncated ? (
-                      <div className="text-xs text-muted-foreground">{t('support.analytics.truncated')}</div>
-                    ) : null}
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.activeChats')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.activeChats}</div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.avgMessagesPerChat')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.avgMessagesPerChat !== null
+                                ? analyticsData.avgMessagesPerChat.toFixed(1)
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.responseRate')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.responseRate !== null
+                                ? `${Math.round(analyticsData.responseRate * 100)}%`
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.avgResponsesPerDay')}</div>
+                            <div className="text-2xl font-semibold">
+                              {(analyticsData.responseCount / analyticsData.days).toFixed(1)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {analyticsTruncated ? (
+                          <div className="text-xs text-muted-foreground">{t('support.analytics.truncated')}</div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <SupportOperatorsAnalytics variant="embedded" />
                 )}
               </div>
             ) : isChatsLoading ? (

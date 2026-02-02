@@ -32,7 +32,7 @@ function AppContent() {
   const access = useMemo(() => {
     if (role === 'support') {
       return {
-        allowedPages: new Set(['support', 'support-funnel', 'support-analytics']),
+        allowedPages: new Set(['support', 'support-funnel', 'support-analytics', 'support-operators-analytics']),
         fallbackPage: 'support',
       }
     }
@@ -53,6 +53,7 @@ function AppContent() {
           'support-broadcasts',
           'support-operators',
           'support-analytics',
+          'support-operators-analytics',
         ]),
         fallbackPage: 'dashboard',
       }
@@ -137,6 +138,8 @@ function AppContent() {
         return <SupportBroadcasts />
       case 'support-analytics':
         return <SupportAnalytics />
+      case 'support-operators-analytics':
+        return <Support mode="analytics" analyticsTab="operators" />
       default:
         return role === 'support' ? <Support /> : <Dashboard />
     }
