@@ -521,122 +521,125 @@ export function Dashboard() {
                         }}
                         formatter={(value: number, name: string) => {
                           const labelMap: Record<string, string> = {
-                            <Card>
-                              <Tabs defaultValue="compact">
-                                <CardHeader>
-                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
-                                      <CardTitle>Daily Summary</CardTitle>
-                                      <p className="text-sm text-muted-foreground">Aggregated by day for the selected period</p>
-                                    </div>
-                                    <TabsList>
-                                      <TabsTrigger value="compact">Compact</TabsTrigger>
-                                      <TabsTrigger value="full">Full</TabsTrigger>
-                                    </TabsList>
-                                  </div>
-                                </CardHeader>
-                                <CardContent>
-                                  <TabsContent value="compact">
-                                    {isLoading ? (
-                                      <div className="h-[220px] w-full animate-pulse rounded-md bg-muted/50" />
-                                    ) : !dailyRows.length ? (
-                                      <div className="text-center text-muted-foreground py-8">No daily data</div>
-                                    ) : (
-                                      <div className="max-h-[320px] overflow-auto">
-                                        {renderDailyTable(dailyRows.slice(0, 7))}
-                                      </div>
-                                    )}
-                                  </TabsContent>
-                                  <TabsContent value="full">
-                                    {isLoading ? (
-                                      <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
-                                    ) : !dailyRows.length ? (
-                                      <div className="text-center text-muted-foreground py-8">No daily data</div>
-                                    ) : (
-                                      renderDailyTable(dailyRows)
-                                    )}
-                                  </TabsContent>
-                                </CardContent>
-                              </Tabs>
-                            </Card>
-                        fill="#06b6d4"
-                        name={t('dashboard.profit')}
-                        hide={!!hiddenSeries.profit}
-                        barSize={18}
-                        radius={[4, 4, 0, 0]}
+                            traffic: t('dashboard.traffic'),
+                            spend: t('dashboard.spend'),
+                          }
+                          const label = labelMap[name] || name
+                          if (name === 'traffic') return [value.toLocaleString(), label]
+                          return [`$${value.toLocaleString()}`, label]
+                        }}
+                      />
+                      <Bar
+                        dataKey="spend"
+                        yAxisId="left"
+                        fill="#ef4444"
+                        name={t('dashboard.spend')}
+                        hide={!!hiddenSeries.spend}
+                        barSize={14}
+                        minPointSize={2}
+                      />
+                      <Bar
+                        dataKey="traffic"
+                        yAxisId="right"
+                        fill="#6366f1"
+                        name={t('dashboard.traffic')}
+                        hide={!!hiddenSeries.traffic}
+                        barSize={14}
+                        minPointSize={2}
                       />
                     </BarChart>
-                    <TableHead className="text-right">{t('dashboard.deposits')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.spend')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.netFlow')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.roi')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dailyRows.map((row) => {
-                    const netFlow = row.deposits - row.withdrawals
-                    const roi = row.spend > 0 ? ((row.profit - row.spend) / row.spend) * 100 : null
-                    return (
-                      <TableRow key={row.date}>
-                        <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
-                        <TableCell className="text-right text-green-500">
-                          {formatCurrency(row.deposits)}
-                        </TableCell>
-                        <TableCell className="text-right text-orange-500">
-                          {formatCurrency(row.withdrawals)}
-                        </TableCell>
-                        <TableCell className="text-right text-cyan-500">
-                          {formatCurrency(row.profit)}
-                        </TableCell>
-                        <TableCell className="text-right text-indigo-400">
-                          {row.traffic.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right text-red-400">
-                          {formatCurrency(row.spend)}
-                        </TableCell>
-                        <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {formatCurrency(netFlow)}
-                        </TableCell>
-                        <TableCell className={`text-right font-semibold ${roi === null ? 'text-muted-foreground' : roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {roi === null ? '—' : `${roi.toFixed(1)}%`}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableCell className="font-semibold">Total</TableCell>
-                    <TableCell className="text-right font-semibold text-green-500">
-                      {formatCurrency(dailyTotals.deposits)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-orange-500">
-                      {formatCurrency(dailyTotals.withdrawals)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-cyan-500">
-                      {formatCurrency(dailyTotals.profit)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-indigo-400">
-                      {dailyTotals.traffic.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-red-400">
-                      {formatCurrency(dailyTotals.spend)}
-                    </TableCell>
-                    <TableCell
-                      className={`text-right font-semibold ${(dailyTotals.deposits - dailyTotals.withdrawals) >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </DashboardErrorBoundary>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('dashboard.userGeography')}</CardTitle>
+            <p className="text-sm text-muted-foreground">Distribution by country</p>
+          </CardHeader>
+          <CardContent>
+            <DashboardErrorBoundary label="Geo chart">
+              {isLoading ? (
+                <div className="h-[300px] w-full animate-pulse rounded-md bg-muted/50" />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={geoData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      paddingAngle={2}
+                      dataKey="userCount"
+                      label={({ country, percentage }) => `${country}: ${percentage}%`}
+                      labelLine={false}
                     >
-                      {formatCurrency(dailyTotals.deposits - dailyTotals.withdrawals)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {dailyTotals.spend > 0 ? `${(((dailyTotals.profit - dailyTotals.spend) / dailyTotals.spend) * 100).toFixed(1)}%` : '—'}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                      {geoData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#22252f', 
+                        border: '1px solid #3f4456',
+                        borderRadius: '8px',
+                        color: '#f8f9fa'
+                      }}
+                      formatter={(value: number, name: string, props: any) => [
+                        `${value.toLocaleString()} users (${props.payload.percentage}%)`,
+                        props.payload.country
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </DashboardErrorBoundary>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <Tabs defaultValue="compact">
+          <CardHeader>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Daily Summary</CardTitle>
+                <p className="text-sm text-muted-foreground">Aggregated by day for the selected period</p>
+              </div>
+              <TabsList>
+                <TabsTrigger value="compact">Compact</TabsTrigger>
+                <TabsTrigger value="full">Full</TabsTrigger>
+              </TabsList>
             </div>
-          )}
-        </CardContent>
+          </CardHeader>
+          <CardContent>
+            <TabsContent value="compact">
+              {isLoading ? (
+                <div className="h-[220px] w-full animate-pulse rounded-md bg-muted/50" />
+              ) : !dailyRows.length ? (
+                <div className="text-center text-muted-foreground py-8">No daily data</div>
+              ) : (
+                <div className="max-h-[320px] overflow-auto">
+                  {renderDailyTable(dailyRows.slice(0, 7))}
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="full">
+              {isLoading ? (
+                <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
+              ) : !dailyRows.length ? (
+                <div className="text-center text-muted-foreground py-8">No daily data</div>
+              ) : (
+                renderDailyTable(dailyRows)
+              )}
+            </TabsContent>
+          </CardContent>
+        </Tabs>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
