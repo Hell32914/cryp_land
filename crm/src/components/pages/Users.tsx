@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel } from '@phosphor-icons/react'
 import { useApiQuery } from '@/hooks/use-api-query'
@@ -55,6 +55,7 @@ export function Users() {
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState('')
   const [contactSupportTimerMinutes, setContactSupportTimerMinutes] = useState('')
   const tableScrollRef = useRef<HTMLDivElement | null>(null)
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null)
   const topScrollRef = useRef<HTMLDivElement | null>(null)
   const [scrollWidth, setScrollWidth] = useState(0)
 
@@ -79,17 +80,36 @@ export function Users() {
     setFiltersOpen(false)
   }
 
-  const handleTopScroll = () => {
+  const handleTopScroll = useCallback(() => {
     if (topScrollRef.current && tableScrollRef.current) {
       tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
     }
-  }
+  }, [])
 
-  const handleTableScroll = () => {
+  const handleTableScroll = useCallback(() => {
     if (topScrollRef.current && tableScrollRef.current) {
       topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft
     }
-  }
+  }, [])
+
+  const refreshScrollWidth = useCallback(() => {
+    const tableWidth = tableScrollRef.current?.scrollWidth || 0
+    const containerWidth = tableScrollRef.current?.clientWidth || 0
+    setScrollWidth(Math.max(tableWidth, containerWidth))
+  }, [])
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current
+    if (!wrapper) return
+    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
+    if (!container) return
+
+    tableScrollRef.current = container
+    const onScroll = () => handleTableScroll()
+    container.addEventListener('scroll', onScroll, { passive: true })
+    requestAnimationFrame(refreshScrollWidth)
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [handleTableScroll, refreshScrollWidth, users.length])
 
   const { data, isLoading, isError } = useApiQuery(
     ['users', debouncedSearch, sortBy, sortOrder, page, filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo], 
@@ -118,14 +138,12 @@ export function Users() {
 
   useEffect(() => {
     const updateWidth = () => {
-      if (tableScrollRef.current) {
-        setScrollWidth(tableScrollRef.current.scrollWidth)
-      }
+      refreshScrollWidth()
     }
     updateWidth()
     window.addEventListener('resize', updateWidth)
     return () => window.removeEventListener('resize', updateWidth)
-  }, [users.length, sortBy, sortOrder])
+  }, [refreshScrollWidth, users.length, sortBy, sortOrder])
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -251,13 +269,13 @@ export function Users() {
         </CardHeader>
         <CardContent>
               <div className="rounded-md border border-border overflow-hidden">
-                <div
-                  ref={topScrollRef}
-                  onScroll={handleTopScroll}
-                  className="overflow-x-auto"
-                >
-                  <div style={{ width: scrollWidth, height: 12 }} />
-                </div>
+                    <div
+                      ref={topScrollRef}
+                      onScroll={handleTopScroll}
+                      className="overflow-x-auto bg-muted/20 border-b border-border/60 h-3"
+                    >
+                      <div style={{ width: scrollWidth, height: 12 }} />
+                    </div>
                 {isLoading ? (
                   <div className="space-y-2 p-6">
                     {[...Array(6)].map((_, idx) => (
@@ -267,17 +285,17 @@ export function Users() {
                 ) : isError ? (
                   <div className="p-6 text-sm text-destructive">{t('common.error')}</div>
                 ) : (
-                  <div ref={tableScrollRef} onScroll={handleTableScroll} className="overflow-x-auto">
-                    <Table>
+                  <div ref={tableWrapperRef} className="overflow-hidden">
+                    <Table className="min-w-[1100px]">
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead 
-                          className="cursor-pointer select-none hover:bg-muted/70 sticky left-0 z-10 bg-muted/50 w-[72px] min-w-[72px]"
+                          className="cursor-pointer select-none hover:bg-muted/70 sticky left-0 z-20 bg-muted/50 w-[72px] min-w-[72px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]"
                       onClick={() => handleSort('id')}
                     >
                       ID {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
-                        <TableHead className="sticky left-[72px] z-10 bg-muted/50 min-w-[140px]">User ID</TableHead>
+                        <TableHead className="sticky left-[72px] z-20 bg-muted/50 min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">User ID</TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70"
                       onClick={() => handleSort('username')}
@@ -332,25 +350,25 @@ export function Users() {
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id} className="hover:bg-muted/30">
-                      <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 z-10 bg-card w-[72px] min-w-[72px]">
+                      <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 z-20 bg-card w-[72px] min-w-[72px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                         {user.id}
                       </TableCell>
-                      <TableCell className="font-mono text-xs sticky left-[72px] z-10 bg-card min-w-[140px]">
+                      <TableCell className="font-mono text-xs sticky left-[72px] z-20 bg-card min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                         {user.telegramId}
                       </TableCell>
                       <TableCell className="font-medium text-sm">
-                        {user.username ? (
-                          <a
-                            href={`https://t.me/${String(user.username).replace(/^@/, '')}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            @{String(user.username).replace(/^@/, '')}
-                          </a>
-                        ) : (
-                          user.fullName
-                        )}
+                        <a
+                          href={
+                            user.username
+                              ? `https://t.me/${String(user.username).replace(/^@/, '')}`
+                              : `tg://user?id=${String(user.telegramId).replace(/\D/g, '')}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className={user.username ? 'text-primary hover:underline' : 'text-foreground hover:underline'}
+                        >
+                          {user.username ? `@${String(user.username).replace(/^@/, '')}` : user.fullName}
+                        </a>
                       </TableCell>
                       <TableCell>
                         {(() => {
