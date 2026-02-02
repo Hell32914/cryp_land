@@ -3306,6 +3306,167 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   }
 })
 
+app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
+  try {
+    const { search = '', limit = '50', page = '1', sortBy = 'totalDeposit', sortOrder = 'desc' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 50, 100)
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
+    const skip = (pageNum - 1) * take
+
+    const searchValue = String(search).trim()
+
+    const baseWhere: Prisma.UserWhereInput = {
+      isHidden: false,
+      deposits: {
+        some: {
+          status: 'COMPLETED',
+          NOT: [{ currency: 'PROFIT' }],
+        },
+      },
+    }
+
+    const searchWhere: Prisma.UserWhereInput | null = searchValue
+      ? {
+          OR: [
+            { telegramId: { contains: searchValue } },
+            { username: { contains: searchValue } },
+            { firstName: { contains: searchValue } },
+            { lastName: { contains: searchValue } },
+          ],
+        }
+      : null
+
+    const where: Prisma.UserWhereInput = {
+      AND: [baseWhere, searchWhere].filter(Boolean) as Prisma.UserWhereInput[],
+    }
+
+    const totalCount = await prisma.user.count({ where })
+    const totalPages = Math.ceil(totalCount / take) || 1
+
+    const sortByField = String(sortBy)
+    let dbSortField = sortByField
+    if (sortByField === 'totalDeposit') {
+      dbSortField = 'lifetimeDeposit'
+    } else if (sortByField === 'balance') {
+      dbSortField = 'totalDeposit'
+    }
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { [dbSortField]: sortOrder === 'asc' ? 'asc' : 'desc' },
+      take,
+      skip,
+      include: {
+        referrals: { select: { id: true } },
+        deposits: {
+          where: { status: 'COMPLETED', NOT: [{ currency: 'PROFIT' }] },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+          select: { amount: true },
+        },
+        dailyUpdates: {
+          select: { amount: true },
+        },
+      },
+    }) as Array<Prisma.UserGetPayload<{
+      include: {
+        referrals: { select: { id: true } }
+        deposits: { select: { amount: true } }
+        dailyUpdates: { select: { amount: true } }
+      }
+    }>>
+
+    const marketingLinks = await prisma.marketingLink.findMany()
+    const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
+    const linksByChannelInvite = new Map(
+      marketingLinks
+        .filter(l => Boolean((l as any).channelInviteLink))
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
+    )
+
+    const enrichedUsers = await Promise.all(users.map(async (user) => {
+      const firstDeposit = user.deposits[0]
+      const totalProfit = user.dailyUpdates.reduce((sum: number, update: { amount: number }) => sum + update.amount, 0)
+
+      let marketingLink = null
+      if (user.utmParams) {
+        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        if (linkIdMatch) {
+          marketingLink = linksByLinkId.get(linkIdMatch[0])
+        }
+      }
+      if (!marketingLink && (user as any).linkId) {
+        marketingLink = linksByLinkId.get((user as any).linkId)
+      }
+      if (!marketingLink) {
+        const rawUtm = (user as any).utmParams
+        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawUtm)
+            const inviteLinkName = parsed?.inviteLinkName
+            const inviteLink = parsed?.inviteLink
+            const candidateSource = String(inviteLinkName || inviteLink || '')
+            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_]+/)
+            const candidateLinkId = mkMatch ? mkMatch[0] : null
+            if (candidateLinkId) {
+              marketingLink = linksByLinkId.get(candidateLinkId) || null
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+      if (!marketingLink) {
+        const rawUtm = (user as any).utmParams
+        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(rawUtm)
+            const inviteLink = parsed?.inviteLink
+            if (inviteLink) {
+              const key = normalizeInviteLink(inviteLink) || String(inviteLink)
+              marketingLink = linksByChannelInvite.get(key) || null
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      return {
+        ...user,
+        referralCount: user.referrals.length,
+        firstDepositAmount: firstDeposit?.amount || 0,
+        totalProfit,
+        trafficerName: marketingLink?.trafficerName || null,
+        linkName: marketingLink
+          ? [
+              marketingLink.trafficerName,
+              marketingLink.stream,
+              marketingLink.geo,
+              marketingLink.creative,
+            ].filter(Boolean).join('_') || marketingLink.linkId
+          : null,
+        linkId: marketingLink?.linkId || null,
+      }
+    }))
+
+    const mappedUsers = enrichedUsers.map(u => mapUserSummary(u))
+
+    return res.json({
+      users: mappedUsers,
+      count: mappedUsers.length,
+      totalCount,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    })
+  } catch (error) {
+    console.error('Admin deposit users error:', error)
+    return res.status(500).json({ error: 'Failed to load deposit users' })
+  }
+})
+
 app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
   try {
     const { status, limit = '100', page = '1', search } = req.query

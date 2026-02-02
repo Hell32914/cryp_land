@@ -1040,6 +1040,27 @@ export const fetchDeposits = (token: string, opts?: { page?: number; limit?: num
   return request<DepositsResponse>(`/api/admin/deposits${query ? `?${query}` : ''}`, {}, token)
 }
 
+export const fetchDepositUsers = (token: string, opts?: { page?: number; limit?: number; search?: string }) => {
+  if (isTesterToken(token)) {
+    const users = MOCK_USERS.filter((u) => u.totalDeposit > 0)
+    return Promise.resolve({
+      users,
+      count: users.length,
+      totalCount: users.length,
+      page: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    })
+  }
+  const params = new URLSearchParams()
+  if (opts?.page) params.set('page', String(opts.page))
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.search) params.set('search', String(opts.search))
+  const query = params.toString()
+  return request<UsersResponse>(`/api/admin/deposit-users${query ? `?${query}` : ''}`, {}, token)
+}
+
 export const fetchWithdrawals = (token: string) =>
   isTesterToken(token)
     ? Promise.resolve({ withdrawals: MOCK_WITHDRAWALS })

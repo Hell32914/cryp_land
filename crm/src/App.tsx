@@ -7,6 +7,7 @@ import { LoginPage } from '@/components/LoginPage'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/components/pages/Dashboard'
 import { Users } from '@/components/pages/Users'
+import { DepositUsers } from '@/components/pages/DepositUsers'
 import { GeoData } from '@/components/pages/GeoData'
 import { Deposits } from '@/components/pages/Deposits'
 import { Withdrawals } from '@/components/pages/Withdrawals'
@@ -40,6 +41,7 @@ function AppContent() {
         allowedPages: new Set([
           'dashboard',
           'geo',
+          'deposit-users',
           'deposits',
           'withdrawals',
           'expenses',
@@ -100,6 +102,8 @@ function AppContent() {
         return <Dashboard />
       case 'users':
         return role === 'tester' ? <Dashboard /> : <Users />
+      case 'deposit-users':
+        return <DepositUsers />
       case 'geo':
         return <GeoData />
       case 'deposits':

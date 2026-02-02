@@ -2862,7 +2862,7 @@ bot.on('message:text', async (ctx) => {
         console.log('[Add Bonus] ℹ️ Not sending card - user was not inactive')
       }
 
-      // Notify user
+      // Notify user (best-effort; don't fail the admin flow if user blocked the bot)
       const statusInfo = wasInactive ? '\n✅ *Account Activated!*\n' : ''
       const userMessage = `🎁 *Syntrix Token Added!*\n\n` +
         statusInfo +
@@ -2874,15 +2874,21 @@ bot.on('message:text', async (ctx) => {
         `• Earns 0.1% daily profit\n` +
         `• Cannot be withdrawn as cash`
 
-      await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
-      
-      await prisma.notification.create({
-        data: {
-          userId: user.id,
-          type: 'BONUS',
-          message: userMessage
-        }
-      })
+      let notifyIssue: string | null = null
+      try {
+        await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
+
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            type: 'BONUS',
+            message: userMessage
+          }
+        })
+      } catch (notifyError) {
+        console.error('[Add Bonus] User notify failed:', notifyError)
+        notifyIssue = '⚠️ User notification failed (user may have blocked the bot).'
+      }
 
       // Confirm to admin
       const activationInfo = wasInactive ? `\n✅ Account Activated: INACTIVE → ACTIVE\n` : ''
@@ -2892,7 +2898,8 @@ bot.on('message:text', async (ctx) => {
         `Amount: +$${amount.toFixed(2)}\n` +
         `Previous Bonus: $${currentUser.bonusTokens.toFixed(2)}\n` +
         `New Bonus: $${user.bonusTokens.toFixed(2)}` +
-        activationInfo,
+        activationInfo +
+        (notifyIssue ? `\n${notifyIssue}` : ''),
         { parse_mode: 'Markdown' }
       )
 

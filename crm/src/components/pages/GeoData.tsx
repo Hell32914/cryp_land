@@ -179,7 +179,7 @@ export function GeoData() {
 
       {/* Period Selector */}
       <div className="flex flex-wrap items-center gap-2">
-        <Calendar size={20} className="text-muted-foreground" />
+        <Calendar size={20} className="text-muted-foreground/70" />
         {periodButtons.map((btn) => (
           <button
             key={btn.key}

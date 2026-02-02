@@ -50,6 +50,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       items: [
         { id: 'dashboard', label: t('nav.analytics'), icon: ChartLine },
         { id: 'users', label: t('nav.users'), icon: Users },
+        { id: 'deposit-users', label: t('nav.depositUsers'), icon: Users },
         { id: 'geo', label: t('nav.geoData'), icon: Globe },
       ],
     },

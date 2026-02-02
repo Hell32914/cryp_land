@@ -53,6 +53,7 @@ const resources = {
         supportOperators: 'Users',
         supportBroadcasts: 'Mass messaging',
         supportAnalytics: 'Support analytics',
+         depositUsers: 'Depositors',
       },
       supportBoard: {
         title: 'Funnel',
@@ -125,6 +126,13 @@ const resources = {
         deleteFailed: 'Failed to delete broadcast messages',
         noBroadcasts: 'No broadcasts yet',
       },
+        depositUsers: {
+          title: 'Users with Deposits',
+          subtitle: 'All users who completed a deposit',
+          total: 'Total users',
+          searchPlaceholder: 'Search by ID, username, name...',
+          empty: 'No deposit users yet',
+        },
       support: {
         title: 'Support',
         chats: 'Chats',
@@ -164,6 +172,7 @@ const resources = {
           inboundMessages: 'User messages',
           outboundMessages: 'Operator messages',
           totalInquiries: 'Total inquiries',
+           depositUsers: 'Депозиторы',
           responsesCount: 'Responses counted',
           activeChats: 'Active chats',
           avgMessagesPerChat: 'Avg messages per chat',
@@ -696,6 +705,13 @@ const resources = {
         export: 'Экспорт CSV',
         distribution: 'Распределение по странам',
       },
+        depositUsers: {
+          title: 'Пользователи с депозитами',
+          subtitle: 'Все пользователи, которые сделали депозит',
+          total: 'Всего пользователей',
+          searchPlaceholder: 'Поиск по ID, нику, имени...',
+          empty: 'Пользователей с депозитами нет',
+        },
       deposits: {
         title: 'Депозиты',
         orderId: 'ID заказа',
@@ -791,6 +807,7 @@ const resources = {
         supportOperators: 'Users',
         supportBroadcasts: 'Розсилка',
         supportAnalytics: 'Аналітика підтримки',
+         depositUsers: 'Депозитори',
       },
       dashboard: {
         title: 'Панель аналітики',
@@ -841,6 +858,13 @@ const resources = {
         export: 'Експорт CSV',
         distribution: 'Розподіл за країнами',
       },
+        depositUsers: {
+          title: 'Користувачі з депозитами',
+          subtitle: 'Усі користувачі, які зробили депозит',
+          total: 'Усього користувачів',
+          searchPlaceholder: 'Пошук за ID, ніком, ім’ям...',
+          empty: 'Користувачів з депозитами немає',
+        }
       deposits: {
         title: 'Депозити',
         orderId: 'ID замовлення',
