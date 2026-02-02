@@ -98,19 +98,6 @@ export function Users() {
     setScrollWidth(Math.max(tableWidth, containerWidth))
   }, [])
 
-  useEffect(() => {
-    const wrapper = tableWrapperRef.current
-    if (!wrapper) return
-    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
-    if (!container) return
-
-    tableScrollRef.current = container
-    const onScroll = () => handleTableScroll()
-    container.addEventListener('scroll', onScroll, { passive: true })
-    requestAnimationFrame(refreshScrollWidth)
-    return () => container.removeEventListener('scroll', onScroll)
-  }, [handleTableScroll, refreshScrollWidth, users.length])
-
   const { data, isLoading, isError } = useApiQuery(
     ['users', debouncedSearch, sortBy, sortOrder, page, filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo], 
     (authToken) => fetchUsers(authToken, {
@@ -135,6 +122,19 @@ export function Users() {
   const totalPages = data?.totalPages ?? 1
   const hasNextPage = data?.hasNextPage ?? false
   const hasPrevPage = data?.hasPrevPage ?? false
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current
+    if (!wrapper) return
+    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
+    if (!container) return
+
+    tableScrollRef.current = container
+    const onScroll = () => handleTableScroll()
+    container.addEventListener('scroll', onScroll, { passive: true })
+    requestAnimationFrame(refreshScrollWidth)
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [handleTableScroll, refreshScrollWidth, users.length])
 
   useEffect(() => {
     const updateWidth = () => {
