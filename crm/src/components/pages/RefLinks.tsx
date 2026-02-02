@@ -91,6 +91,61 @@ export function RefLinks() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('refLinks.title')}</h1>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Referral Links Performance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Input
+              placeholder="Filter by Trafficker"
+              value={traffickerFilter}
+              onChange={(e) => setTraffickerFilter(e.target.value)}
+              className="w-52"
+            />
+            <Input
+              placeholder="Filter by Source"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-52"
+            />
+          </div>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          ) : links.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No referral links yet. Create links in <strong>Link Builder</strong>.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Trafficker</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Link ID</TableHead>
+                    <TableHead>Stream</TableHead>
+                    <TableHead>Geo</TableHead>
+                    <TableHead>Creative</TableHead>
+                    <TableHead className="text-right text-purple-400">Total</TableHead>
+                    <TableHead className="text-right text-green-400">TOTAL USER</TableHead>
+                    <TableHead className="text-right text-blue-400">TODAY USERS</TableHead>
+                    <TableHead className="text-right text-cyan-400">WEEK USER</TableHead>
+                    <TableHead className="text-right text-yellow-400">LEADS</TableHead>
+                    <TableHead className="text-right text-sky-400">CHANNEL</TableHead>
+                    <TableHead className="text-right text-orange-400">CR% Lead→User</TableHead>
+                    <TableHead className="text-right">FTD</TableHead>
+                    <TableHead className="text-right">CR %</TableHead>
+                    <TableHead className="text-right">Deps</TableHead>
+                    <TableHead className="text-right">Dep Amount</TableHead>
+                    <TableHead className="text-right">Traffic Cost</TableHead>
+                    <TableHead className="text-right">CFPD</TableHead>
+                    <TableHead className="text-right">ROI %</TableHead>
+                    <TableHead>Created</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {groupedLinks.map((group) => {
                     const leadCount = group.links.reduce((sum, link) => sum + (link.totalLeads || 0) + (link.channelLeads || 0), 0)
