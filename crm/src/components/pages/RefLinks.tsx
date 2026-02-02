@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PencilSimple, CheckCircle, XCircle } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +26,10 @@ export function RefLinks() {
   const [traffickerFilter, setTraffickerFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [expandedTrafficker, setExpandedTrafficker] = useState<string | null>(null)
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null)
+  const tableScrollRef = useRef<HTMLDivElement | null>(null)
+  const topScrollRef = useRef<HTMLDivElement | null>(null)
+  const [scrollWidth, setScrollWidth] = useState(0)
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketing-links', token],
@@ -87,6 +91,44 @@ export function RefLinks() {
     return Array.from(map.entries()).map(([trafficker, group]) => ({ trafficker, links: group }))
   }, [filteredLinks])
 
+  const handleTopScroll = useCallback(() => {
+    if (topScrollRef.current && tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+    }
+  }, [])
+
+  const handleTableScroll = useCallback(() => {
+    if (topScrollRef.current && tableScrollRef.current) {
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft
+    }
+  }, [])
+
+  const refreshScrollWidth = useCallback(() => {
+    const tableWidth = tableScrollRef.current?.scrollWidth || 0
+    const containerWidth = tableScrollRef.current?.clientWidth || 0
+    setScrollWidth(Math.max(tableWidth, containerWidth))
+  }, [])
+
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current
+    if (!wrapper) return
+    const container = wrapper.querySelector<HTMLDivElement>('[data-slot="table-container"]')
+    if (!container) return
+
+    tableScrollRef.current = container
+    const onScroll = () => handleTableScroll()
+    container.addEventListener('scroll', onScroll, { passive: true })
+    requestAnimationFrame(refreshScrollWidth)
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [handleTableScroll, refreshScrollWidth, groupedLinks.length])
+
+  useEffect(() => {
+    const updateWidth = () => refreshScrollWidth()
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [refreshScrollWidth])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -119,11 +161,19 @@ export function RefLinks() {
               No referral links yet. Create links in <strong>Link Builder</strong>.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="rounded-md border border-border overflow-hidden">
+              <div
+                ref={topScrollRef}
+                onScroll={handleTopScroll}
+                className="overflow-x-auto overflow-y-hidden bg-muted/20 border-b border-border/60 h-4"
+              >
+                <div style={{ width: scrollWidth, height: 16 }} />
+              </div>
+              <div ref={tableWrapperRef} className="overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Trafficker</TableHead>
+                    <TableHead className="sticky left-0 z-20 bg-muted/50 border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">Trafficker</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead>Link ID</TableHead>
                     <TableHead>Stream</TableHead>
@@ -173,7 +223,7 @@ export function RefLinks() {
                           className="hover:bg-muted/30 cursor-pointer"
                           onClick={() => setExpandedTrafficker(isExpanded ? null : group.trafficker)}
                         >
-                          <TableCell className="font-medium text-blue-400">
+                          <TableCell className="font-medium text-blue-400 sticky left-0 z-10 bg-card border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                             {group.trafficker}
                           </TableCell>
                           <TableCell className="text-muted-foreground">{group.links.length} links</TableCell>
@@ -236,7 +286,7 @@ export function RefLinks() {
                               const linkTotalCount = linkLeadCount + linkTotalUsers
                               return (
                                 <TableRow key={link.linkId} className="bg-muted/20 hover:bg-muted/30">
-                                  <TableCell className="font-medium text-blue-400 pl-6">
+                                  <TableCell className="font-medium text-blue-400 pl-6 sticky left-0 z-10 bg-muted/20 border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                                     {link.trafficerName || 'Unknown'}
                                   </TableCell>
                                   <TableCell className="text-muted-foreground">{link.source || '—'}</TableCell>
@@ -352,6 +402,7 @@ export function RefLinks() {
                   })}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
         </CardContent>
