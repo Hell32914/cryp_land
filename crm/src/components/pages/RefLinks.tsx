@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PencilSimple, CheckCircle, XCircle } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +25,7 @@ export function RefLinks() {
   const [editCost, setEditCost] = useState('')
   const [traffickerFilter, setTraffickerFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  const [expandedTrafficker, setExpandedTrafficker] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['marketing-links', token],
@@ -75,127 +76,226 @@ export function RefLinks() {
   const formatMoney = (val: number) => `$${val.toFixed(2)}`
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-GB')
 
+  const groupedLinks = useMemo(() => {
+    const map = new Map<string, MarketingLink[]>()
+    for (const link of filteredLinks) {
+      const key = (link.trafficerName || 'Unknown').trim() || 'Unknown'
+      const list = map.get(key)
+      if (list) list.push(link)
+      else map.set(key, [link])
+    }
+    return Array.from(map.entries()).map(([trafficker, group]) => ({ trafficker, links: group }))
+  }, [filteredLinks])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('refLinks.title')}</h1>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Referral Links Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <Input
-              placeholder="Filter by Trafficker"
-              value={traffickerFilter}
-              onChange={(e) => setTraffickerFilter(e.target.value)}
-              className="w-52"
-            />
-            <Input
-              placeholder="Filter by Source"
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="w-52"
-            />
-          </div>
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          ) : links.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No referral links yet. Create links in <strong>Link Builder</strong>.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Trafficker</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Link ID</TableHead>
-                    <TableHead>Stream</TableHead>
-                    <TableHead>Geo</TableHead>
-                    <TableHead>Creative</TableHead>
-                    <TableHead className="text-right text-purple-400">Total</TableHead>
-                    <TableHead className="text-right text-green-400">TOTAL USER</TableHead>
-                    <TableHead className="text-right text-blue-400">TODAY USERS</TableHead>
-                    <TableHead className="text-right text-cyan-400">WEEK USER</TableHead>
-                    <TableHead className="text-right text-yellow-400">LEADS</TableHead>
-                    <TableHead className="text-right text-sky-400">CHANNEL</TableHead>
-                    <TableHead className="text-right text-orange-400">CR% Lead→User</TableHead>
-                    <TableHead className="text-right">FTD</TableHead>
-                    <TableHead className="text-right">CR %</TableHead>
-                    <TableHead className="text-right">Deps</TableHead>
-                    <TableHead className="text-right">Dep Amount</TableHead>
-                    <TableHead className="text-right">Traffic Cost</TableHead>
-                    <TableHead className="text-right">CFPD</TableHead>
-                    <TableHead className="text-right">ROI %</TableHead>
-                    <TableHead>Created</TableHead>
-                  </TableRow>
-                </TableHeader>
                 <TableBody>
-                  {filteredLinks.map((link) => {
-                    const leadCount = (link.totalLeads || 0) + (link.channelLeads || 0)
-                    const totalUsers = link.totalUsers || 0
+                  {groupedLinks.map((group) => {
+                    const leadCount = group.links.reduce((sum, link) => sum + (link.totalLeads || 0) + (link.channelLeads || 0), 0)
+                    const totalUsers = group.links.reduce((sum, link) => sum + (link.totalUsers || 0), 0)
                     const totalCount = leadCount + totalUsers
+                    const usersToday = group.links.reduce((sum, link) => sum + (link.usersToday || 0), 0)
+                    const usersWeek = group.links.reduce((sum, link) => sum + (link.usersWeek || 0), 0)
+                    const channelLeads = group.links.reduce((sum, link) => sum + (link.channelLeads || 0), 0)
+                    const ftdCount = group.links.reduce((sum, link) => sum + (link.ftdCount || 0), 0)
+                    const totalDeposits = group.links.reduce((sum, link) => sum + (link.totalDeposits || 0), 0)
+                    const totalDepositAmount = group.links.reduce((sum, link) => sum + (link.totalDepositAmount || 0), 0)
+                    const trafficCost = group.links.reduce((sum, link) => sum + (link.trafficCost || 0), 0)
+                    const totalProfit = group.links.reduce((sum, link) => sum + (link.totalProfit || 0), 0)
+                    const cfpd = ftdCount > 0 ? trafficCost / ftdCount : 0
+                    const depositCr = totalUsers > 0 ? (ftdCount / totalUsers) * 100 : 0
+                    const roi = trafficCost > 0 ? ((totalProfit - trafficCost) / trafficCost) * 100 : 0
+                    const latestCreated = group.links.reduce((latest, link) =>
+                      new Date(link.createdAt).getTime() > new Date(latest).getTime() ? link.createdAt : latest
+                    , group.links[0]?.createdAt || new Date().toISOString())
+                    const isExpanded = expandedTrafficker === group.trafficker
+
                     return (
-                    <TableRow key={link.linkId}>
-                      <TableCell className="font-medium text-blue-400">
-                        {link.trafficerName || 'Unknown'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{link.source || '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {link.linkId}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-purple-400">
-                        {link.stream || '-'}
-                      </TableCell>
-                      <TableCell className="text-green-400">
-                        {link.geo || '-'}
-                      </TableCell>
-                      <TableCell className="text-orange-400">
-                        {link.creativeUrl ? (
-                          <a
-                            href={link.creativeUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="hover:underline"
-                          >
-                            {link.creative || link.creativeUrl}
-                          </a>
-                        ) : (
-                          link.creative || '-'
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right text-purple-400 font-semibold">{totalCount}</TableCell>
-                      <TableCell className="text-right text-green-400 font-semibold">{totalUsers}</TableCell>
-                      <TableCell className="text-right text-blue-400">{link.usersToday || 0}</TableCell>
-                      <TableCell className="text-right text-cyan-400">{link.usersWeek || 0}</TableCell>
-                      <TableCell className="text-right text-yellow-400">{leadCount}</TableCell>
-                      <TableCell className="text-right text-sky-400">{link.channelLeads || 0}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
-                          {totalCount > 0 
-                            ? formatPercent((totalUsers / totalCount) * 100)
-                            : '0.00%'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
-                          {link.ftdCount}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary" className="bg-green-500/20 text-green-400">
-                          {formatPercent(link.depositConversionRate)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{link.totalDeposits}</TableCell>
-                      <TableCell className="text-right text-cyan-400 font-semibold">
-                        {formatMoney(link.totalDepositAmount)}
+                      <Fragment key={`group-${group.trafficker}`}>
+                        <TableRow
+                          className="hover:bg-muted/30 cursor-pointer"
+                          onClick={() => setExpandedTrafficker(isExpanded ? null : group.trafficker)}
+                        >
+                          <TableCell className="font-medium text-blue-400">
+                            {group.trafficker}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{group.links.length} links</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-mono text-xs">
+                              —
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-purple-400">—</TableCell>
+                          <TableCell className="text-green-400">—</TableCell>
+                          <TableCell className="text-orange-400">—</TableCell>
+                          <TableCell className="text-right text-purple-400 font-semibold">{totalCount}</TableCell>
+                          <TableCell className="text-right text-green-400 font-semibold">{totalUsers}</TableCell>
+                          <TableCell className="text-right text-blue-400">{usersToday}</TableCell>
+                          <TableCell className="text-right text-cyan-400">{usersWeek}</TableCell>
+                          <TableCell className="text-right text-yellow-400">{leadCount}</TableCell>
+                          <TableCell className="text-right text-sky-400">{channelLeads}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
+                              {totalCount > 0 ? formatPercent((totalUsers / totalCount) * 100) : '0.00%'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
+                              {ftdCount}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary" className="bg-green-500/20 text-green-400">
+                              {formatPercent(depositCr)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{totalDeposits}</TableCell>
+                          <TableCell className="text-right text-cyan-400 font-semibold">
+                            {formatMoney(totalDepositAmount)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatMoney(trafficCost)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatMoney(cfpd)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant="outline"
+                              className={roi >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}
+                            >
+                              {formatPercent(roi)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatDate(latestCreated)}
+                          </TableCell>
+                        </TableRow>
+
+                        {isExpanded
+                          ? group.links.map((link) => {
+                              const linkLeadCount = (link.totalLeads || 0) + (link.channelLeads || 0)
+                              const linkTotalUsers = link.totalUsers || 0
+                              const linkTotalCount = linkLeadCount + linkTotalUsers
+                              return (
+                                <TableRow key={link.linkId} className="bg-muted/20 hover:bg-muted/30">
+                                  <TableCell className="font-medium text-blue-400 pl-6">
+                                    {link.trafficerName || 'Unknown'}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">{link.source || '—'}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="font-mono text-xs">
+                                      {link.linkId}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-purple-400">
+                                    {link.stream || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-green-400">
+                                    {link.geo || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-orange-400">
+                                    {link.creativeUrl ? (
+                                      <a
+                                        href={link.creativeUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="hover:underline"
+                                      >
+                                        {link.creative || link.creativeUrl}
+                                      </a>
+                                    ) : (
+                                      link.creative || '-'
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right text-purple-400 font-semibold">{linkTotalCount}</TableCell>
+                                  <TableCell className="text-right text-green-400 font-semibold">{linkTotalUsers}</TableCell>
+                                  <TableCell className="text-right text-blue-400">{link.usersToday || 0}</TableCell>
+                                  <TableCell className="text-right text-cyan-400">{link.usersWeek || 0}</TableCell>
+                                  <TableCell className="text-right text-yellow-400">{linkLeadCount}</TableCell>
+                                  <TableCell className="text-right text-sky-400">{link.channelLeads || 0}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-400">
+                                      {linkTotalCount > 0
+                                        ? formatPercent((linkTotalUsers / linkTotalCount) * 100)
+                                        : '0.00%'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400">
+                                      {link.ftdCount}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge variant="secondary" className="bg-green-500/20 text-green-400">
+                                      {formatPercent(link.depositConversionRate)}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">{link.totalDeposits}</TableCell>
+                                  <TableCell className="text-right text-cyan-400 font-semibold">
+                                    {formatMoney(link.totalDepositAmount)}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {editingLinkId === link.linkId ? (
+                                      <div className="flex items-center gap-1">
+                                        <Input
+                                          type="number"
+                                          value={editCost}
+                                          onChange={(e) => setEditCost(e.target.value)}
+                                          className="w-20 h-7 text-xs"
+                                          step="0.01"
+                                          min="0"
+                                        />
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          onClick={() => handleSaveCost(link.linkId)}
+                                        >
+                                          <CheckCircle size={16} className="text-green-500" />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          onClick={handleCancelEdit}
+                                        >
+                                          <XCircle size={16} className="text-red-500" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEditCost(link)}
+                                      >
+                                        <PencilSimple size={14} className="mr-1" />
+                                        {formatMoney(link.trafficCost || 0)}
+                                      </Button>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatMoney(link.cfpd || 0)}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge
+                                      variant="outline"
+                                      className={(link.roi || 0) >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}
+                                    >
+                                      {formatPercent(link.roi || 0)}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {formatDate(link.createdAt)}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })
+                          : null}
+                      </Fragment>
+                    )
+                  })}
+                </TableBody>
                       </TableCell>
                       <TableCell className="text-right">
                         {editingLinkId === link.linkId ? (
