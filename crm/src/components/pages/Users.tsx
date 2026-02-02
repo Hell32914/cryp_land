@@ -310,7 +310,7 @@ export function Users() {
                     </TableHead>
                         <TableHead className="sticky left-[72px] z-20 bg-muted/50 min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)] overflow-hidden text-ellipsis">User ID</TableHead>
                     <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/70"
+                      className="cursor-pointer select-none hover:bg-muted/70 sticky left-[212px] z-20 bg-muted/50 min-w-[180px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]"
                       onClick={() => handleSort('username')}
                     >
                       Username {sortBy === 'username' && (sortOrder === 'asc' ? '↑' : '↓')}
@@ -388,7 +388,7 @@ export function Users() {
                       <TableCell className="font-mono text-xs sticky left-[72px] z-20 bg-card min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                         {user.telegramId}
                       </TableCell>
-                      <TableCell className="font-medium text-sm">
+                      <TableCell className="font-medium text-sm sticky left-[212px] z-10 bg-card min-w-[180px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">
                         <button
                           type="button"
                           onClick={() => {
