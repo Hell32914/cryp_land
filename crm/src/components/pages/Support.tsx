@@ -157,6 +157,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   const isAdmin = myRole === 'admin' || myRole === 'superadmin'
 
   const [search, setSearch] = useState('')
+  const [operatorFilter, setOperatorFilter] = useState('all')
   const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('week')
@@ -546,6 +547,16 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
   const chats = chatsData?.chats ?? []
 
+  const operatorOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const chat of chats) {
+      if (chat.acceptedBy) set.add(String(chat.acceptedBy))
+      const assigned = (chat as any).assignedAdminUsername || (chat as any).assignedTo
+      if (assigned) set.add(String(assigned))
+    }
+    return Array.from(set.values()).sort((a, b) => a.localeCompare(b))
+  }, [chats])
+
   // Self-heal: if local funnel config was reset/cleared, but DB contains stage IDs,
   // auto-add those missing stages so chats keep their lanes.
   useEffect(() => {
@@ -698,7 +709,16 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
   const filteredChats = useMemo(() => {
     if (activeTab === 'analytics') return []
-    const raw = chats.filter((chat) => getChatTab(chat) === activeTab)
+    let raw = chats.filter((chat) => getChatTab(chat) === activeTab)
+
+    if (operatorFilter !== 'all') {
+      raw = raw.filter((chat) => {
+        const assigned = chat.acceptedBy || (chat as any).assignedAdminUsername || (chat as any).assignedTo
+        if (operatorFilter === 'unassigned') return !assigned
+        if (operatorFilter === 'mine') return Boolean(myUsername) && String(assigned) === String(myUsername)
+        return String(assigned || '') === operatorFilter
+      })
+    }
     const q = search.trim().toLowerCase()
     if (!q) return raw
 
@@ -730,7 +750,7 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
       return terms.every((term) => haystack.includes(term))
     })
-  }, [activeTab, chats, funnelStages, chatStageMap, primaryStageId, search])
+  }, [activeTab, chats, funnelStages, chatStageMap, primaryStageId, search, operatorFilter, myUsername])
 
   useEffect(() => {
     chatsSnapshotRef.current = chats
@@ -1477,6 +1497,25 @@ export function Support({ mode = 'inbox' }: SupportProps) {
 
             {activeTab !== 'analytics' ? (
               <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-xs text-muted-foreground">{t('supportBoard.operatorFilter')}</Label>
+                  <Select value={operatorFilter} onValueChange={setOperatorFilter}>
+                    <SelectTrigger className="h-8 w-[200px]">
+                      <SelectValue placeholder={t('supportBoard.operatorFilter')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('supportBoard.operatorAll')}</SelectItem>
+                      <SelectItem value="mine">{t('supportBoard.operatorMe')}</SelectItem>
+                      <SelectItem value="unassigned">{t('supportBoard.operatorUnassigned')}</SelectItem>
+                      {operatorOptions.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={notificationsEnabled}
