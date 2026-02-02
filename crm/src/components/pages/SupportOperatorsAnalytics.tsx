@@ -6,6 +6,7 @@ import { fetchSupportChats, fetchSupportMessages, fetchSupportOperatorDeposits, 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/select'
 
 
-type SupportAnalyticsRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'
+type SupportAnalyticsRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
 
 type SupportOperatorsAnalyticsProps = {
   variant?: 'page' | 'embedded'
@@ -46,6 +47,8 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
   const { token } = useAuth()
   const isEmbedded = variant === 'embedded'
   const [range, setRange] = useState<SupportAnalyticsRange>('week')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [truncated, setTruncated] = useState(false)
@@ -72,6 +75,7 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
       { value: 'quarter' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.quarter') },
       { value: 'year' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.year') },
       { value: 'all' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.all') },
+      { value: 'custom' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.custom') },
     ],
     [t]
   )
@@ -81,6 +85,7 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
       const now = Date.now()
       const DAY_MS = 24 * 60 * 60 * 1000
       let fromTs = 0
+      let toTs = now
 
       if (range === 'day') fromTs = now - DAY_MS
       if (range === 'week') fromTs = now - DAY_MS * 7
@@ -97,11 +102,28 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
         }, 0)
         fromTs = earliest
       }
+      if (range === 'custom') {
+        const customFromTs = customFrom ? new Date(customFrom).getTime() : 0
+        const customToTs = customTo ? new Date(customTo).getTime() : 0
+        if (customFromTs) fromTs = customFromTs
+        if (customToTs) toTs = customToTs
+      }
 
       if (!fromTs) fromTs = now - DAY_MS
-      return { fromTs, toTs: now }
+      if (toTs < fromTs) [fromTs, toTs] = [toTs, fromTs]
+      return { fromTs, toTs }
     },
-    [range]
+    [customFrom, customTo, range]
+  )
+
+  const formatDuration = useCallback(
+    (seconds: number | null) => {
+      if (seconds === null || Number.isNaN(seconds)) return '—'
+      const mins = Math.floor(seconds / 60)
+      const secs = Math.round(seconds % 60)
+      return `${mins}${t('support.minutesShort')} ${secs}${t('support.secondsShort')}`
+    },
+    [t]
   )
 
   const loadOperatorAnalytics = useCallback(async () => {
@@ -322,6 +344,24 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
               ))}
             </SelectContent>
           </Select>
+          {range === 'custom' ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="datetime-local"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="w-[200px]"
+                aria-label={t('support.analytics.customFrom')}
+              />
+              <Input
+                type="datetime-local"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="w-[200px]"
+                aria-label={t('support.analytics.customTo')}
+              />
+            </div>
+          ) : null}
           <Button variant="outline" onClick={loadOperatorAnalytics}>
             {t('support.analytics.refresh')}
           </Button>
@@ -371,7 +411,7 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                           ${row.depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
-                          {avgResponse !== null ? `${avgResponse}s` : '—'}
+                          {formatDuration(avgResponse)}
                         </TableCell>
                         <TableCell className="text-right">
                           {responseRate !== null ? (

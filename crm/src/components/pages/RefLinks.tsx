@@ -73,12 +73,26 @@ export function RefLinks() {
 
   const links = data?.links || []
 
+  const normalizeValue = (value: unknown) => String(value ?? '').toLowerCase().trim()
+  const normalizedTraffickerFilter = normalizeValue(traffickerFilter)
+  const normalizedSourceFilter = normalizeValue(sourceFilter)
+
   const filteredLinks = links.filter((link) => {
-    const traffickerMatch = traffickerFilter.trim()
-      ? (link.trafficerName || '').toLowerCase().includes(traffickerFilter.trim().toLowerCase())
+    const traffickerValues = [
+      normalizeValue(link.trafficerName),
+      normalizeValue(link.ownerName),
+    ]
+    const sourceValues = [
+      normalizeValue(link.source),
+      normalizeValue(link.domain),
+      normalizeValue(link.linkUrl),
+    ]
+
+    const traffickerMatch = normalizedTraffickerFilter
+      ? traffickerValues.some((value) => value.includes(normalizedTraffickerFilter))
       : true
-    const sourceMatch = sourceFilter.trim()
-      ? (link.source || '').toLowerCase().includes(sourceFilter.trim().toLowerCase())
+    const sourceMatch = normalizedSourceFilter
+      ? sourceValues.some((value) => value.includes(normalizedSourceFilter))
       : true
     return traffickerMatch && sourceMatch
   })
