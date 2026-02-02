@@ -613,8 +613,8 @@ export function SupportFunnelBoard() {
           const items = columnChats[col.id] || []
 
           return (
-            <Card key={col.id} className="min-w-[320px] max-w-[360px] flex-shrink-0">
-              <CardHeader className="pb-3 sticky top-0 z-10 bg-card">
+            <Card key={col.id} className="min-w-[320px] max-w-[360px] flex-shrink-0 h-[calc(100vh-220px)] min-h-[520px] overflow-hidden">
+              <CardHeader className="pb-3 bg-card shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm font-semibold truncate">{col.title}</CardTitle>
                   <Badge variant="secondary">{items.length}</Badge>
@@ -622,7 +622,7 @@ export function SupportFunnelBoard() {
               </CardHeader>
 
               <CardContent
-                className="space-y-3 min-h-[520px]"
+                className="space-y-3 min-h-0 overflow-y-auto"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault()
