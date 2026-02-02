@@ -4,6 +4,7 @@ import { useApiQuery } from '@/hooks/use-api-query'
 import { useAuth } from '@/lib/auth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { SupportOperatorsAnalytics } from '@/components/pages/SupportOperatorsAnalytics'
+import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import {
   fetchSupportChats,
   fetchSupportFileBlob,
@@ -126,7 +127,6 @@ function normalizeStageId(value: string | null | undefined, aliases: Record<stri
 }
 
 const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
-import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 
 type SupportListTab = 'new' | 'accepted' | 'archive'
 type SupportChatsTab = SupportListTab | 'analytics'
@@ -190,6 +190,46 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   const photoPickerRef = useRef<HTMLInputElement | null>(null)
   const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null)
 
+  const RESPONSE_MUTE_KEY = 'crm.support.responseMute.v1'
+  const [responseMutedMap, setResponseMutedMap] = useState<Record<string, string>>(() => {
+    try {
+      const raw = window.localStorage.getItem(RESPONSE_MUTE_KEY)
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {}
+    } catch {
+      return {}
+    }
+  })
+
+  const [avatarUrlByChatId, setAvatarUrlByChatId] = useState<Record<string, string>>({})
+  const avatarUrlByChatIdRef = useRef<Record<string, string>>({})
+  useEffect(() => {
+    avatarUrlByChatIdRef.current = avatarUrlByChatId
+  }, [avatarUrlByChatId])
+  const avatarFileIdByChatIdRef = useRef<Record<string, string | null>>({})
+  const avatarLoadingRef = useRef<Record<string, boolean>>({})
+
+  const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
+  const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
+
+  const chatsListContainerRef = useRef<HTMLDivElement | null>(null)
+  const chatsListViewportRef = useRef<HTMLElement | null>(null)
+  const [isChatsListAtTop, setIsChatsListAtTop] = useState(true)
+  const [hasNewChatsActivityAbove, setHasNewChatsActivityAbove] = useState(false)
+  const [newChatsActivityCount, setNewChatsActivityCount] = useState(0)
+  const prevChatMetaRef = useRef<Record<string, { lastMessageAt: string | null; unreadCount: number }>>({})
+
+  const [noteText, setNoteText] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
+
+  const [imageViewerSrc, setImageViewerSrc] = useState('')
+  const [imageViewerZoom, setImageViewerZoom] = useState(1)
+  const [imageViewerOpen, setImageViewerOpen] = useState(false)
+
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    messagesEndRef.current?.scrollIntoView({ behavior })
+  }, [])
+
   const chatsSnapshotRef = useRef<SupportChatRecord[]>([])
   const analyticsRunRef = useRef(0)
 
@@ -226,16 +266,13 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
     const onMove = (ev: PointerEvent) => {
       const dy = ev.clientY - startY
-      const next = Math.max(
-        MIN_MESSAGES_PANE_HEIGHT,
-        Math.min(MAX_MESSAGES_PANE_HEIGHT, Math.round(startHeight + dy)),
-      )
-      messagesPaneHeightRef.current = next
+      const next = Math.max(MIN_MESSAGES_PANE_HEIGHT, Math.min(MAX_MESSAGES_PANE_HEIGHT, startHeight + dy))
       setMessagesPaneHeight(next)
     }
 
     const onUp = () => {
       window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
       try {
         window.localStorage.setItem(MESSAGES_PANE_HEIGHT_KEY, String(messagesPaneHeightRef.current))
       } catch {
@@ -244,51 +281,8 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
     }
 
     window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp, { once: true })
+    window.addEventListener('pointerup', onUp)
   }, [])
-
-  const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
-    requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
-    })
-  }
-
-  const [noteText, setNoteText] = useState('')
-  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
-  const [editingNoteText, setEditingNoteText] = useState('')
-
-  const [imageViewerOpen, setImageViewerOpen] = useState(false)
-  const [imageViewerSrc, setImageViewerSrc] = useState<string | null>(null)
-  const [imageViewerZoom, setImageViewerZoom] = useState(1)
-
-  const [fileUrlCache, setFileUrlCache] = useState<Record<string, string>>({})
-  const [fileLoadError, setFileLoadError] = useState<Record<string, boolean>>({})
-
-  const [avatarUrlByChatId, setAvatarUrlByChatId] = useState<Record<string, string>>({})
-  const avatarUrlByChatIdRef = useRef<Record<string, string>>({})
-  useEffect(() => {
-    avatarUrlByChatIdRef.current = avatarUrlByChatId
-  }, [avatarUrlByChatId])
-  const avatarFileIdByChatIdRef = useRef<Record<string, string | null>>({})
-  const avatarLoadingRef = useRef<Record<string, boolean>>({})
-
-  const chatsListContainerRef = useRef<HTMLDivElement | null>(null)
-  const chatsListViewportRef = useRef<HTMLElement | null>(null)
-  const [isChatsListAtTop, setIsChatsListAtTop] = useState(true)
-  const [hasNewChatsActivityAbove, setHasNewChatsActivityAbove] = useState(false)
-  const [newChatsActivityCount, setNewChatsActivityCount] = useState(0)
-  const prevChatMetaRef = useRef<Record<string, { lastMessageAt: string | null; unreadCount: number }>>({})
-
-  const RESPONSE_MUTE_KEY = 'crm.support.responseMuted.v1'
-  const [responseMutedMap, setResponseMutedMap] = useState<Record<string, string>>(() => {
-    try {
-      const raw = window.localStorage.getItem(RESPONSE_MUTE_KEY)
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed && typeof parsed === 'object' ? parsed : {}
-    } catch {
-      return {}
-    }
-  })
 
   const persistResponseMuted = (next: Record<string, string>) => {
     try {
@@ -859,7 +853,21 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
         const PAGE_LIMIT = range === 'all' ? 100 : range === 'year' ? 80 : 50
         const MAX_PAGES = range === 'all' ? 8 : range === 'year' ? 6 : 4
 
-        for (const chat of chatsToScan) {
+        const mapWithConcurrency = async <T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>) => {
+          const results: R[] = []
+          let index = 0
+          const workers = Array.from({ length: limit }).map(async () => {
+            while (index < items.length) {
+              const current = items[index++]
+              results.push(await fn(current))
+            }
+          })
+          await Promise.all(workers)
+          return results
+        }
+
+        const CONCURRENCY = 6
+        const perChatStats = await mapWithConcurrency(chatsToScan, CONCURRENCY, async (chat) => {
           let beforeId: number | undefined
           let pages = 0
           let hasMore = false
@@ -886,45 +894,63 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
             beforeId = resp.nextBeforeId
           }
 
-          if (pages >= MAX_PAGES && hasMore) truncated = true
+          const localTruncated = pages >= MAX_PAGES && hasMore
 
           const inRange = messages.filter((msg) => {
             const ts = new Date(msg.createdAt).getTime()
             return ts >= fromTs && ts <= toTs
           })
 
-          if (inRange.length === 0) continue
-
-          activeChats += 1
-
-          totalMessages += inRange.length
-          for (const msg of inRange) {
-            const dir = String(msg.direction).toUpperCase()
-            if (dir === 'IN') inboundMessages += 1
-            else outboundMessages += 1
+          if (inRange.length === 0) {
+            return { active: false, total: 0, inbound: 0, outbound: 0, responseSumMs: 0, responseCount: 0, truncated: localTruncated }
           }
 
-          const sorted = [...inRange].sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          )
-
+          let localInbound = 0
+          let localOutbound = 0
+          let localResponseSumMs = 0
+          let localResponseCount = 0
           let pendingInboundTs: number | null = null
-          for (const msg of sorted) {
-            const ts = new Date(msg.createdAt).getTime()
+
+          for (const msg of inRange) {
             const dir = String(msg.direction).toUpperCase()
             if (dir === 'IN') {
-              pendingInboundTs = ts
+              localInbound += 1
+              pendingInboundTs = new Date(msg.createdAt).getTime()
               continue
             }
+
+            localOutbound += 1
+
             if (pendingInboundTs) {
-              const diff = ts - pendingInboundTs
+              const diff = new Date(msg.createdAt).getTime() - pendingInboundTs
               if (diff >= 0) {
-                responseSumMs += diff
-                responseCount += 1
+                localResponseSumMs += diff
+                localResponseCount += 1
               }
               pendingInboundTs = null
             }
           }
+
+          return {
+            active: true,
+            total: inRange.length,
+            inbound: localInbound,
+            outbound: localOutbound,
+            responseSumMs: localResponseSumMs,
+            responseCount: localResponseCount,
+            truncated: localTruncated,
+          }
+        })
+
+        for (const row of perChatStats) {
+          if (row.truncated) truncated = true
+          if (!row.active) continue
+          activeChats += 1
+          totalMessages += row.total
+          inboundMessages += row.inbound
+          outboundMessages += row.outbound
+          responseSumMs += row.responseSumMs
+          responseCount += row.responseCount
         }
 
         if (analyticsRunRef.current !== runId) return

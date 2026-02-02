@@ -1009,6 +1009,100 @@ app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req,
   }
 })
 
+app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, res) => {
+  try {
+    const fromParam = req.query.from as string | undefined
+    const toParam = req.query.to as string | undefined
+
+    const parseDate = (value?: string) => {
+      if (!value) return undefined
+      const trimmed = String(value).trim()
+      if (!trimmed) return undefined
+      if (/^\d+$/.test(trimmed)) {
+        const num = Number(trimmed)
+        const ms = num < 1_000_000_000_000 ? num * 1000 : num
+        const d = new Date(ms)
+        return Number.isNaN(d.getTime()) ? undefined : d
+      }
+      const d = new Date(trimmed)
+      return Number.isNaN(d.getTime()) ? undefined : d
+    }
+
+    const fromDate = parseDate(fromParam)
+    const toDate = parseDate(toParam)
+
+    const supportChats = await prisma.supportChat.findMany({
+      where: { acceptedBy: { not: null } },
+      select: { telegramId: true, acceptedBy: true, lastMessageAt: true, createdAt: true },
+    })
+
+    const latestByTelegram = new Map<string, { operator: string; ts: number }>()
+    for (const chat of supportChats) {
+      const tg = String(chat.telegramId || '').trim()
+      const operator = String(chat.acceptedBy || '').trim()
+      if (!tg || !operator) continue
+      const ts = new Date(chat.lastMessageAt || chat.createdAt || 0).getTime() || 0
+      const prev = latestByTelegram.get(tg)
+      if (!prev || ts > prev.ts) latestByTelegram.set(tg, { operator, ts })
+    }
+
+    const telegramIds = Array.from(latestByTelegram.keys())
+    if (!telegramIds.length) {
+      return res.json({ operators: [] })
+    }
+
+    const users = await prisma.user.findMany({
+      where: { telegramId: { in: telegramIds } },
+      select: { id: true, telegramId: true },
+    })
+
+    const operatorByUserId = new Map<number, string>()
+    for (const user of users) {
+      const operator = latestByTelegram.get(String(user.telegramId || '').trim())?.operator
+      if (operator) operatorByUserId.set(user.id, operator)
+    }
+
+    const userIds = Array.from(operatorByUserId.keys())
+    if (!userIds.length) {
+      return res.json({ operators: [] })
+    }
+
+    const where: any = {
+      userId: { in: userIds },
+      status: 'COMPLETED',
+      NOT: [{ currency: 'PROFIT' }],
+    }
+    if (fromDate || toDate) {
+      where.createdAt = {
+        ...(fromDate ? { gte: fromDate } : {}),
+        ...(toDate ? { lte: toDate } : {}),
+      }
+    }
+
+    const grouped = await prisma.deposit.groupBy({
+      by: ['userId'],
+      _sum: { amount: true },
+      _count: { _all: true },
+      where,
+    })
+
+    const stats = new Map<string, { operator: string; depositCount: number; depositAmount: number }>()
+    for (const row of grouped) {
+      const operator = operatorByUserId.get(row.userId)
+      if (!operator) continue
+      const entry = stats.get(operator) || { operator, depositCount: 0, depositAmount: 0 }
+      entry.depositCount += Number((row as any)._count?._all ?? 0)
+      entry.depositAmount += Number((row as any)._sum?.amount ?? 0)
+      stats.set(operator, entry)
+    }
+
+    return res.json({ operators: Array.from(stats.values()) })
+  } catch (error) {
+    console.error('Support operators deposits error:', error)
+    return res.status(500).json({ error: 'Failed to load operator deposits' })
+  }
+})
+
 app.post('/api/admin/support/chats/:chatId/unarchive', requireAdminAuth, async (req, res) => {
   try {
     const chatId = String(req.params.chatId)

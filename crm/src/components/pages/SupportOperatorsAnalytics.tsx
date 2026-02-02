@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useApiQuery } from '@/hooks/use-api-query'
-import { fetchSupportChats, fetchSupportMessages, type SupportChatRecord, type SupportMessageRecord } from '@/lib/api'
+import { fetchSupportChats, fetchSupportMessages, fetchSupportOperatorDeposits, type SupportChatRecord, type SupportMessageRecord } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +37,8 @@ type OperatorStats = {
   outboundMessages: number
   responseCount: number
   responseSumMs: number
+  depositCount: number
+  depositAmount: number
 }
 
 export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperatorsAnalyticsProps) {
@@ -120,18 +122,34 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
       let processedChats = 0
       let localTruncated = false
 
-      for (const chat of chats) {
-        if (processedChats >= MAX_CHATS) {
-          localTruncated = true
-          break
-        }
+      const mapWithConcurrency = async <T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>) => {
+        const results: R[] = []
+        let index = 0
+        const workers = Array.from({ length: limit }).map(async () => {
+          while (index < items.length) {
+            const current = items[index++]
+            results.push(await fn(current))
+          }
+        })
+        await Promise.all(workers)
+        return results
+      }
 
+      const candidates = chats.filter((chat) => {
         const lastMessageTs = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0
         const startedTs = chat.startedAt ? new Date(chat.startedAt).getTime() : 0
-        if (lastMessageTs && lastMessageTs < fromTs && startedTs < fromTs) continue
+        if (lastMessageTs && lastMessageTs >= fromTs) return true
+        if (startedTs && startedTs >= fromTs) return true
+        return false
+      })
 
+      const limitedChats = candidates.slice(0, MAX_CHATS)
+      if (candidates.length > MAX_CHATS) localTruncated = true
+
+      const CONCURRENCY = 6
+      const perChatRows = await mapWithConcurrency(limitedChats, CONCURRENCY, async (chat) => {
         const operator = String(chat.acceptedBy || (chat as any).assignedAdminUsername || (chat as any).assignedTo || '').trim()
-        if (!operator) continue
+        if (!operator) return { operator: null, stats: null, truncated: false }
 
         let beforeId: number | undefined
         let pages = 0
@@ -159,29 +177,26 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
           beforeId = resp.nextBeforeId
         }
 
-        if (pages >= MAX_PAGES && hasMore) localTruncated = true
+        const localTruncated = pages >= MAX_PAGES && hasMore
 
         const inRange = messages.filter((msg) => {
           const ts = new Date(msg.createdAt).getTime()
           return ts >= fromTs && ts <= toTs
         })
 
-        if (inRange.length === 0) continue
+        if (inRange.length === 0) return { operator, stats: null, truncated: localTruncated }
 
-        processedChats += 1
-
-        const base = statsByOperator.get(operator) || {
+        const base: OperatorStats = {
           operator,
-          chats: 0,
-          totalMessages: 0,
+          chats: 1,
+          totalMessages: inRange.length,
           inboundMessages: 0,
           outboundMessages: 0,
           responseCount: 0,
           responseSumMs: 0,
+          depositCount: 0,
+          depositAmount: 0,
         }
-
-        base.chats += 1
-        base.totalMessages += inRange.length
 
         const sorted = [...inRange].sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -211,7 +226,61 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
           }
         }
 
-        statsByOperator.set(operator, base)
+        return { operator, stats: base, truncated: localTruncated }
+      })
+
+      for (const row of perChatRows) {
+        if (row.truncated) localTruncated = true
+        if (!row.stats || !row.operator) continue
+        processedChats += 1
+        const base = statsByOperator.get(row.operator) || {
+          operator: row.operator,
+          chats: 0,
+          totalMessages: 0,
+          inboundMessages: 0,
+          outboundMessages: 0,
+          responseCount: 0,
+          responseSumMs: 0,
+          depositCount: 0,
+          depositAmount: 0,
+        }
+        base.chats += row.stats.chats
+        base.totalMessages += row.stats.totalMessages
+        base.inboundMessages += row.stats.inboundMessages
+        base.outboundMessages += row.stats.outboundMessages
+        base.responseCount += row.stats.responseCount
+        base.responseSumMs += row.stats.responseSumMs
+        statsByOperator.set(row.operator, base)
+      }
+
+      const depositsResp = await fetchSupportOperatorDeposits(token, fromTs, toTs)
+      const depositsMap = new Map<string, { count: number; amount: number }>()
+      for (const row of depositsResp.operators || []) {
+        depositsMap.set(row.operator, { count: row.depositCount, amount: row.depositAmount })
+      }
+
+      for (const [operator, stats] of statsByOperator.entries()) {
+        const dep = depositsMap.get(operator)
+        if (dep) {
+          stats.depositCount = dep.count
+          stats.depositAmount = dep.amount
+        }
+      }
+
+      for (const [operator, dep] of depositsMap.entries()) {
+        if (!statsByOperator.has(operator)) {
+          statsByOperator.set(operator, {
+            operator,
+            chats: 0,
+            totalMessages: 0,
+            inboundMessages: 0,
+            outboundMessages: 0,
+            responseCount: 0,
+            responseSumMs: 0,
+            depositCount: dep.count,
+            depositAmount: dep.amount,
+          })
+        }
       }
 
       if (refreshKeyRef.current !== runId) return
@@ -280,6 +349,8 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                     <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.totalMessages')}</TableHead>
                     <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.inbound')}</TableHead>
                     <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.outbound')}</TableHead>
+                    <TableHead className="text-right">Deposits</TableHead>
+                    <TableHead className="text-right">Deposits $</TableHead>
                     <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.avgResponse')}</TableHead>
                     <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.responseRate')}</TableHead>
                   </TableRow>
@@ -295,6 +366,10 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                         <TableCell className="text-right font-mono text-sm">{row.totalMessages}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{row.inboundMessages}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{row.outboundMessages}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{row.depositCount}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          ${row.depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {avgResponse !== null ? `${avgResponse}s` : '—'}
                         </TableCell>
