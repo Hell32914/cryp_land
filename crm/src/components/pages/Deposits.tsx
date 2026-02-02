@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MagnifyingGlass, User } from '@phosphor-icons/react'
+import { MagnifyingGlass, Funnel, User } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +29,11 @@ export function Deposits() {
   const [page, setPage] = useState(1)
   const pageSize = 100
   const [selectedDeposit, setSelectedDeposit] = useState<DepositRecord | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterLeadStatus, setFilterLeadStatus] = useState('all')
+  const [filterDepStatus, setFilterDepStatus] = useState('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const { token } = useAuth()
   const { data } = useQuery({
     queryKey: ['deposits', token, page, search],
@@ -39,7 +44,27 @@ export function Deposits() {
 
   const deposits = data?.deposits || []
 
-  const filteredDeposits = deposits
+  const normalizeDepStatus = (deposit: DepositRecord) => {
+    if (deposit.depStatus !== 'processing') return deposit.depStatus
+    const raw = String(deposit.status || '').toUpperCase()
+    if (['COMPLETED', 'PAID', 'SUCCESS', 'SUCCEEDED'].includes(raw)) return 'paid'
+    if (['FAILED', 'CANCELLED', 'CANCELED', 'REJECTED', 'EXPIRED'].includes(raw)) return 'failed'
+    return 'processing'
+  }
+
+  const filteredDeposits = deposits.filter((deposit) => {
+    const normalizedDepStatus = normalizeDepStatus(deposit)
+    if (filterLeadStatus !== 'all' && deposit.leadStatus !== filterLeadStatus) return false
+    if (filterDepStatus !== 'all' && normalizedDepStatus !== filterDepStatus) return false
+    if (filterDateFrom || filterDateTo) {
+      const created = new Date(deposit.createdAt).getTime()
+      const fromTs = filterDateFrom ? new Date(filterDateFrom).setHours(0, 0, 0, 0) : null
+      const toTs = filterDateTo ? new Date(filterDateTo + 'T23:59:59').getTime() : null
+      if (fromTs !== null && created < fromTs) return false
+      if (toTs !== null && created > toTs) return false
+    }
+    return true
+  })
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -86,17 +111,22 @@ export function Deposits() {
 
       <Card>
         <CardHeader>
-          <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <Input
-              placeholder="Search deposits..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <Input
+                placeholder="Search deposits..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                className="pl-10"
+              />
+            </div>
+            <Button variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
+              <Funnel size={18} />
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -137,15 +167,20 @@ export function Deposits() {
                     </TableCell>
                     <TableCell className="text-sm">{deposit.user.country}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={
-                        deposit.depStatus === 'paid' 
-                          ? 'bg-green-500/10 text-green-500 border-green-500/20' 
-                          : deposit.depStatus === 'failed'
-                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                          : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-                      }>
-                        {deposit.depStatus}
-                      </Badge>
+                      {(() => {
+                        const normalized = normalizeDepStatus(deposit)
+                        return (
+                          <Badge variant="outline" className={
+                            normalized === 'paid'
+                              ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                              : normalized === 'failed'
+                                ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                          }>
+                            {normalized}
+                          </Badge>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
@@ -211,7 +246,7 @@ export function Deposits() {
 
       {/* User Details Modal */}
       <Dialog open={!!selectedDeposit} onOpenChange={() => setSelectedDeposit(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
           </DialogHeader>
@@ -335,6 +370,89 @@ export function Deposits() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Filters</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Lead Status</label>
+              <select
+                value={filterLeadStatus}
+                onChange={(e) => {
+                  setFilterLeadStatus(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1 w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="all">All</option>
+                <option value="FTD">FTD</option>
+                <option value="withdraw">withdraw</option>
+                <option value="reinvest">reinvest</option>
+                <option value="active">active</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Dep Status</label>
+              <select
+                value={filterDepStatus}
+                onChange={(e) => {
+                  setFilterDepStatus(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1 w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="all">All</option>
+                <option value="paid">paid</option>
+                <option value="processing">processing</option>
+                <option value="failed">failed</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Date from</label>
+              <Input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => {
+                  setFilterDateFrom(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Date to</label>
+              <Input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => {
+                  setFilterDateTo(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilterLeadStatus('all')
+                setFilterDepStatus('all')
+                setFilterDateFrom('')
+                setFilterDateTo('')
+                setPage(1)
+              }}
+            >
+              Reset
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)}>Apply</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

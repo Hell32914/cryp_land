@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { fetchOverview } from '@/lib/api'
@@ -222,10 +222,6 @@ export function GeoData() {
                     `${value.toLocaleString()} users (${props.payload.percentage}%)`,
                     props.payload.country
                   ]}
-                />
-                <Legend 
-                  wrapperStyle={{ color: '#9ca3af' }}
-                  iconType="circle"
                 />
               </PieChart>
             </ResponsiveContainer>
