@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel, User } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -34,7 +34,7 @@ export function Deposits() {
   const [filterDepStatus, setFilterDepStatus] = useState('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const { token } = useAuth()
   const { data } = useQuery({
     queryKey: ['deposits', token, page, search],
@@ -64,28 +64,36 @@ export function Deposits() {
       if (fromTs !== null && created < fromTs) return false
       if (toTs !== null && created > toTs) return false
     }
-    if (selectedUserId && String(deposit.user.telegramId) !== selectedUserId) return false
     return true
   })
 
-  const latestDeposits = useMemo(() => {
-    if (selectedUserId) return filteredDeposits
-    const latestByUser = new Map<string, DepositRecord>()
+  const groupedDeposits = useMemo(() => {
+    const map = new Map<string, DepositRecord[]>()
     for (const deposit of filteredDeposits) {
       const key = String(deposit.user.telegramId)
-      const existing = latestByUser.get(key)
-      if (!existing) {
-        latestByUser.set(key, deposit)
-        continue
-      }
-      const currentTs = new Date(deposit.createdAt).getTime()
-      const existingTs = new Date(existing.createdAt).getTime()
-      if (currentTs > existingTs) {
-        latestByUser.set(key, deposit)
+      const list = map.get(key)
+      if (list) {
+        list.push(deposit)
+      } else {
+        map.set(key, [deposit])
       }
     }
-    return Array.from(latestByUser.values())
-  }, [filteredDeposits, selectedUserId])
+
+    const groups = Array.from(map.entries()).map(([userId, list]) => {
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      return { userId, deposits: list }
+    })
+
+    groups.sort((a, b) => {
+      const aTs = new Date(a.deposits[0].createdAt).getTime()
+      const bTs = new Date(b.deposits[0].createdAt).getTime()
+      return bTs - aTs
+    })
+
+    return groups
+  }, [filteredDeposits])
+
+  const latestDeposits = useMemo(() => groupedDeposits.map((g) => g.deposits[0]), [groupedDeposits])
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -145,18 +153,6 @@ export function Deposits() {
                 className="pl-10"
               />
             </div>
-            {selectedUserId ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSelectedUserId(null)
-                  setSearch('')
-                  setPage(1)
-                }}
-              >
-                Clear user filter
-              </Button>
-            ) : null}
             <Button variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
               <Funnel size={18} />
             </Button>
@@ -183,79 +179,153 @@ export function Deposits() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {latestDeposits.map((deposit) => (
-                  <TableRow key={deposit.id} className="hover:bg-muted/30">
-                    <TableCell className="font-mono text-sm">#{deposit.id}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(deposit.createdAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {getPaymentMethodLabel(deposit.paymentMethod)}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm text-muted-foreground">{deposit.user.telegramId}</TableCell>
-                    <TableCell className="font-medium text-sm">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const userId = String(deposit.user.telegramId)
-                          setSelectedUserId(userId)
-                          setSearch(userId)
-                          setPage(1)
-                        }}
-                        className="hover:underline text-left"
+                {groupedDeposits.map((group) => {
+                  const latest = group.deposits[0]
+                  const isExpanded = expandedUserId === group.userId
+                  return (
+                    <Fragment key={`group-${group.userId}`}>
+                      <TableRow
+                        key={`latest-${group.userId}`}
+                        className="hover:bg-muted/30 cursor-pointer"
+                        onClick={() => setExpandedUserId(isExpanded ? null : group.userId)}
                       >
-                        {deposit.user.username || 'N/A'}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-sm">{deposit.user.fullName}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
-                      ${deposit.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-sm">{deposit.user.country}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const normalized = normalizeDepStatus(deposit)
-                        return (
+                        <TableCell className="font-mono text-sm">#{latest.id}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(latest.createdAt).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {getPaymentMethodLabel(latest.paymentMethod)}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">{latest.user.telegramId}</TableCell>
+                        <TableCell className="font-medium text-sm">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setExpandedUserId(isExpanded ? null : group.userId)
+                            }}
+                            className="hover:underline text-left"
+                          >
+                            {latest.user.username || 'N/A'}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm">{latest.user.fullName}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
+                          ${latest.amount.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-sm">{latest.user.country}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const normalized = normalizeDepStatus(latest)
+                            return (
+                              <Badge variant="outline" className={
+                                normalized === 'paid'
+                                  ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                                  : normalized === 'failed'
+                                    ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                    : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                              }>
+                                {normalized}
+                              </Badge>
+                            )
+                          })()}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="outline" className={
-                            normalized === 'paid'
-                              ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                              : normalized === 'failed'
-                                ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                                : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                            latest.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                            latest.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                            latest.leadStatus === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            'bg-green-500/10 text-green-400 border-green-500/20'
                           }>
-                            {normalized}
+                            {latest.leadStatus}
                           </Badge>
-                        )
-                      })()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={
-                        deposit.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                        deposit.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                        deposit.leadStatus === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                        'bg-green-500/10 text-green-400 border-green-500/20'
-                      }>
-                        {deposit.leadStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-blue-400">
-                      {deposit.trafficerName || '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-purple-400 max-w-[150px] truncate" title={deposit.linkName || ''}>
-                      {deposit.linkName || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setSelectedDeposit(deposit)}
-                      >
-                        <User size={16} className="mr-1" />
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </TableCell>
+                        <TableCell className="text-sm text-blue-400">
+                          {latest.trafficerName || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-purple-400 max-w-[150px] truncate" title={latest.linkName || ''}>
+                          {latest.linkName || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedDeposit(latest)
+                            }}
+                          >
+                            <User size={16} className="mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+
+                      {isExpanded
+                        ? group.deposits.slice(1).map((deposit) => (
+                            <TableRow key={deposit.id} className="bg-muted/20 hover:bg-muted/30">
+                              <TableCell className="font-mono text-sm">#{deposit.id}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {new Date(deposit.createdAt).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">
+                                {getPaymentMethodLabel(deposit.paymentMethod)}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm text-muted-foreground">{deposit.user.telegramId}</TableCell>
+                              <TableCell className="font-medium text-sm">{deposit.user.username || 'N/A'}</TableCell>
+                              <TableCell className="text-sm">{deposit.user.fullName}</TableCell>
+                              <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
+                                ${deposit.amount.toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-sm">{deposit.user.country}</TableCell>
+                              <TableCell>
+                                {(() => {
+                                  const normalized = normalizeDepStatus(deposit)
+                                  return (
+                                    <Badge variant="outline" className={
+                                      normalized === 'paid'
+                                        ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                                        : normalized === 'failed'
+                                          ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                          : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                    }>
+                                      {normalized}
+                                    </Badge>
+                                  )
+                                })()}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={
+                                  deposit.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                                  deposit.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                                  deposit.leadStatus === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                  'bg-green-500/10 text-green-400 border-green-500/20'
+                                }>
+                                  {deposit.leadStatus}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-blue-400">
+                                {deposit.trafficerName || '—'}
+                              </TableCell>
+                              <TableCell className="text-sm text-purple-400 max-w-[150px] truncate" title={deposit.linkName || ''}>
+                                {deposit.linkName || '—'}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedDeposit(deposit)}
+                                >
+                                  <User size={16} className="mr-1" />
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        : null}
+                    </Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
