@@ -620,11 +620,13 @@ export function Support({ mode = 'inbox' }: SupportProps) {
   }
 
   useEffect(() => {
-    const tryOpen = (chatId: string | null) => {
-      if (!chatId) return
-      const exists = chats.some((c) => c.chatId === chatId)
-      if (!exists) return
-      openChat(chatId, 'open')
+    const tryOpen = (rawId: string | null) => {
+      if (!rawId) return
+      const byChatId = chats.find((c) => c.chatId === rawId)
+      const byTelegramId = byChatId ? null : chats.find((c) => c.telegramId === rawId)
+      const resolved = byChatId?.chatId || byTelegramId?.chatId
+      if (!resolved) return
+      openChat(resolved, 'open')
       try {
         sessionStorage.removeItem('crm.support.openChatId')
       } catch {

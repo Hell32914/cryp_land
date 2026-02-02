@@ -290,12 +290,12 @@ export function Users() {
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead 
-                          className="cursor-pointer select-none hover:bg-muted/70 sticky left-0 z-20 bg-muted/50 w-[72px] min-w-[72px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]"
+                          className="cursor-pointer select-none hover:bg-muted/70 sticky left-0 z-20 bg-muted/50 w-[72px] min-w-[72px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)] overflow-hidden text-ellipsis"
                       onClick={() => handleSort('id')}
                     >
                       ID {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
-                        <TableHead className="sticky left-[72px] z-20 bg-muted/50 min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">Telegram ID</TableHead>
+                        <TableHead className="sticky left-[72px] z-20 bg-muted/50 min-w-[140px] border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)] overflow-hidden text-ellipsis">User ID</TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70"
                       onClick={() => handleSort('username')}
