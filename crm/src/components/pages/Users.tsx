@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel } from '@phosphor-icons/react'
 import { useApiQuery } from '@/hooks/use-api-query'
@@ -54,6 +54,9 @@ export function Users() {
   const [contactSupportDialogOpen, setContactSupportDialogOpen] = useState(false)
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState('')
   const [contactSupportTimerMinutes, setContactSupportTimerMinutes] = useState('')
+  const tableScrollRef = useRef<HTMLDivElement | null>(null)
+  const topScrollRef = useRef<HTMLDivElement | null>(null)
+  const [scrollWidth, setScrollWidth] = useState(0)
 
   // Reset page when search changes
   const handleSearchChange = (value: string) => {
@@ -74,6 +77,29 @@ export function Users() {
   const applyFilters = () => {
     setPage(1)
     setFiltersOpen(false)
+  }
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (tableScrollRef.current) {
+        setScrollWidth(tableScrollRef.current.scrollWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [users.length, sortBy, sortOrder])
+
+  const handleTopScroll = () => {
+    if (topScrollRef.current && tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft
+    }
+  }
+
+  const handleTableScroll = () => {
+    if (topScrollRef.current && tableScrollRef.current) {
+      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft
+    }
   }
 
   const { data, isLoading, isError } = useApiQuery(
@@ -225,6 +251,13 @@ export function Users() {
         </CardHeader>
         <CardContent>
               <div className="rounded-md border border-border overflow-hidden">
+                <div
+                  ref={topScrollRef}
+                  onScroll={handleTopScroll}
+                  className="overflow-x-auto"
+                >
+                  <div style={{ width: scrollWidth, height: 12 }} />
+                </div>
                 {isLoading ? (
                   <div className="space-y-2 p-6">
                     {[...Array(6)].map((_, idx) => (
@@ -234,16 +267,17 @@ export function Users() {
                 ) : isError ? (
                   <div className="p-6 text-sm text-destructive">{t('common.error')}</div>
                 ) : (
-                  <Table>
+                  <div ref={tableScrollRef} onScroll={handleTableScroll} className="overflow-x-auto">
+                    <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead 
-                      className="cursor-pointer select-none hover:bg-muted/70"
+                          className="cursor-pointer select-none hover:bg-muted/70 sticky left-0 z-10 bg-muted/50 w-[72px] min-w-[72px]"
                       onClick={() => handleSort('id')}
                     >
                       ID {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </TableHead>
-                    <TableHead>User ID</TableHead>
+                        <TableHead className="sticky left-[72px] z-10 bg-muted/50 min-w-[140px]">User ID</TableHead>
                     <TableHead 
                       className="cursor-pointer select-none hover:bg-muted/70"
                       onClick={() => handleSort('username')}
@@ -298,10 +332,25 @@ export function Users() {
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id} className="hover:bg-muted/30">
-                      <TableCell className="font-mono text-xs text-muted-foreground">{user.id}</TableCell>
-                      <TableCell className="font-mono text-xs">{user.telegramId}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground sticky left-0 z-10 bg-card w-[72px] min-w-[72px]">
+                        {user.id}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs sticky left-[72px] z-10 bg-card min-w-[140px]">
+                        {user.telegramId}
+                      </TableCell>
                       <TableCell className="font-medium text-sm">
-                        {user.username ? `@${user.username}` : user.fullName}
+                        {user.username ? (
+                          <a
+                            href={`https://t.me/${String(user.username).replace(/^@/, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            @{String(user.username).replace(/^@/, '')}
+                          </a>
+                        ) : (
+                          user.fullName
+                        )}
                       </TableCell>
                       <TableCell>
                         {(() => {
@@ -376,7 +425,8 @@ export function Users() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             )}
           </div>
           
