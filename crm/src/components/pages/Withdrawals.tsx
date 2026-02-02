@@ -1,7 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent } from '@/components/ui/card'
+import { Funnel } from '@phosphor-icons/react'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -10,6 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuth } from '@/lib/auth'
 import { useQuery } from '@tanstack/react-query'
 import { fetchWithdrawals } from '@/lib/api'
@@ -17,6 +26,11 @@ import { fetchWithdrawals } from '@/lib/api'
 export function Withdrawals() {
   const { t } = useTranslation()
   const { token } = useAuth()
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const { data } = useQuery({
     queryKey: ['withdrawals', token],
     queryFn: () => fetchWithdrawals(token!),
@@ -26,17 +40,29 @@ export function Withdrawals() {
 
   const withdrawals = data?.withdrawals || []
 
+  const filteredWithdrawals = withdrawals.filter((withdrawal) => {
+    if (filterStatus !== 'all' && String(withdrawal.status).toLowerCase() !== filterStatus) return false
+    if (filterDateFrom || filterDateTo) {
+      const created = new Date(withdrawal.createdAt).getTime()
+      const fromTs = filterDateFrom ? new Date(filterDateFrom).setHours(0, 0, 0, 0) : null
+      const toTs = filterDateTo ? new Date(filterDateTo + 'T23:59:59').getTime() : null
+      if (fromTs !== null && created < fromTs) return false
+      if (toTs !== null && created > toTs) return false
+    }
+    return true
+  })
+
   // Calculate totals
   const totals = useMemo(() => {
-    const completedWithdrawals = withdrawals.filter(w => w.status === 'COMPLETED')
-    const processingWithdrawals = withdrawals.filter(w => w.status === 'PROCESSING')
+    const completedWithdrawals = filteredWithdrawals.filter(w => w.status === 'COMPLETED')
+    const processingWithdrawals = filteredWithdrawals.filter(w => w.status === 'PROCESSING')
     return {
       totalAmount: completedWithdrawals.reduce((sum, w) => sum + w.amount, 0),
       totalCount: completedWithdrawals.length,
       processingAmount: processingWithdrawals.reduce((sum, w) => sum + w.amount, 0),
       processingCount: processingWithdrawals.length
     }
-  }, [withdrawals])
+  }, [filteredWithdrawals])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -68,7 +94,18 @@ export function Withdrawals() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('withdrawals.title')}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-semibold tracking-tight">{t('withdrawals.title')}</h1>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setHelpOpen(true)}
+            aria-label="Withdrawals help"
+            className="h-8 w-8"
+          >
+            ?
+          </Button>
+        </div>
         <div className="flex items-center gap-6">
           <div className="text-right">
             <p className="text-sm text-muted-foreground">Processing</p>
@@ -86,6 +123,13 @@ export function Withdrawals() {
       </div>
 
       <Card>
+        <CardHeader className="pb-0">
+          <div className="flex justify-end">
+            <Button variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
+              <Funnel size={18} />
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent className="pt-6">
           <div className="rounded-md border border-border overflow-hidden">
             <Table>
@@ -101,7 +145,7 @@ export function Withdrawals() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {withdrawals.map((withdrawal) => (
+                {filteredWithdrawals.map((withdrawal) => (
                   <TableRow key={withdrawal.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-sm">#{withdrawal.id}</TableCell>
                     <TableCell className="font-medium text-sm">{withdrawal.user.username || withdrawal.user.fullName}</TableCell>
@@ -133,6 +177,80 @@ export function Withdrawals() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Filters</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="mt-1 w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="all">All</option>
+                <option value="completed">completed</option>
+                <option value="processing">processing</option>
+                <option value="pending">pending</option>
+                <option value="failed">failed</option>
+                <option value="declined">declined</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Date from</label>
+              <Input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Date to</label>
+              <Input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFilterStatus('all')
+                setFilterDateFrom('')
+                setFilterDateTo('')
+              }}
+            >
+              Reset
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)}>Apply</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Withdrawals: table legend</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div><span className="text-foreground">Request ID</span> — internal withdrawal request number.</div>
+            <div><span className="text-foreground">User</span> — username or full name of the requester.</div>
+            <div><span className="text-foreground">Amount</span> — withdrawal amount.</div>
+            <div><span className="text-foreground">Currency</span> — asset being withdrawn.</div>
+            <div><span className="text-foreground">Network</span> — blockchain network (e.g., TRC20, ERC20).</div>
+            <div><span className="text-foreground">Status</span> — processing state of the withdrawal.</div>
+            <div><span className="text-foreground">Date</span> — request creation time.</div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

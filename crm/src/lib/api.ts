@@ -728,6 +728,7 @@ const MOCK_MARKETING_LINKS: MarketingLink[] = [
     stream: 'stream-a',
     geo: 'US',
     creative: 'banner-a',
+    creativeUrl: 'https://syntrix.website/creative/banner-a',
     leadsToday: 8,
     leadsWeek: 42,
     totalLeads: 220,
@@ -763,6 +764,7 @@ const MOCK_MARKETING_LINKS: MarketingLink[] = [
     stream: 'stream-b',
     geo: 'CA',
     creative: 'banner-b',
+    creativeUrl: 'https://syntrix.website/creative/banner-b',
     leadsToday: 4,
     leadsWeek: 18,
     totalLeads: 140,
@@ -1166,6 +1168,7 @@ export interface MarketingLink {
   stream?: string
   geo?: string
   creative?: string
+  creativeUrl?: string | null
   leadsToday: number
   leadsWeek: number
   totalLeads: number
@@ -1203,6 +1206,7 @@ export const createMarketingLink = (token: string, data: {
   stream?: string
   geo?: string
   creative?: string
+  creativeUrl?: string
   language?: string
   domain?: string
   trackingPixel?: string
@@ -1224,6 +1228,7 @@ export const createMarketingLink = (token: string, data: {
           stream: data.stream ?? base.stream,
           geo: data.geo ?? base.geo,
           creative: data.creative ?? base.creative,
+          creativeUrl: data.creativeUrl ?? base.creativeUrl,
           createdAt: new Date().toISOString(),
           isActive: true,
         } as MarketingLink

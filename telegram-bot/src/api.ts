@@ -5516,7 +5516,7 @@ app.get('/api/marketing-links/:linkId/channel-invite', async (req, res) => {
 // Create marketing link
 app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
   try {
-    const { source, utmParams, trafficerName, stream, geo, creative, language, domain, trackingPixel } = req.body
+    const { source, utmParams, trafficerName, stream, geo, creative, creativeUrl, language, domain, trackingPixel } = req.body
     
     if (!source) {
       return res.status(400).json({ error: 'Source is required' })
@@ -5536,6 +5536,7 @@ app.post('/api/admin/marketing-links', requireAdminAuth, async (req, res) => {
         stream: stream || null,
         geo: geo || null,
         creative: creative || null,
+        creativeUrl: creativeUrl || null,
         language: language || 'EN',
         domain: normalizedDomain,
         trackingPixel: trackingPixel || null
@@ -5693,6 +5694,7 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         stream: link.stream,
         geo: link.geo,
         creative: link.creative,
+        creativeUrl: (link as any).creativeUrl,
         leadsToday,
         leadsWeek,
         totalLeads,

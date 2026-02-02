@@ -264,7 +264,7 @@ export function Deposits() {
                       {isExpanded
                         ? group.deposits.slice(1).map((deposit) => (
                             <TableRow key={deposit.id} className="bg-muted/20 hover:bg-muted/30">
-                              <TableCell className="font-mono text-sm">#{deposit.id}</TableCell>
+                              <TableCell className="font-mono text-sm pl-6">#{deposit.id}</TableCell>
                               <TableCell className="text-sm text-muted-foreground">
                                 {new Date(deposit.createdAt).toLocaleString()}
                               </TableCell>
@@ -380,6 +380,12 @@ export function Deposits() {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Method: {getPaymentMethodLabel(selectedDeposit.paymentMethod)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Network: {selectedDeposit.network || '—'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Tx Hash: {selectedDeposit.txHash || '—'}
                 </div>
               </div>
 

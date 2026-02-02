@@ -191,6 +191,7 @@ model MarketingLink {
   stream         String?
   geo            String?
   creative       String?
+  creativeUrl    String?
   language       String?
   domain         String?
   trackingPixel  String?

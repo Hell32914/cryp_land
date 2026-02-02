@@ -15,6 +15,7 @@ async function main() {
     if (!columnNames.includes('stream')) columnsToAdd.push('stream')
     if (!columnNames.includes('geo')) columnsToAdd.push('geo')
     if (!columnNames.includes('creative')) columnsToAdd.push('creative')
+    if (!columnNames.includes('creativeUrl')) columnsToAdd.push('creativeUrl')
     
     console.log('Columns to add:', columnsToAdd)
 

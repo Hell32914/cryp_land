@@ -157,7 +157,18 @@ export function RefLinks() {
                         {link.geo || '-'}
                       </TableCell>
                       <TableCell className="text-orange-400">
-                        {link.creative || '-'}
+                        {link.creativeUrl ? (
+                          <a
+                            href={link.creativeUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:underline"
+                          >
+                            {link.creative || link.creativeUrl}
+                          </a>
+                        ) : (
+                          link.creative || '-'
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-purple-400 font-semibold">{totalCount}</TableCell>
                       <TableCell className="text-right text-green-400 font-semibold">{totalUsers}</TableCell>

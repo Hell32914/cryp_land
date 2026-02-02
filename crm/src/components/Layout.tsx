@@ -6,7 +6,6 @@ import {
   Globe,
   ArrowCircleDown,
   ArrowCircleUp,
-  Receipt,
   Link,
   PencilRuler,
   ChatCenteredText,
@@ -59,7 +58,6 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       items: [
         { id: 'deposits', label: t('nav.deposits'), icon: ArrowCircleDown },
         { id: 'withdrawals', label: t('nav.withdrawals'), icon: ArrowCircleUp },
-        { id: 'expenses', label: t('nav.expenses'), icon: Receipt },
       ],
     },
     {

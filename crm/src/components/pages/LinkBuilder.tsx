@@ -50,6 +50,7 @@ export function LinkBuilder() {
   const [stream, setStream] = useState('')
   const [geo, setGeo] = useState('')
   const [creative, setCreative] = useState('')
+  const [creativeUrl, setCreativeUrl] = useState('')
   const [language, setLanguage] = useState('EN') // Default language
   const [generatedLink, setGeneratedLink] = useState('')
   const [generatedLinkId, setGeneratedLinkId] = useState('')
@@ -241,6 +242,7 @@ export function LinkBuilder() {
         stream: stream || undefined,
         geo: geo || undefined,
         creative: creative || undefined,
+        creativeUrl: creativeUrl || undefined,
         language: language || 'EN', // Add language parameter
         domain: selectedDomain,
         trackingPixel: trackingPixel || undefined
@@ -440,6 +442,15 @@ export function LinkBuilder() {
               </div>
 
               <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Ссылка на креатив</Label>
+                <Input
+                  placeholder="https://..."
+                  value={creativeUrl}
+                  onChange={(e) => setCreativeUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Язык пользователя</Label>
                 <Select value={language} onValueChange={setLanguage}>
                   <SelectTrigger>
@@ -588,9 +599,20 @@ export function LinkBuilder() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-orange-400">
-                          {link.creative || '-'}
-                        </span>
+                        {link.creativeUrl ? (
+                          <a
+                            href={link.creativeUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-orange-400 hover:underline"
+                          >
+                            {link.creative || link.creativeUrl}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-orange-400">
+                            {link.creative || '-'}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">{link.clicks}</TableCell>
                       <TableCell className="text-right">{link.conversions}</TableCell>
