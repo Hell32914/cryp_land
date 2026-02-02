@@ -44,6 +44,13 @@ export function Users() {
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterLeadStatus, setFilterLeadStatus] = useState('all')
+  const [filterCountry, setFilterCountry] = useState('')
+  const [filterTrafficker, setFilterTrafficker] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const [contactSupportDialogOpen, setContactSupportDialogOpen] = useState(false)
   const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState('')
   const [contactSupportTimerMinutes, setContactSupportTimerMinutes] = useState('')
@@ -54,9 +61,35 @@ export function Users() {
     setPage(1)
   }
 
+  const resetFilters = () => {
+    setFilterLeadStatus('all')
+    setFilterCountry('')
+    setFilterTrafficker('')
+    setFilterStatus('all')
+    setFilterDateFrom('')
+    setFilterDateTo('')
+    setPage(1)
+  }
+
+  const applyFilters = () => {
+    setPage(1)
+    setFiltersOpen(false)
+  }
+
   const { data, isLoading, isError } = useApiQuery(
-    ['users', debouncedSearch, sortBy, sortOrder, page], 
-    (authToken) => fetchUsers(authToken, debouncedSearch, sortBy, sortOrder, page), 
+    ['users', debouncedSearch, sortBy, sortOrder, page, filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo], 
+    (authToken) => fetchUsers(authToken, {
+      search: debouncedSearch,
+      sortBy,
+      sortOrder,
+      page,
+      country: filterCountry.trim() || undefined,
+      leadStatus: filterLeadStatus,
+      status: filterStatus,
+      trafficker: filterTrafficker.trim() || undefined,
+      dateFrom: filterDateFrom || undefined,
+      dateTo: filterDateTo || undefined,
+    }), 
     {
       enabled: Boolean(token),
     }
@@ -185,7 +218,7 @@ export function Users() {
                 className="pl-10"
               />
             </div>
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={() => setFiltersOpen(true)}>
               <Funnel size={18} />
             </Button>
           </div>
@@ -402,6 +435,110 @@ export function Users() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('users.filter')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground">{t('users.leadStatus')}</label>
+              <select
+                value={filterLeadStatus}
+                onChange={(e) => {
+                  setFilterLeadStatus(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1 w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="all">{t('users.leadStatusAll')}</option>
+                <option value="lead">{t('users.leadStatusLead')}</option>
+                <option value="user">{t('users.leadStatusUser')}</option>
+                <option value="channel">{t('users.leadStatusChannel')}</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">{t('users.status')}</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1 w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              >
+                <option value="all">{t('users.statusAll')}</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+                <option value="PENDING">PENDING</option>
+                <option value="KYC_REQUIRED">KYC_REQUIRED</option>
+                <option value="BLOCKED">BLOCKED</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">{t('users.country')}</label>
+              <Input
+                value={filterCountry}
+                onChange={(e) => {
+                  setFilterCountry(e.target.value)
+                  setPage(1)
+                }}
+                placeholder={t('users.country')}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">{t('users.trafficker')}</label>
+              <Input
+                value={filterTrafficker}
+                onChange={(e) => {
+                  setFilterTrafficker(e.target.value)
+                  setPage(1)
+                }}
+                placeholder={t('users.trafficker')}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">{t('users.dateFrom')}</label>
+              <Input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => {
+                  setFilterDateFrom(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">{t('users.dateTo')}</label>
+              <Input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => {
+                  setFilterDateTo(e.target.value)
+                  setPage(1)
+                }}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={resetFilters}>
+              {t('users.reset')}
+            </Button>
+            <Button onClick={applyFilters}>{t('users.apply')}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">

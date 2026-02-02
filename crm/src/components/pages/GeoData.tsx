@@ -114,7 +114,7 @@ export function GeoData() {
       const maxPages = 50
 
       while (hasNextPage && page <= maxPages) {
-        const response = await fetchUsers(token, undefined, undefined, undefined, page, country, 100)
+        const response = await fetchUsers(token, { page, country, limit: 100 })
         const filtered = response.users.filter((user) => user.country?.toLowerCase() === normalized)
         allUsers.push(...filtered)
         hasNextPage = response.hasNextPage

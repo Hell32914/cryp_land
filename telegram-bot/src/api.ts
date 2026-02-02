@@ -3086,9 +3086,30 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   linkId: marketingLink?.linkId || user.linkId || null,
 })
 
+const getLeadStatusLabel = (user: any) => {
+  const isChannel = String(user.marketingSource || '').toLowerCase() === 'channel'
+  const hasStartedBot = Boolean(user.botStartedAt)
+  const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
+  const isChannelOnly = isChannel && !hasStartedBot && isInactive
+  const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
+  return isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
+}
+
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   try {
-    const { search = '', limit = '50', page = '1', sortBy = 'createdAt', sortOrder = 'desc', country = '' } = req.query
+    const {
+      search = '',
+      limit = '50',
+      page = '1',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      country = '',
+      leadStatus = '',
+      status = '',
+      trafficker = '',
+      dateFrom = '',
+      dateTo = '',
+    } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 50, 100)
     const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
     const skip = (pageNum - 1) * take
@@ -3117,14 +3138,36 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
                 { country: { equals: 'Unknown', mode: Prisma.QueryMode.insensitive } },
               ],
             }
-          : { country: { equals: countryValue, mode: Prisma.QueryMode.insensitive } })
+          : { country: { contains: countryValue, mode: Prisma.QueryMode.insensitive } })
+      : null
+
+    const statusValue = String(status || '').trim()
+    const statusFilter: Prisma.UserWhereInput | null = statusValue && statusValue !== 'all'
+      ? { status: { equals: statusValue, mode: Prisma.QueryMode.insensitive } }
+      : null
+
+    const fromDateRaw = typeof dateFrom === 'string' && dateFrom ? new Date(dateFrom) : null
+    const toDateRaw = typeof dateTo === 'string' && dateTo ? new Date(`${dateTo}T23:59:59.999`) : null
+    const fromDate = fromDateRaw && !Number.isNaN(fromDateRaw.getTime()) ? fromDateRaw : null
+    const toDate = toDateRaw && !Number.isNaN(toDateRaw.getTime()) ? toDateRaw : null
+    const createdAtFilter: Prisma.UserWhereInput | null = fromDate || toDate
+      ? {
+          createdAt: {
+            ...(fromDate ? { gte: fromDate } : {}),
+            ...(toDate ? { lte: toDate } : {}),
+          },
+        }
       : null
 
     const where: Prisma.UserWhereInput = {
-      AND: [baseWhere, countryFilter].filter(Boolean) as Prisma.UserWhereInput[],
+      AND: [baseWhere, countryFilter, statusFilter, createdAtFilter].filter(Boolean) as Prisma.UserWhereInput[],
     }
 
-    // Get total count for pagination
+    const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
+    const traffickerValue = String(trafficker || '').trim().toLowerCase()
+    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue)
+
+    // Get total count for pagination (may be overridden when computed filters are used)
     const totalCount = await prisma.user.count({ where })
     const totalPages = Math.ceil(totalCount / take)
 
@@ -3143,8 +3186,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     const users = await prisma.user.findMany({
       where,
       orderBy: { [dbSortField]: sortOrder === 'asc' ? 'asc' : 'desc' },
-      take,
-      skip,
+      ...(requireComputedFilter ? {} : { take, skip }),
       include: {
         referrals: {
           select: { id: true },
@@ -3278,8 +3320,18 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       }
     }))
 
+    let filteredUsers = enrichedUsers
+
+    if (leadStatusValue && leadStatusValue !== 'all') {
+      filteredUsers = filteredUsers.filter((u) => getLeadStatusLabel(u) === leadStatusValue)
+    }
+
+    if (traffickerValue) {
+      filteredUsers = filteredUsers.filter((u) => String(u.trafficerName || '').toLowerCase().includes(traffickerValue))
+    }
+
     // Map to summary format
-    const mappedUsers = enrichedUsers.map(u => mapUserSummary(u))
+    let mappedUsers = filteredUsers.map(u => mapUserSummary(u))
     
     // Re-sort if sorting by computed fields (that weren't sorted in DB)
     const computedFields = ['balance', 'totalDeposit', 'totalWithdraw', 'profit']
@@ -3288,6 +3340,21 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         const aValue = (a as any)[sortByField] || 0
         const bValue = (b as any)[sortByField] || 0
         return sortOrder === 'asc' ? aValue - bValue : bValue - aValue
+      })
+    }
+
+    if (requireComputedFilter) {
+      const filteredTotal = mappedUsers.length
+      const filteredPages = Math.ceil(filteredTotal / take) || 1
+      const pageSlice = mappedUsers.slice(skip, skip + take)
+      return res.json({
+        users: pageSlice,
+        count: pageSlice.length,
+        totalCount: filteredTotal,
+        page: pageNum,
+        totalPages: filteredPages,
+        hasNextPage: pageNum < filteredPages,
+        hasPrevPage: pageNum > 1,
       })
     }
 

@@ -992,11 +992,59 @@ export const fetchOverview = (token: string, from?: string, to?: string, geo?: s
   return request<OverviewResponse>(`/api/admin/overview${query ? `?${query}` : ''}`, {}, token)
 }
 
-export const fetchUsers = (token: string, search?: string, sortBy?: string, sortOrder?: 'asc' | 'desc', page?: number, country?: string, limit?: number) => {
+export const fetchUsers = (token: string, opts?: {
+  search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+  page?: number
+  country?: string
+  limit?: number
+  leadStatus?: string
+  status?: string
+  trafficker?: string
+  dateFrom?: string
+  dateTo?: string
+}) => {
   if (isTesterToken(token)) {
-    const filteredUsers = country
-      ? MOCK_USERS.filter((user) => user.country?.toLowerCase() === country.toLowerCase())
-      : MOCK_USERS
+    let filteredUsers = [...MOCK_USERS]
+    if (opts?.country) {
+      filteredUsers = filteredUsers.filter((user) =>
+        user.country?.toLowerCase().includes(opts.country!.toLowerCase())
+      )
+    }
+    if (opts?.status && opts.status !== 'all') {
+      filteredUsers = filteredUsers.filter((user) =>
+        String(user.status || '').toLowerCase() === String(opts.status).toLowerCase()
+      )
+    }
+    if (opts?.trafficker) {
+      filteredUsers = filteredUsers.filter((user) =>
+        String(user.trafficerName || '').toLowerCase().includes(String(opts.trafficker).toLowerCase())
+      )
+    }
+    if (opts?.leadStatus && opts.leadStatus !== 'all') {
+      filteredUsers = filteredUsers.filter((user) => {
+        const isChannel = String(user.marketingSource || '').toLowerCase() === 'channel'
+        const hasStartedBot = Boolean(user.botStartedAt)
+        const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
+        const isChannelOnly = isChannel && !hasStartedBot && isInactive
+        const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
+        const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
+        return label === opts.leadStatus
+      })
+    }
+    if (opts?.dateFrom || opts?.dateTo) {
+      const fromDate = opts.dateFrom ? new Date(opts.dateFrom) : null
+      const toDate = opts.dateTo ? new Date(`${opts.dateTo}T23:59:59.999`) : null
+      const fromValid = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null
+      const toValid = toDate && !Number.isNaN(toDate.getTime()) ? toDate : null
+      filteredUsers = filteredUsers.filter((user) => {
+        const created = new Date(user.createdAt)
+        if (fromValid && created < fromValid) return false
+        if (toValid && created > toValid) return false
+        return true
+      })
+    }
     return Promise.resolve({
       users: filteredUsers,
       count: filteredUsers.length,
@@ -1008,24 +1056,17 @@ export const fetchUsers = (token: string, search?: string, sortBy?: string, sort
     } as UsersResponse)
   }
   const params = new URLSearchParams()
-  if (search) {
-    params.set('search', search)
-  }
-  if (sortBy) {
-    params.set('sortBy', sortBy)
-  }
-  if (sortOrder) {
-    params.set('sortOrder', sortOrder)
-  }
-  if (page) {
-    params.set('page', String(page))
-  }
-  if (country) {
-    params.set('country', country)
-  }
-  if (limit) {
-    params.set('limit', String(limit))
-  }
+  if (opts?.search) params.set('search', opts.search)
+  if (opts?.sortBy) params.set('sortBy', opts.sortBy)
+  if (opts?.sortOrder) params.set('sortOrder', opts.sortOrder)
+  if (opts?.page) params.set('page', String(opts.page))
+  if (opts?.country) params.set('country', opts.country)
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.leadStatus) params.set('leadStatus', opts.leadStatus)
+  if (opts?.status) params.set('status', opts.status)
+  if (opts?.trafficker) params.set('trafficker', opts.trafficker)
+  if (opts?.dateFrom) params.set('dateFrom', opts.dateFrom)
+  if (opts?.dateTo) params.set('dateTo', opts.dateTo)
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)
 }
