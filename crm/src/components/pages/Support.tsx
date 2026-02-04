@@ -1679,16 +1679,16 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
             {mode === 'inbox' ? (
               <Tabs value={activeTab} onValueChange={handleTabChange}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="new" className="flex-1">
+                <TabsList className="w-full flex-nowrap justify-start overflow-x-auto">
+                  <TabsTrigger value="new" className="flex-1 min-w-[120px] whitespace-nowrap">
                     {t('support.tabs.new')}
                     {tabCounts.new > 0 ? <span className="ml-1 text-xs">({tabCounts.new})</span> : null}
                   </TabsTrigger>
-                  <TabsTrigger value="accepted" className="flex-1">
+                  <TabsTrigger value="accepted" className="flex-1 min-w-[140px] whitespace-nowrap">
                     {t('support.tabs.accepted')}
                     {tabCounts.accepted > 0 ? <span className="ml-1 text-xs">({tabCounts.accepted})</span> : null}
                   </TabsTrigger>
-                  <TabsTrigger value="archive" className="flex-1">
+                  <TabsTrigger value="archive" className="flex-1 min-w-[120px] whitespace-nowrap">
                     {t('support.tabs.archive')}
                     {tabCounts.archive > 0 ? <span className="ml-1 text-xs">({tabCounts.archive})</span> : null}
                   </TabsTrigger>
@@ -1700,11 +1700,11 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
             {activeTab === 'analytics' ? (
               <div className="space-y-4">
                 <Tabs value={analyticsTab} onValueChange={(value) => setAnalyticsTab(value as SupportAnalyticsTab)}>
-                  <TabsList className="w-full">
-                    <TabsTrigger value="overview" className="flex-1">
+                  <TabsList className="w-full flex-nowrap justify-start overflow-x-auto">
+                    <TabsTrigger value="overview" className="flex-1 min-w-[160px] whitespace-nowrap">
                       {t('support.analytics.title')}
                     </TabsTrigger>
-                    <TabsTrigger value="operators" className="flex-1">
+                    <TabsTrigger value="operators" className="flex-1 min-w-[180px] whitespace-nowrap">
                       {t('supportOperatorsAnalytics.title')}
                     </TabsTrigger>
                   </TabsList>
@@ -1712,7 +1712,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
                 {analyticsTab === 'overview' ? (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="text-sm text-muted-foreground">{t('support.analytics.range')}</div>
                       <Select
                         value={analyticsRange}
@@ -1720,7 +1720,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                           setAnalyticsRange(value as SupportAnalyticsRange)
                         }}
                       >
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                           <SelectValue placeholder={t('support.analytics.range')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1731,7 +1731,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button type="button" variant="secondary" size="sm" onClick={refreshAnalytics}>
+                      <Button type="button" variant="secondary" size="sm" onClick={refreshAnalytics} className="w-full sm:w-auto">
                         {t('support.analytics.refresh')}
                       </Button>
                       {analyticsData ? (

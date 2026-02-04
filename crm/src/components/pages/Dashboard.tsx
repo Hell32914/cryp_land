@@ -664,9 +664,9 @@ export function Dashboard() {
                 <CardTitle>Daily Summary</CardTitle>
                 <p className="text-sm text-muted-foreground">Aggregated by day for the full period</p>
               </div>
-              <TabsList>
-                <TabsTrigger value="compact">Compact</TabsTrigger>
-                <TabsTrigger value="full">Full</TabsTrigger>
+              <TabsList className="w-full sm:w-auto flex-nowrap justify-start overflow-x-auto">
+                <TabsTrigger value="compact" className="min-w-[120px] whitespace-nowrap">Compact</TabsTrigger>
+                <TabsTrigger value="full" className="min-w-[120px] whitespace-nowrap">Full</TabsTrigger>
               </TabsList>
             </div>
           </CardHeader>

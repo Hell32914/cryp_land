@@ -63,12 +63,12 @@ export function DepositUsers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">{t('depositUsers.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('depositUsers.subtitle')}</p>
         </div>
-        <div className="text-right">
+        <div className="text-left sm:text-right">
           <div className="text-sm text-muted-foreground">{t('depositUsers.total')}</div>
           <div className="text-2xl font-bold text-green-500">{totals.count}</div>
         </div>
@@ -90,17 +90,17 @@ export function DepositUsers() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-border overflow-hidden">
-            <Table>
+          <div className="rounded-md border border-border overflow-x-auto">
+            <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
-                  <TableHead>Telegram ID</TableHead>
+                  <TableHead className="hidden md:table-cell">Telegram ID</TableHead>
                   <TableHead>Username</TableHead>
-                  <TableHead>Full Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Full Name</TableHead>
                   <TableHead className="text-right">Total Deposit</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
-                  <TableHead>Country</TableHead>
+                  <TableHead className="hidden lg:table-cell">Country</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Details</TableHead>
                 </TableRow>
@@ -134,16 +134,18 @@ export function DepositUsers() {
                       onClick={() => setSelectedUser(user)}
                     >
                       <TableCell className="font-mono text-sm">#{user.id}</TableCell>
-                      <TableCell className="font-mono text-sm text-muted-foreground">{user.telegramId}</TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground hidden md:table-cell">
+                        {user.telegramId}
+                      </TableCell>
                       <TableCell className="font-medium text-sm">{user.username || '—'}</TableCell>
-                      <TableCell className="text-sm">{user.fullName}</TableCell>
+                      <TableCell className="text-sm hidden md:table-cell">{user.fullName}</TableCell>
                       <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
                         ${user.totalDeposit.toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-cyan-400 text-sm">
                         ${user.balance.toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-sm">{user.country}</TableCell>
+                      <TableCell className="text-sm hidden lg:table-cell">{user.country}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(user.status)}>
                           {user.status}
@@ -162,7 +164,7 @@ export function DepositUsers() {
           </div>
 
           {data?.totalPages && data.totalPages > 1 ? (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex flex-col gap-3 mt-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-muted-foreground">
                 Page <span className="font-medium text-foreground">{data.page}</span> of{' '}
                 <span className="font-medium text-foreground">{data.totalPages}</span>

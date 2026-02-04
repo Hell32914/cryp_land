@@ -166,14 +166,14 @@ export function Deposits() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-semibold tracking-tight">{t('deposits.title')}</h1>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="text-left sm:text-right">
             <p className="text-sm text-muted-foreground">Total Deposits</p>
             <p className="text-2xl font-bold text-green-500">${totals.totalAmount.toFixed(2)}</p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <p className="text-sm text-muted-foreground">Count</p>
             <p className="text-2xl font-bold">{totals.totalCount}</p>
           </div>
@@ -182,7 +182,7 @@ export function Deposits() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <Input
@@ -210,21 +210,21 @@ export function Deposits() {
               <div style={{ width: scrollWidth, height: 16 }} />
             </div>
             <div ref={tableWrapperRef} className="overflow-hidden">
-              <Table>
+              <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>Order ID</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>User ID</TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Full Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Method</TableHead>
+                  <TableHead className="hidden md:table-cell">User ID</TableHead>
+                  <TableHead className="hidden sm:table-cell">Username</TableHead>
+                  <TableHead className="hidden lg:table-cell">Full Name</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Country</TableHead>
+                  <TableHead className="hidden lg:table-cell">Country</TableHead>
                   <TableHead>Dep Status</TableHead>
-                  <TableHead>Lead Status</TableHead>
-                  <TableHead>Trafficker</TableHead>
-                  <TableHead>Link Name</TableHead>
+                  <TableHead className="hidden lg:table-cell">Lead Status</TableHead>
+                  <TableHead className="hidden xl:table-cell">Trafficker</TableHead>
+                  <TableHead className="hidden xl:table-cell">Link Name</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -243,11 +243,13 @@ export function Deposits() {
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(latest.createdAt).toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-sm font-medium">
+                        <TableCell className="text-sm font-medium hidden md:table-cell">
                           {getPaymentMethodLabel(latest.paymentMethod)}
                         </TableCell>
-                        <TableCell className="font-mono text-sm text-muted-foreground">{latest.user.telegramId}</TableCell>
-                        <TableCell className="font-medium text-sm">
+                        <TableCell className="font-mono text-sm text-muted-foreground hidden md:table-cell">
+                          {latest.user.telegramId}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm hidden sm:table-cell">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -259,11 +261,11 @@ export function Deposits() {
                             {latest.user.username || 'N/A'}
                           </button>
                         </TableCell>
-                        <TableCell className="text-sm">{latest.user.fullName}</TableCell>
+                        <TableCell className="text-sm hidden lg:table-cell">{latest.user.fullName}</TableCell>
                         <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
                           ${latest.amount.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-sm">{latest.user.country}</TableCell>
+                        <TableCell className="text-sm hidden lg:table-cell">{latest.user.country}</TableCell>
                         <TableCell>
                           {(() => {
                             const normalized = normalizeDepStatus(latest)
@@ -280,7 +282,7 @@ export function Deposits() {
                             )
                           })()}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <Badge variant="outline" className={
                             latest.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
                             latest.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
@@ -290,10 +292,10 @@ export function Deposits() {
                             {latest.leadStatus}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-blue-400">
+                        <TableCell className="text-sm text-blue-400 hidden xl:table-cell">
                           {latest.trafficerName || '—'}
                         </TableCell>
-                        <TableCell className="text-sm text-purple-400 max-w-[150px] truncate" title={latest.linkName || ''}>
+                        <TableCell className="text-sm text-purple-400 max-w-[150px] truncate hidden xl:table-cell" title={latest.linkName || ''}>
                           {latest.linkName || '—'}
                         </TableCell>
                         <TableCell>
@@ -318,16 +320,18 @@ export function Deposits() {
                               <TableCell className="text-sm text-muted-foreground">
                                 {new Date(deposit.createdAt).toLocaleString()}
                               </TableCell>
-                              <TableCell className="text-sm font-medium">
+                              <TableCell className="text-sm font-medium hidden md:table-cell">
                                 {getPaymentMethodLabel(deposit.paymentMethod)}
                               </TableCell>
-                              <TableCell className="font-mono text-sm text-muted-foreground">{deposit.user.telegramId}</TableCell>
-                              <TableCell className="font-medium text-sm">{deposit.user.username || 'N/A'}</TableCell>
-                              <TableCell className="text-sm">{deposit.user.fullName}</TableCell>
+                              <TableCell className="font-mono text-sm text-muted-foreground hidden md:table-cell">
+                                {deposit.user.telegramId}
+                              </TableCell>
+                              <TableCell className="font-medium text-sm hidden sm:table-cell">{deposit.user.username || 'N/A'}</TableCell>
+                              <TableCell className="text-sm hidden lg:table-cell">{deposit.user.fullName}</TableCell>
                               <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
                                 ${deposit.amount.toFixed(2)}
                               </TableCell>
-                              <TableCell className="text-sm">{deposit.user.country}</TableCell>
+                              <TableCell className="text-sm hidden lg:table-cell">{deposit.user.country}</TableCell>
                               <TableCell>
                                 {(() => {
                                   const normalized = normalizeDepStatus(deposit)
@@ -344,7 +348,7 @@ export function Deposits() {
                                   )
                                 })()}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="hidden lg:table-cell">
                                 <Badge variant="outline" className={
                                   deposit.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
                                   deposit.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
@@ -354,10 +358,10 @@ export function Deposits() {
                                   {deposit.leadStatus}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-sm text-blue-400">
+                              <TableCell className="text-sm text-blue-400 hidden xl:table-cell">
                                 {deposit.trafficerName || '—'}
                               </TableCell>
-                              <TableCell className="text-sm text-purple-400 max-w-[150px] truncate" title={deposit.linkName || ''}>
+                              <TableCell className="text-sm text-purple-400 max-w-[150px] truncate hidden xl:table-cell" title={deposit.linkName || ''}>
                                 {deposit.linkName || '—'}
                               </TableCell>
                               <TableCell>
@@ -381,7 +385,7 @@ export function Deposits() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               Page <span className="font-medium text-foreground">{data?.page || page}</span> of{' '}
               <span className="font-medium text-foreground">{data?.totalPages || 1}</span>

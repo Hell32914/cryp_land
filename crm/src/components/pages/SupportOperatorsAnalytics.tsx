@@ -325,15 +325,15 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
 
   return (
     <div className={isEmbedded ? 'space-y-4' : 'space-y-6'}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {isEmbedded ? (
           <div className="text-lg font-semibold">{t('supportOperatorsAnalytics.title')}</div>
         ) : (
           <h1 className="text-3xl font-semibold tracking-tight">{t('supportOperatorsAnalytics.title')}</h1>
         )}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Select value={range} onValueChange={(v) => setRange(v as SupportAnalyticsRange)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder={t('support.analytics.range')} />
             </SelectTrigger>
             <SelectContent>
@@ -345,24 +345,24 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
             </SelectContent>
           </Select>
           {range === 'custom' ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 type="datetime-local"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="w-[200px]"
+                className="w-full sm:w-[200px]"
                 aria-label={t('support.analytics.customFrom')}
               />
               <Input
                 type="datetime-local"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="w-[200px]"
+                className="w-full sm:w-[200px]"
                 aria-label={t('support.analytics.customTo')}
               />
             </div>
           ) : null}
-          <Button variant="outline" onClick={loadOperatorAnalytics}>
+          <Button variant="outline" onClick={loadOperatorAnalytics} className="w-full sm:w-auto">
             {t('support.analytics.refresh')}
           </Button>
         </div>
@@ -380,19 +380,25 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
           ) : rows.length === 0 ? (
             <div className="text-sm text-muted-foreground">{t('support.analytics.empty')}</div>
           ) : (
-            <div className="rounded-md border border-border overflow-hidden">
-              <Table>
+            <div className="rounded-md border border-border overflow-x-auto">
+              <Table className="min-w-[860px]">
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead>{t('supportOperatorsAnalytics.columns.operator')}</TableHead>
-                    <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.chats')}</TableHead>
-                    <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.totalMessages')}</TableHead>
-                    <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.inbound')}</TableHead>
-                    <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.outbound')}</TableHead>
-                    <TableHead className="text-right">Deposits</TableHead>
-                    <TableHead className="text-right">Deposits $</TableHead>
-                    <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.avgResponse')}</TableHead>
-                    <TableHead className="text-right">{t('supportOperatorsAnalytics.columns.responseRate')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('supportOperatorsAnalytics.columns.operator')}</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">{t('supportOperatorsAnalytics.columns.chats')}</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden md:table-cell">
+                      {t('supportOperatorsAnalytics.columns.totalMessages')}
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">
+                      {t('supportOperatorsAnalytics.columns.inbound')}
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">
+                      {t('supportOperatorsAnalytics.columns.outbound')}
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Deposits</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden md:table-cell">Deposits $</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">{t('supportOperatorsAnalytics.columns.avgResponse')}</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">{t('supportOperatorsAnalytics.columns.responseRate')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -401,16 +407,22 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                     const responseRate = row.inboundMessages > 0 ? Math.round((row.responseCount / row.inboundMessages) * 100) : null
                     return (
                       <TableRow key={row.operator} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{row.operator}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{row.chats}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{row.totalMessages}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{row.inboundMessages}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{row.outboundMessages}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{row.depositCount}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
+                        <TableCell className="font-medium whitespace-nowrap">{row.operator}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap">{row.chats}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden md:table-cell">
+                          {row.totalMessages}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">
+                          {row.inboundMessages}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">
+                          {row.outboundMessages}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap">{row.depositCount}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden md:table-cell">
                           ${row.depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap">
                           {formatDuration(avgResponse)}
                         </TableCell>
                         <TableCell className="text-right">
