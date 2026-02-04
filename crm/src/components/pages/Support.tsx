@@ -1761,6 +1761,17 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                     </Select>
                     <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const ids = sortedChats.map((c) => c.chatId)
+                        setSelectedChatIds(new Set(ids))
+                      }}
+                    >
+                      Выбрать все чаты
+                    </Button>
+                    <Button
+                      type="button"
                       variant="secondary"
                       size="sm"
                       disabled={
