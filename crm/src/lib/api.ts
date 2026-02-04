@@ -1523,6 +1523,21 @@ export const setSupportChatStage = (token: string, chatId: string, stageId: stri
         body: JSON.stringify({ stageId: String(stageId || '').trim() }),
       }, token)
 
+export const assignSupportChats = (token: string, payload: { chatIds: string[]; operator: string }) =>
+  isTesterToken(token)
+    ? Promise.resolve({ updatedCount: payload.chatIds.length, chats: [] as SupportChatRecord[] })
+    : request<{ updatedCount: number; chats: SupportChatRecord[] }>(
+        '/api/admin/support/chats/assign',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            chatIds: payload.chatIds,
+            operator: payload.operator,
+          }),
+        },
+        token
+      )
+
 export const createSupportBroadcast = (
   token: string,
   payload: { target: 'ALL' | 'STAGE'; stageId?: string; text?: string; photoFile?: File | null }

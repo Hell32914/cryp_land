@@ -12,6 +12,7 @@ import {
   fetchSupportNotes,
   fetchSupportChatAvatar,
   acceptSupportChat,
+  assignSupportChats,
   addSupportNote,
   updateSupportNote,
   deleteSupportNote,
@@ -25,9 +26,11 @@ import {
   sendSupportMessage,
   deleteSupportMessage,
   setSupportChatStage,
+  fetchCrmOperators,
   type SupportChatRecord,
   type SupportMessageRecord,
   type SupportNoteRecord,
+  type CrmOperatorRecord,
 } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -163,6 +166,8 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   const [operatorFilter, setOperatorFilter] = useState('all')
   const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
+  const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set())
+  const [assignOperator, setAssignOperator] = useState('')
   const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('week')
   const [analyticsTab, setAnalyticsTab] = useState<SupportAnalyticsTab>(initialAnalyticsTab)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
@@ -564,6 +569,39 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   )
 
   const chats = chatsData?.chats ?? []
+
+  const { data: operatorsData } = useApiQuery<Awaited<ReturnType<typeof fetchCrmOperators>>>(
+    ['crm-operators-support-assign'],
+    (authToken) => fetchCrmOperators(authToken),
+    {
+      enabled: Boolean(token) && isAdmin,
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
+  )
+
+  const assignOperators = useMemo(() => {
+    const list = (operatorsData as any)?.operators ?? []
+    return (list as CrmOperatorRecord[])
+      .filter((op) => op.isActive)
+      .map((op) => op.username)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+  }, [operatorsData])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    setSelectedChatIds((prev) => {
+      if (prev.size === 0) return prev
+      const available = new Set(chats.map((c) => c.chatId))
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (available.has(id)) next.add(id)
+      }
+      return next
+    })
+  }, [chats, isAdmin])
 
   const operatorOptions = useMemo(() => {
     const set = new Set<string>()
@@ -1293,6 +1331,38 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
     },
   })
 
+  const assignMutation = useMutation({
+    mutationFn: (payload: { chatIds: string[]; operator: string }) => assignSupportChats(token!, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setSelectedChatIds(new Set())
+      toast.success('Назначено')
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('common.error'))
+    },
+  })
+
+  const toggleChatSelection = useCallback(
+    (chatId: string) => {
+      if (!isAdmin) return
+      setSelectedChatIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(chatId)) {
+          next.delete(chatId)
+        } else {
+          next.add(chatId)
+        }
+        return next
+      })
+    },
+    [isAdmin]
+  )
+
+  const clearChatSelection = useCallback(() => {
+    setSelectedChatIds(new Set())
+  }, [])
+
   const archiveMutation = useMutation({
     mutationFn: (chatId: string) => archiveSupportChat(token!, chatId),
     onSuccess: async () => {
@@ -1674,6 +1744,48 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                 >
                   {t('support.notifications.test')}
                 </Button>
+
+                {isAdmin ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Select value={assignOperator} onValueChange={setAssignOperator}>
+                      <SelectTrigger className="h-8 w-[180px]">
+                        <SelectValue placeholder="Оператор" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignOperators.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={
+                        !assignOperator ||
+                        selectedChatIds.size === 0 ||
+                        assignMutation.isPending
+                      }
+                      onClick={() => {
+                        if (!assignOperator || selectedChatIds.size === 0) return
+                        assignMutation.mutate({
+                          chatIds: Array.from(selectedChatIds),
+                          operator: assignOperator,
+                        })
+                      }}
+                    >
+                      Назначить
+                    </Button>
+                    {selectedChatIds.size > 0 ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={clearChatSelection}>
+                        <X size={14} className="mr-1" />
+                        {selectedChatIds.size}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -1904,9 +2016,24 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                       return (
                         <div
                           key={chat.chatId}
-                          className="grid grid-cols-[44px_minmax(0,1fr)] sm:grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30"
+                          className={
+                            "grid grid-cols-[44px_minmax(0,1fr)] sm:grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30 " +
+                            (selectedChatIds.has(chat.chatId) ? 'bg-muted/20' : '')
+                          }
                         >
-                          <input type="checkbox" disabled className="h-4 w-4 opacity-40" />
+                          <input
+                            type="checkbox"
+                            className={
+                              'h-4 w-4 rounded border-border ' +
+                              (isAdmin ? 'cursor-pointer' : 'opacity-40')
+                            }
+                            checked={selectedChatIds.has(chat.chatId)}
+                            disabled={!isAdmin}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                            onChange={() => toggleChatSelection(chat.chatId)}
+                          />
 
                           <button
                             onClick={() => openChat(chat.chatId, selectedChatId ? 'toggle' : 'open')}

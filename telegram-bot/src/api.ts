@@ -967,6 +967,51 @@ app.post('/api/admin/support/chats/:chatId/accept', requireAdminAuth, async (req
   }
 })
 
+app.post('/api/admin/support/chats/assign', requireAdminAuth, async (req, res) => {
+  try {
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    const adminRole = String((req as any).adminRole || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const isAdminLike = adminRole === 'admin' || adminRole === 'superadmin'
+    if (!isAdminLike) return res.status(403).json({ error: 'Forbidden' })
+
+    const chatIds = Array.isArray(req.body?.chatIds) ? req.body.chatIds.map((id: any) => String(id)) : []
+    const operator = String(req.body?.operator || '').trim()
+
+    if (!chatIds.length) return res.status(400).json({ error: 'chatIds is required' })
+    if (!operator) return res.status(400).json({ error: 'operator is required' })
+
+    const operatorRecord = await prisma.crmOperator.findFirst({ where: { username: operator } })
+    if (!operatorRecord) return res.status(404).json({ error: 'Operator not found' })
+    if (!operatorRecord.isActive) return res.status(400).json({ error: 'Operator is disabled' })
+
+    const chats = await prisma.supportChat.findMany({ where: { chatId: { in: chatIds } } })
+    if (!chats.length) return res.status(404).json({ error: 'Chats not found' })
+
+    const now = new Date()
+    const updates = await prisma.$transaction(
+      chats.map((chat) =>
+        prisma.supportChat.update({
+          where: { chatId: chat.chatId },
+          data: {
+            status: 'ACCEPTED',
+            acceptedBy: operator,
+            acceptedAt: chat.acceptedAt || now,
+            archivedAt: null,
+            funnelStageId: chat.funnelStageId || 'primary',
+          },
+        })
+      )
+    )
+
+    return res.json({ updatedCount: updates.length, chats: updates })
+  } catch (error) {
+    console.error('Support chat assign error:', error)
+    return res.status(500).json({ error: 'Failed to assign chats' })
+  }
+})
+
 app.post('/api/admin/support/chats/:chatId/stage', requireAdminAuth, async (req, res) => {
   try {
     const chatId = String(req.params.chatId)
