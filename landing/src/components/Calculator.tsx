@@ -8,7 +8,7 @@ import { TrendUp, CurrencyDollar } from "@phosphor-icons/react"
 import { motion } from "framer-motion"
 
 const tariffPlans = [
-  { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
   { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
   { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
   { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
@@ -16,7 +16,7 @@ const tariffPlans = [
   { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
 ]
 
-const quickAmounts = [10, 100, 500, 1000, 5000, 10000]
+const quickAmounts = [50, 100, 500, 1000, 5000, 10000]
 
 const timePeriods = [
   { value: 7, label: '7 дней' },
@@ -34,7 +34,7 @@ export function Calculator() {
   const daysNum = parseInt(days) || 0
   
   const getPlanByDeposit = (amount: number) => {
-    if (amount < 10) return tariffPlans[0] // Bronze for amounts less than $10
+    if (amount < 50) return tariffPlans[0] // Bronze for amounts less than $50
     
     const foundPlan = tariffPlans.find(plan => amount >= plan.minDeposit && amount <= plan.maxDeposit)
     

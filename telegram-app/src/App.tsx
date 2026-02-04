@@ -510,8 +510,8 @@ function App() {
     }
 
     const amount = parseFloat(depositAmountInput)
-    if (isNaN(amount) || amount < 10) {
-      toast.error('Minimum deposit amount is $10')
+    if (isNaN(amount) || amount < 50) {
+      toast.error('Minimum deposit amount is $50')
       return
     }
 
@@ -831,7 +831,7 @@ function App() {
   }
 
   const tariffPlans = [
-    { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+    { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
     { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
     { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
     { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
@@ -858,7 +858,7 @@ function App() {
     }
   }
 
-  const quickAmounts = [10, 100, 500, 1000, 35000, 100000]
+  const quickAmounts = [50, 100, 500, 1000, 35000, 100000]
   const timePeriods = [
     { value: '7', label: '7 Day' },
     { value: '30', label: '30 Day' },

@@ -550,7 +550,7 @@ export async function notifySupport(message: string, options?: any) {
 
 // Tariff plans configuration
 const TARIFF_PLANS = [
-  { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
   { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
   { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
   { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },

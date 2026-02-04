@@ -62,7 +62,7 @@ async function getIpGeoData(ip: string) {
 
 // Tariff plans configuration
 const TARIFF_PLANS = [
-  { name: 'Bronze', minDeposit: 10, maxDeposit: 99, dailyPercent: 0.5 },
+  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
   { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
   { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
   { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
@@ -4558,8 +4558,8 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
       return res.status(404).json({ error: 'User not found' })
     }
 
-    if (!amount || amount < 10) {
-      return res.status(400).json({ error: 'Minimum deposit amount is $10' })
+    if (!amount || amount < 50) {
+      return res.status(400).json({ error: 'Minimum deposit amount is $50' })
     }
 
     const paymentMethod = String(method || 'OXAPAY').toUpperCase()

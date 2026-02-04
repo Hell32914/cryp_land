@@ -114,7 +114,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   }, [isMobile])
 
   return (
-    <div className="relative h-screen bg-background overflow-hidden md:flex">
+    <div className="relative h-screen bg-background overflow-hidden flex flex-col md:flex-row">
       {isMobile && isSidebarOpen && (
         <button
           type="button"
@@ -216,7 +216,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </div>
       </aside>
 
-      <main className="w-full md:flex-1 min-w-0 overflow-y-auto">
+      <main className="w-full md:flex-1 min-w-0 min-h-0 overflow-y-auto">
         <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:hidden">
           <div className="text-sm font-semibold">{t('nav.' + currentPage) || 'CRM'}</div>
           <Button
