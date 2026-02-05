@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlass, Funnel } from '@phosphor-icons/react'
 import { useApiQuery } from '@/hooks/use-api-query'
-import { fetchUsers, updateUserRole, activateContactSupport, deleteUser, type UserRecord } from '@/lib/api'
+import { fetchUsers, updateUserRole, deleteUser, type UserRecord } from '@/lib/api'
 import { useDebounce } from '@/hooks/use-debounce'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -51,9 +51,6 @@ export function Users() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
-  const [contactSupportDialogOpen, setContactSupportDialogOpen] = useState(false)
-  const [contactSupportBonusAmount, setContactSupportBonusAmount] = useState('')
-  const [contactSupportTimerMinutes, setContactSupportTimerMinutes] = useState('')
   const tableScrollRef = useRef<HTMLDivElement | null>(null)
   const tableWrapperRef = useRef<HTMLDivElement | null>(null)
   const topScrollRef = useRef<HTMLDivElement | null>(null)
@@ -186,21 +183,6 @@ export function Users() {
     }
   }
 
-  const activateContactSupportMutation = useMutation({
-    mutationFn: ({ telegramId, bonusAmount, timerMinutes }: { telegramId: string; bonusAmount: number; timerMinutes: number }) =>
-      activateContactSupport(token!, telegramId, bonusAmount, timerMinutes),
-    onSuccess: () => {
-      toast.success('Contact support activated successfully')
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      setContactSupportDialogOpen(false)
-      setContactSupportBonusAmount('')
-      setContactSupportTimerMinutes('')
-    },
-    onError: () => {
-      toast.error('Failed to activate contact support')
-    },
-  })
-
   const deleteUserMutation = useMutation({
     mutationFn: (telegramId: string) => deleteUser(token!, telegramId),
     onSuccess: () => {
@@ -219,28 +201,6 @@ export function Users() {
     deleteUserMutation.mutate(selectedUser.telegramId)
   }
 
-  const handleContactSupportSubmit = () => {
-    if (!selectedUser) return
-    
-    const bonusAmount = parseFloat(contactSupportBonusAmount)
-    const timerMinutes = parseInt(contactSupportTimerMinutes)
-    
-    if (isNaN(bonusAmount) || bonusAmount <= 0) {
-      toast.error('Please enter a valid bonus amount')
-      return
-    }
-    
-    if (isNaN(timerMinutes) || timerMinutes <= 0) {
-      toast.error('Please enter a valid timer duration in minutes')
-      return
-    }
-    
-    activateContactSupportMutation.mutate({
-      telegramId: selectedUser.telegramId,
-      bonusAmount,
-      timerMinutes,
-    })
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -801,15 +761,6 @@ export function Users() {
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-border">
-                <Button 
-                  className="w-full bg-accent hover:bg-accent/90"
-                  onClick={() => setContactSupportDialogOpen(true)}
-                >
-                  📞 Contact Support
-                </Button>
-              </div>
-
               <div className="mt-3">
                 <Button
                   variant="outline"
@@ -825,54 +776,6 @@ export function Users() {
         </DialogContent>
       </Dialog>
 
-      {/* Contact Support Dialog */}
-      <Dialog open={contactSupportDialogOpen} onOpenChange={setContactSupportDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Activate Contact Support</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Bonus Token Amount ($)</label>
-              <Input
-                type="number"
-                placeholder="Enter bonus amount"
-                value={contactSupportBonusAmount}
-                onChange={(e) => setContactSupportBonusAmount(e.target.value)}
-                min="0"
-                step="0.01"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Timer Duration (minutes)</label>
-              <Input
-                type="number"
-                placeholder="Enter timer duration"
-                value={contactSupportTimerMinutes}
-                onChange={(e) => setContactSupportTimerMinutes(e.target.value)}
-                min="1"
-                step="1"
-              />
-            </div>
-            <div className="flex gap-2 pt-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setContactSupportDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-accent hover:bg-accent/90"
-                onClick={handleContactSupportSubmit}
-                disabled={activateContactSupportMutation.isPending}
-              >
-                {activateContactSupportMutation.isPending ? 'Activating...' : 'Activate'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
