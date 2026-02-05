@@ -167,14 +167,14 @@ export function GeoData() {
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+            className="px-3 py-1.5 text-sm rounded-md bg-white/90 border border-white/30 text-slate-900 placeholder:text-slate-400"
           />
           <label className="text-sm text-muted-foreground">To:</label>
           <input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="px-3 py-1.5 text-sm rounded-md bg-background border border-border"
+            className="px-3 py-1.5 text-sm rounded-md bg-white/90 border border-white/30 text-slate-900 placeholder:text-slate-400"
           />
         </div>
       )}

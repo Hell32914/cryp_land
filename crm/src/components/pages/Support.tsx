@@ -1262,6 +1262,11 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   }, [chats, selectedChatId])
 
   const selectedTelegramId = selectedChat?.telegramId ? String(selectedChat.telegramId) : null
+  const selectedCrmNumber = useMemo(() => {
+    if (!selectedChatId) return null
+    const idx = sortedChats.findIndex((c) => c.chatId === selectedChatId)
+    return idx >= 0 ? idx + 1 : null
+  }, [selectedChatId, sortedChats])
 
   const { data: selectedUserData } = useApiQuery<Awaited<ReturnType<typeof fetchUsers>>>(
     ['support-user', selectedTelegramId],
@@ -2880,6 +2885,12 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                       </Button>
                     )}
                   </div>
+
+                  {selectedCrmNumber != null ? (
+                    <div className="text-xs text-muted-foreground">
+                      Номер в CRM: №{selectedCrmNumber}
+                    </div>
+                  ) : null}
 
                   <div className="rounded-md border border-border p-3">
                     <div className="text-xs text-muted-foreground mb-2">{t('support.clientStats.title')}</div>
