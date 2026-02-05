@@ -223,6 +223,17 @@ model CrmOperator {
   updatedAt    DateTime @updatedAt
 }
 
+model OperatorPresence {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  online    Boolean  @default(false)
+  sessions  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([online])
+}
+
 // ============= SUPPORT BOT (SEPARATE INBOX) =============
 // These tables are intentionally separate from `User` so the support bot can
 // register and chat with people who only launched the support bot.

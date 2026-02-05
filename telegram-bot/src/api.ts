@@ -469,14 +469,27 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
 // ============= CRM OPERATORS (SUPERADMIN ONLY) =============
 
 type OperatorPresenceSession = { start: number; end?: number }
-type OperatorPresenceEntry = { username: string; online: boolean; updatedAt: number; sessions: OperatorPresenceSession[] }
+type OperatorPresenceRow = { username: string; online: boolean; updatedAt: Date; sessions: any | null }
 
-const operatorPresenceMap = new Map<string, OperatorPresenceEntry>()
 const PRESENCE_RETENTION_MS = 1000 * 60 * 60 * 24 * 90
 
-const trimPresenceSessions = (entry: OperatorPresenceEntry, now: number) => {
+const normalizeSessions = (raw: any): OperatorPresenceSession[] => {
+  if (!raw) return []
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      const start = Number(item?.start)
+      const end = item?.end == null ? undefined : Number(item.end)
+      if (!Number.isFinite(start)) return null
+      if (end != null && !Number.isFinite(end)) return null
+      return { start, end }
+    })
+    .filter(Boolean) as OperatorPresenceSession[]
+}
+
+const trimPresenceSessions = (sessions: OperatorPresenceSession[], now: number) => {
   const cutoff = now - PRESENCE_RETENTION_MS
-  entry.sessions = entry.sessions
+  return sessions
     .map((session) => {
       const end = session.end ?? now
       if (end < cutoff) return null
@@ -488,28 +501,40 @@ const trimPresenceSessions = (entry: OperatorPresenceEntry, now: number) => {
     .filter(Boolean) as OperatorPresenceSession[]
 }
 
-const updateOperatorPresence = (username: string, online: boolean, ts: number) => {
+const updateOperatorPresence = async (username: string, online: boolean, ts: number) => {
   const key = String(username || '').trim()
   if (!key) return null
-  const existing = operatorPresenceMap.get(key) || { username: key, online: false, updatedAt: ts, sessions: [] }
+
+  const existing = await prisma.operatorPresence.findUnique({ where: { username: key } })
+  const sessions = trimPresenceSessions(normalizeSessions(existing?.sessions), ts)
 
   if (online) {
-    const last = existing.sessions[existing.sessions.length - 1]
+    const last = sessions[sessions.length - 1]
     if (!last || last.end) {
-      existing.sessions.push({ start: ts })
+      sessions.push({ start: ts })
     }
   } else {
-    const last = existing.sessions[existing.sessions.length - 1]
+    const last = sessions[sessions.length - 1]
     if (last && !last.end) {
       last.end = ts
     }
   }
 
-  existing.online = online
-  existing.updatedAt = ts
-  trimPresenceSessions(existing, ts)
-  operatorPresenceMap.set(key, existing)
-  return existing
+  const updated = await prisma.operatorPresence.upsert({
+    where: { username: key },
+    create: {
+      username: key,
+      online,
+      sessions,
+    },
+    update: {
+      online,
+      sessions,
+    },
+    select: { username: true, online: true, updatedAt: true, sessions: true },
+  })
+
+  return updated as OperatorPresenceRow
 }
 
 app.get('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req, res) => {
@@ -535,18 +560,28 @@ app.get('/api/admin/operators/presence', requireAdminAuth, async (req, res) => {
       take: 500,
     })
 
+    const presenceRows = await prisma.operatorPresence.findMany({
+      where: { username: { in: operators.map((op) => op.username) } },
+      select: { username: true, online: true, updatedAt: true, sessions: true },
+    })
+
+    const presenceMap = new Map<string, OperatorPresenceRow>()
+    for (const row of presenceRows) {
+      presenceMap.set(row.username, row as OperatorPresenceRow)
+    }
+
     const now = Date.now()
     const result = operators.map((op) => {
-      const entry = operatorPresenceMap.get(op.username)
+      const entry = presenceMap.get(op.username)
       if (!entry) {
         return { username: op.username, online: false, updatedAt: 0, sessions: includeSessions ? [] : undefined }
       }
-      trimPresenceSessions(entry, now)
+      const sessions = trimPresenceSessions(normalizeSessions(entry.sessions), now)
       return {
         username: op.username,
         online: entry.online,
-        updatedAt: entry.updatedAt,
-        sessions: includeSessions ? entry.sessions : undefined,
+        updatedAt: entry.updatedAt ? new Date(entry.updatedAt).getTime() : 0,
+        sessions: includeSessions ? sessions : undefined,
       }
     })
 
@@ -564,10 +599,10 @@ app.post('/api/admin/operators/presence', requireAdminAuth, async (req, res) => 
 
     const online = Boolean((req as any).body?.online)
     const ts = Date.now()
-    const entry = updateOperatorPresence(adminUsername, online, ts)
+    const entry = await updateOperatorPresence(adminUsername, online, ts)
     if (!entry) return res.status(400).json({ error: 'Invalid username' })
 
-    return res.json({ online: entry.online, updatedAt: entry.updatedAt })
+    return res.json({ online: entry.online, updatedAt: entry.updatedAt ? new Date(entry.updatedAt).getTime() : ts })
   } catch (error) {
     console.error('CRM operator presence update error:', error)
     return res.status(500).json({ error: 'Failed to update operator presence' })
