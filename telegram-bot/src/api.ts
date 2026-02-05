@@ -3153,16 +3153,22 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     })
 
     // Country metrics using period filters
+    const normalizeCountry = (value: unknown) => {
+      const raw = String(value ?? '').trim()
+      if (!raw || raw.toLowerCase() === 'unknown') return 'Unknown'
+      return raw
+    }
+
     const countryUserCount = new Map<string, number>()
     geoUsers.forEach((u) => {
-      const country = u.country ?? 'Unknown'
+      const country = normalizeCountry(u.country)
       countryUserCount.set(country, (countryUserCount.get(country) || 0) + 1)
     })
 
     // Deposit/withdrawal aggregates per country within period
     const countryDeposits = new Map<string, { total: number; byUser: Map<string, { amount: number; user: any }> }>()
     geoDeposits.forEach((d) => {
-      const country = d.user?.country ?? 'Unknown'
+      const country = normalizeCountry(d.user?.country)
       const userKey = String(d.user?.telegramId ?? 'unknown')
       if (!countryDeposits.has(country)) countryDeposits.set(country, { total: 0, byUser: new Map() })
       const entry = countryDeposits.get(country)!
@@ -3174,7 +3180,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     const countryWithdrawals = new Map<string, number>()
     geoWithdrawals.forEach((w) => {
-      const country = w.user?.country ?? 'Unknown'
+      const country = normalizeCountry(w.user?.country)
       countryWithdrawals.set(country, (countryWithdrawals.get(country) || 0) + Number(w.amount))
     })
 
