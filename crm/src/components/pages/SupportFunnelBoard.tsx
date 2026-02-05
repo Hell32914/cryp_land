@@ -137,6 +137,33 @@ function normalizeStageId(value: string | null | undefined, aliases: Record<stri
   return cur
 }
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // will try fallback below
+  }
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.top = '0'
+    textarea.style.left = '0'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return ok
+  } catch {
+    return false
+  }
+}
+
 export function SupportFunnelBoard() {
   const { t } = useTranslation()
   const { token } = useAuth()
@@ -555,6 +582,12 @@ export function SupportFunnelBoard() {
     setStageMutation.mutate({ chatId: payload.chatId, stageId: to })
   }
 
+  const handleCopyCrmNumber = async (value: number) => {
+    const ok = await copyText(String(value))
+    if (ok) toast.success(t('common.copied'))
+    else toast.error(t('common.error'))
+  }
+
   if (isChatsLoading) {
     return <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
   }
@@ -638,10 +671,11 @@ export function SupportFunnelBoard() {
                 {items.length === 0 ? (
                   <div className="text-xs text-muted-foreground">{t('supportBoard.empty')}</div>
                 ) : (
-                  items.map((chat) => {
+                  items.map((chat, index) => {
                     const name = getDisplayName(chat)
                     const when = formatWhen(chat.lastMessageAt)
                     const fallbackChar = getFallbackChar(chat)
+                    const crmNumber = index + 1
 
                     const canDrag = !chat.acceptedBy || (myUsername ? chat.acceptedBy === myUsername : false)
 
@@ -667,9 +701,26 @@ export function SupportFunnelBoard() {
                         }
                       >
                         <div className="flex items-start gap-3">
-                          <Avatar className="size-9">
-                            <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
-                          </Avatar>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="size-9">
+                              <AvatarFallback className="text-xs">{fallbackChar}</AvatarFallback>
+                            </Avatar>
+                            <button
+                              type="button"
+                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleCopyCrmNumber(crmNumber)
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onDragStart={(e) => e.preventDefault()}
+                              title={t('common.copied')}
+                              aria-label={t('common.copied')}
+                            >
+                              {crmNumber}
+                            </button>
+                          </div>
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
