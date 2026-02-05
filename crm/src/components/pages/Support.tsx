@@ -27,6 +27,9 @@ import {
   deleteSupportMessage,
   setSupportChatStage,
   fetchCrmOperators,
+  fetchUsers,
+  fetchDeposits,
+  fetchWithdrawals,
   type SupportChatRecord,
   type SupportMessageRecord,
   type SupportNoteRecord,
@@ -1224,6 +1227,61 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
     if (!selectedChatId) return null
     return chats.find((c) => c.chatId === selectedChatId) ?? null
   }, [chats, selectedChatId])
+
+  const selectedTelegramId = selectedChat?.telegramId ? String(selectedChat.telegramId) : null
+
+  const { data: selectedUserData } = useApiQuery<Awaited<ReturnType<typeof fetchUsers>>>(
+    ['support-user', selectedTelegramId],
+    (authToken) => fetchUsers(authToken, { search: selectedTelegramId!, page: 1, limit: 20 }),
+    {
+      enabled: Boolean(token && selectedTelegramId),
+      refetchOnWindowFocus: true,
+    }
+  )
+
+  const selectedUser = useMemo(() => {
+    if (!selectedTelegramId) return null
+    const list = selectedUserData?.users ?? []
+    return list.find((u) => String(u.telegramId) === selectedTelegramId) ?? list[0] ?? null
+  }, [selectedTelegramId, selectedUserData])
+
+  const { data: depositsData } = useApiQuery<Awaited<ReturnType<typeof fetchDeposits>>>(
+    ['support-deposits', selectedTelegramId],
+    (authToken) => fetchDeposits(authToken, { page: 1, limit: 500, search: selectedTelegramId! }),
+    {
+      enabled: Boolean(token && selectedTelegramId),
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
+  )
+
+  const { data: withdrawalsData } = useApiQuery<Awaited<ReturnType<typeof fetchWithdrawals>>>(
+    ['support-withdrawals', selectedTelegramId],
+    (authToken) => fetchWithdrawals(authToken),
+    {
+      enabled: Boolean(token && selectedTelegramId),
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
+  )
+
+  const depositCount = useMemo(() => {
+    if (!selectedTelegramId) return 0
+    return (depositsData?.deposits ?? []).filter((d) => String(d.user?.telegramId) === selectedTelegramId).length
+  }, [depositsData, selectedTelegramId])
+
+  const withdrawalCount = useMemo(() => {
+    if (!selectedTelegramId) return 0
+    return (withdrawalsData?.withdrawals ?? []).filter((w) => String(w.user?.telegramId) === selectedTelegramId).length
+  }, [selectedTelegramId, withdrawalsData])
+
+  const leadVisibleDeposit = useMemo(() => {
+    if (!selectedUser) return null
+    const value = selectedUser.remainingBalance ?? selectedUser.balance
+    return Number.isFinite(value) ? value : null
+  }, [selectedUser])
 
   const selectedChatLastInboundTs = useMemo(() => {
     if (!selectedChat?.lastInboundAt) return 0
@@ -2769,6 +2827,30 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                         {blockMutation.isPending ? t('support.processing') : t('support.block')}
                       </Button>
                     )}
+                  </div>
+
+                  <div className="rounded-md border border-border p-3">
+                    <div className="text-xs text-muted-foreground mb-2">{t('support.clientStats.title')}</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">{t('support.clientStats.depositsCount')}</div>
+                        <div className="text-lg font-semibold text-green-400">
+                          {selectedTelegramId ? depositCount : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">{t('support.clientStats.withdrawalsCount')}</div>
+                        <div className="text-lg font-semibold text-orange-400">
+                          {selectedTelegramId ? withdrawalCount : '—'}
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-xs text-muted-foreground">{t('support.clientStats.visibleDeposit')}</div>
+                        <div className="text-lg font-mono font-semibold text-cyan-400">
+                          {leadVisibleDeposit == null ? '—' : `$${leadVisibleDeposit.toFixed(2)}`}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
