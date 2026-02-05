@@ -288,7 +288,12 @@ export function Dashboard() {
           <TableBody>
             {rows.map((row) => {
               const netFlow = row.deposits - row.withdrawals
-              const roi = row.spend > 0 ? ((row.profit - row.spend) / row.spend) * 100 : null
+              const roi =
+                row.spend > 0
+                  ? ((row.profit - row.spend) / row.spend) * 100
+                  : row.deposits > 0
+                    ? (row.profit / row.deposits) * 100
+                    : 0
               return (
                 <TableRow key={row.date}>
                   <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
@@ -310,8 +315,8 @@ export function Dashboard() {
                   <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                     {formatCurrency(netFlow)}
                   </TableCell>
-                  <TableCell className={`text-right font-semibold ${roi === null ? 'text-muted-foreground' : roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {roi === null ? '—' : `${roi.toFixed(1)}%`}
+                  <TableCell className={`text-right font-semibold ${roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {`${roi.toFixed(1)}%`}
                   </TableCell>
                 </TableRow>
               )
@@ -339,7 +344,13 @@ export function Dashboard() {
                 {formatCurrency(totals.deposits - totals.withdrawals)}
               </TableCell>
               <TableCell className="text-right font-semibold">
-                {totals.spend > 0 ? `${(((totals.profit - totals.spend) / totals.spend) * 100).toFixed(1)}%` : '—'}
+                {(
+                  totals.spend > 0
+                    ? ((totals.profit - totals.spend) / totals.spend) * 100
+                    : totals.deposits > 0
+                      ? (totals.profit / totals.deposits) * 100
+                      : 0
+                ).toFixed(1)}%
               </TableCell>
             </TableRow>
           </TableBody>
