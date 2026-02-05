@@ -180,7 +180,7 @@ export default function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClient}>
         <AppContent />
-        <Toaster position="top-right" theme="dark" />
+        <Toaster position="top-right" theme="dark" style={{ top: '72px' }} />
       </QueryClientProvider>
     </AuthProvider>
   )
