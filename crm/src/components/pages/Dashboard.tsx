@@ -196,12 +196,22 @@ export function Dashboard() {
       return Number.isFinite(num) ? num : 0
     }
 
+    const getLeadsValue = (row: any) =>
+      toNumber(
+        row?.leads ??
+        row?.leadsCount ??
+        row?.leadCount ??
+        row?.leadTotal ??
+        row?.lead ??
+        row?.traffic
+      )
+
     return rows.map((row) => ({
       ...row,
       deposits: toNumber((row as any).deposits),
       withdrawals: toNumber((row as any).withdrawals),
       profit: toNumber((row as any).profit),
-      traffic: toNumber((row as any).traffic),
+      traffic: getLeadsValue(row as any),
       spend: toNumber((row as any).spend),
     })).filter((row) => Boolean((row as any).date))
   }
