@@ -297,7 +297,7 @@ export function GeoData() {
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold tracking-tight">Top Depositors by Country</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {geoData.filter(geo => geo.topDepositors && geo.topDepositors.length > 0).map((geo, geoIndex) => (
+          {geoData.filter((geo) => geo.country !== 'Others').map((geo, geoIndex) => (
             <Card key={geo.country}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -312,38 +312,42 @@ export function GeoData() {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {geo.topDepositors.map((user, index) => (
-                    <div
-                      key={user.telegramId}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
-                          index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
-                          index === 1 ? 'bg-gray-400/20 text-gray-400' :
-                          index === 2 ? 'bg-orange-600/20 text-orange-600' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
-                          {index + 1}
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {user.username ? `@${user.username}` : user.fullName}
+                {geo.topDepositors && geo.topDepositors.length > 0 ? (
+                  <div className="space-y-3">
+                    {geo.topDepositors.map((user, index) => (
+                      <div
+                        key={user.telegramId}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+                            index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+                            index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                            index === 2 ? 'bg-orange-600/20 text-orange-600' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {index + 1}
                           </div>
-                          <div className="text-xs text-muted-foreground font-mono">
-                            ID: {user.telegramId}
+                          <div>
+                            <div className="font-medium text-sm">
+                              {user.username ? `@${user.username}` : user.fullName}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              ID: {user.telegramId}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-green-400 text-sm">
+                            ${user.totalDeposit.toFixed(2)}
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-green-400 text-sm">
-                          ${user.totalDeposit.toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No depositors</div>
+                )}
               </CardContent>
             </Card>
           ))}
