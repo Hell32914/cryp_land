@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChartLine,
@@ -15,6 +15,7 @@ import {
   Translate,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import { useAuth } from '@/lib/auth'
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { getPresenceEntry, setOperatorPresence, subscribePresence } from '@/lib/operator-presence'
 
 interface LayoutProps {
   children: ReactNode
@@ -39,7 +41,14 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
 
-  const role = normalizeCrmRole(decodeJwtClaims(token).role)
+  const claims = useMemo(() => decodeJwtClaims(token), [token])
+  const role = normalizeCrmRole(claims.role)
+  const username = claims.username
+
+  const [isOnline, setIsOnline] = useState(() => {
+    const entry = username ? getPresenceEntry(username) : null
+    return entry?.online ?? false
+  })
 
   const currentLang = String((i18n as any)?.resolvedLanguage || i18n.language || 'en').split('-')[0]
 
@@ -112,6 +121,25 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
       setIsSidebarOpen(false)
     }
   }, [isMobile])
+
+  useEffect(() => {
+    if (!username) return
+    const unsubscribe = subscribePresence(() => {
+      const entry = getPresenceEntry(username)
+      setIsOnline(entry?.online ?? false)
+    })
+    return unsubscribe
+  }, [username])
+
+  useEffect(() => {
+    if (role !== 'support' || !username) return
+    const handleBeforeUnload = () => {
+      const entry = getPresenceEntry(username)
+      if (entry?.online) setOperatorPresence(username, false)
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [role, username])
 
   return (
     <div className="relative h-screen bg-background overflow-hidden flex flex-col md:flex-row">
@@ -202,9 +230,42 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
               </Select>
             </div>
           )}
+          {role === 'support' ? (
+            <div className={cn('px-3 pb-1', !isSidebarOpen && 'px-1')}>
+              <div className={cn('flex items-center justify-between gap-2 rounded-md border border-sidebar-border bg-sidebar-accent/40 px-2 py-2', !isSidebarOpen && 'flex-col')}
+              >
+                {isSidebarOpen ? (
+                  <div className="text-xs text-muted-foreground">
+                    {t('common.presence')}
+                  </div>
+                ) : null}
+                <div className={cn('flex items-center gap-2', !isSidebarOpen && 'flex-col')}
+                >
+                  {isSidebarOpen ? (
+                    <span className={cn('text-xs font-medium', isOnline ? 'text-green-400' : 'text-muted-foreground')}>
+                      {isOnline ? t('common.online') : t('common.offline')}
+                    </span>
+                  ) : null}
+                  <Switch
+                    checked={isOnline}
+                    onCheckedChange={(checked) => {
+                      if (!username) return
+                      setOperatorPresence(username, checked)
+                      setIsOnline(checked)
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
           <Button
             variant="ghost"
-            onClick={logout}
+            onClick={() => {
+              if (role === 'support' && username) {
+                setOperatorPresence(username, false)
+              }
+              logout()
+            }}
             className={cn(
               'w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10',
               !isSidebarOpen && 'justify-center'

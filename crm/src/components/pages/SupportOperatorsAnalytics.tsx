@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchSupportChats, fetchSupportMessages, fetchSupportOperatorDeposits, type SupportChatRecord, type SupportMessageRecord } from '@/lib/api'
+import { getOnlineIntervals, getOnlineOverlapMs } from '@/lib/operator-presence'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -137,6 +138,14 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
     try {
       const { fromTs, toTs } = resolveRange(chats)
       const statsByOperator = new Map<string, OperatorStats>()
+      const onlineIntervalsByOperator = new Map<string, ReturnType<typeof getOnlineIntervals>>()
+
+      const getIntervals = (operator: string) => {
+        if (onlineIntervalsByOperator.has(operator)) return onlineIntervalsByOperator.get(operator)!
+        const intervals = getOnlineIntervals(operator, fromTs, toTs)
+        onlineIntervalsByOperator.set(operator, intervals)
+        return intervals
+      }
 
       const MAX_CHATS = 300
       const PAGE_LIMIT = range === 'all' ? 100 : 50
@@ -239,9 +248,13 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
           base.outboundMessages += 1
 
           if (pendingInboundTs) {
+            const intervals = getIntervals(operator)
             const diff = ts - pendingInboundTs
-            if (diff >= 0) {
-              base.responseSumMs += diff
+            const onlineMs = intervals.length > 0
+              ? getOnlineOverlapMs(intervals, pendingInboundTs, ts)
+              : diff
+            if (onlineMs > 0) {
+              base.responseSumMs += onlineMs
               base.responseCount += 1
             }
             pendingInboundTs = null

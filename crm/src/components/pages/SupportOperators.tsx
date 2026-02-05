@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getPresenceMap, subscribePresence } from '@/lib/operator-presence'
 
 export function SupportOperators() {
   const { t } = useTranslation()
@@ -44,6 +45,15 @@ export function SupportOperators() {
 
   const [resetId, setResetId] = useState<number | null>(null)
   const [resetPassword, setResetPassword] = useState('')
+
+  const [presenceMap, setPresenceMap] = useState(() => getPresenceMap())
+
+  useEffect(() => {
+    const unsubscribe = subscribePresence(() => {
+      setPresenceMap(getPresenceMap())
+    })
+    return unsubscribe
+  }, [])
 
   const { data, isLoading, isError } = useApiQuery<Awaited<ReturnType<typeof fetchCrmOperators>>>(
     ['crm-operators'],
@@ -196,6 +206,18 @@ export function SupportOperators() {
                         <Badge variant={op.isActive ? 'secondary' : 'destructive'}>
                           {op.isActive ? t('supportOperators.active') : t('supportOperators.disabled')}
                         </Badge>
+                        {(() => {
+                          const presence = presenceMap[op.username]
+                          const online = presence?.online ?? false
+                          return (
+                            <Badge
+                              variant="outline"
+                              className={online ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-muted/30 text-muted-foreground border-border'}
+                            >
+                              {online ? t('common.online') : t('common.offline')}
+                            </Badge>
+                          )
+                        })()}
                         {op.role ? (
                           <Badge variant="outline">{String(op.role).toUpperCase()}</Badge>
                         ) : null}

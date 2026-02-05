@@ -1247,7 +1247,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
   const { data: depositsData } = useApiQuery<Awaited<ReturnType<typeof fetchDeposits>>>(
     ['support-deposits', selectedTelegramId],
-    (authToken) => fetchDeposits(authToken, { page: 1, limit: 500, search: selectedTelegramId! }),
+    (authToken) => fetchDeposits(authToken, { page: 1, limit: 1000 }),
     {
       enabled: Boolean(token && selectedTelegramId),
       refetchInterval: 15000,
