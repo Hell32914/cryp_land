@@ -57,6 +57,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         { id: 'users', label: t('nav.users'), icon: Users },
         { id: 'deposit-users', label: t('nav.depositUsers'), icon: Users },
         { id: 'geo', label: t('nav.geoData'), icon: Globe },
+        { id: 'bonus', label: t('nav.bonus'), icon: Users },
       ],
     },
     {

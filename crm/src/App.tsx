@@ -9,6 +9,7 @@ import { Dashboard } from '@/components/pages/Dashboard'
 import { Users } from '@/components/pages/Users'
 import { DepositUsers } from '@/components/pages/DepositUsers'
 import { GeoData } from '@/components/pages/GeoData'
+import { BonusUsers } from '@/components/pages/BonusUsers'
 import { Deposits } from '@/components/pages/Deposits'
 import { Withdrawals } from '@/components/pages/Withdrawals'
 import { Expenses } from '@/components/pages/Expenses'
@@ -41,6 +42,7 @@ function AppContent() {
         allowedPages: new Set([
           'dashboard',
           'geo',
+          'bonus',
           'deposit-users',
           'deposits',
           'withdrawals',
@@ -116,6 +118,8 @@ function AppContent() {
         return <DepositUsers />
       case 'geo':
         return <GeoData />
+      case 'bonus':
+        return <BonusUsers />
       case 'deposits':
         return <Deposits />
       case 'withdrawals':

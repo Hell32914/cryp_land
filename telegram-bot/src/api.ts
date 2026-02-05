@@ -3365,6 +3365,8 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   profit: user.profit,
   totalDeposit: user.lifetimeDeposit || user.totalDeposit, // All-time deposits
   totalWithdraw: user.totalWithdraw,
+  bonusTokens: user.bonusTokens || 0,
+  contactSupportBonusGrantedAt: user.contactSupportBonusGrantedAt || null,
   kycRequired: user.kycRequired,
   isBlocked: user.isBlocked,
   role: user.role || 'user',
@@ -3853,6 +3855,162 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error('Admin deposit users error:', error)
     return res.status(500).json({ error: 'Failed to load deposit users' })
+  }
+})
+
+app.get('/api/admin/bonus-users', requireAdminAuth, async (req, res) => {
+  try {
+    const { search = '', limit = '50', page = '1', hasBonus = '' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 50, 100)
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
+    const skip = (pageNum - 1) * take
+
+    const searchValue = String(search).trim()
+    const hasBonusValue = String(hasBonus || '').trim()
+
+    const searchWhere: Prisma.UserWhereInput | null = searchValue
+      ? {
+          OR: [
+            { telegramId: { contains: searchValue } },
+            { username: { contains: searchValue } },
+            { firstName: { contains: searchValue } },
+            { lastName: { contains: searchValue } },
+          ],
+        }
+      : null
+
+    const bonusWhere: Prisma.UserWhereInput | null = hasBonusValue === '1'
+      ? { bonusTokens: { gt: 0 } }
+      : hasBonusValue === '0'
+        ? { bonusTokens: { lte: 0 } }
+        : null
+
+    const where: Prisma.UserWhereInput = {
+      AND: [{ isHidden: false }, searchWhere, bonusWhere].filter(Boolean) as Prisma.UserWhereInput[],
+    }
+
+    const totalCount = await prisma.user.count({ where })
+    const totalPages = Math.ceil(totalCount / take) || 1
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        country: true,
+        status: true,
+        createdAt: true,
+        bonusTokens: true,
+        contactSupportBonusGrantedAt: true,
+      },
+    })
+
+    const mappedUsers = users.map((u) => ({
+      id: u.id,
+      telegramId: u.telegramId,
+      username: u.username,
+      fullName: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.username || u.telegramId,
+      country: u.country || 'Unknown',
+      status: u.status,
+      createdAt: u.createdAt,
+      bonusTokens: u.bonusTokens || 0,
+      contactSupportBonusGrantedAt: u.contactSupportBonusGrantedAt || null,
+    }))
+
+    return res.json({
+      users: mappedUsers,
+      count: mappedUsers.length,
+      totalCount,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    })
+  } catch (error) {
+    console.error('Admin bonus users error:', error)
+    return res.status(500).json({ error: 'Failed to load bonus users' })
+  }
+})
+
+app.post('/api/admin/bonus-users/:telegramId/grant', requireAdminAuth, async (req, res) => {
+  try {
+    const telegramId = String(req.params.telegramId || '').trim()
+    if (!telegramId) return res.status(400).json({ error: 'Invalid telegramId' })
+
+    let settings = await prisma.globalSettings.findFirst()
+    const DEFAULT_BONUS_AMOUNT = 25
+    const amount = typeof req.body?.amount === 'number'
+      ? req.body.amount
+      : settings?.contactSupportBonusAmount ?? DEFAULT_BONUS_AMOUNT
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid bonus amount' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const updated = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        bonusTokens: { increment: amount },
+        contactSupportBonusGrantedAt: new Date(),
+        contactSupportBonusAmountGranted: { increment: amount },
+      },
+      select: {
+        id: true,
+        telegramId: true,
+        bonusTokens: true,
+        contactSupportBonusGrantedAt: true,
+      },
+    })
+
+    return res.json({
+      success: true,
+      user: updated,
+    })
+  } catch (error) {
+    console.error('Admin grant bonus error:', error)
+    return res.status(500).json({ error: 'Failed to grant bonus' })
+  }
+})
+
+app.post('/api/admin/bonus-users/:telegramId/revoke', requireAdminAuth, async (req, res) => {
+  try {
+    const telegramId = String(req.params.telegramId || '').trim()
+    if (!telegramId) return res.status(400).json({ error: 'Invalid telegramId' })
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const updated = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        bonusTokens: 0,
+        contactSupportBonusGrantedAt: null,
+        contactSupportBonusAmountGranted: 0,
+      },
+      select: {
+        id: true,
+        telegramId: true,
+        bonusTokens: true,
+        contactSupportBonusGrantedAt: true,
+      },
+    })
+
+    return res.json({
+      success: true,
+      user: updated,
+    })
+  } catch (error) {
+    console.error('Admin revoke bonus error:', error)
+    return res.status(500).json({ error: 'Failed to revoke bonus' })
   }
 })
 

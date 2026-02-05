@@ -168,6 +168,8 @@ export interface UserRecord {
   profit: number
   totalDeposit: number
   totalWithdraw: number
+  bonusTokens?: number
+  contactSupportBonusGrantedAt?: string | null
   kycRequired: boolean
   isBlocked: boolean
   role: string
@@ -194,6 +196,26 @@ export interface UserRecord {
 
 export interface UsersResponse {
   users: UserRecord[]
+  count: number
+  totalCount: number
+  page: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
+export interface BonusUsersResponse {
+  users: Array<{
+    id: number
+    telegramId: string
+    username: string | null
+    fullName: string
+    country: string
+    status: string
+    createdAt: string
+    bonusTokens: number
+    contactSupportBonusGrantedAt: string | null
+  }>
   count: number
   totalCount: number
   page: number
@@ -1142,6 +1164,47 @@ export const fetchDepositUsers = (token: string, opts?: { page?: number; limit?:
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/deposit-users${query ? `?${query}` : ''}`, {}, token)
 }
+
+export const fetchBonusUsers = (token: string, opts?: { page?: number; limit?: number; search?: string; hasBonus?: boolean }) => {
+  if (isTesterToken(token)) {
+    return Promise.resolve({
+      users: [],
+      count: 0,
+      totalCount: 0,
+      page: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    })
+  }
+  const params = new URLSearchParams()
+  if (opts?.page) params.set('page', String(opts.page))
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.search) params.set('search', String(opts.search))
+  if (typeof opts?.hasBonus === 'boolean') params.set('hasBonus', opts.hasBonus ? '1' : '0')
+  const query = params.toString()
+  return request<BonusUsersResponse>(`/api/admin/bonus-users${query ? `?${query}` : ''}`, {}, token)
+}
+
+export const grantUserBonus = (token: string, telegramId: string) =>
+  request<{ success: boolean; user: { telegramId: string; bonusTokens: number; contactSupportBonusGrantedAt: string | null } }>(
+    `/api/admin/bonus-users/${encodeURIComponent(telegramId)}/grant`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    token
+  )
+
+export const revokeUserBonus = (token: string, telegramId: string) =>
+  request<{ success: boolean; user: { telegramId: string; bonusTokens: number; contactSupportBonusGrantedAt: string | null } }>(
+    `/api/admin/bonus-users/${encodeURIComponent(telegramId)}/revoke`,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    token
+  )
 
 export const fetchWithdrawals = (token: string) =>
   isTesterToken(token)
