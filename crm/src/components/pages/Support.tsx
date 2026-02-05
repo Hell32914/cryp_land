@@ -132,6 +132,33 @@ function normalizeStageId(value: string | null | undefined, aliases: Record<stri
   return cur
 }
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // will try fallback below
+  }
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.top = '0'
+    textarea.style.left = '0'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return ok
+  } catch {
+    return false
+  }
+}
+
 const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
 
 type SupportListTab = 'new' | 'accepted' | 'archive'
@@ -233,6 +260,12 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   const [imageViewerSrc, setImageViewerSrc] = useState('')
   const [imageViewerZoom, setImageViewerZoom] = useState(1)
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
+
+  const handleCopyCrmNumber = useCallback(async (value: number) => {
+    const ok = await copyText(String(value))
+    if (ok) toast.success(t('common.copied'))
+    else toast.error(t('common.error'))
+  }, [t])
 
   const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     messagesEndRef.current?.scrollIntoView({ behavior })
@@ -2044,7 +2077,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                   </div>
                 ) : null}
 
-                <div className="hidden sm:grid grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 text-xs text-muted-foreground bg-muted/20">
+                <div className="hidden sm:grid grid-cols-[64px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 text-xs text-muted-foreground bg-muted/20">
                   <div />
                   <div className="truncate">{t('support.clientPanel')}</div>
                   <div className="truncate">{t('support.columns.funnelStatus')}</div>
@@ -2053,11 +2086,13 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
                 <ScrollArea className="h-[60vh] sm:h-[640px]">
                   <div className="divide-y divide-border">
-                    {sortedChats.map((chat) => {
+                    {sortedChats.map((chat, index) => {
                       const displayName = [chat.firstName, chat.lastName].filter(Boolean).join(' ') || chat.telegramId
                       const nick = chat.username ? `@${chat.username}` : null
                       const title = displayName
                       const sub = nick || chat.telegramId
+
+                      const crmNumber = index + 1
 
                       const pinned = pinnedSet.has(chat.chatId)
 
@@ -2086,23 +2121,40 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                         <div
                           key={chat.chatId}
                           className={
-                            "grid grid-cols-[44px_minmax(0,1fr)] sm:grid-cols-[44px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30 " +
+                            "grid grid-cols-[64px_minmax(0,1fr)] sm:grid-cols-[64px_minmax(0,1fr)_240px_140px] gap-3 px-3 py-2 items-center hover:bg-muted/30 " +
                             (selectedChatIds.has(chat.chatId) ? 'bg-muted/20' : '')
                           }
                         >
-                          <input
-                            type="checkbox"
-                            className={
-                              'h-4 w-4 rounded border-border ' +
-                              (isAdmin ? 'cursor-pointer' : 'opacity-40')
-                            }
-                            checked={selectedChatIds.has(chat.chatId)}
-                            disabled={!isAdmin}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                            }}
-                            onChange={() => toggleChatSelection(chat.chatId)}
-                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              className={
+                                'h-4 w-4 rounded border-border ' +
+                                (isAdmin ? 'cursor-pointer' : 'opacity-40')
+                              }
+                              checked={selectedChatIds.has(chat.chatId)}
+                              disabled={!isAdmin}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                              }}
+                              onChange={() => toggleChatSelection(chat.chatId)}
+                            />
+                            <button
+                              type="button"
+                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleCopyCrmNumber(crmNumber)
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onDragStart={(e) => e.preventDefault()}
+                              title={t('common.copied')}
+                              aria-label={t('common.copied')}
+                            >
+                              {crmNumber}
+                            </button>
+                          </div>
 
                           <button
                             onClick={() => openChat(chat.chatId, selectedChatId ? 'toggle' : 'open')}
