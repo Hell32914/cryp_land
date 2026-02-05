@@ -27,7 +27,7 @@ import { useAuth } from '@/lib/auth'
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { getPresenceEntry, setOperatorPresence, subscribePresence } from '@/lib/operator-presence'
+import { fetchOperatorPresence, setOperatorPresence } from '@/lib/api'
 
 interface LayoutProps {
   children: ReactNode
@@ -45,10 +45,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const role = normalizeCrmRole(claims.role)
   const username = claims.username
 
-  const [isOnline, setIsOnline] = useState(() => {
-    const entry = username ? getPresenceEntry(username) : null
-    return entry?.online ?? false
-  })
+  const [isOnline, setIsOnline] = useState(false)
 
   const currentLang = String((i18n as any)?.resolvedLanguage || i18n.language || 'en').split('-')[0]
 
@@ -123,23 +120,30 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   }, [isMobile])
 
   useEffect(() => {
-    if (!username) return
-    const unsubscribe = subscribePresence(() => {
-      const entry = getPresenceEntry(username)
-      setIsOnline(entry?.online ?? false)
-    })
-    return unsubscribe
-  }, [username])
+    if (!username || !token) return
+    let cancelled = false
+    fetchOperatorPresence(token)
+      .then((resp) => {
+        if (cancelled) return
+        const entry = resp.operators.find((op) => op.username === username)
+        setIsOnline(entry?.online ?? false)
+      })
+      .catch(() => {
+        if (!cancelled) setIsOnline(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, username])
 
   useEffect(() => {
     if (role !== 'support' || !username) return
     const handleBeforeUnload = () => {
-      const entry = getPresenceEntry(username)
-      if (entry?.online) setOperatorPresence(username, false)
+      if (token) void setOperatorPresence(token, false)
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [role, username])
+  }, [role, token, username])
 
   return (
     <div className="relative h-screen bg-background overflow-hidden flex flex-col md:flex-row">
@@ -249,8 +253,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   <Switch
                     checked={isOnline}
                     onCheckedChange={(checked) => {
-                      if (!username) return
-                      setOperatorPresence(username, checked)
+                      if (!username || !token) return
+                      void setOperatorPresence(token, checked)
                       setIsOnline(checked)
                     }}
                   />
@@ -262,7 +266,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             variant="ghost"
             onClick={() => {
               if (role === 'support' && username) {
-                setOperatorPresence(username, false)
+                if (token) void setOperatorPresence(token, false)
               }
               logout()
             }}

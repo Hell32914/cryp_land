@@ -468,6 +468,50 @@ app.post('/api/admin/login', loginLimiter, (req, res) => {
 
 // ============= CRM OPERATORS (SUPERADMIN ONLY) =============
 
+type OperatorPresenceSession = { start: number; end?: number }
+type OperatorPresenceEntry = { username: string; online: boolean; updatedAt: number; sessions: OperatorPresenceSession[] }
+
+const operatorPresenceMap = new Map<string, OperatorPresenceEntry>()
+const PRESENCE_RETENTION_MS = 1000 * 60 * 60 * 24 * 90
+
+const trimPresenceSessions = (entry: OperatorPresenceEntry, now: number) => {
+  const cutoff = now - PRESENCE_RETENTION_MS
+  entry.sessions = entry.sessions
+    .map((session) => {
+      const end = session.end ?? now
+      if (end < cutoff) return null
+      return {
+        start: Math.max(session.start, cutoff),
+        end: session.end,
+      }
+    })
+    .filter(Boolean) as OperatorPresenceSession[]
+}
+
+const updateOperatorPresence = (username: string, online: boolean, ts: number) => {
+  const key = String(username || '').trim()
+  if (!key) return null
+  const existing = operatorPresenceMap.get(key) || { username: key, online: false, updatedAt: ts, sessions: [] }
+
+  if (online) {
+    const last = existing.sessions[existing.sessions.length - 1]
+    if (!last || last.end) {
+      existing.sessions.push({ start: ts })
+    }
+  } else {
+    const last = existing.sessions[existing.sessions.length - 1]
+    if (last && !last.end) {
+      last.end = ts
+    }
+  }
+
+  existing.online = online
+  existing.updatedAt = ts
+  trimPresenceSessions(existing, ts)
+  operatorPresenceMap.set(key, existing)
+  return existing
+}
+
 app.get('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req, res) => {
   try {
     const operators = await prisma.crmOperator.findMany({
@@ -479,6 +523,54 @@ app.get('/api/admin/operators', requireAdminAuth, requireSuperAdmin, async (req,
   } catch (error) {
     console.error('CRM operators list error:', error)
     return res.status(500).json({ error: 'Failed to fetch operators' })
+  }
+})
+
+app.get('/api/admin/operators/presence', requireAdminAuth, async (req, res) => {
+  try {
+    const includeSessions = String(req.query.includeSessions || '') === '1'
+    const operators = await prisma.crmOperator.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { username: true },
+      take: 500,
+    })
+
+    const now = Date.now()
+    const result = operators.map((op) => {
+      const entry = operatorPresenceMap.get(op.username)
+      if (!entry) {
+        return { username: op.username, online: false, updatedAt: 0, sessions: includeSessions ? [] : undefined }
+      }
+      trimPresenceSessions(entry, now)
+      return {
+        username: op.username,
+        online: entry.online,
+        updatedAt: entry.updatedAt,
+        sessions: includeSessions ? entry.sessions : undefined,
+      }
+    })
+
+    return res.json({ operators: result })
+  } catch (error) {
+    console.error('CRM operator presence list error:', error)
+    return res.status(500).json({ error: 'Failed to fetch operator presence' })
+  }
+})
+
+app.post('/api/admin/operators/presence', requireAdminAuth, async (req, res) => {
+  try {
+    const adminUsername = String((req as any).adminUsername || '').trim()
+    if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+    const online = Boolean((req as any).body?.online)
+    const ts = Date.now()
+    const entry = updateOperatorPresence(adminUsername, online, ts)
+    if (!entry) return res.status(400).json({ error: 'Invalid username' })
+
+    return res.json({ online: entry.online, updatedAt: entry.updatedAt })
+  } catch (error) {
+    console.error('CRM operator presence update error:', error)
+    return res.status(500).json({ error: 'Failed to update operator presence' })
   }
 })
 

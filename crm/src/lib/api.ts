@@ -333,6 +333,18 @@ export interface CrmOperatorsResponse {
   operators: CrmOperatorRecord[]
 }
 
+export interface OperatorPresenceSession {
+  start: number
+  end?: number
+}
+
+export interface OperatorPresenceEntry {
+  username: string
+  online: boolean
+  updatedAt: number
+  sessions?: OperatorPresenceSession[]
+}
+
 export interface SupportMessageRecord {
   id: number
   supportChatId: number
@@ -1652,6 +1664,32 @@ export const toggleCrmOperator = (token: string, id: number) =>
         updatedAt: new Date().toISOString(),
       })
     : request<CrmOperatorRecord>(`/api/admin/operators/${id}/toggle`, { method: 'POST' }, token)
+
+export const fetchOperatorPresence = (token: string, opts?: { includeSessions?: boolean }) => {
+  if (isTesterToken(token)) {
+    return Promise.resolve({ operators: [] as OperatorPresenceEntry[] })
+  }
+  const params = new URLSearchParams()
+  if (opts?.includeSessions) params.set('includeSessions', '1')
+  const query = params.toString()
+  return request<{ operators: OperatorPresenceEntry[] }>(
+    `/api/admin/operators/presence${query ? `?${query}` : ''}`,
+    {},
+    token
+  )
+}
+
+export const setOperatorPresence = (token: string, online: boolean) =>
+  isTesterToken(token)
+    ? Promise.resolve({ online, updatedAt: Date.now() })
+    : request<{ online: boolean; updatedAt: number }>(
+        '/api/admin/operators/presence',
+        {
+          method: 'POST',
+          body: JSON.stringify({ online }),
+        },
+        token
+      )
 
 export const deleteCrmOperator = (token: string, id: number) =>
   isTesterToken(token)

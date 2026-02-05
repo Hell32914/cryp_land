@@ -2,8 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useApiQuery } from '@/hooks/use-api-query'
-import { fetchSupportChats, fetchSupportMessages, fetchSupportOperatorDeposits, type SupportChatRecord, type SupportMessageRecord } from '@/lib/api'
-import { getOnlineIntervals, getOnlineOverlapMs } from '@/lib/operator-presence'
+import {
+  fetchSupportChats,
+  fetchSupportMessages,
+  fetchSupportOperatorDeposits,
+  fetchOperatorPresence,
+  type SupportChatRecord,
+  type SupportMessageRecord,
+  type OperatorPresenceSession,
+} from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +48,21 @@ type OperatorStats = {
   responseSumMs: number
   depositCount: number
   depositAmount: number
+}
+
+const getOnlineOverlapMs = (sessions: OperatorPresenceSession[], start: number, end: number) => {
+  if (!sessions.length) return 0
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
+  let total = 0
+  for (const session of sessions) {
+    const s = session.start
+    const e = session.end ?? Date.now()
+    if (e <= start || s >= end) continue
+    const overlapStart = Math.max(start, s)
+    const overlapEnd = Math.min(end, e)
+    if (overlapEnd > overlapStart) total += overlapEnd - overlapStart
+  }
+  return total
 }
 
 export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperatorsAnalyticsProps) {
@@ -138,13 +160,20 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
     try {
       const { fromTs, toTs } = resolveRange(chats)
       const statsByOperator = new Map<string, OperatorStats>()
-      const onlineIntervalsByOperator = new Map<string, ReturnType<typeof getOnlineIntervals>>()
 
-      const getIntervals = (operator: string) => {
-        if (onlineIntervalsByOperator.has(operator)) return onlineIntervalsByOperator.get(operator)!
-        const intervals = getOnlineIntervals(operator, fromTs, toTs)
-        onlineIntervalsByOperator.set(operator, intervals)
-        return intervals
+      const presenceResp = await fetchOperatorPresence(token, { includeSessions: true })
+      const presenceSessionsByOperator = new Map<string, OperatorPresenceSession[]>()
+      for (const entry of presenceResp.operators || []) {
+        const sessions = entry.sessions ?? []
+        const inRange = sessions
+          .map((session) => {
+            const start = Math.max(session.start, fromTs)
+            const end = Math.min(session.end ?? Date.now(), toTs)
+            if (end <= start) return null
+            return { start, end }
+          })
+          .filter(Boolean) as OperatorPresenceSession[]
+        presenceSessionsByOperator.set(entry.username, inRange)
       }
 
       const MAX_CHATS = 300
@@ -248,10 +277,10 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
           base.outboundMessages += 1
 
           if (pendingInboundTs) {
-            const intervals = getIntervals(operator)
+            const sessions = presenceSessionsByOperator.get(operator) ?? []
             const diff = ts - pendingInboundTs
-            const onlineMs = intervals.length > 0
-              ? getOnlineOverlapMs(intervals, pendingInboundTs, ts)
+            const onlineMs = sessions.length > 0
+              ? getOnlineOverlapMs(sessions, pendingInboundTs, ts)
               : diff
             if (onlineMs > 0) {
               base.responseSumMs += onlineMs

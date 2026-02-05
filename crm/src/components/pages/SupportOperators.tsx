@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import {
   deleteCrmOperator,
   fetchCrmOperators,
   resetCrmOperatorPassword,
+  fetchOperatorPresence,
   setCrmOperatorRole,
   toggleCrmOperator,
   type CrmOperatorRecord,
@@ -25,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { getPresenceMap, subscribePresence } from '@/lib/operator-presence'
 
 export function SupportOperators() {
   const { t } = useTranslation()
@@ -46,14 +46,24 @@ export function SupportOperators() {
   const [resetId, setResetId] = useState<number | null>(null)
   const [resetPassword, setResetPassword] = useState('')
 
-  const [presenceMap, setPresenceMap] = useState(() => getPresenceMap())
+  const { data: presenceData } = useApiQuery<Awaited<ReturnType<typeof fetchOperatorPresence>>>(
+    ['operator-presence'],
+    (authToken) => fetchOperatorPresence(authToken),
+    {
+      enabled: Boolean(token),
+      refetchInterval: 5000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
+  )
 
-  useEffect(() => {
-    const unsubscribe = subscribePresence(() => {
-      setPresenceMap(getPresenceMap())
-    })
-    return unsubscribe
-  }, [])
+  const presenceMap = useMemo(() => {
+    const map: Record<string, { online: boolean }> = {}
+    for (const entry of presenceData?.operators ?? []) {
+      map[entry.username] = { online: entry.online }
+    }
+    return map
+  }, [presenceData])
 
   const { data, isLoading, isError } = useApiQuery<Awaited<ReturnType<typeof fetchCrmOperators>>>(
     ['crm-operators'],
