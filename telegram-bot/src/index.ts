@@ -5637,9 +5637,15 @@ async function accrueDailyProfit() {
 
       const updates = [...depositUpdates, ...tokenUpdates].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
       
-      // Delete old daily updates for this user
+      // Delete only today's updates for this user (preserve history)
       await prisma.dailyProfitUpdate.deleteMany({
-        where: { userId: user.id }
+        where: {
+          userId: user.id,
+          timestamp: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
+        },
       })
       
       // Create new daily updates (notifications will be sent by scheduler)
