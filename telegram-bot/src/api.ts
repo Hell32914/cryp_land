@@ -3184,7 +3184,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       .sort((a, b) => b.userCount - a.userCount)
 
     const geoLimit = 6
-    const limitedGeo = sortedGeo.slice(0, geoLimit)
+    const unknownEntry = sortedGeo.find((entry) => entry.country === 'Unknown') || null
+    const withoutUnknown = sortedGeo.filter((entry) => entry.country !== 'Unknown')
+    const takeCount = Math.max(geoLimit - (unknownEntry ? 1 : 0), 0)
+    const limitedGeo = [...withoutUnknown.slice(0, takeCount), ...(unknownEntry ? [unknownEntry] : [])]
     const includedCount = limitedGeo.reduce((sum, entry) => sum + entry.userCount, 0)
     const remaining = totalGeoUsers - includedCount
 
