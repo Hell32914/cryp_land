@@ -582,13 +582,14 @@ export function Dashboard() {
                           borderRadius: '8px',
                           color: '#f8f9fa'
                         }}
-                        formatter={(value: number, name: string) => {
+                        formatter={(value: number, name: string, props: any) => {
+                          const dataKey = props?.dataKey || props?.payload?.dataKey || name
                           const labelMap: Record<string, string> = {
                             traffic: t('dashboard.traffic'),
                             spend: t('dashboard.spend'),
                           }
-                          const label = labelMap[name] || name
-                          if (name === 'traffic') return [value.toLocaleString(), label]
+                          const label = labelMap[dataKey] || labelMap[name] || name
+                          if (dataKey === 'traffic') return [value.toLocaleString(), label]
                           return [`$${value.toLocaleString()}`, label]
                         }}
                       />
