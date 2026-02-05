@@ -33,7 +33,13 @@ function AppContent() {
   const access = useMemo(() => {
     if (role === 'support') {
       return {
-        allowedPages: new Set(['support', 'support-funnel', 'support-analytics', 'support-operators-analytics']),
+        allowedPages: new Set([
+          'support',
+          'support-funnel',
+          'support-broadcasts',
+          'support-analytics',
+          'support-operators-analytics',
+        ]),
         fallbackPage: 'support',
       }
     }

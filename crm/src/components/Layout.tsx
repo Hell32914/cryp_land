@@ -96,6 +96,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             items: [
               { id: 'support', label: t('nav.supportChats'), icon: ChatCenteredText },
               { id: 'support-funnel', label: t('nav.supportFunnel'), icon: Funnel },
+              { id: 'support-broadcasts', label: t('nav.supportBroadcasts'), icon: ChatCenteredText },
               { id: 'support-analytics', label: t('nav.supportAnalytics'), icon: ChartLine },
               { id: 'support-operators-analytics', label: t('nav.supportOperatorsAnalytics'), icon: ChartLine },
             ],
