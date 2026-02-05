@@ -44,11 +44,19 @@ export function DepositUsers() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const pageSize = 50
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['deposit-users', token, page, search],
-    queryFn: () => fetchDepositUsers(token!, { page, limit: pageSize, search: search.trim() || undefined }),
+    queryKey: ['deposit-users', token, page, search, dateFrom, dateTo],
+    queryFn: () => fetchDepositUsers(token!, {
+      page,
+      limit: pageSize,
+      search: search.trim() || undefined,
+      from: dateFrom || undefined,
+      to: dateTo || undefined,
+    }),
     enabled: !!token,
     refetchInterval: 15000,
   })
@@ -76,17 +84,53 @@ export function DepositUsers() {
 
       <Card>
         <CardHeader>
-          <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <Input
-              placeholder={t('depositUsers.searchPlaceholder')}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="pl-10"
-            />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1 min-w-[240px]">
+              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <Input
+                placeholder={t('depositUsers.searchPlaceholder')}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value)
+                  setPage(1)
+                }}
+                className="w-[160px]"
+                aria-label={t('users.dateFrom')}
+              />
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value)
+                  setPage(1)
+                }}
+                className="w-[160px]"
+                aria-label={t('users.dateTo')}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDateFrom('')
+                  setDateTo('')
+                  setPage(1)
+                }}
+                disabled={!dateFrom && !dateTo}
+              >
+                {t('users.reset')}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

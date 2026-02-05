@@ -3670,12 +3670,29 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 
 app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
   try {
-    const { search = '', limit = '50', page = '1', sortBy = 'totalDeposit', sortOrder = 'desc' } = req.query
+    const { search = '', limit = '50', page = '1', sortBy = 'totalDeposit', sortOrder = 'desc', from, to } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 50, 100)
     const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
     const skip = (pageNum - 1) * take
 
     const searchValue = String(search).trim()
+
+    const parseDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+    const fromParam = typeof from === 'string' ? from.trim() : ''
+    const toParam = typeof to === 'string' ? to.trim() : ''
+    const fromDate = fromParam ? new Date(fromParam) : null
+    const toDate = toParam ? new Date(toParam) : null
+    if (fromDate && parseDateOnly(fromParam)) fromDate.setHours(0, 0, 0, 0)
+    if (toDate && parseDateOnly(toParam)) toDate.setHours(23, 59, 59, 999)
+
+    const depositDateWhere = (fromDate || toDate)
+      ? {
+          createdAt: {
+            ...(fromDate ? { gte: fromDate } : {}),
+            ...(toDate ? { lte: toDate } : {}),
+          },
+        }
+      : {}
 
     const baseWhere: Prisma.UserWhereInput = {
       isHidden: false,
@@ -3683,6 +3700,7 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
         some: {
           status: 'COMPLETED',
           NOT: [{ currency: 'PROFIT' }],
+          ...depositDateWhere,
         },
       },
     }
