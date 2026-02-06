@@ -848,14 +848,24 @@ function App() {
     const days = parseInt(timePeriod) || 0
     const plan = getPlanByDeposit(deposit)
     const dailyRate = plan.dailyPercent / 100
-    
+    const reinvestRate = 0.3
+
     if (reinvest) {
-      const result = deposit * Math.pow(1 + dailyRate, days)
-      return result.toFixed(2)
-    } else {
-      const result = deposit + (deposit * dailyRate * days)
-      return result.toFixed(2)
+      let principal = deposit
+      let payout = 0
+
+      for (let day = 0; day < days; day += 1) {
+        const dailyProfit = principal * dailyRate
+        const reinvested = dailyProfit * reinvestRate
+        payout += dailyProfit - reinvested
+        principal += reinvested
+      }
+
+      return (principal + payout).toFixed(2)
     }
+
+    const result = deposit + (deposit * dailyRate * days)
+    return result.toFixed(2)
   }
 
   const quickAmounts = [50, 100, 500, 1000, 35000, 100000]
