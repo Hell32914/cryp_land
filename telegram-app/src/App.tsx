@@ -948,7 +948,7 @@ function App() {
   }, [activeTab, userData?.arbitrageTradeEnabled])
 
   const incomePlans = [
-    { name: 'Bronze', minAmount: '$10-$99', dailyPercent: '0.30%' },
+    { name: 'Bronze', minAmount: '$50-$99', dailyPercent: '0.30%' },
     { name: 'Silver', minAmount: '$100-$499', dailyPercent: '0.50%' },
     { name: 'Gold', minAmount: '$500-$999', dailyPercent: '0.80%' },
     { name: 'Platinum', minAmount: '$1000-$4999', dailyPercent: '1.00%' },

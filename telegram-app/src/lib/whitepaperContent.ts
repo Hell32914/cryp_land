@@ -219,7 +219,7 @@ export const englishWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Preispläne',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0.30% daily)' },
+        { boldPrefix: 'Bronze:', text: '$50–$99 (0.30% daily)' },
         { boldPrefix: 'Silver:', text: '$100–$499 (0.50% daily)' },
         { boldPrefix: 'Gold:', text: '$500–$999 (0.80% daily)' },
         { boldPrefix: 'Platinum:', text: '$1000–$4999 (1.00% daily)' },
@@ -469,7 +469,7 @@ export const germanWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Pricing Plans',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0,30 % täglich)' },
+        { boldPrefix: 'Bronze:', text: '$50–$99 (0,30 % täglich)' },
         { boldPrefix: 'Silver:', text: '$100–$499 (0,50 % täglich)' },
         { boldPrefix: 'Gold:', text: '$500–$999 (0,80 % täglich)' },
         { boldPrefix: 'Platinum:', text: '$1000–$4999 (1,00 % täglich)' },
@@ -738,7 +738,7 @@ export const spanishWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Planes de precios',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0.30 % diario)' },
+        { boldPrefix: 'Bronze:', text: '$50–$99 (0.30 % diario)' },
         { boldPrefix: 'Silver:', text: '$100–$499 (0.50 % diario)' },
         { boldPrefix: 'Gold:', text: '$500–$999 (0.80 % diario)' },
         { boldPrefix: 'Platinum:', text: '$1000–$4999 (1.00 % diario)' },
@@ -1030,7 +1030,7 @@ export const frenchWhitepaperContent: WhitepaperContent = {
       title: '18. Plans tarifaires',
       lists: [
         [
-          { boldPrefix: 'Bronze :', text: '$10–$99 (0,30 % par jour)' },
+          { boldPrefix: 'Bronze :', text: '$50–$99 (0,30 % par jour)' },
           { boldPrefix: 'Silver :', text: '$100–$499 (0,50 % par jour)' },
           { boldPrefix: 'Gold :', text: '$500–$999 (0,80 % par jour)' },
           { boldPrefix: 'Platinum :', text: '$1000–$4999 (1,00 % par jour)' },
@@ -1323,7 +1323,7 @@ export const italianWhitepaperContent: WhitepaperContent = {
       title: '18. Piani tariffari',
       lists: [
         [
-          { boldPrefix: 'Bronze:', text: '$10–$99 (0.30 % giornaliero)' },
+          { boldPrefix: 'Bronze:', text: '$50–$99 (0.30 % giornaliero)' },
           { boldPrefix: 'Silver:', text: '$100–$499 (0.50 % giornaliero)' },
           { boldPrefix: 'Gold:', text: '$500–$999 (0.80 % giornaliero)' },
           { boldPrefix: 'Platinum:', text: '$1000–$4999 (1.00 % giornaliero)' },
@@ -1573,7 +1573,7 @@ export const dutchWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Prijsplannen',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0,30% per dag)' },
+        { boldPrefix: 'Bronze:', text: '$50–$99 (0,30% per dag)' },
         { boldPrefix: 'Silver:', text: '$100–$499 (0,50% per dag)' },
         { boldPrefix: 'Gold:', text: '$500–$999 (0,80% per dag)' },
         { boldPrefix: 'Platinum:', text: '$1000–$4999 (1,00% per dag)' },

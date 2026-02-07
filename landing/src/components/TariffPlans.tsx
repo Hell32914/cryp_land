@@ -6,7 +6,7 @@ import { ArrowRight } from "@phosphor-icons/react"
 import { useLanguage } from "@/lib/LanguageContext"
 
 const tariffPlans = [
-  { name: "Bronze", percentage: "0.30%", range: "$10 - 99", min: 10, max: 99 },
+  { name: "Bronze", percentage: "0.30%", range: "$50 - 99", min: 50, max: 99 },
   { name: "Silver", percentage: "0.50%", range: "$100 - 499", min: 100, max: 499 },
   { name: "Gold", percentage: "0.80%", range: "$500 - 999", min: 500, max: 999 },
   { name: "Platinum", percentage: "1.00%", range: "$1000 - 4999", min: 1000, max: 4999 },
@@ -14,7 +14,7 @@ const tariffPlans = [
   { name: "Black", percentage: "1.70%", range: "$20000+", min: 20000, max: Infinity }
 ]
 
-const depositAmounts = [10, 27000, 45000, 63000, 100000]
+const depositAmounts = [50, 27000, 45000, 63000, 100000]
 const timePeriods = [
   { label: "7 Day", value: 7 },
   { label: "125 Day", value: 125 },

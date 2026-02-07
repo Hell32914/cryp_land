@@ -219,7 +219,7 @@ export function Whitepaper() {
                 </tr>
               </thead>
               <tbody>
-                <tr><td className="border border-border px-4 py-2"><strong>Bronze</strong></td><td className="border border-border px-4 py-2">$10–$100</td><td className="border border-border px-4 py-2"><strong>0.30%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Bronze</strong></td><td className="border border-border px-4 py-2">$50–$100</td><td className="border border-border px-4 py-2"><strong>0.30%</strong></td></tr>
                 <tr><td className="border border-border px-4 py-2"><strong>Silver</strong></td><td className="border border-border px-4 py-2">$100–$500</td><td className="border border-border px-4 py-2"><strong>0.50%</strong></td></tr>
                 <tr><td className="border border-border px-4 py-2"><strong>Gold</strong></td><td className="border border-border px-4 py-2">$500–$1000</td><td className="border border-border px-4 py-2"><strong>0.80%</strong></td></tr>
                 <tr><td className="border border-border px-4 py-2"><strong>Platinum</strong></td><td className="border border-border px-4 py-2">$1000–$5000</td><td className="border border-border px-4 py-2"><strong>1.00%</strong></td></tr>

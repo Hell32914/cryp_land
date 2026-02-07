@@ -199,7 +199,7 @@ const germanFAQSections: FAQSection[] = [
 ]
 
 const englishFAQPlans = [
-  'Bronze Plan: $10–$99 (0.30% daily)',
+  'Bronze Plan: $50–$99 (0.30% daily)',
   'Silver Plan: $100–$499 (0.50% daily)',
   'Gold Plan: $500–$999 (0.80% daily)',
   'Platinum Plan: $1000–$4999 (1.00% daily)',
@@ -209,7 +209,7 @@ const englishFAQPlans = [
 ]
 
 const germanFAQPlans = [
-  'Bronze-Plan: $10–$99 (0,30 % täglich)',
+  'Bronze-Plan: $50–$99 (0,30 % täglich)',
   'Silber-Plan: $100–$499 (0,50 % täglich)',
   'Gold-Plan: $500–$999 (0,80 % täglich)',
   'Platin-Plan: $1000–$4999 (1,00 % täglich)',
@@ -705,7 +705,7 @@ const spanishFAQSections: FAQSection[] = [
 ]
 
 const spanishFAQPlans = [
-  'Plan Bronze: $10–$99 (0.30 % diario)',
+  'Plan Bronze: $50–$99 (0.30 % diario)',
   'Plan Silver: $100–$499 (0.50 % diario)',
   'Plan Gold: $500–$999 (0.80 % diario)',
   'Plan Platinum: $1000–$4999 (1.00 % diario)',
@@ -805,7 +805,7 @@ const frenchFAQSections: FAQSection[] = [
 ]
 
 const frenchFAQPlans = [
-  'Plan Bronze : $10–$99 (0,30 % par jour)',
+  'Plan Bronze : $50–$99 (0,30 % par jour)',
   'Plan Argent : $100–$499 (0,50 % par jour)',
   'Plan Or : $500–$999 (0,80 % par jour)',
   'Plan Platine : $1000–$4999 (1,00 % par jour)',
@@ -1301,7 +1301,7 @@ const italianFAQSections: FAQSection[] = [
 ]
 
 const italianFAQPlans = [
-  'Piano Bronze: $10–$99 (0,30 % giornaliero)',
+  'Piano Bronze: $50–$99 (0,30 % giornaliero)',
   'Piano Silver: $100–$499 (0,50 % giornaliero)',
   'Piano Gold: $500–$999 (0,80 % giornaliero)',
   'Piano Platinum: $1000–$4999 (1,00 % giornaliero)',
@@ -1599,7 +1599,7 @@ const dutchFAQSections: FAQSection[] = [
 ]
 
 const dutchFAQPlans = [
-  'Plan Bronze: $10–$99 (0,30 % per dag)',
+  'Plan Bronze: $50–$99 (0,30 % per dag)',
   'Plan Silver: $100–$499 (0,50 % per dag)',
   'Plan Gold: $500–$999 (0,80 % per dag)',
   'Plan Platinum: $1000–$4999 (1,00 % per dag)',
