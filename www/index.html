@@ -21,7 +21,7 @@
         var pixelByHost = {
             'info.syntrix.website': '2377085479429610',
             'ss.syntrix.website': '1955236631777781',
-            'road.syntrix.website': '26136975615938720',
+            'road.syntrix.website': '1593545235016326',
             'invest.syntrix.website': '26136975615938720',
             'official.syntrix.website': '2284659832039389',
             'trade.syntrix.website': '1121382239874465',
@@ -30,14 +30,24 @@
         // Fallback to existing pixel for other mapped hostnames served by the same vhost
         var pixelId = pixelByHost[host] || '1356561989350736';
         fbq('init', pixelId);
+        if (host === 'invest.syntrix.website') {
+            // Add secondary pixel for UK without replacing existing
+            fbq('init', '1207521808250750');
+        }
+        if (host === 'road.syntrix.website') {
+            // Add secondary pixel for FR without replacing existing
+            fbq('init', '1593545235016326');
+        }
         fbq('track', 'PageView');
     })();
     </script>
     <noscript>
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=2377085479429610&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1955236631777781&ev=PageView&noscript=1" />
+        <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1593545235016326&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=26136975615938720&ev=PageView&noscript=1" />
-        <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=26136975615938720&ev=PageView&noscript=1" />
+        <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1593545235016326&ev=PageView&noscript=1" />
+        <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1207521808250750&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=2284659832039389&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1121382239874465&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=25258398163810043&ev=PageView&noscript=1" />
