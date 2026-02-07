@@ -2,7 +2,7 @@ FRENCH FAQ:
     // FAQ Content
     faqSection1: '1. Informations Générales',
     faqQ1_1: 'Q: Qu\'est-ce que Syntrix et comment ça fonctionne?',
-    faqA1_1: 'Syntrix n\'est pas qu\'un simple outil de trading — c\'est un algorithme professionnel développé par une équipe d\'anciens traders de Wall Street avec plus de 20 ans d\'expérience réelle sur les marchés. Toutes leurs connaissances et leur compréhension interne des marchés financiers ont été encodées dans un produit simple: vous déposez des fonds, et le bot trade automatiquement en votre nom, générant des profits allant jusqu\'à 7% par jour.',
+    faqA1_1: 'Syntrix n\'est pas qu\'un simple outil de trading — c\'est un algorithme professionnel développé par une équipe d\'anciens traders de Wall Street avec plus de 20 ans d\'expérience réelle sur les marchés. Toutes leurs connaissances et leur compréhension interne des marchés financiers ont été encodées dans un produit simple: vous déposez des fonds, et le bot trade automatiquement en votre nom, générant des profits allant jusqu\'à 1,70% par jour.',
     faqQ1_2: 'Q: Qui peut utiliser Syntrix?',
     faqA1_2: 'Toute personne de plus de 18 ans peut rejoindre. La plateforme est conçue pour être simple et accessible aux utilisateurs quotidiens.',
     faqQ1_3: 'Q: Quel est le dépôt minimum requis?',
@@ -22,7 +22,7 @@ FRENCH FAQ:
     faqA2_4: 'Nous prenons en charge plus de 100 cryptomonnaies sur 7 blockchains principales, vous donnant une flexibilité totale pour utiliser les actifs que vous possédez déjà.',
     faqSection3: '3. Rentabilité et Risques',
     faqQ3_1: 'Q: Combien de profit puis-je espérer?',
-    faqA3_1: 'Votre profit quotidien dépend de votre plan choisi et peut atteindre jusqu\'à 7% par jour. Avec la capitalisation et le réinvestissement, les résultats peuvent croître considérablement au fil du temps.',
+    faqA3_1: 'Votre profit quotidien dépend de votre plan choisi et peut atteindre jusqu\'à 1,70% par jour. Avec la capitalisation et le réinvestissement, les résultats peuvent croître considérablement au fil du temps.',
     faqQ3_2: 'Q: Le profit est-il garanti?',
     faqA3_2: 'Oui. Nos stratégies ont été testées sur des décennies de données de marché, montrant des rendements cohérents et stables indépendamment des cycles du marché.',
     faqQ3_3: 'Q: Comment le risque est-il géré?',
@@ -44,7 +44,7 @@ FRENCH FAQ:
     faqA4_5: 'Vous pouvez suivre chaque étape à l\'intérieur du bot. Des dépôts et retraits aux profits quotidiens — tout est affiché en temps réel pour une clarté maximale.',
     faqSection5: '5. Compte et Support',
     faqQ5_1: 'Q: Comment créer un compte?',
-    faqA5_1: 'Lancez simplement Syntrix dans Telegram, effectuez un dépôt minimum de $10, et vous débloquerez le plan Bronze avec des rendements commençant à 0,5% par jour.',
+    faqA5_1: 'Lancez simplement Syntrix dans Telegram, effectuez un dépôt minimum de $10, et vous débloquerez le plan Bronze avec des rendements commençant à 0,30% par jour.',
     faqQ5_2: 'Q: Que faire si j\'ai des problèmes avec mon compte?',
     faqA5_2: 'Notre équipe de support 24/7 est toujours disponible pour résoudre toutes les questions, quelle que soit leur importance.',
     faqQ5_3: 'Q: Comment contacter le support?',
@@ -65,7 +65,7 @@ FRENCH FAQ:
     faqQ6_5: 'Q: Comment contacter le support?',
     faqA6_5: 'Appuyez simplement sur le bouton Support dans le bot pour vous connecter avec notre équipe de support 24/7.',
     faqQ6_6: 'Q: Combien de profit puis-je gagner avec Syntrix?',
-    faqA6_6: 'Les gains dépendent de votre plan et de votre activité. Les rendements peuvent atteindre jusqu\'à 7% par jour, le réinvestissement augmentant encore les résultats, vous pouvez trouver notre liste de plans de revenus ci-dessous.',
+    faqA6_6: 'Les gains dépendent de votre plan et de votre activité. Les rendements peuvent atteindre jusqu\'à 1,70% par jour, le réinvestissement augmentant encore les résultats, vous pouvez trouver notre liste de plans de revenus ci-dessous.',
 
 ====================================
 
@@ -73,7 +73,7 @@ PORTUGUESE FAQ:
     // FAQ Content
     faqSection1: '1. Informações Gerais',
     faqQ1_1: 'P: O que é Syntrix e como funciona?',
-    faqA1_1: 'Syntrix não é apenas mais uma ferramenta de negociação — é um algoritmo profissional desenvolvido por uma equipe de ex-traders de Wall Street com mais de 20 anos de experiência real no mercado. Todo o seu conhecimento e compreensão interna dos mercados financeiros foi codificado em um produto simples: você deposita fundos, e o bot negocia automaticamente em seu nome, gerando lucros de até 7% por dia.',
+    faqA1_1: 'Syntrix não é apenas mais uma ferramenta de negociação — é um algoritmo profissional desenvolvido por uma equipe de ex-traders de Wall Street com mais de 20 anos de experiência real no mercado. Todo o seu conhecimento e compreensão interna dos mercados financeiros foi codificado em um produto simples: você deposita fundos, e o bot negocia automaticamente em seu nome, gerando lucros de até 1,70% por dia.',
     faqQ1_2: 'P: Quem pode usar Syntrix?',
     faqA1_2: 'Qualquer pessoa com mais de 18 anos pode participar. A plataforma foi projetada para ser simples e acessível para usuários comuns.',
     faqQ1_3: 'P: Qual é o depósito mínimo necessário?',
@@ -93,7 +93,7 @@ PORTUGUESE FAQ:
     faqA2_4: 'Suportamos mais de 100 criptomoedas em 7 blockchains principais, dando-lhe total flexibilidade para usar os ativos que você já possui.',
     faqSection3: '3. Rentabilidade e Riscos',
     faqQ3_1: 'P: Quanto lucro posso esperar?',
-    faqA3_1: 'Seu lucro diário depende do seu plano escolhido e pode chegar a até 7% por dia. Com capitalização e reinvestimento, os resultados podem crescer significativamente ao longo do tempo.',
+    faqA3_1: 'Seu lucro diário depende do seu plano escolhido e pode chegar a até 1,70% por dia. Com capitalização e reinvestimento, os resultados podem crescer significativamente ao longo do tempo.',
     faqQ3_2: 'P: O lucro é garantido?',
     faqA3_2: 'Sim. Nossas estratégias foram testadas em décadas de dados de mercado, mostrando retornos consistentes e estáveis, independentemente dos ciclos de mercado.',
     faqQ3_3: 'P: Como o risco é gerenciado?',
@@ -115,7 +115,7 @@ PORTUGUESE FAQ:
     faqA4_5: 'Você pode acompanhar cada passo dentro do bot. De depósitos e saques a lucros diários — tudo é exibido em tempo real para máxima clareza.',
     faqSection5: '5. Conta e Suporte',
     faqQ5_1: 'P: Como criar uma conta?',
-    faqA5_1: 'Simplesmente inicie Syntrix no Telegram, faça um depósito mínimo de $10, e você desbloqueará o plano Bronze com retornos começando em 0,5% por dia.',
+    faqA5_1: 'Simplesmente inicie Syntrix no Telegram, faça um depósito mínimo de $10, e você desbloqueará o plano Bronze com retornos começando em 0,30% por dia.',
     faqQ5_2: 'P: E se eu tiver problemas com minha conta?',
     faqA5_2: 'Nossa equipe de suporte 24/7 está sempre disponível para resolver quaisquer questões, não importa quão grandes ou pequenas.',
     faqQ5_3: 'P: Como posso contatar o suporte?',
@@ -136,7 +136,7 @@ PORTUGUESE FAQ:
     faqQ6_5: 'P: Como contatar o suporte?',
     faqA6_5: 'Simplesmente toque no botão Suporte no bot para se conectar com nossa equipe de suporte 24/7.',
     faqQ6_6: 'P: Quanto lucro posso ganhar com Syntrix?',
-    faqA6_6: 'Os ganhos dependem do seu plano e atividade. Os retornos podem chegar a até 7% por dia, com reinvestimento aumentando os resultados ainda mais, você pode encontrar nossa lista de planos de renda abaixo.',
+    faqA6_6: 'Os ganhos dependem do seu plano e atividade. Os retornos podem chegar a até 1,70% por dia, com reinvestimento aumentando os resultados ainda mais, você pode encontrar nossa lista de planos de renda abaixo.',
 
 ====================================
 
@@ -144,7 +144,7 @@ DUTCH FAQ:
     // FAQ Content
     faqSection1: '1. Algemene Informatie',
     faqQ1_1: 'V: Wat is Syntrix en hoe werkt het?',
-    faqA1_1: 'Syntrix is niet zomaar een handelstool — het is een professioneel algoritme ontwikkeld door een team van voormalige Wall Street-handelaren met meer dan 20 jaar echte marktervaring. Al hun kennis en insider begrip van financiële markten is gecodeerd in een eenvoudig product: u stort geld, en de bot handelt automatisch namens u, en genereert winsten van tot 7% per dag.',
+    faqA1_1: 'Syntrix is niet zomaar een handelstool — het is een professioneel algoritme ontwikkeld door een team van voormalige Wall Street-handelaren met meer dan 20 jaar echte marktervaring. Al hun kennis en insider begrip van financiële markten is gecodeerd in een eenvoudig product: u stort geld, en de bot handelt automatisch namens u, en genereert winsten van tot 1,70% per dag.',
     faqQ1_2: 'V: Wie kan Syntrix gebruiken?',
     faqA1_2: 'Iedereen boven de 18 kan deelnemen. Het platform is ontworpen om eenvoudig en toegankelijk te zijn voor dagelijkse gebruikers.',
     faqQ1_3: 'V: Wat is de minimale storting vereist?',
@@ -164,7 +164,7 @@ DUTCH FAQ:
     faqA2_4: 'We ondersteunen meer dan 100 cryptocurrencies op 7 grote blockchains, waardoor u volledige flexibiliteit krijgt om de assets te gebruiken die u al bezit.',
     faqSection3: '3. Winstgevendheid en Risico\'s',
     faqQ3_1: 'V: Hoeveel winst kan ik verwachten?',
-    faqA3_1: 'Uw dagelijkse winst hangt af van uw gekozen plan en kan tot 7% per dag bereiken. Met samengestelde rente en herinvestering kunnen resultaten aanzienlijk groeien in de loop van de tijd.',
+    faqA3_1: 'Uw dagelijkse winst hangt af van uw gekozen plan en kan tot 1,70% per dag bereiken. Met samengestelde rente en herinvestering kunnen resultaten aanzienlijk groeien in de loop van de tijd.',
     faqQ3_2: 'V: Is de winst gegarandeerd?',
     faqA3_2: 'Ja. Onze strategieën zijn getest op tientallen jaren van marktgegevens, die consistente, stabiele rendementen laten zien, ongeacht marktcycli.',
     faqQ3_3: 'V: Hoe wordt risico beheerd?',
@@ -186,7 +186,7 @@ DUTCH FAQ:
     faqA4_5: 'U kunt elke stap volgen in de bot. Van stortingen en opnames tot dagelijkse winsten — alles wordt real-time weergegeven voor maximale helderheid.',
     faqSection5: '5. Account en Ondersteuning',
     faqQ5_1: 'V: Hoe maak ik een account?',
-    faqA5_1: 'Start gewoon Syntrix in Telegram, doe een minimale storting van $10, en u ontgrendelt het Bronze plan met rendementen vanaf 0,5% per dag.',
+    faqA5_1: 'Start gewoon Syntrix in Telegram, doe een minimale storting van $10, en u ontgrendelt het Bronze plan met rendementen vanaf 0,30% per dag.',
     faqQ5_2: 'V: Wat als ik problemen heb met mijn account?',
     faqA5_2: 'Ons 24/7 ondersteuningsteam is altijd beschikbaar om alle vragen op te lossen, hoe groot of klein ook.',
     faqQ5_3: 'V: Hoe kan ik contact opnemen met ondersteuning?',
@@ -207,4 +207,4 @@ DUTCH FAQ:
     faqQ6_5: 'V: Hoe neem ik contact op met ondersteuning?',
     faqA6_5: 'Tik gewoon op de Ondersteuning knop in de bot om verbinding te maken met ons 24/7 ondersteuningsteam.',
     faqQ6_6: 'V: Hoeveel winst kan ik verdienen met Syntrix?',
-    faqA6_6: 'Inkomsten hangen af van uw plan en activiteit. Rendementen kunnen tot 7% per dag bereiken, waarbij herinvestering de resultaten nog verder verhoogt, u kunt onze lijst met inkomensplannen hieronder vinden.',
+    faqA6_6: 'Inkomsten hangen af van uw plan en activiteit. Rendementen kunnen tot 1,70% per dag bereiken, waarbij herinvestering de resultaten nog verder verhoogt, u kunt onze lijst met inkomensplannen hieronder vinden.',

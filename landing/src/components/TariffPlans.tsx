@@ -6,12 +6,12 @@ import { ArrowRight } from "@phosphor-icons/react"
 import { useLanguage } from "@/lib/LanguageContext"
 
 const tariffPlans = [
-  { name: "Bronze", percentage: "0.5%", range: "$10 - 99", min: 10, max: 99 },
-  { name: "Silver", percentage: "1%", range: "$100 - 499", min: 100, max: 499 },
-  { name: "Gold", percentage: "2%", range: "$500 - 999", min: 500, max: 999 },
-  { name: "Platinum", percentage: "3%", range: "$1000 - 4999", min: 1000, max: 4999 },
-  { name: "Diamond", percentage: "5%", range: "$5000 - 19999", min: 5000, max: 19999 },
-  { name: "Black", percentage: "7%", range: "$20000+", min: 20000, max: Infinity }
+  { name: "Bronze", percentage: "0.30%", range: "$10 - 99", min: 10, max: 99 },
+  { name: "Silver", percentage: "0.50%", range: "$100 - 499", min: 100, max: 499 },
+  { name: "Gold", percentage: "0.80%", range: "$500 - 999", min: 500, max: 999 },
+  { name: "Platinum", percentage: "1.00%", range: "$1000 - 4999", min: 1000, max: 4999 },
+  { name: "Diamond", percentage: "1.30%", range: "$5000 - 19999", min: 5000, max: 19999 },
+  { name: "Black", percentage: "1.70%", range: "$20000+", min: 20000, max: Infinity }
 ]
 
 const depositAmounts = [10, 27000, 45000, 63000, 100000]

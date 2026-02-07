@@ -219,12 +219,12 @@ export const englishWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Preispläne',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0.5% daily)' },
-        { boldPrefix: 'Silver:', text: '$100–$499 (1% daily)' },
-        { boldPrefix: 'Gold:', text: '$500–$999 (2% daily)' },
-        { boldPrefix: 'Platinum:', text: '$1000–$4999 (3% daily)' },
-        { boldPrefix: 'Diamond:', text: '$5000–$19999 (5% daily)' },
-        { boldPrefix: 'Black:', text: '$20000–$100000 (7% daily)' },
+        { boldPrefix: 'Bronze:', text: '$10–$99 (0.30% daily)' },
+        { boldPrefix: 'Silver:', text: '$100–$499 (0.50% daily)' },
+        { boldPrefix: 'Gold:', text: '$500–$999 (0.80% daily)' },
+        { boldPrefix: 'Platinum:', text: '$1000–$4999 (1.00% daily)' },
+        { boldPrefix: 'Diamond:', text: '$5000–$19999 (1.30% daily)' },
+        { boldPrefix: 'Black:', text: '$20000–$100000 (1.70% daily)' },
         { boldPrefix: 'Custom plans:', text: 'deposits > $100,000 (8%+ daily profit)' }
       ]]
     },
@@ -469,12 +469,12 @@ export const germanWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Pricing Plans',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0,5 % täglich)' },
-        { boldPrefix: 'Silver:', text: '$100–$499 (1 % täglich)' },
-        { boldPrefix: 'Gold:', text: '$500–$999 (2 % täglich)' },
-        { boldPrefix: 'Platinum:', text: '$1000–$4999 (3 % täglich)' },
-        { boldPrefix: 'Diamond:', text: '$5000–$19999 (5 % täglich)' },
-        { boldPrefix: 'Black:', text: '$20000–$100000 (7 % täglich)' },
+        { boldPrefix: 'Bronze:', text: '$10–$99 (0,30 % täglich)' },
+        { boldPrefix: 'Silver:', text: '$100–$499 (0,50 % täglich)' },
+        { boldPrefix: 'Gold:', text: '$500–$999 (0,80 % täglich)' },
+        { boldPrefix: 'Platinum:', text: '$1000–$4999 (1,00 % täglich)' },
+        { boldPrefix: 'Diamond:', text: '$5000–$19999 (1,30 % täglich)' },
+        { boldPrefix: 'Black:', text: '$20000–$100000 (1,70 % täglich)' },
         { boldPrefix: 'Sonderpläne:', text: 'Einzahlungen > $100.000 (8 %+ täglicher Profit)' }
       ]]
     },
@@ -738,12 +738,12 @@ export const spanishWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Planes de precios',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0.5 % diario)' },
-        { boldPrefix: 'Silver:', text: '$100–$499 (1 % diario)' },
-        { boldPrefix: 'Gold:', text: '$500–$999 (2 % diario)' },
-        { boldPrefix: 'Platinum:', text: '$1000–$4999 (3 % diario)' },
-        { boldPrefix: 'Diamond:', text: '$5000–$19999 (5 % diario)' },
-        { boldPrefix: 'Black:', text: '$20000–$100000 (7 % diario)' },
+        { boldPrefix: 'Bronze:', text: '$10–$99 (0.30 % diario)' },
+        { boldPrefix: 'Silver:', text: '$100–$499 (0.50 % diario)' },
+        { boldPrefix: 'Gold:', text: '$500–$999 (0.80 % diario)' },
+        { boldPrefix: 'Platinum:', text: '$1000–$4999 (1.00 % diario)' },
+        { boldPrefix: 'Diamond:', text: '$5000–$19999 (1.30 % diario)' },
+        { boldPrefix: 'Black:', text: '$20000–$100000 (1.70 % diario)' },
         { boldPrefix: 'Planes personalizados:', text: 'depósitos > $100000 (8 %+ de ganancia diaria)' }
       ]]
     },
@@ -1030,12 +1030,12 @@ export const frenchWhitepaperContent: WhitepaperContent = {
       title: '18. Plans tarifaires',
       lists: [
         [
-          { boldPrefix: 'Bronze :', text: '$10–$99 (0,5 % par jour)' },
-          { boldPrefix: 'Silver :', text: '$100–$499 (1 % par jour)' },
-          { boldPrefix: 'Gold :', text: '$500–$999 (2 % par jour)' },
-          { boldPrefix: 'Platinum :', text: '$1000–$4999 (3 % par jour)' },
-          { boldPrefix: 'Diamond :', text: '$5000–$19999 (5 % par jour)' },
-          { boldPrefix: 'Black :', text: '$20000–$100000 (7 % par jour)' },
+          { boldPrefix: 'Bronze :', text: '$10–$99 (0,30 % par jour)' },
+          { boldPrefix: 'Silver :', text: '$100–$499 (0,50 % par jour)' },
+          { boldPrefix: 'Gold :', text: '$500–$999 (0,80 % par jour)' },
+          { boldPrefix: 'Platinum :', text: '$1000–$4999 (1,00 % par jour)' },
+          { boldPrefix: 'Diamond :', text: '$5000–$19999 (1,30 % par jour)' },
+          { boldPrefix: 'Black :', text: '$20000–$100000 (1,70 % par jour)' },
           { boldPrefix: 'Plans personnalisés :', text: 'dépôts > $100000 (8 %+ de gains quotidiens)' }
         ]
       ]
@@ -1323,12 +1323,12 @@ export const italianWhitepaperContent: WhitepaperContent = {
       title: '18. Piani tariffari',
       lists: [
         [
-          { boldPrefix: 'Bronze:', text: '$10–$99 (0.5 % giornaliero)' },
-          { boldPrefix: 'Silver:', text: '$100–$499 (1 % giornaliero)' },
-          { boldPrefix: 'Gold:', text: '$500–$999 (2 % giornaliero)' },
-          { boldPrefix: 'Platinum:', text: '$1000–$4999 (3 % giornaliero)' },
-          { boldPrefix: 'Diamond:', text: '$5000–$19999 (5 % giornaliero)' },
-          { boldPrefix: 'Black:', text: '$20000–$100000 (7 % giornaliero)' },
+          { boldPrefix: 'Bronze:', text: '$10–$99 (0.30 % giornaliero)' },
+          { boldPrefix: 'Silver:', text: '$100–$499 (0.50 % giornaliero)' },
+          { boldPrefix: 'Gold:', text: '$500–$999 (0.80 % giornaliero)' },
+          { boldPrefix: 'Platinum:', text: '$1000–$4999 (1.00 % giornaliero)' },
+          { boldPrefix: 'Diamond:', text: '$5000–$19999 (1.30 % giornaliero)' },
+          { boldPrefix: 'Black:', text: '$20000–$100000 (1.70 % giornaliero)' },
           { boldPrefix: 'Piani personalizzati:', text: 'depositi > $100000 (8 %+ di profitti quotidiani)' }
         ]
       ]
@@ -1573,12 +1573,12 @@ export const dutchWhitepaperContent: WhitepaperContent = {
     {
       title: '18. Prijsplannen',
       lists: [[
-        { boldPrefix: 'Bronze:', text: '$10–$99 (0,5% per dag)' },
-        { boldPrefix: 'Silver:', text: '$100–$499 (1% per dag)' },
-        { boldPrefix: 'Gold:', text: '$500–$999 (2% per dag)' },
-        { boldPrefix: 'Platinum:', text: '$1000–$4999 (3% per dag)' },
-        { boldPrefix: 'Diamond:', text: '$5000–$19999 (5% per dag)' },
-        { boldPrefix: 'Black:', text: '$20000–$100000 (7% per dag)' },
+        { boldPrefix: 'Bronze:', text: '$10–$99 (0,30% per dag)' },
+        { boldPrefix: 'Silver:', text: '$100–$499 (0,50% per dag)' },
+        { boldPrefix: 'Gold:', text: '$500–$999 (0,80% per dag)' },
+        { boldPrefix: 'Platinum:', text: '$1000–$4999 (1,00% per dag)' },
+        { boldPrefix: 'Diamond:', text: '$5000–$19999 (1,30% per dag)' },
+        { boldPrefix: 'Black:', text: '$20000–$100000 (1,70% per dag)' },
         { boldPrefix: 'Aangepaste plannen:', text: 'stortingen > $100000 (8%+ per dag)' }
       ]]
     },

@@ -59,7 +59,7 @@ const englishFAQSections: FAQSection[] = [
     items: [
       {
         question: 'What returns should I expect?',
-        answer: 'Daily returns range from 0.5% to 7% depending on the plan, with compounding increasing long-term growth.'
+        answer: 'Daily returns range from 0.30% to 1.70% depending on the plan, with compounding increasing long-term growth.'
       },
       {
         question: 'How is risk controlled?',
@@ -199,22 +199,22 @@ const germanFAQSections: FAQSection[] = [
 ]
 
 const englishFAQPlans = [
-  'Bronze Plan: $10–$99 (0.5% daily)',
-  'Silver Plan: $100–$499 (1% daily)',
-  'Gold Plan: $500–$999 (2% daily)',
-  'Platinum Plan: $1000–$4999 (3% daily)',
-  'Diamond Plan: $5000–$19999 (5% daily)',
-  'Black Plan: $20000–$100000 (7% daily)',
+  'Bronze Plan: $10–$99 (0.30% daily)',
+  'Silver Plan: $100–$499 (0.50% daily)',
+  'Gold Plan: $500–$999 (0.80% daily)',
+  'Platinum Plan: $1000–$4999 (1.00% daily)',
+  'Diamond Plan: $5000–$19999 (1.30% daily)',
+  'Black Plan: $20000–$100000 (1.70% daily)',
   'Custom plans: deposits > $100,000 (8%+ daily)'
 ]
 
 const germanFAQPlans = [
-  'Bronze-Plan: $10–$99 (0,5 % täglich)',
-  'Silber-Plan: $100–$499 (1 % täglich)',
-  'Gold-Plan: $500–$999 (2 % täglich)',
-  'Platin-Plan: $1000–$4999 (3 % täglich)',
-  'Diamond-Plan: $5000–$19999 (5 % täglich)',
-  'Black-Plan: $20000–$100000 (7 % täglich)',
+  'Bronze-Plan: $10–$99 (0,30 % täglich)',
+  'Silber-Plan: $100–$499 (0,50 % täglich)',
+  'Gold-Plan: $500–$999 (0,80 % täglich)',
+  'Platin-Plan: $1000–$4999 (1,00 % täglich)',
+  'Diamond-Plan: $5000–$19999 (1,30 % täglich)',
+  'Black-Plan: $20000–$100000 (1,70 % täglich)',
   'Sonderpläne: Einzahlungen über $100.000 (8 %+ täglich)'
 ]
 
@@ -705,12 +705,12 @@ const spanishFAQSections: FAQSection[] = [
 ]
 
 const spanishFAQPlans = [
-  'Plan Bronze: $10–$99 (0.5 % diario)',
-  'Plan Silver: $100–$499 (1 % diario)',
-  'Plan Gold: $500–$999 (2 % diario)',
-  'Plan Platinum: $1000–$4999 (3 % diario)',
-  'Plan Diamond: $5000–$19999 (5 % diario)',
-  'Plan Black: $20000–$100000 (7 % diario)',
+  'Plan Bronze: $10–$99 (0.30 % diario)',
+  'Plan Silver: $100–$499 (0.50 % diario)',
+  'Plan Gold: $500–$999 (0.80 % diario)',
+  'Plan Platinum: $1000–$4999 (1.00 % diario)',
+  'Plan Diamond: $5000–$19999 (1.30 % diario)',
+  'Plan Black: $20000–$100000 (1.70 % diario)',
   'Planes personalizados: depósitos > $100000 (8 %+ diario)'
 ]
 
@@ -755,7 +755,7 @@ const frenchFAQSections: FAQSection[] = [
     items: [
       {
         question: 'Quels rendements puis-je espérer ?',
-        answer: 'Les rendements journaliers vont de 0,5 % à 7 % selon le plan, et la capitalisation accélère la croissance à long terme.'
+        answer: 'Les rendements journaliers vont de 0,30 % à 1,70 % selon le plan, et la capitalisation accélère la croissance à long terme.'
       },
       {
         question: 'Comment le risque est-il maîtrisé ?',
@@ -805,12 +805,12 @@ const frenchFAQSections: FAQSection[] = [
 ]
 
 const frenchFAQPlans = [
-  'Plan Bronze : $10–$99 (0,5 % par jour)',
-  'Plan Argent : $100–$499 (1 % par jour)',
-  'Plan Or : $500–$999 (2 % par jour)',
-  'Plan Platine : $1000–$4999 (3 % par jour)',
-  'Plan Diamond : $5000–$19999 (5 % par jour)',
-  'Plan Black : $20000–$100000 (7 % par jour)',
+  'Plan Bronze : $10–$99 (0,30 % par jour)',
+  'Plan Argent : $100–$499 (0,50 % par jour)',
+  'Plan Or : $500–$999 (0,80 % par jour)',
+  'Plan Platine : $1000–$4999 (1,00 % par jour)',
+  'Plan Diamond : $5000–$19999 (1,30 % par jour)',
+  'Plan Black : $20000–$100000 (1,70 % par jour)',
   'Plans personnalisés : dépôts > $100000 (8 %+ par jour)'
 ]
 
@@ -1301,12 +1301,12 @@ const italianFAQSections: FAQSection[] = [
 ]
 
 const italianFAQPlans = [
-  'Piano Bronze: $10–$99 (0,5 % giornaliero)',
-  'Piano Silver: $100–$499 (1 % giornaliero)',
-  'Piano Gold: $500–$999 (2 % giornaliero)',
-  'Piano Platinum: $1000–$4999 (3 % giornaliero)',
-  'Piano Diamond: $5000–$19999 (5 % giornaliero)',
-  'Piano Black: $20000–$100000 (7 % giornaliero)',
+  'Piano Bronze: $10–$99 (0,30 % giornaliero)',
+  'Piano Silver: $100–$499 (0,50 % giornaliero)',
+  'Piano Gold: $500–$999 (0,80 % giornaliero)',
+  'Piano Platinum: $1000–$4999 (1,00 % giornaliero)',
+  'Piano Diamond: $5000–$19999 (1,30 % giornaliero)',
+  'Piano Black: $20000–$100000 (1,70 % giornaliero)',
   'Piani personalizzati: depositi > $100000 (8 %+ giornaliero)'
 ]
 
@@ -1599,12 +1599,12 @@ const dutchFAQSections: FAQSection[] = [
 ]
 
 const dutchFAQPlans = [
-  'Plan Bronze: $10–$99 (0,5 % per dag)',
-  'Plan Silver: $100–$499 (1 % per dag)',
-  'Plan Gold: $500–$999 (2 % per dag)',
-  'Plan Platinum: $1000–$4999 (3 % per dag)',
-  'Plan Diamond: $5000–$19999 (5 % per dag)',
-  'Plan Black: $20000–$100000 (7 % per dag)',
+  'Plan Bronze: $10–$99 (0,30 % per dag)',
+  'Plan Silver: $100–$499 (0,50 % per dag)',
+  'Plan Gold: $500–$999 (0,80 % per dag)',
+  'Plan Platinum: $1000–$4999 (1,00 % per dag)',
+  'Plan Diamond: $5000–$19999 (1,30 % per dag)',
+  'Plan Black: $20000–$100000 (1,70 % per dag)',
   'Aangepaste plannen: stortingen > $100000 (8 %+ per dag)'
 ]
 

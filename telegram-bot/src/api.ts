@@ -62,12 +62,12 @@ async function getIpGeoData(ip: string) {
 
 // Tariff plans configuration
 const TARIFF_PLANS = [
-  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
-  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
-  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
-  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
-  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
-  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
+  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.3 },
+  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 0.5 },
+  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 0.8 },
+  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 1.0 },
+  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 1.3 },
+  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 1.7 }
 ]
 
 // Calculate tariff plan based on balance

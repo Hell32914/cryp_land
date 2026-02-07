@@ -8,12 +8,12 @@ import { TrendUp, CurrencyDollar } from "@phosphor-icons/react"
 import { motion } from "framer-motion"
 
 const tariffPlans = [
-  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
-  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
-  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
-  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
-  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
-  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
+  { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.3 },
+  { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 0.5 },
+  { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 0.8 },
+  { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 1.0 },
+  { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 1.3 },
+  { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 1.7 }
 ]
 
 const quickAmounts = [50, 100, 500, 1000, 5000, 10000]
@@ -208,7 +208,7 @@ export function Calculator() {
                     <span className="text-sm font-bold text-accent">{plan.name}</span>
                   </div>
                   <div className="px-4 py-2 bg-primary/20 rounded-full border border-primary">
-                    <span className="text-sm font-bold text-primary">{plan.dailyPercent}% / день</span>
+                    <span className="text-sm font-bold text-primary">{plan.dailyPercent.toFixed(2)}% / день</span>
                   </div>
                 </div>
 

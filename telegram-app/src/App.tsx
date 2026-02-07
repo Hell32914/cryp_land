@@ -831,12 +831,12 @@ function App() {
   }
 
   const tariffPlans = [
-    { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.5 },
-    { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 1.0 },
-    { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 2.0 },
-    { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 3.0 },
-    { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 5.0 },
-    { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 7.0 }
+    { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.3 },
+    { name: 'Silver', minDeposit: 100, maxDeposit: 499, dailyPercent: 0.5 },
+    { name: 'Gold', minDeposit: 500, maxDeposit: 999, dailyPercent: 0.8 },
+    { name: 'Platinum', minDeposit: 1000, maxDeposit: 4999, dailyPercent: 1.0 },
+    { name: 'Diamond', minDeposit: 5000, maxDeposit: 19999, dailyPercent: 1.3 },
+    { name: 'Black', minDeposit: 20000, maxDeposit: Infinity, dailyPercent: 1.7 }
   ]
 
   const getPlanByDeposit = (amount: number) => {
@@ -948,12 +948,12 @@ function App() {
   }, [activeTab, userData?.arbitrageTradeEnabled])
 
   const incomePlans = [
-    { name: 'Bronze', minAmount: '$10-$99', dailyPercent: '0.5%' },
-    { name: 'Silver', minAmount: '$100-$499', dailyPercent: '1%' },
-    { name: 'Gold', minAmount: '$500-$999', dailyPercent: '2%' },
-    { name: 'Platinum', minAmount: '$1000-$4999', dailyPercent: '3%' },
-    { name: 'Diamond', minAmount: '$5000-$19999', dailyPercent: '5%' },
-    { name: 'Black', minAmount: '$20000+', dailyPercent: '7%' }
+    { name: 'Bronze', minAmount: '$10-$99', dailyPercent: '0.30%' },
+    { name: 'Silver', minAmount: '$100-$499', dailyPercent: '0.50%' },
+    { name: 'Gold', minAmount: '$500-$999', dailyPercent: '0.80%' },
+    { name: 'Platinum', minAmount: '$1000-$4999', dailyPercent: '1.00%' },
+    { name: 'Diamond', minAmount: '$5000-$19999', dailyPercent: '1.30%' },
+    { name: 'Black', minAmount: '$20000+', dailyPercent: '1.70%' }
   ]
 
   const languages: Language[] = ['ENGLISH', 'GERMAN', 'SPANISH', 'FRENCH', 'ITALIAN', 'DUTCH']
@@ -2514,7 +2514,7 @@ function App() {
                   <div className="flex items-center gap-2 px-3 py-1 bg-accent/30 rounded-full">
                     <span className="text-xs sm:text-sm font-bold text-accent">{getPlanByDeposit(parseFloat(depositAmount || '0')).name}</span>
                     <span className="text-xs sm:text-sm text-foreground">·</span>
-                    <span className="text-xs sm:text-sm font-bold text-accent">{getPlanByDeposit(parseFloat(depositAmount || '0')).dailyPercent}%/day</span>
+                    <span className="text-xs sm:text-sm font-bold text-accent">{getPlanByDeposit(parseFloat(depositAmount || '0')).dailyPercent.toFixed(2)}%/day</span>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-lg sm:text-2xl font-bold">

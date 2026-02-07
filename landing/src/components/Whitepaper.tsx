@@ -219,12 +219,12 @@ export function Whitepaper() {
                 </tr>
               </thead>
               <tbody>
-                <tr><td className="border border-border px-4 py-2"><strong>Bronze</strong></td><td className="border border-border px-4 py-2">$10–$100</td><td className="border border-border px-4 py-2"><strong>0.5%</strong></td></tr>
-                <tr><td className="border border-border px-4 py-2"><strong>Silver</strong></td><td className="border border-border px-4 py-2">$100–$500</td><td className="border border-border px-4 py-2"><strong>1%</strong></td></tr>
-                <tr><td className="border border-border px-4 py-2"><strong>Gold</strong></td><td className="border border-border px-4 py-2">$500–$1000</td><td className="border border-border px-4 py-2"><strong>2%</strong></td></tr>
-                <tr><td className="border border-border px-4 py-2"><strong>Platinum</strong></td><td className="border border-border px-4 py-2">$1000–$5000</td><td className="border border-border px-4 py-2"><strong>3%</strong></td></tr>
-                <tr><td className="border border-border px-4 py-2"><strong>Diamond</strong></td><td className="border border-border px-4 py-2">$5000–$20000</td><td className="border border-border px-4 py-2"><strong>5%</strong></td></tr>
-                <tr><td className="border border-border px-4 py-2"><strong>Black</strong></td><td className="border border-border px-4 py-2">$20000+</td><td className="border border-border px-4 py-2"><strong>7%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Bronze</strong></td><td className="border border-border px-4 py-2">$10–$100</td><td className="border border-border px-4 py-2"><strong>0.30%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Silver</strong></td><td className="border border-border px-4 py-2">$100–$500</td><td className="border border-border px-4 py-2"><strong>0.50%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Gold</strong></td><td className="border border-border px-4 py-2">$500–$1000</td><td className="border border-border px-4 py-2"><strong>0.80%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Platinum</strong></td><td className="border border-border px-4 py-2">$1000–$5000</td><td className="border border-border px-4 py-2"><strong>1.00%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Diamond</strong></td><td className="border border-border px-4 py-2">$5000–$20000</td><td className="border border-border px-4 py-2"><strong>1.30%</strong></td></tr>
+                <tr><td className="border border-border px-4 py-2"><strong>Black</strong></td><td className="border border-border px-4 py-2">$20000+</td><td className="border border-border px-4 py-2"><strong>1.70%</strong></td></tr>
               </tbody>
             </table>
           </div>
