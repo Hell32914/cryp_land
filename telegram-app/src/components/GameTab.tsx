@@ -193,7 +193,7 @@ export function GameTab(props: {
     setBuying(true)
     const toastId = toast.loading((t as any).loading ?? 'Loading…')
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.uno'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/buy-box`, {
         method: 'POST',
         headers: {

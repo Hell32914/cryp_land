@@ -101,7 +101,7 @@ const buildSeries = (targetProfitPct: number, modelId: AiModelId): ChartPoint[] 
 }
 
 export function AiAnalyticsTab({ telegramUserId, authToken, getAuthHeaders, apiUrl, strings }: Props) {
-  const API_URL = apiUrl || (import.meta.env.VITE_API_URL || 'https://api.syntrix.website')
+  const API_URL = apiUrl || (import.meta.env.VITE_API_URL || 'https://api.syntrix.uno')
 
   const [itemsById, setItemsById] = useState<Partial<Record<AiModelId, AiAnalyticsItem>>>({})
   const [loading, setLoading] = useState(false)

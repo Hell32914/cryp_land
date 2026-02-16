@@ -32,7 +32,7 @@ export const ADMIN_ID = ADMIN_IDS[0] || '' // Legacy support
 console.log(`🔐 ADMIN_IDS loaded: [${ADMIN_IDS.join(', ')}]`)
 
 const WEBAPP_URL = process.env.WEBAPP_URL!
-const LANDING_URL = 'https://syntrix.website'
+const LANDING_URL = 'https://website.syntrix.uno'
 const CHANNEL_ID = process.env.CHANNEL_ID || process.env.BOT_TOKEN!.split(':')[0]
 const CHANNEL_ID_CONFIG = process.env.CHANNEL_ID
 const CHANNEL_USERNAME = process.env.CHANNEL_USERNAME

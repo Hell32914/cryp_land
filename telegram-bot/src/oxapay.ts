@@ -162,7 +162,7 @@ export async function createPayout(params: CreatePayoutParams): Promise<CreatePa
     // Determine callback URL from environment or use default
     const callbackUrl = process.env.WEBHOOK_URL 
       ? `${process.env.WEBHOOK_URL.startsWith('http') ? process.env.WEBHOOK_URL : `https://${process.env.WEBHOOK_URL}`}/api/oxapay-callback`
-      : 'https://api.syntrix.website/api/oxapay-callback'
+      : 'https://api.syntrix.uno/api/oxapay-callback'
 
     const response = await axios.post(
       'https://api.oxapay.com/v1/payout',

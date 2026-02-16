@@ -19,27 +19,27 @@
     (function () {
         var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
         var pixelByHost = {
-            'info.syntrix.website': '2377085479429610',
-            'ss.syntrix.website': '1955236631777781',
-            'road.syntrix.website': '1593545235016326',
-            'invest.syntrix.website': '26136975615938720',
-            'official.syntrix.website': '2284659832039389',
-            'trade.syntrix.website': '1121382239874465',
-            'crypto.syntrix.website': '25258398163810043'
+            'info.syntrixxx.site': '2377085479429610',
+            'ss.syntrixxx.website': '1955236631777781',
+            'road.syntrixxx.website': '1593545235016326',
+            'invest.syntrixxx.space': '26136975615938720',
+            'official.syntrixxx.space': '2284659832039389',
+            'trade.syntrixxx.website': '1121382239874465',
+            'crypto.syntrixxx.site': '25258398163810043'
         };
         // Fallback to existing pixel for other mapped hostnames served by the same vhost
         var pixelId = pixelByHost[host] || '1356561989350736';
         fbq('init', pixelId);
-        if (host === 'invest.syntrix.website') {
+        if (host === 'invest.syntrixxx.space') {
             // Add secondary pixel for UK without replacing existing
             fbq('init', '1207521808250750');
         }
-        if (host === 'road.syntrix.website') {
+        if (host === 'road.syntrixxx.website') {
             // Add secondary pixel for FR without replacing existing
             fbq('init', '1593545235016326');
             fbq('init', '26136975615938720');
         }
-        if (host === 'syntrix.website') {
+        if (host === 'website.syntrix.uno') {
             // Add secondary pixel for the main bot domain without replacing existing
             fbq('init', '1896813627596190');
         }
@@ -129,13 +129,13 @@
     <script>
         // Домены, которые должны вести на TG-канал (трек-ссылка зависит от домена)
         const channelInviteByHost = {
-            'info.syntrix.website': 'https://t.me/+ETuBMJ9s2Js1NmIy',
-            'ss.syntrix.website': 'https://t.me/+YmFilnI8DbFjNWEy',
-            'road.syntrix.website': 'https://t.me/+TLo5_JI7r0wxODky',
-            'invest.syntrix.website': 'https://t.me/+6w-QvvLfkt9iNzg6',
-            'invests.syntrix.website': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
+            'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
+            'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
+            'invest.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'invests.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',
             // оставляем существующее поведение для доменов, где трек-ссылка не задана
-            'official.syntrix.website': 'https://t.me/+tvQ2u0yoEJRhOTBi'
+            'official.syntrixxx.space': 'https://t.me/+tvQ2u0yoEJRhOTBi'
         };
 
         // Получаем текущий домен
@@ -162,11 +162,11 @@
             if (extra) extra.textContent = 't.me/SyntrixAI';
             
             const description = document.querySelector('.tgme_page_description');
-            if (description) description.innerHTML = 'The first auto-trading bot that uses real-time AI to trade crypto for you!<br/><br/>Maximum profit — minimum time<br/><br/>SyntrixtBot: <a href="https://t.me/AiSyntrixTrade_bot">@AiSyntrixTrade_bot</a><br/>Website: <a href="https://syntrix.website/">https://syntrix.website/</a><br/><br/>Support: <a href="https://t.me/syntrix_support_bot">@syntrix_support_bot</a>';
+            if (description) description.innerHTML = 'The first auto-trading bot that uses real-time AI to trade crypto for you!<br/><br/>Maximum profit — minimum time<br/><br/>SyntrixtBot: <a href="https://t.me/AiSyntrixTrade_bot">@AiSyntrixTrade_bot</a><br/>Website: <a href="https://website.syntrix.uno/">https://website.syntrix.uno/</a><br/><br/>Support: <a href="https://t.me/syntrix_support_bot">@syntrix_support_bot</a>';
 
             // Если есть ref, используем персональный инвайт для точной атрибуции
             if (refParam && refParam.startsWith('mk_')) {
-                const apiBase = 'https://api.syntrix.website';
+                const apiBase = 'https://api.syntrix.uno';
                 fetch(`${apiBase}/api/marketing-links/${encodeURIComponent(refParam)}/channel-invite`)
                     .then(r => r.ok ? r.json() : null)
                     .then(data => {

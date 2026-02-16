@@ -25,7 +25,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, generateChannelInviteLink, type MarketingLink } from '@/lib/api'
 
-const TELEGRAM_LANDING_DOMAIN = 'syntrix.website'
+const TELEGRAM_LANDING_DOMAIN = 'website.syntrix.uno'
 const TELEGRAM_CHANNEL_INVITE_LINK = 't.me/+GteJd3Lac8lkZTZi'
 
 interface SubIdParam {
@@ -39,7 +39,7 @@ export function LinkBuilder() {
   const { token } = useAuth()
   const [source, setSource] = useState('')
   const [linkType, setLinkType] = useState<'bot' | 'channel'>('bot')
-  const [selectedDomain, setSelectedDomain] = useState('syntrix.website')
+  const [selectedDomain, setSelectedDomain] = useState('website.syntrix.uno')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
   const [pixelConfirmed, setPixelConfirmed] = useState(false)
@@ -94,19 +94,18 @@ export function LinkBuilder() {
   }
 
   const botDomains = [
-    { value: 'syntrix.website', label: 'syntrix.website', color: 'bg-emerald-400' },
-    { value: 'www.syntrix.website', label: 'www.syntrix.website', color: 'bg-blue-400' },
-    { value: 'crypto.syntrix.website', label: 'crypto.syntrix.website', color: 'bg-amber-400' },
-    { value: 'trade.syntrix.website', label: 'trade.syntrix.website', color: 'bg-pink-400' },
+    { value: 'website.syntrix.uno', label: 'website.syntrix.uno', color: 'bg-emerald-400' },
+    { value: 'crypto.syntrixxx.site', label: 'crypto.syntrixxx.site', color: 'bg-amber-400' },
+    { value: 'trade.syntrixxx.website', label: 'trade.syntrixxx.website', color: 'bg-pink-400' },
   ]
 
   const channelDomains = [
     { value: TELEGRAM_CHANNEL_INVITE_LINK, label: TELEGRAM_CHANNEL_INVITE_LINK, color: 'bg-blue-400' },
-    { value: 'info.syntrix.website', label: 'info.syntrix.website', color: 'bg-purple-400' },
-    { value: 'ss.syntrix.website', label: 'ss.syntrix.website', color: 'bg-orange-400' },
-    { value: 'road.syntrix.website', label: 'road.syntrix.website', color: 'bg-rose-400' },
-    { value: 'invest.syntrix.website', label: 'invest.syntrix.website', color: 'bg-cyan-400' },
-    { value: 'official.syntrix.website', label: 'official.syntrix.website', color: 'bg-lime-400' },
+    { value: 'info.syntrixxx.site', label: 'info.syntrixxx.site', color: 'bg-purple-400' },
+    { value: 'ss.syntrixxx.website', label: 'ss.syntrixxx.website', color: 'bg-orange-400' },
+    { value: 'road.syntrixxx.website', label: 'road.syntrixxx.website', color: 'bg-rose-400' },
+    { value: 'invest.syntrixxx.space', label: 'invest.syntrixxx.space', color: 'bg-cyan-400' },
+    { value: 'official.syntrixxx.space', label: 'official.syntrixxx.space', color: 'bg-lime-400' },
   ]
 
   const domains = linkType === 'bot' ? botDomains : channelDomains
@@ -133,7 +132,7 @@ export function LinkBuilder() {
     if (!saved) return
     try {
       const parsed = JSON.parse(saved) as Record<string, boolean>
-      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'syntrix.website'
+      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.syntrix.uno'
       setPixelConfirmed(!!parsed[normalizedDomain])
     } catch {}
   }, [selectedDomain])
@@ -169,7 +168,7 @@ export function LinkBuilder() {
   // When user selects a domain that already has a pixel saved, prefill the textarea
   useEffect(() => {
     if (!links.length) return
-    const normalize = (d?: string) => (d || 'syntrix.website').trim().toLowerCase()
+    const normalize = (d?: string) => (d || 'website.syntrix.uno').trim().toLowerCase()
     const targetDomain = normalize(selectedDomain)
 
     const found = links.find((l) => {
@@ -388,7 +387,7 @@ export function LinkBuilder() {
                     onChange={(e) => {
                       const next = e.target.checked
                       setPixelConfirmed(next)
-                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'syntrix.website'
+                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.syntrix.uno'
                       const saved = localStorage.getItem('pixelConfirmationByDomain')
                       let map: Record<string, boolean> = {}
                       try { if (saved) map = JSON.parse(saved) as Record<string, boolean> } catch {}

@@ -45,7 +45,7 @@ const maybeLoadTrackingPixel = async () => {
   if (!ref) return
 
   try {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.website'
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.uno'
     const response = await fetch(`${API_URL}/api/marketing-links/${encodeURIComponent(ref)}/pixel`)
     if (!response.ok) return
 

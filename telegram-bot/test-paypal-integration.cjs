@@ -1,7 +1,7 @@
-/**
+﻿/**
  * PayPal Integration Diagnostic Tool
  * 
- * Запустите этот файл на сервере для диагностики проблем с PayPal:
+ * Р—Р°РїСѓСЃС‚РёС‚Рµ СЌС‚РѕС‚ С„Р°Р№Р» РЅР° СЃРµСЂРІРµСЂРµ РґР»СЏ РґРёР°РіРЅРѕСЃС‚РёРєРё РїСЂРѕР±Р»РµРј СЃ PayPal:
  * node test-paypal-integration.cjs
  */
 
@@ -16,21 +16,21 @@ function getBaseUrl() {
   return PAYPAL_ENV === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com'
 }
 
-console.log('\n🔍 PayPal Integration Diagnostic\n')
+console.log('\nрџ”Ќ PayPal Integration Diagnostic\n')
 console.log('=' .repeat(50))
 
 // Step 1: Check environment variables
-console.log('\n📋 Step 1: Environment Variables')
+console.log('\nрџ“‹ Step 1: Environment Variables')
 console.log('-'.repeat(50))
 console.log('PAYPAL_ENV:', PAYPAL_ENV)
-console.log('PAYPAL_CLIENT_ID:', PAYPAL_CLIENT_ID ? `${PAYPAL_CLIENT_ID.slice(0, 10)}...${PAYPAL_CLIENT_ID.slice(-5)}` : '❌ NOT SET')
-console.log('PAYPAL_CLIENT_SECRET:', PAYPAL_CLIENT_SECRET ? `${PAYPAL_CLIENT_SECRET.slice(0, 5)}...${PAYPAL_CLIENT_SECRET.slice(-3)}` : '❌ NOT SET')
+console.log('PAYPAL_CLIENT_ID:', PAYPAL_CLIENT_ID ? `${PAYPAL_CLIENT_ID.slice(0, 10)}...${PAYPAL_CLIENT_ID.slice(-5)}` : 'вќЊ NOT SET')
+console.log('PAYPAL_CLIENT_SECRET:', PAYPAL_CLIENT_SECRET ? `${PAYPAL_CLIENT_SECRET.slice(0, 5)}...${PAYPAL_CLIENT_SECRET.slice(-3)}` : 'вќЊ NOT SET')
 console.log('API URL:', getBaseUrl())
-console.log('PAYPAL_RETURN_URL:', process.env.PAYPAL_RETURN_URL || '❌ NOT SET')
-console.log('PAYPAL_CANCEL_URL:', process.env.PAYPAL_CANCEL_URL || '❌ NOT SET')
+console.log('PAYPAL_RETURN_URL:', process.env.PAYPAL_RETURN_URL || 'вќЊ NOT SET')
+console.log('PAYPAL_CANCEL_URL:', process.env.PAYPAL_CANCEL_URL || 'вќЊ NOT SET')
 
 if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
-  console.error('\n❌ ERROR: PayPal credentials are not configured!')
+  console.error('\nвќЊ ERROR: PayPal credentials are not configured!')
   console.log('\nPlease set the following in your .env file:')
   console.log('  PAYPAL_CLIENT_ID=your_client_id')
   console.log('  PAYPAL_CLIENT_SECRET=your_client_secret')
@@ -39,7 +39,7 @@ if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
 
 // Step 2: Test authentication
 async function testAuthentication() {
-  console.log('\n🔐 Step 2: Testing Authentication')
+  console.log('\nрџ”ђ Step 2: Testing Authentication')
   console.log('-'.repeat(50))
   
   try {
@@ -62,16 +62,16 @@ async function testAuthentication() {
     const expiresIn = response.data?.expires_in
     
     if (accessToken) {
-      console.log('✅ Authentication successful!')
+      console.log('вњ… Authentication successful!')
       console.log('Access Token:', `${accessToken.slice(0, 10)}...${accessToken.slice(-10)}`)
       console.log('Expires in:', expiresIn, 'seconds')
       return accessToken
     } else {
-      console.error('❌ Authentication failed: No access token received')
+      console.error('вќЊ Authentication failed: No access token received')
       return null
     }
   } catch (error) {
-    console.error('❌ Authentication failed!')
+    console.error('вќЊ Authentication failed!')
     if (error.response?.data) {
       console.error('Error details:', JSON.stringify(error.response.data, null, 2))
     } else {
@@ -83,12 +83,12 @@ async function testAuthentication() {
 
 // Step 3: Test order creation
 async function testOrderCreation(accessToken) {
-  console.log('\n💳 Step 3: Testing Order Creation')
+  console.log('\nрџ’і Step 3: Testing Order Creation')
   console.log('-'.repeat(50))
   
   try {
     const baseUrl = getBaseUrl()
-    const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || 'https://syntrix.website'
+    const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || 'https://website.syntrix.uno'
     const cancelUrl = process.env.PAYPAL_CANCEL_URL || returnUrl
     
     const orderData = {
@@ -132,18 +132,18 @@ async function testOrderCreation(accessToken) {
     const approveUrl = response.data?.links?.find(l => l.rel === 'approve')?.href
     
     if (orderId && approveUrl) {
-      console.log('✅ Order creation successful!')
+      console.log('вњ… Order creation successful!')
       console.log('Order ID:', orderId)
       console.log('Approve URL:', approveUrl)
-      console.log('\nℹ️  You can test the payment flow by opening this URL in browser:')
+      console.log('\nв„№пёЏ  You can test the payment flow by opening this URL in browser:')
       console.log(approveUrl)
       return true
     } else {
-      console.error('❌ Order creation failed: Missing order ID or approve URL')
+      console.error('вќЊ Order creation failed: Missing order ID or approve URL')
       return false
     }
   } catch (error) {
-    console.error('❌ Order creation failed!')
+    console.error('вќЊ Order creation failed!')
     
     if (error.response) {
       console.error('Status:', error.response.status)
@@ -166,7 +166,7 @@ async function testOrderCreation(accessToken) {
         }
         
         // Common error solutions
-        console.error('\n💡 Common Solutions:')
+        console.error('\nрџ’Ў Common Solutions:')
         if (error.response.status === 422) {
           console.error('  - Verify your PayPal account is a Business Account')
           console.error('  - Ensure your Business Account is fully verified')
@@ -193,41 +193,43 @@ async function runDiagnostics() {
     const accessToken = await testAuthentication()
     
     if (!accessToken) {
-      console.log('\n❌ Cannot proceed without valid authentication')
+      console.log('\nвќЊ Cannot proceed without valid authentication')
       process.exit(1)
     }
     
     const orderCreated = await testOrderCreation(accessToken)
     
     console.log('\n' + '='.repeat(50))
-    console.log('📊 Diagnostic Summary')
+    console.log('рџ“Љ Diagnostic Summary')
     console.log('='.repeat(50))
     
     if (orderCreated) {
-      console.log('✅ All tests passed! PayPal integration is working.')
-      console.log('\nℹ️  If users still experience errors:')
+      console.log('вњ… All tests passed! PayPal integration is working.')
+      console.log('\nв„№пёЏ  If users still experience errors:')
       console.log('  1. Check server logs for detailed error messages')
       console.log('  2. Verify PAYPAL_RETURN_URL points to your Telegram Mini App')
       console.log('  3. Ensure users are completing payment on PayPal page')
       console.log('  4. For sandbox: ensure test accounts have sufficient balance')
     } else {
-      console.log('❌ Tests failed. Please review errors above and:')
+      console.log('вќЊ Tests failed. Please review errors above and:')
       console.log('  1. Verify your PayPal Business Account is fully set up')
       console.log('  2. Check all environment variables are correct')
       console.log('  3. Review PayPal account settings and restrictions')
       console.log('  4. Contact PayPal support if issues persist')
     }
     
-    console.log('\n📚 Resources:')
+    console.log('\nрџ“љ Resources:')
     console.log('  - PayPal Developer Dashboard: https://developer.paypal.com/dashboard/')
     console.log('  - API Status: https://www.paypal-status.com/')
     console.log('  - Documentation: https://developer.paypal.com/docs/api/orders/v2/')
     console.log('')
   } catch (error) {
-    console.error('\n❌ Unexpected error:', error.message)
+    console.error('\nвќЊ Unexpected error:', error.message)
     process.exit(1)
   }
 }
 
 // Run diagnostics
 runDiagnostics()
+
+

@@ -1,11 +1,11 @@
-# 🚀 Quick Deployment Guide (Security Update)
+﻿# рџљЂ Quick Deployment Guide (Security Update)
 
 ## Prerequisites
 All security vulnerabilities have been fixed. Follow these steps to deploy safely.
 
 ---
 
-## 1️⃣ Install Dependencies
+## 1пёЏвѓЈ Install Dependencies
 
 ```bash
 cd telegram-bot
@@ -16,7 +16,7 @@ This will install the new `express-rate-limit` package.
 
 ---
 
-## 2️⃣ Update Environment Variables
+## 2пёЏвѓЈ Update Environment Variables
 
 ### Required in Production
 
@@ -46,13 +46,13 @@ OXAPAY_PAYOUT_API_KEY=your_payout_key
 
 ---
 
-## 3️⃣ Update CORS Origins (Optional)
+## 3пёЏвѓЈ Update CORS Origins (Optional)
 
 If you have custom frontend domains, edit `src/api.ts`:
 
 ```typescript
 const allowedOrigins = [
-  'https://syntrix.website',
+  'https://website.syntrix.uno',
   'https://syntrix-crm.onrender.com',
   'https://your-custom-domain.com', // Add here
   'http://localhost:5173',
@@ -62,7 +62,7 @@ const allowedOrigins = [
 
 ---
 
-## 4️⃣ Build & Deploy
+## 4пёЏвѓЈ Build & Deploy
 
 ```bash
 npm run build
@@ -71,23 +71,23 @@ npm start
 
 ---
 
-## 5️⃣ Verify Security Features
+## 5пёЏвѓЈ Verify Security Features
 
-### ✅ Check Rate Limiting
+### вњ… Check Rate Limiting
 Try logging in with wrong password 6 times - should be blocked after 5 attempts.
 
-### ✅ Check IDOR Protection
+### вњ… Check IDOR Protection
 Try accessing `/api/user/123456/referrals` without JWT token - should get 401 Unauthorized.
 
-### ✅ Check CORS
+### вњ… Check CORS
 API should reject requests from unauthorized domains.
 
-### ✅ Check Webhook
+### вњ… Check Webhook
 Telegram webhooks should work with secret token validation.
 
 ---
 
-## 6️⃣ Frontend Updates (Important!)
+## 6пёЏвѓЈ Frontend Updates (Important!)
 
 Your Telegram Mini App needs to send `initData` for authentication:
 
@@ -100,7 +100,7 @@ fetch('https://your-api.com/api/user/auth', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     telegramId: userId,
-    initData: initData  // ← Add this!
+    initData: initData  // в†ђ Add this!
   })
 })
 ```
@@ -109,7 +109,7 @@ fetch('https://your-api.com/api/user/auth', {
 
 ---
 
-## 🔍 Monitoring
+## рџ”Ќ Monitoring
 
 After deployment, monitor for:
 
@@ -124,7 +124,7 @@ tail -f /path/to/logs/app.log | grep -E "CORS|rate|initData"
 
 ---
 
-## 🐛 Troubleshooting
+## рџђ› Troubleshooting
 
 ### Issue: "WEBHOOK_SECRET_TOKEN must be set"
 **Solution:** Add it to `.env` file in production
@@ -147,7 +147,7 @@ const loginLimiter = rateLimit({
 
 ---
 
-## 📋 Deployment Checklist
+## рџ“‹ Deployment Checklist
 
 - [ ] All environment variables set
 - [ ] `express-rate-limit` installed
@@ -161,18 +161,18 @@ const loginLimiter = rateLimit({
 
 ---
 
-## 🔐 Security Features Enabled
+## рџ”ђ Security Features Enabled
 
-✅ IDOR protection on user endpoints  
-✅ Telegram initData validation  
-✅ Rate limiting on critical endpoints  
-✅ CORS whitelist  
-✅ Secure secret management  
-✅ Production environment checks  
+вњ… IDOR protection on user endpoints  
+вњ… Telegram initData validation  
+вњ… Rate limiting on critical endpoints  
+вњ… CORS whitelist  
+вњ… Secure secret management  
+вњ… Production environment checks  
 
 ---
 
-## 📞 Need Help?
+## рџ“ћ Need Help?
 
 Check `SECURITY_FIXES.md` for detailed documentation on all security improvements.
 
@@ -180,3 +180,5 @@ Check `SECURITY_FIXES.md` for detailed documentation on all security improvement
 
 **Last Updated:** December 11, 2025  
 **Version:** 1.0.1 (Security Hardened)
+
+

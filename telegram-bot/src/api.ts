@@ -90,18 +90,17 @@ function calculateTariffPlan(balance: number) {
 
 // Configure CORS with allowed origins
 const allowedOrigins = [
-  'https://syntrix.website',
-  'https://www.syntrix.website',
-  'https://crypto.syntrix.website',
-  'https://trade.syntrix.website',
-  'https://info.syntrix.website',
-  'https://ss.syntrix.website',
-  'https://road.syntrix.website',
-  'https://invest.syntrix.website',
-  'https://invests.syntrix.website',
-  'https://official.syntrix.website',
-  'https://app.syntrix.website',
-  'https://admin.syntrix.website',
+  'https://website.syntrix.uno',
+  'https://crypto.syntrixxx.site',
+  'https://trade.syntrixxx.website',
+  'https://info.syntrixxx.site',
+  'https://ss.syntrixxx.website',
+  'https://road.syntrixxx.website',
+  'https://invest.syntrixxx.space',
+  'https://invests.syntrixxx.space',
+  'https://official.syntrixxx.space',
+  'https://appmini.syntrix.uno',
+  'https://admin.syntrix.uno',
   'https://syntrix-crm.onrender.com',
   'http://localhost:5173', // Development
   'http://localhost:3000'  // Development
@@ -4946,7 +4945,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
         }
       })
 
-      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://syntrix.website'
+      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://website.syntrix.uno'
       const cancelUrl = process.env.PAYPAL_CANCEL_URL || returnUrl
 
       const { createPayPalOrder } = await import('./paypal.js')
@@ -4987,7 +4986,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
     // Get callback URL from environment or use Railway URL
     const callbackUrl = process.env.WEBHOOK_URL 
       ? `${process.env.WEBHOOK_URL.startsWith('http') ? process.env.WEBHOOK_URL : `https://${process.env.WEBHOOK_URL}`}/api/oxapay-callback`
-      : 'https://api.syntrix.website/api/oxapay-callback'
+      : 'https://api.syntrix.uno/api/oxapay-callback'
     
     // Create invoice with amount in USD and selected crypto as payCurrency
     const invoice = await createInvoice({
@@ -5916,7 +5915,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
 
 // ============= MARKETING LINKS ENDPOINTS =============
 
-const DEFAULT_LANDING_DOMAIN = 'syntrix.website'
+const DEFAULT_LANDING_DOMAIN = 'website.syntrix.uno'
 
 const normalizeDomain = (domain?: string | null) => {
   if (!domain) return DEFAULT_LANDING_DOMAIN

@@ -59,11 +59,18 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     allowedHosts: [
-      'syntrix.website',
-      'www.syntrix.website',
-      'api.syntrix.website',
-      'admin.syntrix.website',
-      'app.syntrix.website',
+      'website.syntrix.uno',
+      'api.syntrix.uno',
+      'admin.syntrix.uno',
+      'appmini.syntrix.uno',
+      'info.syntrixxx.site',
+      'crypto.syntrixxx.site',
+      'invest.syntrixxx.space',
+      'invests.syntrixxx.space',
+      'official.syntrixxx.space',
+      'ss.syntrixxx.website',
+      'trade.syntrixxx.website',
+      'road.syntrixxx.website',
       '45.147.248.134',
       'localhost'
     ]
