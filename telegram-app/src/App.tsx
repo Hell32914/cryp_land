@@ -962,8 +962,8 @@ function App() {
     const names: Record<Language, string> = {
       ENGLISH: 'English',
       GERMAN: 'Deutsch',
-      SPANISH: 'EspaГ±ol',
-      FRENCH: 'FranГ§ais',
+      SPANISH: 'Español',
+      FRENCH: 'Français',
       ITALIAN: 'Italiano',
       DUTCH: 'Nederlands'
     }
@@ -994,7 +994,7 @@ function App() {
         <Toaster />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
           <div className="text-center space-y-4 max-w-md">
-            <div className="text-destructive text-5xl">вљ пёЏ</div>
+            <div className="text-destructive text-5xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Connection Error</h2>
             <p className="text-foreground/70">{error}</p>
             <Button onClick={refreshData} className="bg-primary text-primary-foreground hover:bg-primary/90">
@@ -1013,7 +1013,7 @@ function App() {
         <AnimatedBackground />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4">
           <div className="text-center space-y-4 max-w-md">
-            <div className="text-destructive text-6xl">в›”пёЏ</div>
+            <div className="text-destructive text-6xl">⛔️</div>
             <h2 className="text-2xl font-bold text-foreground">You are blocked</h2>
           </div>
         </div>
@@ -1032,7 +1032,7 @@ function App() {
           <div className="text-center space-y-4">
             {authError && !authToken ? (
               <>
-                <div className="text-destructive text-4xl">вљ пёЏ</div>
+                <div className="text-destructive text-4xl">⚠️</div>
                 <p className="text-foreground/70">{authError}</p>
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -1047,7 +1047,7 @@ function App() {
               <>
                 <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
                 <p className="text-foreground/70">
-                  {authLoading || !authToken ? 'AuthenticatingвЂ¦' : 'Checking accessвЂ¦'}
+                  {authLoading || !authToken ? 'Authenticating...' : 'Checking access...'}
                 </p>
               </>
             )}
@@ -1068,7 +1068,7 @@ function App() {
         <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 p-4 overflow-hidden">
           <div className="absolute inset-0 bg-black/70" />
           <div className="relative z-10 text-center space-y-4 max-w-md">
-            <div className="text-destructive text-6xl">вљ пёЏ</div>
+            <div className="text-destructive text-6xl">⚠️</div>
             <h2 className="text-xl font-bold text-foreground">Access restricted</h2>
             <p className="text-foreground/70">Next step: activate the support bot to continue.</p>
             {supportError && <p className="text-foreground/60 text-sm">{supportError}</p>}
@@ -1754,7 +1754,7 @@ function App() {
                       variant="outline" 
                       className={userProfile.status === 'ACTIVE' ? 'border-green-500 text-green-500 bg-green-500/10 px-3 py-1 rounded-lg text-xs' : 'border-destructive text-destructive bg-destructive/10 px-3 py-1 rounded-lg text-xs'}
                     >
-                      вЂў {userProfile.status === 'ACTIVE' ? 'Active' : userProfile.status === 'BLOCKED' ? 'Blocked' : userProfile.status === 'KYC_REQUIRED' ? 'KYC Required' : t.inactive}
+                      • {userProfile.status === 'ACTIVE' ? 'Active' : userProfile.status === 'BLOCKED' ? 'Blocked' : userProfile.status === 'KYC_REQUIRED' ? 'KYC Required' : t.inactive}
                     </Badge>
                   </div>
 
@@ -1824,7 +1824,7 @@ function App() {
                     <p className="text-foreground font-bold">
                       {userData?.planProgress?.nextPlan 
                         ? `$${formatUsd(userData.planProgress.leftUntilNext)} left until ${userData.planProgress.nextPlan}`
-                        : 'рџЏ† Highest plan achieved!'}
+                        : '🏆 Highest plan achieved!'}
                     </p>
                     <Button 
                       variant="ghost" 
@@ -1968,7 +1968,7 @@ function App() {
                   ['Proprietary mathematical models', 'Probabilistic analysis algorithms', 'Elements of cryptography and secure decision logic', 'Risk management based on aggregated data'],
                 howItWorksMetaOutro:
                   (t as any).aiAnalyticsHowItWorksMetaOutro ??
-                  "Syntrix doesn't copy others' outputs. It makes the final decision independently, using AI competition as a signal source вЂ” not an instruction.",
+                  "Syntrix doesn't copy others' outputs. It makes the final decision independently, using AI competition as a signal source — not an instruction.",
                 howItWorksExecutionTitle:
                   (t as any).aiAnalyticsHowItWorksExecutionTitle ??
                   'Execution',
@@ -1979,7 +1979,7 @@ function App() {
                   (t as any).aiAnalyticsHowItWorksExecutionBullets ??
                   ['Risk parameter compliance', 'Capital protection', 'Resilience to market anomalies'],
                 howItWorksCta: (t as any).aiAnalyticsHowItWorksCta ?? 'Got it!',
-                loading: (t as any).loading ?? 'LoadingвЂ¦',
+                loading: (t as any).loading ?? 'Loading...',
                 error: (t as any).errorGeneric ?? 'Unable to load',
               }}
             />
@@ -2181,7 +2181,7 @@ function App() {
                               tx.type === 'DEPOSIT' ? 'bg-green-500/20' : 'bg-red-500/20'
                             }`}>
                               <span className="text-sm font-bold">
-                                {tx.currency === 'PROFIT' ? 'рџ“€' : (tx.type === 'DEPOSIT' ? 'в†“' : 'в†‘')}
+                                {tx.currency === 'PROFIT' ? '📈' : (tx.type === 'DEPOSIT' ? '↓' : '↑')}
                               </span>
                             </div>
                             <div>
@@ -2189,8 +2189,8 @@ function App() {
                                 {tx.currency === 'PROFIT' ? 'Profit Added' : (tx.type === 'DEPOSIT' ? 'Deposit' : 'Withdrawal')}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {tx.currency === 'PROFIT' ? 'Manual' : tx.currency} вЂў {new Date(tx.createdAt).toLocaleDateString()}
-                                {explorerUrl && <span className="ml-1">рџ”—</span>}
+                                {tx.currency === 'PROFIT' ? 'Manual' : tx.currency} • {new Date(tx.createdAt).toLocaleDateString()}
+                                {explorerUrl && <span className="ml-1">🔗</span>}
                               </p>
                             </div>
                           </div>
@@ -2377,7 +2377,7 @@ function App() {
                           <div>
                             <p className="font-semibold text-foreground">@{referral.referredUsername}</p>
                             <p className="text-xs text-muted-foreground">
-                              Level {referral.level} вЂў {new Date(referral.createdAt).toLocaleDateString()}
+                              Level {referral.level} • {new Date(referral.createdAt).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
@@ -2838,14 +2838,14 @@ function App() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-              <p className="text-lg font-bold text-primary mb-2">рџ’Ў How it works:</p>
+              <p className="text-lg font-bold text-primary mb-2">💡 How it works:</p>
               <ul className="space-y-2 text-sm text-foreground/90">
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">вЂў</span>
+                  <span className="text-primary mt-0.5">•</span>
                   <span>It's given as a reward.</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-primary mt-0.5">вЂў</span>
+                  <span className="text-primary mt-0.5">•</span>
                   <span>You receive REAL profit from this token and can withdraw it to your USDT wallet.</span>
                 </li>
               </ul>
@@ -2853,7 +2853,7 @@ function App() {
 
             <div className="space-y-3">
               <div className="flex items-start gap-3 p-3 bg-accent/5 rounded-lg border border-accent/20">
-                <span className="text-accent text-xl">вњ“</span>
+                <span className="text-accent text-xl">✓</span>
                 <div>
                   <p className="font-semibold text-foreground">Can be reinvested</p>
                   <p className="text-xs text-muted-foreground">Add to your balance to increase daily profit</p>
@@ -2861,7 +2861,7 @@ function App() {
               </div>
 
               <div className="flex items-start gap-3 p-3 bg-green-500/5 rounded-lg border border-green-500/20">
-                <span className="text-green-500 text-xl">рџ“€</span>
+                <span className="text-green-500 text-xl">📈</span>
                 <div>
                   <p className="font-semibold text-foreground">Earns 0.1% daily profit</p>
                   <p className="text-xs text-muted-foreground">Fixed Syntrix Token rate</p>
@@ -2869,7 +2869,7 @@ function App() {
               </div>
 
               <div className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-lg border border-orange-500/20">
-                <span className="text-orange-500 text-xl">вљ пёЏ</span>
+                <span className="text-orange-500 text-xl">⚠️</span>
                 <div>
                   <p className="font-semibold text-foreground">Token amount cannot be withdrawn as cash</p>
                   <p className="text-xs text-muted-foreground">Only the profit can be withdrawn</p>
