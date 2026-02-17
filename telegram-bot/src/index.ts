@@ -146,6 +146,46 @@ const adminState = new Map<string, {
   currentWithdrawalsPage?: number,
 }>()
 
+// Support bot welcome messages in multiple languages
+function getSupportWelcomeMessage(languageCode: string | null): string {
+  // Detect language from Telegram language code
+  const lang = (languageCode || '').toLowerCase()
+
+  if (lang.startsWith('ru') || lang.startsWith('uk') || lang.startsWith('be')) {
+    // Russian, Ukrainian, Belarusian
+    return (
+      'Приветствуем вас! 👋\n' +
+      'В ближайшее время с вами свяжется ваш личный помощник, профессионал, который ответит на все ваши вопросы и поможет настроить сервис под ваши цели.\n' +
+      'Мы ценим ваше время и стремимся сделать каждый момент взаимодействия удобным, быстрым и максимально полезным.\n\n' +
+      'Пока помощник подключается, вы можете ознакомиться с основными функциями сервиса и подготовить вопросы - мы позаботимся обо всём остальном 💼'
+    )
+  } else if (lang.startsWith('es')) {
+    // Spanish
+    return (
+      '¡Bienvenido! 👋\n' +
+      'En breve, su asistente personal, un profesional que responderá todas sus preguntas y le ayudará a configurar el servicio según sus objetivos, se pondrá en contacto con usted.\n' +
+      'Valoramos su tiempo y nos esforzamos por hacer que cada interacción sea cómoda, rápida y lo más útil posible.\n\n' +
+      'Mientras su asistente se conecta, puede explorar las funciones principales del servicio y preparar sus preguntas; nosotros nos encargaremos de todo lo demás 💼'
+    )
+  } else if (lang.startsWith('de')) {
+    // German
+    return (
+      'Willkommen! 👋\n' +
+      'In Kürze wird sich Ihr persönlicher Assistent, ein Profi, der all Ihre Fragen beantwortet und Ihnen hilft, den Service nach Ihren Zielen einzurichten, mit Ihnen in Verbindung setzen.\n' +
+      'Wir schätzen Ihre Zeit und bemühen uns, jede Interaktion bequem, schnell und so nützlich wie möglich zu gestalten.\n\n' +
+      'Während Ihr Assistent sich verbindet, können Sie die Hauptfunktionen des Services erkunden und Ihre Fragen vorbereiten, wir kümmern uns um alles Weitere💼'
+    )
+  }
+
+  // English (default fallback)
+  return (
+    'Welcome! 👋\n' +
+    'Soon, your personal assistant, a professional who will answer all your questions and help set up the service according to your goals, will get in touch with you.\n' +
+    'We value your time and strive to make every interaction convenient, fast, and as useful as possible.\n\n' +
+    'While your assistant is connecting, you can explore the main features of the service and prepare your questions, we\'ll take care of everything else. 💼'
+  )
+}
+
 // Arbitrage Trade admin flow is English-only by request.
 const ARBITRAGE_TRADE_EN = {
   menu: '⚖️ Arbitrage Trade',
@@ -6355,11 +6395,11 @@ if (supportBot) {
       console.warn('Support bot /start: bonus claim skipped:', (err as any)?.message || err)
     }
 
-    await ctx.reply(
-      bonusGranted
-        ? '✅ Support bot activated!\n\nYour account has been activated and you received 25 Syntrix tokens.\n\nNow you can write your message here and our team will reply.'
-        : '✅ Support bot activated!\n\nNow you can write your message here and our team will reply.'
-    )
+    // Get language-specific welcome message
+    const languageCode = from?.language_code || null
+    const welcomeMessage = getSupportWelcomeMessage(languageCode)
+
+    await ctx.reply(welcomeMessage)
   })
 
   supportBot.on('message:text', async (ctx) => {
