@@ -1117,6 +1117,29 @@ export const fetchUsers = (token: string, opts?: {
   return request<UsersResponse>(`/api/admin/users${query ? `?${query}` : ''}`, {}, token)
 }
 
+export interface UsersStatsResponse {
+  active: number
+  inactive: number
+  blocked: number
+  total: number
+}
+
+export const fetchUsersStats = (token: string) => {
+  if (isTesterToken(token)) {
+    const activeCount = MOCK_USERS.filter(u => String(u.status || '').toUpperCase() === 'ACTIVE').length
+    const inactiveCount = MOCK_USERS.filter(u => String(u.status || '').toUpperCase() === 'INACTIVE').length
+    const blockedCount = MOCK_USERS.filter(u => u.isBlocked).length
+    const totalCount = MOCK_USERS.length
+    return Promise.resolve({
+      active: activeCount,
+      inactive: inactiveCount,
+      blocked: blockedCount,
+      total: totalCount,
+    } as UsersStatsResponse)
+  }
+  return request<UsersStatsResponse>(`/api/admin/users-stats`, {}, token)
+}
+
 export const fetchDeposits = (token: string, opts?: { page?: number; limit?: number; search?: string }) => {
   if (isTesterToken(token)) return Promise.resolve(MOCK_DEPOSITS_RESPONSE)
   const params = new URLSearchParams()

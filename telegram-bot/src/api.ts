@@ -3470,7 +3470,8 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 
     const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
     const traffickerValue = String(trafficker || '').trim().toLowerCase()
-    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue)
+    const hasStatusFilter = statusValue && statusValue !== 'all'
+    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || Boolean(hasStatusFilter)
 
     // Get total count for pagination (may be overridden when computed filters are used)
     const totalCount = await prisma.user.count({ where })
@@ -3675,6 +3676,28 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error('Admin users error:', error)
     return res.status(500).json({ error: 'Failed to load users' })
+  }
+})
+
+// Get user statistics (active/inactive counts)
+app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
+  try {
+    const [activeCount, inactiveCount, totalCount, blockedCount] = await Promise.all([
+      prisma.user.count({ where: { isHidden: false, status: 'ACTIVE' } }),
+      prisma.user.count({ where: { isHidden: false, status: 'INACTIVE' } }),
+      prisma.user.count({ where: { isHidden: false } }),
+      prisma.user.count({ where: { isHidden: false, isBlocked: true } }),
+    ])
+
+    return res.json({
+      active: activeCount,
+      inactive: inactiveCount,
+      blocked: blockedCount,
+      total: totalCount,
+    })
+  } catch (error) {
+    console.error('Admin users stats error:', error)
+    return res.status(500).json({ error: 'Failed to load user stats' })
   }
 })
 
