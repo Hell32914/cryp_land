@@ -3636,6 +3636,10 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       filteredUsers = filteredUsers.filter((u) => String(u.trafficerName || '').toLowerCase().includes(traffickerValue))
     }
 
+    if (statusValue && statusValue !== 'all') {
+      filteredUsers = filteredUsers.filter((u) => String(u.status || '').toUpperCase() === statusValue.toUpperCase())
+    }
+
     // Map to summary format
     let mappedUsers = filteredUsers.map(u => mapUserSummary(u))
     
