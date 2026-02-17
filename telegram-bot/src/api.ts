@@ -3352,13 +3352,28 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
   }
 })
 
+// Compute the display status (matches frontend logic)
+// Lead-like users (no country / unknown country) with ACTIVE status are shown as INACTIVE
+function computeDisplayStatus(user: any): string {
+  const isChannel = String(user.marketingSource || '').toLowerCase() === 'channel'
+  const hasStartedBot = Boolean(user.botStartedAt)
+  const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
+  const isChannelOnly = isChannel && !hasStartedBot && isInactive
+  const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
+  const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
+  const isLeadLike = label !== 'user'
+  const normalizedStatus = String(user.status || '').toUpperCase()
+  if (isLeadLike && normalizedStatus === 'ACTIVE') return 'INACTIVE'
+  return user.status || 'INACTIVE'
+}
+
 const mapUserSummary = (user: any, marketingLink?: any) => ({
   id: user.id,
   telegramId: user.telegramId,
   username: user.username,
   fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
   country: user.country || 'Unknown',
-  status: user.status,
+  status: computeDisplayStatus(user),
   plan: user.plan,
   balance: user.totalDeposit, // Current working balance (available for withdrawal)
   profit: user.profit,
@@ -3474,8 +3489,6 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     const where: Prisma.UserWhereInput = {
       AND: [baseWhere, countryFilter, statusFilter, createdAtFilter].filter(Boolean) as Prisma.UserWhereInput[],
     }
-
-    console.log(`🔍 FILTER DEBUG: statusValue='${statusValue}', hasStatusFilter=${hasStatusFilter}, requireComputedFilter=${requireComputedFilter}, statusFilterAppliedInDb=${!!statusFilter}`)
 
     // Get total count for pagination (may be overridden when computed filters are used)
     const totalCount = await prisma.user.count({ where })
@@ -3641,17 +3654,11 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     }
 
     if (statusValue && statusValue !== 'all') {
-      console.log(`🔍 Applying status filter: '${statusValue}', initial count=${filteredUsers.length}`)
-      const beforeLen = filteredUsers.length
+      // Use computeDisplayStatus to match the same logic the frontend uses for display
       filteredUsers = filteredUsers.filter((u) => {
-        const userStatus = String(u.status || '').toUpperCase()
-        const matches = userStatus === statusValue.toUpperCase()
-        if (!matches) {
-          console.log(`  ❌ User @${u.username} status='${userStatus}' (original: ${u.status}), DOESN'T MATCH '${statusValue}'`)
-        }
-        return matches
+        const displayStatus = computeDisplayStatus(u)
+        return String(displayStatus || '').toUpperCase() === statusValue.toUpperCase()
       })
-      console.log(`  ✅ Status filter applied: ${beforeLen} → ${filteredUsers.length} users`)
     }
 
     // Map to summary format
@@ -3671,7 +3678,6 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       const filteredTotal = mappedUsers.length
       const filteredPages = Math.ceil(filteredTotal / take) || 1
       const pageSlice = mappedUsers.slice(skip, skip + take)
-      console.log(`🔍 COMPUTED FILTER RESPONSE: total=${filteredTotal}, pages=${filteredPages}, returning ${pageSlice.length} users on page ${pageNum}`)
       return res.json({
         users: pageSlice,
         count: pageSlice.length,
@@ -3683,7 +3689,6 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       })
     }
 
-    console.log(`🔍 NORMAL RESPONSE: returning ${mappedUsers.length} users from totalCount=${totalCount}`)
     return res.json({
       users: mappedUsers,
       count: mappedUsers.length,
@@ -3702,18 +3707,33 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 // Get user statistics (active/inactive counts)
 app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
   try {
-    const [activeCount, inactiveCount, totalCount, blockedCount] = await Promise.all([
-      prisma.user.count({ where: { isHidden: false, status: 'ACTIVE' } }),
-      prisma.user.count({ where: { isHidden: false, status: 'INACTIVE' } }),
-      prisma.user.count({ where: { isHidden: false } }),
-      prisma.user.count({ where: { isHidden: false, isBlocked: true } }),
-    ])
+    // Fetch all non-hidden users with fields needed for computeDisplayStatus
+    const allUsers = await prisma.user.findMany({
+      where: { isHidden: false },
+      select: {
+        status: true,
+        isBlocked: true,
+        country: true,
+        marketingSource: true,
+        botStartedAt: true,
+      },
+    })
+
+    let activeCount = 0
+    let inactiveCount = 0
+    let blockedCount = 0
+    for (const u of allUsers) {
+      if (u.isBlocked) blockedCount++
+      const ds = computeDisplayStatus(u)
+      if (String(ds).toUpperCase() === 'ACTIVE') activeCount++
+      else if (String(ds).toUpperCase() === 'INACTIVE') inactiveCount++
+    }
 
     return res.json({
       active: activeCount,
       inactive: inactiveCount,
       blocked: blockedCount,
-      total: totalCount,
+      total: allUsers.length,
     })
   } catch (error) {
     console.error('Admin users stats error:', error)
