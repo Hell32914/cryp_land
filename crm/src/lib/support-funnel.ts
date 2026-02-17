@@ -6,6 +6,14 @@ export type SupportFunnelStage = {
 
 export type SupportFunnelUpdateKind = 'stages' | 'chatStageMap' | 'pinnedChatIds' | 'stageAliases'
 
+/**
+ * PINNED CHATS POLICY:
+ * - Pins are stored in localStorage with key 'crm.support.pinnedChatIds.v1'
+ * - Pins NEVER expire based on time or status changes
+ * - Pins are ONLY removed when user manually unpins a chat
+ * - Pinned chats remain pinned until explicitly unpinned by the user
+ * - No automatic cleanup or time-based removal of pins
+ */
 const STORAGE_KEYS = {
   stages: 'crm.support.funnelStages.v1',
   chatStageMap: 'crm.support.chatStageMap.v1',
@@ -484,13 +492,28 @@ export function loadPinnedChatIds(): string[] {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.map((v) => String(v)).filter(Boolean)
+    // Filter out any non-string values and return cleaned list
+    const cleaned = parsed.map((v) => String(v)).filter(Boolean)
+    return cleaned
   } catch {
     return []
   }
 }
 
 export function savePinnedChatIds(ids: string[]) {
-  localStorage.setItem(STORAGE_KEYS.pinnedChatIds, JSON.stringify(Array.from(new Set(ids))))
-  emitSupportFunnelUpdate('pinnedChatIds')
+  try {
+    const filtered = Array.from(new Set(ids.filter(Boolean)))
+    localStorage.setItem(STORAGE_KEYS.pinnedChatIds, JSON.stringify(filtered))
+    emitSupportFunnelUpdate('pinnedChatIds')
+  } catch {
+    // Silently fail if localStorage is unavailable
+    console.warn('Failed to save pinned chat IDs to localStorage')
+  }
+}
+
+/**
+ * Returns true if a chat ID is pinned and should be displayed regardless of status
+ */
+export function isPinnedChat(chatId: string, pinnedIds: string[]): boolean {
+  return pinnedIds.includes(chatId)
 }

@@ -475,6 +475,8 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   useEffect(() => {
     const reloadAll = () => {
       // Load local settings for funnel labels and pinned chats.
+      // IMPORTANT: Pinned chats are stored persistently and should NEVER be automatically cleared
+      // They only get removed when the user manually unpins them
       setFunnelStages(loadSupportFunnelStages(defaultStages))
       setChatStageMap(loadSupportChatStageMap())
       setStageAliases(loadSupportStageAliases())
@@ -518,10 +520,15 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   }
 
   const togglePinned = (chatId: string) => {
+    // Toggle pin status: add or remove from pinned list
+    // Pins persist indefinitely until manually unpinned (no auto-expiry)
     setPinnedChatIds((prev) => {
       const set = new Set(prev)
-      if (set.has(chatId)) set.delete(chatId)
-      else set.add(chatId)
+      if (set.has(chatId)) {
+        set.delete(chatId) // Manual unpin
+      } else {
+        set.add(chatId) // Manual pin - stays pinned forever unless unpinned
+      }
       const next = Array.from(set)
       savePinnedChatIds(next)
       return next
