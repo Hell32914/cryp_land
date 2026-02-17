@@ -3447,7 +3447,14 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       : null
 
     const statusValue = String(status || '').trim()
-    const statusFilter: Prisma.UserWhereInput | null = statusValue && statusValue !== 'all'
+    
+    const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
+    const traffickerValue = String(trafficker || '').trim().toLowerCase()
+    const hasStatusFilter = statusValue && statusValue !== 'all'
+    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || Boolean(hasStatusFilter)
+    
+    // When using computed filter, DON'T apply statusFilter in DB - apply it on client instead
+    const statusFilter: Prisma.UserWhereInput | null = !requireComputedFilter && statusValue && statusValue !== 'all'
       ? { status: { equals: statusValue, mode: Prisma.QueryMode.insensitive } }
       : null
 
@@ -3468,10 +3475,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       AND: [baseWhere, countryFilter, statusFilter, createdAtFilter].filter(Boolean) as Prisma.UserWhereInput[],
     }
 
-    const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
-    const traffickerValue = String(trafficker || '').trim().toLowerCase()
-    const hasStatusFilter = statusValue && statusValue !== 'all'
-    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || Boolean(hasStatusFilter)
+    console.log(`🔍 FILTER DEBUG: statusValue='${statusValue}', hasStatusFilter=${hasStatusFilter}, requireComputedFilter=${requireComputedFilter}, statusFilterAppliedInDb=${!!statusFilter}`)
 
     // Get total count for pagination (may be overridden when computed filters are used)
     const totalCount = await prisma.user.count({ where })
@@ -3637,7 +3641,17 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     }
 
     if (statusValue && statusValue !== 'all') {
-      filteredUsers = filteredUsers.filter((u) => String(u.status || '').toUpperCase() === statusValue.toUpperCase())
+      console.log(`🔍 Applying status filter: '${statusValue}', initial count=${filteredUsers.length}`)
+      const beforeLen = filteredUsers.length
+      filteredUsers = filteredUsers.filter((u) => {
+        const userStatus = String(u.status || '').toUpperCase()
+        const matches = userStatus === statusValue.toUpperCase()
+        if (!matches) {
+          console.log(`  ❌ User @${u.username} status='${userStatus}' (original: ${u.status}), DOESN'T MATCH '${statusValue}'`)
+        }
+        return matches
+      })
+      console.log(`  ✅ Status filter applied: ${beforeLen} → ${filteredUsers.length} users`)
     }
 
     // Map to summary format
@@ -3657,6 +3671,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       const filteredTotal = mappedUsers.length
       const filteredPages = Math.ceil(filteredTotal / take) || 1
       const pageSlice = mappedUsers.slice(skip, skip + take)
+      console.log(`🔍 COMPUTED FILTER RESPONSE: total=${filteredTotal}, pages=${filteredPages}, returning ${pageSlice.length} users on page ${pageNum}`)
       return res.json({
         users: pageSlice,
         count: pageSlice.length,
@@ -3668,6 +3683,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       })
     }
 
+    console.log(`🔍 NORMAL RESPONSE: returning ${mappedUsers.length} users from totalCount=${totalCount}`)
     return res.json({
       users: mappedUsers,
       count: mappedUsers.length,
