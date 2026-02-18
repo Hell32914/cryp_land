@@ -1204,17 +1204,26 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
 
     const supportChats = await prisma.supportChat.findMany({
       where: { acceptedBy: { not: null } },
-      select: { telegramId: true, acceptedBy: true, lastMessageAt: true, createdAt: true },
+      select: { 
+        id: true,
+        telegramId: true, 
+        acceptedBy: true, 
+        lastMessageAt: true, 
+        createdAt: true,
+        acceptedAt: true,
+      },
     })
 
-    const latestByTelegram = new Map<string, { operator: string; ts: number }>()
+    const latestByTelegram = new Map<string, { operator: string; chatId: number; acceptedAt: Date | null; ts: number }>()
     for (const chat of supportChats) {
       const tg = String(chat.telegramId || '').trim()
       const operator = String(chat.acceptedBy || '').trim()
       if (!tg || !operator) continue
       const ts = new Date(chat.lastMessageAt || chat.createdAt || 0).getTime() || 0
       const prev = latestByTelegram.get(tg)
-      if (!prev || ts > prev.ts) latestByTelegram.set(tg, { operator, ts })
+      if (!prev || ts > prev.ts) {
+        latestByTelegram.set(tg, { operator, chatId: chat.id, acceptedAt: chat.acceptedAt, ts })
+      }
     }
 
     const telegramIds = Array.from(latestByTelegram.keys())
@@ -1224,13 +1233,15 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
 
     const users = await prisma.user.findMany({
       where: { telegramId: { in: telegramIds } },
-      select: { id: true, telegramId: true },
+      select: { id: true, telegramId: true, createdAt: true },
     })
 
-    const operatorByUserId = new Map<number, string>()
+    const operatorByUserId = new Map<number, { operator: string; acceptedAt: Date | null }>()
+    const userByTelegramId = new Map<string, { id: number; createdAt: Date }>()
     for (const user of users) {
-      const operator = latestByTelegram.get(String(user.telegramId || '').trim())?.operator
-      if (operator) operatorByUserId.set(user.id, operator)
+      userByTelegramId.set(String(user.telegramId || '').trim(), { id: user.id, createdAt: user.createdAt })
+      const info = latestByTelegram.get(String(user.telegramId || '').trim())
+      if (info) operatorByUserId.set(user.id, { operator: info.operator, acceptedAt: info.acceptedAt })
     }
 
     const userIds = Array.from(operatorByUserId.keys())
@@ -1238,6 +1249,7 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
       return res.json({ operators: [] })
     }
 
+    // Get all deposits for date range filtering
     const where: any = {
       userId: { in: userIds },
       status: 'COMPLETED',
@@ -1250,27 +1262,254 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
       }
     }
 
-    const grouped = await prisma.deposit.groupBy({
+    // Get detailed deposit info for each user (for RDR, AVG, time to first deposit)
+    const allDeposits = await prisma.deposit.findMany({
+      where: {
+        userId: { in: userIds },
+        status: 'COMPLETED',
+        NOT: [{ currency: 'PROFIT' }],
+      },
+      select: {
+        userId: true,
+        amount: true,
+        createdAt: true,
+      },
+    })
+
+    // For each operator, collect their stats
+    const stats = new Map<string, {
+      operator: string
+      chatCount: number
+      uniqueUsersCount: number
+      totalDeposits: number
+      totalDepositAmount: number
+      depositCount: number // Count of deposit transactions (may be > totalUsers if repeat deposits)
+      depositAmount: number
+      repeatDepositorsCount: number
+      avgTimeToFirstDepositMs: number
+      userCount: number
+    }>()
+
+    // Initialize stats for all operators
+    for (const [userId, info] of operatorByUserId.entries()) {
+      if (!stats.has(info.operator)) {
+        stats.set(info.operator, {
+          operator: info.operator,
+          chatCount: 0,
+          uniqueUsersCount: 0,
+          totalDeposits: 0,
+          totalDepositAmount: 0,
+          depositCount: 0,
+          depositAmount: 0,
+          repeatDepositorsCount: 0,
+          avgTimeToFirstDepositMs: 0,
+          userCount: 0,
+        })
+      }
+    }
+
+    // Count chats per operator and collect user deposit info
+    const userDepositInfo = new Map<number, { depositCount: number; totalAmount: number; firstDepositTime: number }>()
+    for (const deposit of allDeposits) {
+      const info = userDepositInfo.get(deposit.userId) || { depositCount: 0, totalAmount: 0, firstDepositTime: 0 }
+      info.depositCount += 1
+      info.totalAmount += Number(deposit.amount || 0)
+      const depositTime = new Date(deposit.createdAt).getTime()
+      if (!info.firstDepositTime || depositTime < info.firstDepositTime) {
+        info.firstDepositTime = depositTime
+      }
+      userDepositInfo.set(deposit.userId, info)
+    }
+
+    // Group filtered deposits by operator
+    const groupedByUser = await prisma.deposit.groupBy({
       by: ['userId'],
       _sum: { amount: true },
       _count: { _all: true },
       where,
     })
 
-    const stats = new Map<string, { operator: string; depositCount: number; depositAmount: number }>()
-    for (const row of grouped) {
-      const operator = operatorByUserId.get(row.userId)
-      if (!operator) continue
-      const entry = stats.get(operator) || { operator, depositCount: 0, depositAmount: 0 }
-      entry.depositCount += Number((row as any)._count?._all ?? 0)
-      entry.depositAmount += Number((row as any)._sum?.amount ?? 0)
-      stats.set(operator, entry)
+    for (const row of groupedByUser) {
+      const opInfo = operatorByUserId.get(row.userId)
+      if (!opInfo) continue
+      const op = opInfo.operator
+      const stat = stats.get(op)!
+      stat.depositCount += Number((row as any)._count?._all ?? 0)
+      stat.depositAmount += Number((row as any)._sum?.amount ?? 0)
+    }
+
+    // Count unique users per operator and calculate RDR / time to first deposit
+    for (const [userId, opInfo] of operatorByUserId.entries()) {
+      const stat = stats.get(opInfo.operator)!
+      stat.userCount += 1
+
+      const depInfo = userDepositInfo.get(userId)
+      if (depInfo && depInfo.depositCount > 0) {
+        stat.totalDeposits += 1
+        stat.totalDepositAmount += depInfo.totalAmount
+        
+        if (depInfo.depositCount > 1) {
+          stat.repeatDepositorsCount += 1
+        }
+
+        // Calculate time to first deposit
+        if (opInfo.acceptedAt && depInfo.firstDepositTime) {
+          const acceptedTime = new Date(opInfo.acceptedAt).getTime()
+          const timeDiff = depInfo.firstDepositTime - acceptedTime
+          if (timeDiff > 0) {
+            stat.avgTimeToFirstDepositMs += timeDiff
+          }
+        }
+      }
+    }
+
+    // Count unique users (count unique chats per operator)
+    const chatsByOperator = new Map<string, number>()
+    for (const [_, info] of latestByTelegram.entries()) {
+      const count = (chatsByOperator.get(info.operator) ?? 0) + 1
+      chatsByOperator.set(info.operator, count)
+    }
+
+    for (const [operator, chatCount] of chatsByOperator.entries()) {
+      const stat = stats.get(operator)
+      if (stat) {
+        stat.chatCount = chatCount
+      }
+    }
+
+    // Count unique users per operator (those with accepted chats)
+    const uniqueUsersPerOperator = new Map<string, number>()
+    for (const [userId, opInfo] of operatorByUserId.entries()) {
+      const count = (uniqueUsersPerOperator.get(opInfo.operator) ?? 0) + 1
+      uniqueUsersPerOperator.set(opInfo.operator, count)
+    }
+
+    for (const [operator, count] of uniqueUsersPerOperator.entries()) {
+      const stat = stats.get(operator)
+      if (stat) {
+        stat.uniqueUsersCount = count
+      }
+    }
+
+    // Average time to first deposit
+    for (const [operator, stat] of stats.entries()) {
+      if (stat.totalDeposits > 0) {
+        stat.avgTimeToFirstDepositMs = Math.round(stat.avgTimeToFirstDepositMs / stat.totalDeposits)
+      }
     }
 
     return res.json({ operators: Array.from(stats.values()) })
   } catch (error) {
     console.error('Support operators deposits error:', error)
     return res.status(500).json({ error: 'Failed to load operator deposits' })
+  }
+})
+
+app.get('/api/admin/support/analytics/summary', requireAdminAuth, async (req, res) => {
+  try {
+    const [
+      totalChats,
+      activeChats,
+      totalInquiries,
+      inquiryChats,
+      supportChats,
+    ] = await Promise.all([
+      prisma.supportChat.count(),
+      prisma.supportChat.count({
+        where: {
+          status: { not: 'ARCHIVE' },
+          OR: [{ isBlocked: false }, { isBlocked: null }],
+        },
+      }),
+      prisma.supportMessage.count({ where: { direction: 'IN' } }),
+      prisma.supportMessage.groupBy({ by: ['supportChatId'], where: { direction: 'IN' } }),
+      prisma.supportChat.findMany({ select: { id: true, telegramId: true } }),
+    ])
+
+    const chatsWithInquiry = inquiryChats.length
+
+    const telegramIds = supportChats.map((chat) => String(chat.telegramId || '').trim()).filter(Boolean)
+    if (!telegramIds.length) {
+      return res.json({
+        totalChats,
+        activeChats,
+        totalInquiries,
+        chatsWithInquiry,
+        chatsWithDeposit: 0,
+        depositCount: 0,
+        depositAmount: 0,
+        ftdCount: 0,
+        repeatDepositorsCount: 0,
+      })
+    }
+
+    const users = await prisma.user.findMany({
+      where: { telegramId: { in: telegramIds } },
+      select: { id: true, telegramId: true },
+    })
+
+    const userIdByTelegram = new Map<string, number>()
+    for (const user of users) {
+      userIdByTelegram.set(String(user.telegramId || '').trim(), user.id)
+    }
+
+    const userIds = users.map((u) => u.id)
+    if (!userIds.length) {
+      return res.json({
+        totalChats,
+        activeChats,
+        totalInquiries,
+        chatsWithInquiry,
+        chatsWithDeposit: 0,
+        depositCount: 0,
+        depositAmount: 0,
+        ftdCount: 0,
+        repeatDepositorsCount: 0,
+      })
+    }
+
+    const deposits = await prisma.deposit.findMany({
+      where: {
+        userId: { in: userIds },
+        status: 'COMPLETED',
+        NOT: [{ currency: 'PROFIT' }],
+      },
+      select: { userId: true, amount: true },
+    })
+
+    let depositAmount = 0
+    for (const dep of deposits) depositAmount += Number(dep.amount || 0)
+    const depositCount = deposits.length
+
+    const depositCountByUser = new Map<number, number>()
+    for (const dep of deposits) {
+      depositCountByUser.set(dep.userId, (depositCountByUser.get(dep.userId) ?? 0) + 1)
+    }
+
+    const ftdCount = Array.from(depositCountByUser.values()).filter((c) => c >= 1).length
+    const repeatDepositorsCount = Array.from(depositCountByUser.values()).filter((c) => c >= 2).length
+
+    let chatsWithDeposit = 0
+    for (const chat of supportChats) {
+      const userId = userIdByTelegram.get(String(chat.telegramId || '').trim())
+      if (!userId) continue
+      if ((depositCountByUser.get(userId) ?? 0) > 0) chatsWithDeposit += 1
+    }
+
+    return res.json({
+      totalChats,
+      activeChats,
+      totalInquiries,
+      chatsWithInquiry,
+      chatsWithDeposit,
+      depositCount,
+      depositAmount,
+      ftdCount,
+      repeatDepositorsCount,
+    })
+  } catch (error) {
+    console.error('Support analytics summary error:', error)
+    return res.status(500).json({ error: 'Failed to load support analytics summary' })
   }
 })
 

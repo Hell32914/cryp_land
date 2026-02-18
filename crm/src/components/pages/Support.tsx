@@ -11,6 +11,7 @@ import {
   fetchSupportMessages,
   fetchSupportNotes,
   fetchSupportChatAvatar,
+  fetchSupportAnalyticsSummary,
   acceptSupportChat,
   assignSupportChats,
   addSupportNote,
@@ -198,7 +199,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set())
   const [assignOperator, setAssignOperator] = useState('')
-  const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('week')
+  const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('all')
   const [analyticsTab, setAnalyticsTab] = useState<SupportAnalyticsTab>(initialAnalyticsTab)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
@@ -210,11 +211,23 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
     inboundMessages: number
     outboundMessages: number
     totalInquiries: number
-    avgResponseSeconds: number | null
+    avgFirstResponseSeconds: number | null
+    frtP90Seconds: number | null
     responseCount: number
     activeChats: number
     avgMessagesPerChat: number | null
     responseRate: number | null
+    liveChatRate: number | null
+    chatsWithInquiry: number
+    chatsWithDeposit: number
+    conversionToDeposit: number | null
+    revenuePerInquiry: number | null
+    avgDepositAmount: number | null
+    repeatDepositRate: number | null
+    depositCount: number
+    depositAmount: number
+    ftdCount: number
+    repeatDepositorsCount: number
   } | null>(null)
   const [analyticsTruncated, setAnalyticsTruncated] = useState(false)
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0)
@@ -875,42 +888,29 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
       }
 
       const resolveRange = () => {
-        let fromTs = 0
-        if (range === 'day') fromTs = now - DAY_MS
-        if (range === 'week') fromTs = now - DAY_MS * 7
-        if (range === 'month') fromTs = now - DAY_MS * 30
-        if (range === 'quarter') fromTs = now - DAY_MS * 90
-        if (range === 'year') fromTs = now - DAY_MS * 365
-        if (range === 'all') {
-          const earliest = chatsSnapshot.reduce((min, chat) => {
-            const ts = getChatStartedTs(chat)
-            if (!ts) return min
-            if (!min || ts < min) return ts
-            return min
-          }, 0)
-          fromTs = earliest
-        }
-        if (!fromTs) fromTs = now - DAY_MS
+        const earliest = chatsSnapshot.reduce((min, chat) => {
+          const ts = getChatStartedTs(chat)
+          if (!ts) return min
+          if (!min || ts < min) return ts
+          return min
+        }, 0)
+        const fromTs = earliest || (now - DAY_MS)
         const days = Math.max(1, Math.ceil((now - fromTs) / DAY_MS))
         return { fromTs, toTs: now, days }
       }
 
       try {
         const { fromTs, toTs, days } = resolveRange()
+        const summary = await fetchSupportAnalyticsSummary(token)
 
         let totalMessages = 0
         let inboundMessages = 0
         let outboundMessages = 0
-        let totalInquiries = 0
         let responseSumMs = 0
         let responseCount = 0
-        let activeChats = 0
+        let activeChatsForMessages = 0
         let truncated = false
-
-        totalInquiries = chatsSnapshot.filter((chat) => {
-          const ts = getChatStartedTs(chat)
-          return ts >= fromTs && ts <= toTs
-        }).length
+        const frtMsList: number[] = []
 
         const getChatActivityTs = (chat: SupportChatRecord) => {
           const lastMessageTs = chat.lastMessageAt ? new Date(chat.lastMessageAt).getTime() : 0
@@ -983,24 +983,36 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
           })
 
           if (inRange.length === 0) {
-            return { active: false, total: 0, inbound: 0, outbound: 0, responseSumMs: 0, responseCount: 0, truncated: localTruncated }
+            return { active: false, total: 0, inbound: 0, outbound: 0, responseSumMs: 0, responseCount: 0, frtMs: null, truncated: localTruncated }
           }
+
+          const sorted = [...inRange].sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          )
 
           let localInbound = 0
           let localOutbound = 0
           let localResponseSumMs = 0
           let localResponseCount = 0
           let pendingInboundTs: number | null = null
+          let firstInboundTs: number | null = null
+          let frtMs: number | null = null
 
-          for (const msg of inRange) {
+          for (const msg of sorted) {
             const dir = String(msg.direction).toUpperCase()
             if (dir === 'IN') {
               localInbound += 1
               pendingInboundTs = new Date(msg.createdAt).getTime()
+              if (!firstInboundTs) firstInboundTs = pendingInboundTs
               continue
             }
 
             localOutbound += 1
+
+            if (firstInboundTs && frtMs === null) {
+              const firstDiff = new Date(msg.createdAt).getTime() - firstInboundTs
+              if (firstDiff >= 0) frtMs = firstDiff
+            }
 
             if (pendingInboundTs) {
               const diff = new Date(msg.createdAt).getTime() - pendingInboundTs
@@ -1019,6 +1031,7 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
             outbound: localOutbound,
             responseSumMs: localResponseSumMs,
             responseCount: localResponseCount,
+            frtMs,
             truncated: localTruncated,
           }
         })
@@ -1026,18 +1039,51 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
         for (const row of perChatStats) {
           if (row.truncated) truncated = true
           if (!row.active) continue
-          activeChats += 1
+          activeChatsForMessages += 1
           totalMessages += row.total
           inboundMessages += row.inbound
           outboundMessages += row.outbound
           responseSumMs += row.responseSumMs
           responseCount += row.responseCount
+          if (row.frtMs !== null) frtMsList.push(row.frtMs)
         }
 
         if (analyticsRunRef.current !== runId) return
 
-        const avgMessagesPerChat = activeChats > 0 ? totalMessages / activeChats : null
+        const avgMessagesPerChat = activeChatsForMessages > 0 ? totalMessages / activeChatsForMessages : null
         const responseRate = inboundMessages > 0 ? responseCount / inboundMessages : null
+
+        const avgFirstResponseSeconds = frtMsList.length
+          ? Math.round(frtMsList.reduce((sum, v) => sum + v, 0) / frtMsList.length / 1000)
+          : null
+
+        const frtP90Seconds = frtMsList.length
+          ? Math.round((() => {
+              const sorted = [...frtMsList].sort((a, b) => a - b)
+              const idx = Math.max(0, Math.ceil(sorted.length * 0.9) - 1)
+              return sorted[idx]
+            })() / 1000)
+          : null
+
+        const liveChatRate = summary.activeChats > 0
+          ? summary.totalInquiries / summary.activeChats
+          : null
+
+        const conversionToDeposit = summary.chatsWithInquiry > 0
+          ? summary.chatsWithDeposit / summary.chatsWithInquiry
+          : null
+
+        const revenuePerInquiry = summary.totalInquiries > 0
+          ? summary.depositAmount / summary.totalInquiries
+          : null
+
+        const avgDepositAmount = summary.depositCount > 0
+          ? summary.depositAmount / summary.depositCount
+          : null
+
+        const repeatDepositRate = summary.ftdCount > 0
+          ? summary.repeatDepositorsCount / summary.ftdCount
+          : null
 
         setAnalyticsData({
           fromTs,
@@ -1046,12 +1092,24 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
           totalMessages,
           inboundMessages,
           outboundMessages,
-          totalInquiries,
-          avgResponseSeconds: responseCount ? Math.round(responseSumMs / responseCount / 1000) : null,
+          totalInquiries: summary.totalInquiries,
+          avgFirstResponseSeconds,
+          frtP90Seconds,
           responseCount,
-          activeChats,
+          activeChats: summary.activeChats,
           avgMessagesPerChat,
           responseRate,
+          liveChatRate,
+          chatsWithInquiry: summary.chatsWithInquiry,
+          chatsWithDeposit: summary.chatsWithDeposit,
+          conversionToDeposit,
+          revenuePerInquiry,
+          avgDepositAmount,
+          repeatDepositRate,
+          depositCount: summary.depositCount,
+          depositAmount: summary.depositAmount,
+          ftdCount: summary.ftdCount,
+          repeatDepositorsCount: summary.repeatDepositorsCount,
         })
         setAnalyticsTruncated(truncated)
       } catch (e: any) {
@@ -1945,8 +2003,9 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                         onValueChange={(value) => {
                           setAnalyticsRange(value as SupportAnalyticsRange)
                         }}
+                        disabled
                       >
-                        <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]" disabled>
                           <SelectValue placeholder={t('support.analytics.range')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -1979,13 +2038,71 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                       <div className="space-y-4">
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                           <div className="rounded-md border border-border p-4">
-                            <div className="text-xs text-muted-foreground">{t('support.analytics.averageResponseTime')}</div>
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.firstResponseTime')}</div>
                             <div className="text-2xl font-semibold">
-                              {analyticsData.avgResponseSeconds !== null
-                                ? formatDuration(analyticsData.avgResponseSeconds)
+                              {analyticsData.avgFirstResponseSeconds !== null
+                                ? formatDuration(analyticsData.avgFirstResponseSeconds)
                                 : '—'}
                             </div>
                           </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.firstResponseP90')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.frtP90Seconds !== null
+                                ? formatDuration(analyticsData.frtP90Seconds)
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.liveChatRate')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.liveChatRate !== null
+                                ? analyticsData.liveChatRate.toFixed(2)
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.conversionToDeposit')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.conversionToDeposit !== null
+                                ? `${Math.round(analyticsData.conversionToDeposit * 100)}%`
+                                : '—'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.revenuePerInquiry')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.revenuePerInquiry !== null
+                                ? `$${analyticsData.revenuePerInquiry.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.avgDeposit')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.avgDepositAmount !== null
+                                ? `$${analyticsData.avgDepositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.repeatDepositRate')}</div>
+                            <div className="text-2xl font-semibold">
+                              {analyticsData.repeatDepositRate !== null
+                                ? `${Math.round(analyticsData.repeatDepositRate * 100)}%`
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.totalInquiries')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.totalInquiries}</div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                           <div className="rounded-md border border-border p-4">
                             <div className="text-xs text-muted-foreground">{t('support.analytics.messagesPerDay')}</div>
                             <div className="text-2xl font-semibold">
@@ -2002,6 +2119,10 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                             <div className="text-xs text-muted-foreground">{t('support.analytics.totalMessages')}</div>
                             <div className="text-2xl font-semibold">{analyticsData.totalMessages}</div>
                           </div>
+                          <div className="rounded-md border border-border p-4">
+                            <div className="text-xs text-muted-foreground">{t('support.analytics.activeChats')}</div>
+                            <div className="text-2xl font-semibold">{analyticsData.activeChats}</div>
+                          </div>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -2012,21 +2133,6 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                           <div className="rounded-md border border-border p-4">
                             <div className="text-xs text-muted-foreground">{t('support.analytics.outboundMessages')}</div>
                             <div className="text-2xl font-semibold">{analyticsData.outboundMessages}</div>
-                          </div>
-                          <div className="rounded-md border border-border p-4">
-                            <div className="text-xs text-muted-foreground">{t('support.analytics.totalInquiries')}</div>
-                            <div className="text-2xl font-semibold">{analyticsData.totalInquiries}</div>
-                          </div>
-                          <div className="rounded-md border border-border p-4">
-                            <div className="text-xs text-muted-foreground">{t('support.analytics.responsesCount')}</div>
-                            <div className="text-2xl font-semibold">{analyticsData.responseCount}</div>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                          <div className="rounded-md border border-border p-4">
-                            <div className="text-xs text-muted-foreground">{t('support.analytics.activeChats')}</div>
-                            <div className="text-2xl font-semibold">{analyticsData.activeChats}</div>
                           </div>
                           <div className="rounded-md border border-border p-4">
                             <div className="text-xs text-muted-foreground">{t('support.analytics.avgMessagesPerChat')}</div>
@@ -2042,12 +2148,6 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
                               {analyticsData.responseRate !== null
                                 ? `${Math.round(analyticsData.responseRate * 100)}%`
                                 : '—'}
-                            </div>
-                          </div>
-                          <div className="rounded-md border border-border p-4">
-                            <div className="text-xs text-muted-foreground">{t('support.analytics.avgResponsesPerDay')}</div>
-                            <div className="text-2xl font-semibold">
-                              {(analyticsData.responseCount / analyticsData.days).toFixed(1)}
                             </div>
                           </div>
                         </div>

@@ -1152,14 +1152,65 @@ export const fetchDeposits = (token: string, opts?: { page?: number; limit?: num
 
 export const fetchSupportOperatorDeposits = (token: string, from?: number, to?: number) => {
   if (isTesterToken(token)) {
-    return Promise.resolve({ operators: [] as Array<{ operator: string; depositCount: number; depositAmount: number }> })
+    return Promise.resolve({ operators: [] as Array<{ 
+      operator: string
+      depositCount: number
+      depositAmount: number
+      chatCount: number
+      uniqueUsersCount: number
+      totalDeposits: number
+      totalDepositAmount: number
+      repeatDepositorsCount: number
+      avgTimeToFirstDepositMs: number
+    }> })
   }
   const params = new URLSearchParams()
   if (from) params.set('from', String(from))
   if (to) params.set('to', String(to))
   const query = params.toString()
-  return request<{ operators: Array<{ operator: string; depositCount: number; depositAmount: number }> }>(
+  return request<{ operators: Array<{ 
+    operator: string
+    depositCount: number
+    depositAmount: number
+    chatCount: number
+    uniqueUsersCount: number
+    totalDeposits: number
+    totalDepositAmount: number
+    repeatDepositorsCount: number
+    avgTimeToFirstDepositMs: number
+  }> }>(
     `/api/admin/support/operators/deposits${query ? `?${query}` : ''}`,
+    {},
+    token
+  )
+}
+
+export const fetchSupportAnalyticsSummary = (token: string) => {
+  if (isTesterToken(token)) {
+    return Promise.resolve({
+      totalChats: 0,
+      activeChats: 0,
+      totalInquiries: 0,
+      chatsWithInquiry: 0,
+      chatsWithDeposit: 0,
+      depositCount: 0,
+      depositAmount: 0,
+      ftdCount: 0,
+      repeatDepositorsCount: 0,
+    })
+  }
+  return request<{
+    totalChats: number
+    activeChats: number
+    totalInquiries: number
+    chatsWithInquiry: number
+    chatsWithDeposit: number
+    depositCount: number
+    depositAmount: number
+    ftdCount: number
+    repeatDepositorsCount: number
+  }>(
+    '/api/admin/support/analytics/summary',
     {},
     token
   )

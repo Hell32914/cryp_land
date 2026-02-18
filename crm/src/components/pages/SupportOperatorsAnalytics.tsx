@@ -48,6 +48,12 @@ type OperatorStats = {
   responseSumMs: number
   depositCount: number
   depositAmount: number
+  chatCount?: number
+  uniqueUsersCount?: number
+  totalDeposits?: number
+  totalDepositAmount?: number
+  repeatDepositorsCount?: number
+  avgTimeToFirstDepositMs?: number
 }
 
 const getOnlineOverlapMs = (sessions: OperatorPresenceSession[], start: number, end: number) => {
@@ -307,6 +313,12 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
           responseSumMs: 0,
           depositCount: 0,
           depositAmount: 0,
+          chatCount: 0,
+          uniqueUsersCount: 0,
+          totalDeposits: 0,
+          totalDepositAmount: 0,
+          repeatDepositorsCount: 0,
+          avgTimeToFirstDepositMs: 0,
         }
         base.chats += row.stats.chats
         base.totalMessages += row.stats.totalMessages
@@ -318,16 +330,22 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
       }
 
       const depositsResp = await fetchSupportOperatorDeposits(token, fromTs, toTs)
-      const depositsMap = new Map<string, { count: number; amount: number }>()
+      const depositsMap = new Map<string, typeof depositsResp.operators[0]>()
       for (const row of depositsResp.operators || []) {
-        depositsMap.set(row.operator, { count: row.depositCount, amount: row.depositAmount })
+        depositsMap.set(row.operator, row)
       }
 
       for (const [operator, stats] of statsByOperator.entries()) {
         const dep = depositsMap.get(operator)
         if (dep) {
-          stats.depositCount = dep.count
-          stats.depositAmount = dep.amount
+          stats.depositCount = dep.depositCount
+          stats.depositAmount = dep.depositAmount
+          stats.chatCount = dep.chatCount
+          stats.uniqueUsersCount = dep.uniqueUsersCount
+          stats.totalDeposits = dep.totalDeposits
+          stats.totalDepositAmount = dep.totalDepositAmount
+          stats.repeatDepositorsCount = dep.repeatDepositorsCount
+          stats.avgTimeToFirstDepositMs = dep.avgTimeToFirstDepositMs
         }
       }
 
@@ -341,8 +359,14 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
             outboundMessages: 0,
             responseCount: 0,
             responseSumMs: 0,
-            depositCount: dep.count,
-            depositAmount: dep.amount,
+            depositCount: dep.depositCount,
+            depositAmount: dep.depositAmount,
+            chatCount: dep.chatCount,
+            uniqueUsersCount: dep.uniqueUsersCount,
+            totalDeposits: dep.totalDeposits,
+            totalDepositAmount: dep.totalDepositAmount,
+            repeatDepositorsCount: dep.repeatDepositorsCount,
+            avgTimeToFirstDepositMs: dep.avgTimeToFirstDepositMs,
           })
         }
       }
@@ -423,11 +447,18 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
             <div className="text-sm text-muted-foreground">{t('support.analytics.empty')}</div>
           ) : (
             <div className="rounded-md border border-border overflow-x-auto">
-              <Table className="min-w-[860px]">
+              <Table className="min-w-[1200px]">
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="whitespace-nowrap">{t('supportOperatorsAnalytics.columns.operator')}</TableHead>
                     <TableHead className="text-right whitespace-nowrap">{t('supportOperatorsAnalytics.columns.chats')}</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden md:table-cell">CR%</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden md:table-cell">RPC</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">Deposits</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">Deposits $</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">AVG</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">RDR%</TableHead>
+                    <TableHead className="text-right whitespace-nowrap hidden xl:table-cell">Time 1st Dep</TableHead>
                     <TableHead className="text-right whitespace-nowrap hidden md:table-cell">
                       {t('supportOperatorsAnalytics.columns.totalMessages')}
                     </TableHead>
@@ -437,8 +468,6 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                     <TableHead className="text-right whitespace-nowrap hidden lg:table-cell">
                       {t('supportOperatorsAnalytics.columns.outbound')}
                     </TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Deposits</TableHead>
-                    <TableHead className="text-right whitespace-nowrap hidden md:table-cell">Deposits $</TableHead>
                     <TableHead className="text-right whitespace-nowrap">{t('supportOperatorsAnalytics.columns.avgResponse')}</TableHead>
                     <TableHead className="text-right whitespace-nowrap">{t('supportOperatorsAnalytics.columns.responseRate')}</TableHead>
                   </TableRow>
@@ -447,10 +476,31 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                   {rows.map((row) => {
                     const avgResponse = row.responseCount > 0 ? Math.round(row.responseSumMs / row.responseCount / 1000) : null
                     const responseRate = row.inboundMessages > 0 ? Math.round((row.responseCount / row.inboundMessages) * 100) : null
+                    
+                    // New metrics
+                    const cr = row.chatCount && row.totalDeposits ? Math.round((row.totalDeposits / row.chatCount) * 100) : 0
+                    const rpc = row.chatCount && row.chatCount > 0 ? (row.totalDepositAmount || 0) / row.chatCount : 0
+                    const avg = row.totalDeposits && row.totalDeposits > 0 ? (row.totalDepositAmount || 0) / row.totalDeposits : 0
+                    const rdr = row.uniqueUsersCount && row.uniqueUsersCount > 0 
+                      ? Math.round(((row.repeatDepositorsCount || 0) / row.uniqueUsersCount) * 100)
+                      : 0
+                    const timeToFirstDep = row.avgTimeToFirstDepositMs ? formatDuration(Math.round(row.avgTimeToFirstDepositMs / 1000)) : '—'
+                    
                     return (
                       <TableRow key={row.operator} className="hover:bg-muted/30">
                         <TableCell className="font-medium whitespace-nowrap">{row.operator}</TableCell>
-                        <TableCell className="text-right font-mono text-sm whitespace-nowrap">{row.chats}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap">{row.chatCount || 0}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden md:table-cell">{cr}%</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden md:table-cell">${rpc.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">{row.totalDeposits || 0}</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">
+                          ${(row.totalDepositAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">
+                          ${avg.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">{rdr}%</TableCell>
+                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden xl:table-cell">{timeToFirstDep}</TableCell>
                         <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden md:table-cell">
                           {row.totalMessages}
                         </TableCell>
@@ -459,10 +509,6 @@ export function SupportOperatorsAnalytics({ variant = 'page' }: SupportOperators
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden lg:table-cell">
                           {row.outboundMessages}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm whitespace-nowrap">{row.depositCount}</TableCell>
-                        <TableCell className="text-right font-mono text-sm whitespace-nowrap hidden md:table-cell">
-                          ${row.depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm whitespace-nowrap">
                           {formatDuration(avgResponse)}
