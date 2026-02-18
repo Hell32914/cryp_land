@@ -1418,7 +1418,7 @@ app.get('/api/admin/support/analytics/summary', requireAdminAuth, async (req, re
       prisma.supportChat.count({
         where: {
           status: { not: 'ARCHIVE' },
-          OR: [{ isBlocked: false }, { isBlocked: null }],
+          isBlocked: false,
         },
       }),
       prisma.supportMessage.count({ where: { direction: 'IN' } }),
