@@ -150,6 +150,11 @@ export interface OverviewResponse {
     totalReinvest: number
     reinvestCount: number
   }
+  trafficStats?: {
+    leads: number
+    ftdCount: number
+    avgTimeToFtdMs: number | null
+  }
   period: {
     from: string
     to: string
@@ -630,6 +635,11 @@ const MOCK_OVERVIEW: OverviewResponse = {
     withdrawalsCount: 142,
     totalReinvest: 24,
     reinvestCount: 54,
+  },
+  trafficStats: {
+    leads: 980,
+    ftdCount: 210,
+    avgTimeToFtdMs: 36 * 60 * 60 * 1000,
   },
   filters: {
     geos: ['United States', 'Canada', 'Germany'],

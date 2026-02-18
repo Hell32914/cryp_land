@@ -103,6 +103,21 @@ export function Dashboard() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
 
+  const formatCurrencyPrecise = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value)
+
+  const formatDurationShort = (ms: number | null) => {
+    if (ms === null || !Number.isFinite(ms)) return '—'
+    const totalMinutes = Math.round(ms / 60000)
+    const totalHours = Math.floor(totalMinutes / 60)
+    const days = Math.floor(totalHours / 24)
+    const hours = totalHours % 24
+    const minutes = totalMinutes % 60
+    if (days > 0) return `${days}d ${hours}h`
+    if (totalHours > 0) return `${totalHours}h ${minutes}m`
+    return `${minutes}m`
+  }
+
   const parseDateSafe = (value: string | number) => {
     if (typeof value === 'number') {
       const ms = value < 1_000_000_000_000 ? value * 1000 : value
@@ -184,6 +199,21 @@ export function Dashboard() {
   ]
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#6366f1']
+
+  const leads = data?.trafficStats?.leads ?? 0
+  const ftdCount = data?.trafficStats?.ftdCount ?? 0
+  const avgTimeToFtdMs = data?.trafficStats?.avgTimeToFtdMs ?? null
+  const depositsTotal = data
+    ? (period === 'today' ? data.kpis.depositsToday : data.kpis.depositsPeriod)
+    : 0
+  const withdrawalsTotal = data
+    ? (period === 'today' ? data.kpis.withdrawalsToday : data.kpis.withdrawalsPeriod)
+    : 0
+  const netFlow = depositsTotal - withdrawalsTotal
+
+  const crRate = leads > 0 ? (ftdCount / leads) : null
+  const apru = leads > 0 ? (depositsTotal / leads) : null
+  const netPerUser = leads > 0 ? (netFlow / leads) : null
 
   const financialData = data?.financialData ?? []
   const geoData = data?.geoData ?? []
@@ -451,6 +481,47 @@ export function Dashboard() {
             </Card>
           )
         })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.cr')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {crRate !== null ? `${(crRate * 100).toFixed(1)}%` : '—'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.avgTimeToFtd')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatDurationShort(avgTimeToFtdMs)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.apru')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {apru !== null ? formatCurrencyPrecise(apru) : '—'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('dashboard.netPerUser')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${netPerUser !== null && netPerUser < 0 ? 'text-red-400' : ''}`}>
+              {netPerUser !== null ? formatCurrencyPrecise(netPerUser) : '—'}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {isError ? (

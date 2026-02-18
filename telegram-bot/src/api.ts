@@ -3591,6 +3591,44 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       reinvestCount: profitsCount,
     }
 
+    const ftdGroups = await prisma.deposit.groupBy({
+      by: ['userId'],
+      _min: { createdAt: true },
+      where: depositWhere,
+    })
+
+    const ftdUserIds = ftdGroups.map((row) => row.userId)
+    const ftdUsers = ftdUserIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: ftdUserIds } },
+          select: { id: true, createdAt: true },
+        })
+      : []
+
+    const createdAtByUserId = new Map<number, Date>()
+    for (const user of ftdUsers) {
+      createdAtByUserId.set(user.id, user.createdAt)
+    }
+
+    let timeToFtdSumMs = 0
+    let timeToFtdCount = 0
+    for (const row of ftdGroups) {
+      const userCreatedAt = createdAtByUserId.get(row.userId)
+      const firstDepositAt = row._min?.createdAt ? new Date(row._min.createdAt) : null
+      if (!userCreatedAt || !firstDepositAt) continue
+      const diff = firstDepositAt.getTime() - userCreatedAt.getTime()
+      if (diff >= 0) {
+        timeToFtdSumMs += diff
+        timeToFtdCount += 1
+      }
+    }
+
+    const trafficStats = {
+      leads: trafficUsers.length,
+      ftdCount: ftdGroups.length,
+      avgTimeToFtdMs: timeToFtdCount > 0 ? Math.round(timeToFtdSumMs / timeToFtdCount) : null,
+    }
+
     const dailySummary = fullDaily
       ? Array.from(dailySummaryMap.values()).sort((a, b) => (a.date > b.date ? -1 : 1))
       : undefined
@@ -3612,6 +3650,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       geoData,
       topUsers,
       transactionStats,
+      trafficStats,
       filters: {
         geos: availableGeos,
         streams: availableStreams,
