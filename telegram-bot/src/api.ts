@@ -2858,6 +2858,29 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
   try {
     const now = new Date()
     
+    // Excluded accounts (internal team/test accounts) - exclude from analytics
+    // IDs: @blauchipy, @brbit25*, 8489877755 (ромасинтрикс), 6989328943 (personal), 
+    // 5484655851 (VD), 1831127350, @Daria_Veagency*, 7974967932, 1450570156, 330436242,
+    // 5426994340, 503856039, @kalikali1188*, 8574768354, @wstenfuchs*
+    // (* = usernames - need manual lookup)
+    const excludedTelegramIds = [
+      '7161740470',  // @blauchipy (Юля - агент)
+      '8489877755',  // ромасинтрикс (админ)
+      '6989328943',  // личный аккаунт
+      '5484655851',  // VD аккаунт
+      '1831127350',  // ошибочное начисление
+      '7974967932',  // СММ наш
+      '1450570156',  // Emily аккаунт
+      '330436242',   // ошибочное начисление
+      '5426994340',  // возможно наш (very old, no SMS)
+      '503856039',   // наш
+      '8574768354',  // наш
+      '6805730495',  // наш
+      '8285874563',  // наш
+      '8453242161',  // наш
+      '6003566866',  // наш
+    ]
+    
     // Parse period parameters
     const fromParam = req.query.from as string | undefined
     const toParam = req.query.to as string | undefined
@@ -2874,10 +2897,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const geoFilter = typeof req.query.geo === 'string' ? req.query.geo.trim() : ''
     const streamFilter = typeof req.query.stream === 'string' ? req.query.stream.trim() : ''
 
-    const [marketingLinks, geoOptions] = await Promise.all([
+    // Get database IDs of excluded users for filtering deposits/withdrawals/profits
+    const [marketingLinks, geoOptions, excludedUsers] = await Promise.all([
       prisma.marketingLink.findMany({ select: { linkId: true, stream: true } }),
       prisma.user.groupBy({ by: ['country'], where: { isHidden: false } }),
+      prisma.user.findMany({
+        where: { telegramId: { in: excludedTelegramIds } },
+        select: { id: true },
+      }),
     ])
+    const excludeUserIds = excludedUsers.map(u => u.id)
 
     const availableStreams = Array.from(new Set(marketingLinks.map(l => l.stream).filter(Boolean)))
       .map((s) => String(s))
@@ -2901,6 +2930,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     const userWhere = {
       isHidden: false,
+      telegramId: { notIn: excludedTelegramIds },
       ...(geoFilter ? { country: geoFilter } : {}),
       ...(streamFilter ? streamWhere : {}),
     }
@@ -2923,12 +2953,12 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       : userWhere
 
     const depositWhere = periodWhere
-      ? { status: 'COMPLETED', createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
-      : { status: 'COMPLETED', ...(hasFilters ? { user: userWhere } : {}) }
+      ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...(hasFilters ? { user: userWhere } : {}) }
 
     const withdrawalWhere = periodWhere
-      ? { status: 'COMPLETED', createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
-      : { status: 'COMPLETED', ...(hasFilters ? { user: userWhere } : {}) }
+      ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...(hasFilters ? { user: userWhere } : {}) }
 
     const [
       totalUsers,
@@ -2962,6 +2992,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         by: ['userId'],
         where: {
           status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
           OR: [
             { paymentMethod: 'ADMIN' },
             {
@@ -2980,6 +3011,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         _sum: { amount: true },
         where: {
           status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
           createdAt: { gte: startOfToday },
           ...(hasFilters ? { user: userWhere } : {}),
         },
@@ -2988,6 +3020,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         _sum: { amount: true },
         where: {
           status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
           createdAt: { gte: startOfToday },
           ...(hasFilters ? { user: userWhere } : {}),
         },
@@ -2995,9 +3028,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       prisma.dailyProfitUpdate.aggregate({
         _sum: { amount: true },
         where: periodWhere ? {
+          userId: { notIn: excludeUserIds },
           timestamp: periodWhere,
           ...(hasFilters ? { user: userWhere } : {}),
-        } : (hasFilters ? { user: userWhere } : undefined),
+        } : (hasFilters ? { ...userWhere, userId: { notIn: excludeUserIds } } as any : { userId: { notIn: excludeUserIds } }),
       }),
       // Deposits in selected period (for KPI)
       prisma.deposit.aggregate({
@@ -3012,6 +3046,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       prisma.deposit.findMany({
         where: {
           status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
           createdAt: periodWhere || { gte: chartStart },
           ...(hasFilters ? { user: userWhere } : {}),
         },
@@ -3020,6 +3055,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       prisma.withdrawal.findMany({
         where: {
           status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
           createdAt: periodWhere || { gte: chartStart },
           ...(hasFilters ? { user: userWhere } : {}),
         },
@@ -3027,6 +3063,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.dailyProfitUpdate.findMany({
         where: {
+          userId: { notIn: excludeUserIds },
           timestamp: periodWhere || { gte: chartStart },
           ...(hasFilters ? { user: userWhere } : {}),
         },
