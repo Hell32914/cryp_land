@@ -6399,7 +6399,35 @@ if (supportBot) {
     const languageCode = from?.language_code || null
     const welcomeMessage = getSupportWelcomeMessage(languageCode)
 
-    await ctx.reply(welcomeMessage)
+    const sentMessage = await ctx.reply(welcomeMessage)
+
+    // Save welcome message to SupportMessage so it appears in CRM chat
+    try {
+      const supportChat = await prisma.supportChat.findUnique({ where: { telegramId } })
+      if (supportChat) {
+        await prisma.supportMessage.create({
+          data: {
+            supportChatId: supportChat.id,
+            direction: 'OUT',
+            kind: 'TEXT',
+            text: welcomeMessage,
+            telegramMessageId: sentMessage.message_id ?? null,
+            createdAt: now,
+          } as any,
+        })
+        // Update last message info on the chat
+        await prisma.supportChat.update({
+          where: { id: supportChat.id },
+          data: {
+            lastMessageAt: now,
+            lastOutboundAt: now,
+            lastMessageText: welcomeMessage.slice(0, 500),
+          } as any,
+        })
+      }
+    } catch (err) {
+      console.warn('Support bot /start: failed to save welcome message:', (err as any)?.message || err)
+    }
   })
 
   supportBot.on('message:text', async (ctx) => {

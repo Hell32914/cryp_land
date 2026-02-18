@@ -373,6 +373,10 @@ const resources = {
         viewDetails: 'View Details',
         userDetails: 'User Details',
         close: 'Close',
+        statsActive: 'Active',
+        statsInactive: 'Inactive',
+        statsBlocked: 'Blocked',
+        statsTotal: 'Total',
       },
       geo: {
         title: 'Geographic Data',
@@ -787,6 +791,10 @@ const resources = {
         viewDetails: 'Подробнее',
         userDetails: 'Детали пользователя',
         close: 'Закрыть',
+        statsActive: 'Активные',
+        statsInactive: 'Неактивные',
+        statsBlocked: 'Заблокированы',
+        statsTotal: 'Всего',
       },
       geo: {
         title: 'Географические данные',
@@ -984,6 +992,10 @@ const resources = {
         viewDetails: 'Детальніше',
         userDetails: 'Деталі користувача',
         close: 'Закрити',
+        statsActive: 'Активні',
+        statsInactive: 'Неактивні',
+        statsBlocked: 'Заблоковані',
+        statsTotal: 'Всього',
       },
       geo: {
         title: 'Географічні дані',
