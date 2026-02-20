@@ -4022,22 +4022,130 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 // Get user statistics (active/inactive counts)
 app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
   try {
-    // Fetch all non-hidden users with fields needed for computeDisplayStatus
+    const {
+      country = '',
+      leadStatus = '',
+      status = '',
+      trafficker = '',
+      dateFrom = '',
+      dateTo = '',
+    } = req.query
+
+    const countryValue = String(country).trim()
+    const statusValue = String(status || '').trim()
+    const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
+    const traffickerValue = String(trafficker || '').trim().toLowerCase()
+
+    // Build country filter
+    const countryFilter: Prisma.UserWhereInput | null = countryValue
+      ? (countryValue.toLowerCase() === 'unknown'
+          ? {
+              OR: [
+                { country: null },
+                { country: '' },
+                { country: { equals: 'Unknown', mode: Prisma.QueryMode.insensitive } },
+              ],
+            }
+          : { country: { contains: countryValue, mode: Prisma.QueryMode.insensitive } })
+      : null
+
+    // Build date filter
+    const fromDateRaw = typeof dateFrom === 'string' && dateFrom ? new Date(dateFrom) : null
+    const toDateRaw = typeof dateTo === 'string' && dateTo ? new Date(`${dateTo}T23:59:59.999`) : null
+    const fromDate = fromDateRaw && !Number.isNaN(fromDateRaw.getTime()) ? fromDateRaw : null
+    const toDate = toDateRaw && !Number.isNaN(toDateRaw.getTime()) ? toDateRaw : null
+    const createdAtFilter: Prisma.UserWhereInput | null = fromDate || toDate
+      ? {
+          createdAt: {
+            ...(fromDate ? { gte: fromDate } : {}),
+            ...(toDate ? { lte: toDate } : {}),
+          },
+        }
+      : null
+
+    // For status and leadStatus, we need to fetch users and filter client-side
+    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || (Boolean(statusValue) && statusValue !== 'all')
+    
+    const statusFilter: Prisma.UserWhereInput | null = !requireComputedFilter && statusValue && statusValue !== 'all'
+      ? { status: { equals: statusValue, mode: Prisma.QueryMode.insensitive } }
+      : null
+
+    const where: Prisma.UserWhereInput = {
+      AND: [
+        { isHidden: false },
+        countryFilter,
+        statusFilter,
+        createdAtFilter
+      ].filter(Boolean) as Prisma.UserWhereInput[],
+    }
+
+    // Fetch users with necessary fields
     const allUsers = await prisma.user.findMany({
-      where: { isHidden: false },
+      where,
       select: {
         status: true,
         isBlocked: true,
         country: true,
         marketingSource: true,
         botStartedAt: true,
+        utmParams: true,
       },
     })
 
+    // Apply remaining filters on fetched data if needed
+    let filteredUsers: any[] = allUsers
+
+    if (requireComputedFilter) {
+      // Get all marketing links to help with trafficker filtering
+      const marketingLinks = await prisma.marketingLink.findMany()
+      const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
+      
+      // Enrich users with trafficker info
+      const enrichedUsers = allUsers.map((user) => {
+        let trafficerName = null
+        const utmParams = (user as any).utmParams
+        if (utmParams && typeof utmParams === 'string' && utmParams.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(utmParams)
+            const linkIdMatch = parsed?.linkId || (typeof parsed === 'string' ? parsed.match?.(/mk_[a-zA-Z0-9_]+/) : null)
+            if (linkIdMatch) {
+              const link = linksByLinkId.get(typeof linkIdMatch === 'string' ? linkIdMatch : linkIdMatch[0])
+              trafficerName = link?.trafficerName || null
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        return {
+          ...user,
+          trafficerName,
+        }
+      })
+
+      if (leadStatusValue && leadStatusValue !== 'all') {
+        filteredUsers = enrichedUsers.filter((u) => getLeadStatusLabel(u) === leadStatusValue)
+      } else {
+        filteredUsers = enrichedUsers
+      }
+
+      if (traffickerValue) {
+        filteredUsers = filteredUsers.filter((u) => String(u.trafficerName || '').toLowerCase().includes(traffickerValue))
+      }
+
+      if (statusValue && statusValue !== 'all') {
+        filteredUsers = filteredUsers.filter((u) => {
+          const displayStatus = computeDisplayStatus(u)
+          return String(displayStatus || '').toUpperCase() === statusValue.toUpperCase()
+        })
+      }
+    }
+
+    // Calculate stats from filtered users
     let activeCount = 0
     let inactiveCount = 0
     let blockedCount = 0
-    for (const u of allUsers) {
+    for (const u of filteredUsers) {
       if (u.isBlocked) blockedCount++
       const ds = computeDisplayStatus(u)
       if (String(ds).toUpperCase() === 'ACTIVE') activeCount++
@@ -4048,7 +4156,7 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
       active: activeCount,
       inactive: inactiveCount,
       blocked: blockedCount,
-      total: allUsers.length,
+      total: filteredUsers.length,
     })
   } catch (error) {
     console.error('Admin users stats error:', error)
