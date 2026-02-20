@@ -57,7 +57,7 @@ export function Dashboard() {
     
     switch (period) {
       case 'all': {
-        return { from: new Date(0).toISOString(), to: now.toISOString() }
+        return { from: undefined, to: undefined }
       }
       case 'today': {
         return { from: today.toISOString(), to: now.toISOString() }
@@ -84,7 +84,12 @@ export function Dashboard() {
   }
   
   const dateRange = getDateRange()
-  const allTimeRange = useMemo(() => ({ from: new Date(0).toISOString(), to: new Date().toISOString() }), [])
+  const allTimeRange = useMemo(() => {
+    const now = new Date()
+    const ninetyDaysAgo = new Date(now)
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+    return { from: ninetyDaysAgo.toISOString(), to: now.toISOString() }
+  }, [])
   
   const { data, isLoading, isError, error } = useApiQuery<OverviewResponse>(
     ['overview', period, customFrom, customTo, geoFilter, streamFilter], 
