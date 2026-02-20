@@ -128,8 +128,15 @@ export function Users() {
   )
 
   const { data: statsData } = useApiQuery(
-    ['users-stats'],
-    (authToken) => fetchUsersStats(authToken),
+    ['users-stats', filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo],
+    (authToken) => fetchUsersStats(authToken, {
+      country: filterCountry.trim() || undefined,
+      leadStatus: filterLeadStatus,
+      status: filterStatus,
+      trafficker: filterTrafficker.trim() || undefined,
+      dateFrom: filterDateFrom || undefined,
+      dateTo: filterDateTo || undefined,
+    }),
     {
       enabled: Boolean(token),
       refetchInterval: 30000, // Refresh every 30 seconds

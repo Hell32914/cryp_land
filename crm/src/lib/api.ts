@@ -1134,12 +1134,60 @@ export interface UsersStatsResponse {
   total: number
 }
 
-export const fetchUsersStats = (token: string) => {
+export const fetchUsersStats = (token: string, opts?: {
+  country?: string
+  leadStatus?: string
+  status?: string
+  trafficker?: string
+  dateFrom?: string
+  dateTo?: string
+}) => {
   if (isTesterToken(token)) {
-    const activeCount = MOCK_USERS.filter(u => String(u.status || '').toUpperCase() === 'ACTIVE').length
-    const inactiveCount = MOCK_USERS.filter(u => String(u.status || '').toUpperCase() === 'INACTIVE').length
-    const blockedCount = MOCK_USERS.filter(u => u.isBlocked).length
-    const totalCount = MOCK_USERS.length
+    let filteredUsers = [...MOCK_USERS]
+    
+    if (opts?.country) {
+      filteredUsers = filteredUsers.filter((user) =>
+        user.country?.toLowerCase().includes(opts.country!.toLowerCase())
+      )
+    }
+    if (opts?.status && opts.status !== 'all') {
+      filteredUsers = filteredUsers.filter((user) =>
+        String(user.status || '').toLowerCase() === String(opts.status).toLowerCase()
+      )
+    }
+    if (opts?.trafficker) {
+      filteredUsers = filteredUsers.filter((user) =>
+        String(user.trafficerName || '').toLowerCase().includes(String(opts.trafficker).toLowerCase())
+      )
+    }
+    if (opts?.leadStatus && opts.leadStatus !== 'all') {
+      filteredUsers = filteredUsers.filter((user) => {
+        const isChannel = String(user.marketingSource || '').toLowerCase() === 'channel'
+        const hasStartedBot = Boolean(user.botStartedAt)
+        const isInactive = String(user.status || '').toUpperCase() === 'INACTIVE'
+        const isChannelOnly = isChannel && !hasStartedBot && isInactive
+        const isKnownUser = Boolean(user.country && user.country !== 'Unknown')
+        const label = isChannelOnly ? 'channel' : (isKnownUser ? 'user' : 'lead')
+        return label === opts.leadStatus
+      })
+    }
+    if (opts?.dateFrom || opts?.dateTo) {
+      const fromDate = opts.dateFrom ? new Date(opts.dateFrom) : null
+      const toDate = opts.dateTo ? new Date(`${opts.dateTo}T23:59:59.999`) : null
+      const fromValid = fromDate && !Number.isNaN(fromDate.getTime()) ? fromDate : null
+      const toValid = toDate && !Number.isNaN(toDate.getTime()) ? toDate : null
+      filteredUsers = filteredUsers.filter((user) => {
+        const created = new Date(user.createdAt)
+        if (fromValid && created < fromValid) return false
+        if (toValid && created > toValid) return false
+        return true
+      })
+    }
+    
+    const activeCount = filteredUsers.filter(u => String(u.status || '').toUpperCase() === 'ACTIVE').length
+    const inactiveCount = filteredUsers.filter(u => String(u.status || '').toUpperCase() === 'INACTIVE').length
+    const blockedCount = filteredUsers.filter(u => u.isBlocked).length
+    const totalCount = filteredUsers.length
     return Promise.resolve({
       active: activeCount,
       inactive: inactiveCount,
@@ -1147,7 +1195,16 @@ export const fetchUsersStats = (token: string) => {
       total: totalCount,
     } as UsersStatsResponse)
   }
-  return request<UsersStatsResponse>(`/api/admin/users-stats`, {}, token)
+  
+  const params = new URLSearchParams()
+  if (opts?.country) params.set('country', opts.country)
+  if (opts?.status) params.set('status', opts.status)
+  if (opts?.trafficker) params.set('trafficker', opts.trafficker)
+  if (opts?.leadStatus) params.set('leadStatus', opts.leadStatus)
+  if (opts?.dateFrom) params.set('dateFrom', opts.dateFrom)
+  if (opts?.dateTo) params.set('dateTo', opts.dateTo)
+  const query = params.toString()
+  return request<UsersStatsResponse>(`/api/admin/users-stats${query ? `?${query}` : ''}`, {}, token)
 }
 
 export const fetchDeposits = (token: string, opts?: { page?: number; limit?: number; search?: string }) => {

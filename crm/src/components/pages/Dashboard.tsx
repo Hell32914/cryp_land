@@ -46,9 +46,7 @@ export function Dashboard() {
   const [streamFilter, setStreamFilter] = useState('')
   const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
   const [statsPage, setStatsPage] = useState(1)
-  const compactTopScrollRef = useRef<HTMLDivElement>(null)
   const compactBottomScrollRef = useRef<HTMLDivElement>(null)
-  const fullTopScrollRef = useRef<HTMLDivElement>(null)
   const fullBottomScrollRef = useRef<HTMLDivElement>(null)
   
   // Calculate date range based on period
@@ -267,24 +265,12 @@ export function Dashboard() {
   const statsPageSafe = Math.min(statsPage, statsPageCount)
   const compactRows = allTimeRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
 
-  const handleFullTopScroll = () => {
-    if (!fullTopScrollRef.current || !fullBottomScrollRef.current) return
-    fullBottomScrollRef.current.scrollLeft = fullTopScrollRef.current.scrollLeft
-  }
-
   const handleFullBottomScroll = () => {
-    if (!fullTopScrollRef.current || !fullBottomScrollRef.current) return
-    fullTopScrollRef.current.scrollLeft = fullBottomScrollRef.current.scrollLeft
-  }
-
-  const handleCompactTopScroll = () => {
-    if (!compactTopScrollRef.current || !compactBottomScrollRef.current) return
-    compactBottomScrollRef.current.scrollLeft = compactTopScrollRef.current.scrollLeft
+    // Scroll handler kept for potential future use
   }
 
   const handleCompactBottomScroll = () => {
-    if (!compactTopScrollRef.current || !compactBottomScrollRef.current) return
-    compactTopScrollRef.current.scrollLeft = compactBottomScrollRef.current.scrollLeft
+    // Scroll handler kept for potential future use
   }
 
   const renderDailyTable = (rows: DailyRow[]) => {
@@ -793,13 +779,6 @@ export function Dashboard() {
                     </button>
                   </div>
                   <div
-                    ref={compactTopScrollRef}
-                    onScroll={handleCompactTopScroll}
-                    className="h-3 overflow-x-auto"
-                  >
-                    <div className="min-w-[1200px]" />
-                  </div>
-                  <div
                     ref={compactBottomScrollRef}
                     onScroll={handleCompactBottomScroll}
                     className="overflow-x-auto"
@@ -816,13 +795,6 @@ export function Dashboard() {
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
                 <div className="space-y-2">
-                  <div
-                    ref={fullTopScrollRef}
-                    onScroll={handleFullTopScroll}
-                    className="h-3 overflow-x-auto"
-                  >
-                    <div className="min-w-[1200px]" />
-                  </div>
                   <div
                     ref={fullBottomScrollRef}
                     onScroll={handleFullBottomScroll}
