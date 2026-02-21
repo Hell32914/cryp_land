@@ -150,11 +150,16 @@ async function copyText(text: string): Promise<boolean> {
     textarea.style.left = '0'
     textarea.style.opacity = '0'
     document.body.appendChild(textarea)
-    textarea.focus()
-    textarea.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(textarea)
-    return ok
+    try {
+      textarea.focus()
+      textarea.select()
+      const ok = document.execCommand('copy')
+      return ok
+    } finally {
+      if (textarea.parentNode === document.body) {
+        document.body.removeChild(textarea)
+      }
+    }
   } catch {
     return false
   }
@@ -1146,7 +1151,11 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
 
     viewport.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
-    return () => viewport.removeEventListener('scroll', onScroll)
+    return () => {
+      if (viewport && viewport.removeEventListener) {
+        viewport.removeEventListener('scroll', onScroll)
+      }
+    }
   }, [])
 
   // Detect new incoming activity and show a jump-to-top indicator when list is scrolled.

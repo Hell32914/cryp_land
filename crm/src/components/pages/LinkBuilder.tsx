@@ -75,11 +75,16 @@ export function LinkBuilder() {
       textarea.style.left = '0'
       textarea.style.opacity = '0'
       document.body.appendChild(textarea)
-      textarea.focus()
-      textarea.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(textarea)
-      return ok
+      try {
+        textarea.focus()
+        textarea.select()
+        const ok = document.execCommand('copy')
+        return ok
+      } finally {
+        if (textarea.parentNode === document.body) {
+          document.body.removeChild(textarea)
+        }
+      }
     } catch (err) {
       return false
     }

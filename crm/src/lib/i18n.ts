@@ -172,7 +172,7 @@ const resources = {
           archive: 'Archive',
         },
         analytics: {
-          title: 'Support analytics',
+          title: 'Support metrics',
           range: 'Range',
           refresh: 'Refresh',
           loading: 'Calculating analytics...',
@@ -598,7 +598,7 @@ const resources = {
           archive: 'Архив',
         },
         analytics: {
-          title: 'Аналитика поддержки',
+          title: 'Метрики поддержки',
           range: 'Период',
           refresh: 'Обновить',
           loading: 'Считаем аналитику...',
@@ -943,9 +943,9 @@ const resources = {
         supportBroadcasts: 'Розсилка',
         supportAnalytics: 'Аналітика підтримки',
         supportOperatorsAnalytics: 'Аналітика операторів',
-         depositUsers: 'Депозитори',
-      },
+        depositUsers: 'Депозитори',
         bonus: 'Бонус',
+      },
       supportOperatorsAnalytics: {
         title: 'Аналітика операторів',
         subtitle: 'Показники по операторах',
