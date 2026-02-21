@@ -177,9 +177,14 @@ type SupportMode = 'inbox' | 'analytics'
 interface SupportProps {
   mode?: SupportMode
   analyticsTab?: SupportAnalyticsTab
+  showAnalyticsTabs?: boolean
 }
 
-export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'overview' }: SupportProps) {
+export function Support({
+  mode = 'inbox',
+  analyticsTab: initialAnalyticsTab = 'overview',
+  showAnalyticsTabs = true,
+}: SupportProps) {
   const { t } = useTranslation()
   const { token } = useAuth()
   const isMobile = useIsMobile()
@@ -1992,16 +1997,18 @@ export function Support({ mode = 'inbox', analyticsTab: initialAnalyticsTab = 'o
           <CardContent>
             {activeTab === 'analytics' ? (
               <div className="space-y-4">
-                <Tabs value={analyticsTab} onValueChange={(value) => setAnalyticsTab(value as SupportAnalyticsTab)}>
-                  <TabsList className="w-full flex-nowrap justify-start overflow-x-auto">
-                    <TabsTrigger value="overview" className="flex-1 min-w-[160px] whitespace-nowrap">
-                      {t('support.analytics.title')}
-                    </TabsTrigger>
-                    <TabsTrigger value="operators" className="flex-1 min-w-[180px] whitespace-nowrap">
-                      {t('supportOperatorsAnalytics.title')}
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {showAnalyticsTabs ? (
+                  <Tabs value={analyticsTab} onValueChange={(value) => setAnalyticsTab(value as SupportAnalyticsTab)}>
+                    <TabsList className="w-full flex-nowrap justify-start overflow-x-auto">
+                      <TabsTrigger value="overview" className="flex-1 min-w-[160px] whitespace-nowrap">
+                        {t('support.analytics.title')}
+                      </TabsTrigger>
+                      <TabsTrigger value="operators" className="flex-1 min-w-[180px] whitespace-nowrap">
+                        {t('supportOperatorsAnalytics.title')}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                ) : null}
 
                 {analyticsTab === 'overview' ? (
                   <div className="space-y-4">

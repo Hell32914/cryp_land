@@ -21,6 +21,7 @@ import { SupportFunnelBoard } from '@/components/pages/SupportFunnelBoard'
 import { SupportOperators } from '@/components/pages/SupportOperators'
 import { SupportBroadcasts } from '@/components/pages/SupportBroadcasts'
 import { SupportAnalytics } from '@/components/pages/SupportAnalytics'
+import { SupportOperatorsAnalytics } from '@/components/pages/SupportOperatorsAnalytics'
 import '@/lib/i18n'
 
 const queryClient = new QueryClient()
@@ -149,7 +150,7 @@ function AppContent() {
       case 'support-analytics':
         return <SupportAnalytics />
       case 'support-operators-analytics':
-        return <Support mode="analytics" analyticsTab="operators" />
+        return <SupportOperatorsAnalytics variant="page" />
       default:
         return role === 'support' ? <Support /> : <Dashboard />
     }
