@@ -139,12 +139,12 @@ export function Deposits() {
 
   // Calculate totals
   const totals = useMemo(() => {
-    const completedDeposits = latestDeposits.filter(d => d.status === 'COMPLETED')
+    const completedDeposits = filteredDeposits.filter(d => d.status === 'COMPLETED')
     return {
       totalAmount: completedDeposits.reduce((sum, d) => sum + d.amount, 0),
       totalCount: completedDeposits.length
     }
-  }, [latestDeposits])
+  }, [filteredDeposits])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
