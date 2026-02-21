@@ -3270,7 +3270,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           userId: { notIn: excludeUserIds },
           timestamp: periodWhere,
           ...(hasFilters ? { user: userWhere } : {}),
-        } : (hasFilters ? { ...userWhere, userId: { notIn: excludeUserIds } } as any : { userId: { notIn: excludeUserIds } }),
+        } : {
+          userId: { notIn: excludeUserIds },
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
       }),
       // Deposits in selected period (for KPI)
       prisma.deposit.aggregate({
@@ -3574,10 +3577,18 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       prisma.dailyProfitUpdate.aggregate({
         _sum: { amount: true },
-        where: periodWhere ? { timestamp: periodWhere } : undefined,
+        where: {
+          userId: { notIn: excludeUserIds },
+          ...(periodWhere ? { timestamp: periodWhere } : {}),
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
       }),
       prisma.dailyProfitUpdate.count({
-        where: periodWhere ? { timestamp: periodWhere } : undefined,
+        where: {
+          userId: { notIn: excludeUserIds },
+          ...(periodWhere ? { timestamp: periodWhere } : {}),
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
       }),
     ])
 
