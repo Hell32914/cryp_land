@@ -137,14 +137,13 @@ export function Deposits() {
 
   const latestDeposits = useMemo(() => groupedDeposits.map((g) => g.deposits[0]), [groupedDeposits])
 
-  // Calculate totals
+  // Use server-side totals (excludes test accounts, ADMIN credits, PROFIT records)
   const totals = useMemo(() => {
-    const completedDeposits = filteredDeposits.filter(d => d.status === 'COMPLETED')
     return {
-      totalAmount: completedDeposits.reduce((sum, d) => sum + d.amount, 0),
-      totalCount: completedDeposits.length
+      totalAmount: data?.totalDepositsAmount ?? 0,
+      totalCount: data?.totalDepositsCount ?? 0
     }
-  }, [filteredDeposits])
+  }, [data?.totalDepositsAmount, data?.totalDepositsCount])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

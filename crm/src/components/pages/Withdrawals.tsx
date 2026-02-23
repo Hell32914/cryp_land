@@ -52,17 +52,15 @@ export function Withdrawals() {
     return true
   })
 
-  // Calculate totals
+  // Use server-side totals (excludes test accounts)
   const totals = useMemo(() => {
-    const completedWithdrawals = filteredWithdrawals.filter(w => w.status === 'COMPLETED' || w.status === 'APPROVED')
-    const processingWithdrawals = filteredWithdrawals.filter(w => w.status === 'PROCESSING')
     return {
-      totalAmount: completedWithdrawals.reduce((sum, w) => sum + w.amount, 0),
-      totalCount: completedWithdrawals.length,
-      processingAmount: processingWithdrawals.reduce((sum, w) => sum + w.amount, 0),
-      processingCount: processingWithdrawals.length
+      totalAmount: data?.totalWithdrawnAmount ?? 0,
+      totalCount: data?.totalWithdrawnCount ?? 0,
+      processingAmount: data?.processingAmount ?? 0,
+      processingCount: data?.processingCount ?? 0
     }
-  }, [filteredWithdrawals])
+  }, [data?.totalWithdrawnAmount, data?.totalWithdrawnCount, data?.processingAmount, data?.processingCount])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

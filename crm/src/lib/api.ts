@@ -255,6 +255,9 @@ export interface DepositsResponse {
   totalPages: number
   hasNextPage: boolean
   hasPrevPage: boolean
+  // Server-side totals (excludes test accounts, ADMIN credits, PROFIT records)
+  totalDepositsAmount?: number
+  totalDepositsCount?: number
 }
 
 export interface WithdrawalRecord {
@@ -1349,8 +1352,8 @@ export const revokeUserBonus = (token: string, telegramId: string) =>
 
 export const fetchWithdrawals = (token: string) =>
   isTesterToken(token)
-    ? Promise.resolve({ withdrawals: MOCK_WITHDRAWALS })
-    : request<{ withdrawals: WithdrawalRecord[] }>('/api/admin/withdrawals', {}, token)
+    ? Promise.resolve({ withdrawals: MOCK_WITHDRAWALS, totalWithdrawnAmount: 0, totalWithdrawnCount: 0, processingAmount: 0, processingCount: 0, totalCount: 0, page: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false })
+    : request<{ withdrawals: WithdrawalRecord[]; totalWithdrawnAmount?: number; totalWithdrawnCount?: number; processingAmount?: number; processingCount?: number; totalCount?: number; page?: number; totalPages?: number; hasNextPage?: boolean; hasPrevPage?: boolean }>('/api/admin/withdrawals?limit=500', {}, token)
 
 export const fetchExpenses = (token: string) =>
   isTesterToken(token)

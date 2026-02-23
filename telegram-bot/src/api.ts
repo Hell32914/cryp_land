@@ -40,6 +40,25 @@ if (!process.env.SUPPORT_WEBHOOK_SECRET_TOKEN) {
 // Track pending withdrawal requests to prevent double-clicking race condition
 const pendingWithdrawalRequests = new Set<string>()
 
+// Excluded accounts (internal team/test accounts) - exclude from analytics
+const EXCLUDED_TELEGRAM_IDS = [
+  '7161740470',  // @blauchipy (Юля - агент)
+  '8489877755',  // ромасинтрикс (админ)
+  '6989328943',  // личный аккаунт
+  '5484655851',  // VD аккаунт
+  '1831127350',  // ошибочное начисление
+  '7974967932',  // СММ наш
+  '1450570156',  // Emily аккаунт
+  '330436242',   // ошибочное начисление
+  '5426994340',  // возможно наш (very old, no SMS)
+  '503856039',   // наш
+  '8574768354',  // наш
+  '6805730495',  // наш
+  '8285874563',  // наш
+  '8453242161',  // наш
+  '6003566866',  // наш
+]
+
 // Get IP geolocation data
 async function getIpGeoData(ip: string) {
   try {
@@ -3156,28 +3175,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
   try {
     const now = new Date()
     
-    // Excluded accounts (internal team/test accounts) - exclude from analytics
-    // IDs: @blauchipy, @brbit25*, 8489877755 (ромасинтрикс), 6989328943 (personal), 
-    // 5484655851 (VD), 1831127350, @Daria_Veagency*, 7974967932, 1450570156, 330436242,
-    // 5426994340, 503856039, @kalikali1188*, 8574768354, @wstenfuchs*
-    // (* = usernames - need manual lookup)
-    const excludedTelegramIds = [
-      '7161740470',  // @blauchipy (Юля - агент)
-      '8489877755',  // ромасинтрикс (админ)
-      '6989328943',  // личный аккаунт
-      '5484655851',  // VD аккаунт
-      '1831127350',  // ошибочное начисление
-      '7974967932',  // СММ наш
-      '1450570156',  // Emily аккаунт
-      '330436242',   // ошибочное начисление
-      '5426994340',  // возможно наш (very old, no SMS)
-      '503856039',   // наш
-      '8574768354',  // наш
-      '6805730495',  // наш
-      '8285874563',  // наш
-      '8453242161',  // наш
-      '6003566866',  // наш
-    ]
+    // Use shared excluded accounts list
+    const excludedTelegramIds = EXCLUDED_TELEGRAM_IDS
     
     // Parse period parameters
     const fromParam = req.query.from as string | undefined
@@ -4150,6 +4149,7 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
     const where: Prisma.UserWhereInput = {
       AND: [
         { isHidden: false },
+        { telegramId: { notIn: EXCLUDED_TELEGRAM_IDS } },
         countryFilter,
         statusFilter,
         createdAtFilter
@@ -4269,6 +4269,7 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
 
     const baseWhere: Prisma.UserWhereInput = {
       isHidden: false,
+      telegramId: { notIn: EXCLUDED_TELEGRAM_IDS },
       deposits: {
         some: {
           status: 'COMPLETED',
@@ -4638,6 +4639,23 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
     const totalCount = await prisma.deposit.count({ where })
     const totalPages = Math.ceil(totalCount / take) || 1
 
+    // Server-side totals for real deposits (excluding test accounts, ADMIN credits, PROFIT records)
+    const excludedUsers = await prisma.user.findMany({
+      where: { telegramId: { in: EXCLUDED_TELEGRAM_IDS } },
+      select: { id: true },
+    })
+    const excludeUserIds = excludedUsers.map(u => u.id)
+    const realDepositsAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      _count: { id: true },
+      where: {
+        status: 'COMPLETED',
+        paymentMethod: { not: 'ADMIN' },
+        NOT: [{ currency: 'PROFIT' }],
+        userId: { notIn: excludeUserIds },
+      },
+    })
+
     const deposits = await prisma.deposit.findMany({
       where,
       include: { 
@@ -4747,6 +4765,9 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       totalPages,
       hasNextPage: pageNum < totalPages,
       hasPrevPage: pageNum > 1,
+      // Server-side totals for real deposits (excludes test accounts, ADMIN credits, PROFIT records)
+      totalDepositsAmount: Number(realDepositsAgg._sum.amount ?? 0),
+      totalDepositsCount: Number(realDepositsAgg._count.id ?? 0),
     })
   } catch (error) {
     console.error('Admin deposits error:', error)
@@ -4756,19 +4777,50 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
 
 app.get('/api/admin/withdrawals', requireAdminAuth, async (req, res) => {
   try {
-    const { status, limit = '100' } = req.query
+    const { status, limit = '100', page = '1' } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 100, 500)
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
+    const skip = (pageNum - 1) * take
+
+    const where = status
+      ? { status: String(status).toUpperCase() }
+      : undefined
+
+    const totalCount = await prisma.withdrawal.count({ where })
+    const totalPages = Math.ceil(totalCount / take) || 1
 
     const withdrawals = await prisma.withdrawal.findMany({
-      where: status
-        ? {
-            status: String(status).toUpperCase(),
-          }
-        : undefined,
+      where,
       include: { user: true },
       orderBy: { createdAt: 'desc' },
+      skip,
       take,
     })
+
+    // Server-side totals for real withdrawals (excluding test accounts)
+    const excludedUsers = await prisma.user.findMany({
+      where: { telegramId: { in: EXCLUDED_TELEGRAM_IDS } },
+      select: { id: true },
+    })
+    const excludeUserIds = excludedUsers.map(u => u.id)
+    const [completedAgg, processingAgg] = await Promise.all([
+      prisma.withdrawal.aggregate({
+        _sum: { amount: true },
+        _count: { id: true },
+        where: {
+          status: { in: ['COMPLETED', 'APPROVED'] },
+          userId: { notIn: excludeUserIds },
+        },
+      }),
+      prisma.withdrawal.aggregate({
+        _sum: { amount: true },
+        _count: { id: true },
+        where: {
+          status: 'PROCESSING',
+          userId: { notIn: excludeUserIds },
+        },
+      }),
+    ])
 
     const payload = withdrawals.map((withdrawal) => ({
       id: withdrawal.id,
@@ -4783,7 +4835,19 @@ app.get('/api/admin/withdrawals', requireAdminAuth, async (req, res) => {
       user: mapUserSummary(withdrawal.user),
     }))
 
-    return res.json({ withdrawals: payload })
+    return res.json({
+      withdrawals: payload,
+      totalCount,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+      // Server-side totals (excludes test accounts)
+      totalWithdrawnAmount: Number(completedAgg._sum.amount ?? 0),
+      totalWithdrawnCount: Number(completedAgg._count.id ?? 0),
+      processingAmount: Number(processingAgg._sum.amount ?? 0),
+      processingCount: Number(processingAgg._count.id ?? 0),
+    })
   } catch (error) {
     console.error('Admin withdrawals error:', error)
     return res.status(500).json({ error: 'Failed to load withdrawals' })
@@ -6605,9 +6669,9 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     // Include users attributed via channel joins (invite links), not only direct bot start payload.
     // This restores per-link visibility for channel funnels.
     const usersAll = await prisma.user.findMany({
-      where: { isHidden: false },
+      where: { isHidden: false, telegramId: { notIn: EXCLUDED_TELEGRAM_IDS } },
       include: {
-        deposits: { where: { status: 'COMPLETED' } },
+        deposits: { where: { status: 'COMPLETED', NOT: [{ currency: 'PROFIT' }], paymentMethod: { not: 'ADMIN' } } },
         withdrawals: { where: { status: { in: ['COMPLETED', 'APPROVED'] } } },
       },
     })
