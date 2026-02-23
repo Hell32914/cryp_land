@@ -1604,6 +1604,47 @@ export const fetchSupportChats = (token: string, search?: string, page?: number,
   return request<SupportChatsResponse>(`/api/admin/support/chats${query ? `?${query}` : ''}`, {}, token)
 }
 
+export const fetchSupportArchivedChats = (token: string, search?: string, page?: number, limit?: number) => {
+  if (isTesterToken(token)) {
+    const term = (search || '').trim().toLowerCase()
+    const filtered = term
+      ? MOCK_SUPPORT_CHATS.filter((chat) =>
+          [
+            chat.chatId,
+            chat.telegramId,
+            chat.username,
+            chat.firstName,
+            chat.lastName,
+            chat.lastMessageText,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(term)
+        )
+      : MOCK_SUPPORT_CHATS
+
+    const pageSize = limit || 50
+    const currentPage = page || 1
+    const start = (currentPage - 1) * pageSize
+    const slice = filtered.slice(start, start + pageSize)
+    return Promise.resolve({
+      chats: slice,
+      page: currentPage,
+      totalPages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+      totalCount: filtered.length,
+      hasNextPage: start + pageSize < filtered.length,
+      hasPrevPage: currentPage > 1,
+    } as SupportChatsResponse)
+  }
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  if (page) params.set('page', String(page))
+  if (limit) params.set('limit', String(limit))
+  const query = params.toString()
+  return request<SupportChatsResponse>(`/api/admin/support/chats/archive${query ? `?${query}` : ''}`, {}, token)
+}
+
 export const fetchSupportMessages = (token: string, chatId: string, opts?: { beforeId?: number; limit?: number }) => {
   if (isTesterToken(token)) {
     const all = MOCK_SUPPORT_MESSAGES[chatId] || []

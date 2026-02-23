@@ -792,17 +792,20 @@ app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
     }
 
     const { search, page = 1, limit = 50 } = parsed.data
-    const where = search
-      ? {
-          OR: [
-            { telegramId: { contains: search, mode: 'insensitive' as const } },
-            { chatId: { contains: search, mode: 'insensitive' as const } },
-            { username: { contains: search, mode: 'insensitive' as const } },
-            { firstName: { contains: search, mode: 'insensitive' as const } },
-            { lastName: { contains: search, mode: 'insensitive' as const } },
-          ],
-        }
-      : undefined
+    const where: any = {
+      status: { not: 'ARCHIVE' },
+      ...(search
+        ? {
+            OR: [
+              { telegramId: { contains: search, mode: 'insensitive' as const } },
+              { chatId: { contains: search, mode: 'insensitive' as const } },
+              { username: { contains: search, mode: 'insensitive' as const } },
+              { firstName: { contains: search, mode: 'insensitive' as const } },
+              { lastName: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {})
+    }
 
     const skip = (page - 1) * limit
     const [totalCount, chatsRaw] = await Promise.all([
@@ -834,6 +837,62 @@ app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error('Support chats fetch error:', error)
     return res.status(500).json({ error: 'Failed to fetch support chats' })
+  }
+})
+
+app.get('/api/admin/support/chats/archive', requireAdminAuth, async (req, res) => {
+  try {
+    const parsed = supportChatsQuerySchema.safeParse(req.query)
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid query' })
+    }
+
+    const { search, page = 1, limit = 50 } = parsed.data
+    const where: any = {
+      status: 'ARCHIVE',
+      ...(search
+        ? {
+            OR: [
+              { telegramId: { contains: search, mode: 'insensitive' as const } },
+              { chatId: { contains: search, mode: 'insensitive' as const } },
+              { username: { contains: search, mode: 'insensitive' as const } },
+              { firstName: { contains: search, mode: 'insensitive' as const } },
+              { lastName: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {})
+    }
+
+    const skip = (page - 1) * limit
+    const [totalCount, chatsRaw] = await Promise.all([
+      prisma.supportChat.count({ where }),
+      prisma.supportChat.findMany({
+        where,
+        orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+    ])
+
+    // Normalize stage ids to avoid UI splits like "Deposit" vs "deposit".
+    const chats = chatsRaw.map((c: any) => {
+      const sid = canonicalizeSupportStageId(c.funnelStageId)
+      return sid && sid !== c.funnelStageId ? { ...c, funnelStageId: sid } : c
+    })
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / limit))
+
+    return res.json({
+      chats,
+      page,
+      totalPages,
+      totalCount,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    })
+  } catch (error) {
+    console.error('Support archived chats fetch error:', error)
+    return res.status(500).json({ error: 'Failed to fetch archived support chats' })
   }
 })
 

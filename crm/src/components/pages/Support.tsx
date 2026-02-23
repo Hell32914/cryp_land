@@ -7,6 +7,7 @@ import { SupportOperatorsAnalytics } from '@/components/pages/SupportOperatorsAn
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 import {
   fetchSupportChats,
+  fetchSupportArchivedChats,
   fetchSupportFileBlob,
   fetchSupportMessages,
   fetchSupportNotes,
@@ -634,7 +635,29 @@ export function Support({
     }
   )
 
-  const chats = chatsData?.chats ?? []
+  const { data: archivedChatsData, isLoading: isArchivedChatsLoading } = useApiQuery<
+    Awaited<ReturnType<typeof fetchSupportArchivedChats>>
+  >(
+    ['support-archived-chats'],
+    // Also fetch archived chats so they appear in the archive tab
+    (authToken) => fetchSupportArchivedChats(authToken, '', 1, 10000),
+    {
+      enabled: Boolean(token),
+      refetchInterval: 5000,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+    }
+  )
+
+  const chats = useMemo(() => {
+    const active = chatsData?.chats ?? []
+    const archived = archivedChatsData?.chats ?? []
+    return [...active, ...archived]
+  }, [chatsData, archivedChatsData])
+
+  const isChatDataLoading = useMemo(() => {
+    return isChatsLoading || isArchivedChatsLoading
+  }, [isChatsLoading, isArchivedChatsLoading])
 
   const { data: operatorsData } = useApiQuery<Awaited<ReturnType<typeof fetchCrmOperators>>>(
     ['crm-operators-support-assign'],
@@ -2178,7 +2201,7 @@ export function Support({
                   <SupportOperatorsAnalytics variant="embedded" />
                 )}
               </div>
-            ) : isChatsLoading ? (
+            ) : isChatDataLoading ? (
               <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
             ) : isChatsError ? (
               <div className="text-sm text-destructive">{t('common.error')}</div>
@@ -2410,7 +2433,7 @@ export function Support({
               ) : null}
             </CardHeader>
             <CardContent>
-              {isChatsLoading ? (
+              {isChatDataLoading ? (
                 <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
               ) : isChatsError ? (
                 <div className="text-sm text-destructive">{t('common.error')}</div>
