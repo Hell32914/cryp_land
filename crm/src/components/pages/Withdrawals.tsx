@@ -54,7 +54,7 @@ export function Withdrawals() {
 
   // Calculate totals
   const totals = useMemo(() => {
-    const completedWithdrawals = filteredWithdrawals.filter(w => w.status === 'COMPLETED')
+    const completedWithdrawals = filteredWithdrawals.filter(w => w.status === 'COMPLETED' || w.status === 'APPROVED')
     const processingWithdrawals = filteredWithdrawals.filter(w => w.status === 'PROCESSING')
     return {
       totalAmount: completedWithdrawals.reduce((sum, w) => sum + w.amount, 0),
@@ -69,6 +69,8 @@ export function Withdrawals() {
       case 'successful':
       case 'completed':
         return 'bg-green-500/10 text-green-500 border-green-500/20'
+      case 'approved':
+        return 'bg-teal-500/10 text-teal-500 border-teal-500/20'
       case 'pending':
         return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
       case 'processing':
@@ -193,6 +195,7 @@ export function Withdrawals() {
               >
                 <option value="all">All</option>
                 <option value="completed">completed</option>
+                <option value="approved">approved</option>
                 <option value="processing">processing</option>
                 <option value="pending">pending</option>
                 <option value="failed">failed</option>

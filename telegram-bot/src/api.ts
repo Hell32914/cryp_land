@@ -3250,13 +3250,18 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       ? { ...userWhere, createdAt: periodWhere }
       : userWhere
 
+    // Exclude ADMIN deposits (manual balance credits) and PROFIT deposits (synthetic profit records)
+    const realDepositFilter = { paymentMethod: { not: 'ADMIN' }, NOT: [{ currency: 'PROFIT' }] }
     const depositWhere = periodWhere
-      ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
-      : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...(hasFilters ? { user: userWhere } : {}) }
+      ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...realDepositFilter, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...realDepositFilter, ...(hasFilters ? { user: userWhere } : {}) }
 
+    // Include both COMPLETED and APPROVED withdrawals in analytics.
+    // APPROVED = admin approved & funds sent/being sent (CRM already displays these as COMPLETED).
+    const withdrawalStatusFilter = { in: ['COMPLETED', 'APPROVED'] }
     const withdrawalWhere = periodWhere
-      ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
-      : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...(hasFilters ? { user: userWhere } : {}) }
+      ? { status: withdrawalStatusFilter, userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: withdrawalStatusFilter, userId: { notIn: excludeUserIds }, ...(hasFilters ? { user: userWhere } : {}) }
 
     const [
       totalUsers,
@@ -3311,13 +3316,14 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           status: 'COMPLETED',
           userId: { notIn: excludeUserIds },
           createdAt: { gte: startOfToday },
+          ...realDepositFilter,
           ...(hasFilters ? { user: userWhere } : {}),
         },
       }),
       prisma.withdrawal.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'COMPLETED',
+          status: { in: ['COMPLETED', 'APPROVED'] },
           userId: { notIn: excludeUserIds },
           createdAt: { gte: startOfToday },
           ...(hasFilters ? { user: userWhere } : {}),
@@ -3349,13 +3355,14 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           status: 'COMPLETED',
           userId: { notIn: excludeUserIds },
           createdAt: periodWhere || { gte: chartStart },
+          ...realDepositFilter,
           ...(hasFilters ? { user: userWhere } : {}),
         },
         select: { amount: true, createdAt: true },
       }),
       prisma.withdrawal.findMany({
         where: {
-          status: 'COMPLETED',
+          status: { in: ['COMPLETED', 'APPROVED'] },
           userId: { notIn: excludeUserIds },
           createdAt: periodWhere || { gte: chartStart },
           ...(hasFilters ? { user: userWhere } : {}),
@@ -3589,7 +3596,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     // Get top 5 users by balance (totalDeposit is the working balance)
     const topUsersByBalance = await prisma.user.findMany({
-      where: { isHidden: false, totalDeposit: { gt: 0 } },
+      where: { isHidden: false, totalDeposit: { gt: 0 }, telegramId: { notIn: excludedTelegramIds } },
       orderBy: { totalDeposit: 'desc' },
       take: 5,
       select: {
@@ -4637,7 +4644,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
         user: {
           include: {
             withdrawals: {
-              where: { status: 'COMPLETED' },
+              where: { status: { in: ['COMPLETED', 'APPROVED'] } },
               select: { id: true },
             },
             dailyUpdates: {
@@ -4765,7 +4772,7 @@ app.get('/api/admin/withdrawals', requireAdminAuth, async (req, res) => {
 
     const payload = withdrawals.map((withdrawal) => ({
       id: withdrawal.id,
-      status: withdrawal.status === 'APPROVED' ? 'COMPLETED' : withdrawal.status,
+      status: withdrawal.status,
       paymentMethod: (withdrawal as any).paymentMethod,
       amount: withdrawal.amount,
       currency: withdrawal.currency,
@@ -6601,7 +6608,7 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
       where: { isHidden: false },
       include: {
         deposits: { where: { status: 'COMPLETED' } },
-        withdrawals: { where: { status: 'COMPLETED' } },
+        withdrawals: { where: { status: { in: ['COMPLETED', 'APPROVED'] } } },
       },
     })
 
