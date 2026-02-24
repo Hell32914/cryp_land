@@ -214,6 +214,10 @@ const resources = {
           funnelStatus: 'Funnel status',
           responseTime: 'Response time',
         },
+        reassign: {
+          placeholder: 'Operator',
+          action: 'Reassign',
+        },
         minutesShort: 'min',
           secondsShort: 'sec',
         accept: 'Accept',
@@ -638,6 +642,10 @@ const resources = {
         columns: {
           funnelStatus: 'Статус воронки',
           responseTime: 'Время ответа',
+        },
+        reassign: {
+          placeholder: 'Оператор',
+          action: 'Переназначить',
         },
         minutesShort: 'мин',
           secondsShort: 'сек',

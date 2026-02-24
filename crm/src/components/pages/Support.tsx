@@ -210,6 +210,7 @@ export function Support({
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set())
   const [assignOperator, setAssignOperator] = useState('')
+  const [reassignOperator, setReassignOperator] = useState('')
   const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -1385,6 +1386,19 @@ export function Support({
     return chats.find((c) => c.chatId === selectedChatId) ?? null
   }, [chats, selectedChatId])
 
+  useEffect(() => {
+    if (!isAdmin || !selectedChatId) {
+      setReassignOperator('')
+      return
+    }
+    const acceptedBy = selectedChat?.acceptedBy
+    if (acceptedBy && assignOperators.includes(acceptedBy)) {
+      setReassignOperator(acceptedBy)
+    } else {
+      setReassignOperator('')
+    }
+  }, [assignOperators, isAdmin, selectedChat?.acceptedBy, selectedChatId])
+
   const selectedTelegramId = selectedChat?.telegramId ? String(selectedChat.telegramId) : null
   const selectedCrmNumber = useMemo(() => {
     if (!selectedChatId) return null
@@ -2443,9 +2457,42 @@ export function Support({
             <CardHeader className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>{t('support.chats')}</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => setSelectedChatId(null)}>
-                  {t('support.backToList')}
-                </Button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {isAdmin && selectedChatId ? (
+                    <>
+                      <Select value={reassignOperator} onValueChange={setReassignOperator} disabled={assignMutation.isPending}>
+                        <SelectTrigger className="h-8 w-[180px]">
+                          <SelectValue placeholder={t('support.reassign.placeholder')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assignOperators.map((name) => (
+                            <SelectItem key={name} value={name}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={!reassignOperator || assignMutation.isPending}
+                        onClick={() => {
+                          if (!reassignOperator || !selectedChatId) return
+                          assignMutation.mutate({
+                            chatIds: [selectedChatId],
+                            operator: reassignOperator,
+                          })
+                        }}
+                      >
+                        {t('support.reassign.action')}
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button variant="outline" size="sm" onClick={() => setSelectedChatId(null)}>
+                    {t('support.backToList')}
+                  </Button>
+                </div>
               </div>
 
               {mode === 'inbox' ? (
