@@ -170,7 +170,7 @@ const LEGACY_PENDING_DEPOSIT_ID = 'pending-deposit'
 
 type SupportListTab = 'new' | 'accepted' | 'archive'
 type SupportChatsTab = SupportListTab | 'analytics'
-type SupportAnalyticsRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'
+type SupportAnalyticsRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
 type SupportAnalyticsTab = 'overview' | 'operators'
 
 type SupportMode = 'inbox' | 'analytics'
@@ -211,6 +211,8 @@ export function Support({
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set())
   const [assignOperator, setAssignOperator] = useState('')
   const [analyticsRange, setAnalyticsRange] = useState<SupportAnalyticsRange>('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [analyticsTab, setAnalyticsTab] = useState<SupportAnalyticsTab>(initialAnalyticsTab)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
@@ -597,6 +599,7 @@ export function Support({
       { value: 'quarter' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.quarter') },
       { value: 'year' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.year') },
       { value: 'all' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.all') },
+      { value: 'custom' as SupportAnalyticsRange, label: t('support.analytics.rangeOptions.custom') },
     ],
     [t]
   )
@@ -921,15 +924,34 @@ export function Support({
       }
 
       const resolveRange = () => {
-        const earliest = chatsSnapshot.reduce((min, chat) => {
-          const ts = getChatStartedTs(chat)
-          if (!ts) return min
-          if (!min || ts < min) return ts
-          return min
-        }, 0)
-        const fromTs = earliest || (now - DAY_MS)
-        const days = Math.max(1, Math.ceil((now - fromTs) / DAY_MS))
-        return { fromTs, toTs: now, days }
+        let fromTs = 0
+        let toTs = now
+
+        if (range === 'day') fromTs = now - DAY_MS
+        if (range === 'week') fromTs = now - DAY_MS * 7
+        if (range === 'month') fromTs = now - DAY_MS * 30
+        if (range === 'quarter') fromTs = now - DAY_MS * 90
+        if (range === 'year') fromTs = now - DAY_MS * 365
+        if (range === 'all') {
+          const earliest = chatsSnapshot.reduce((min, chat) => {
+            const ts = getChatStartedTs(chat)
+            if (!ts) return min
+            if (!min || ts < min) return ts
+            return min
+          }, 0)
+          fromTs = earliest || (now - DAY_MS)
+        }
+        if (range === 'custom') {
+          const customFromTs = customFrom ? new Date(customFrom).getTime() : 0
+          const customToTs = customTo ? new Date(customTo).getTime() : 0
+          if (customFromTs) fromTs = customFromTs
+          if (customToTs) toTs = customToTs
+        }
+
+        if (!fromTs) fromTs = now - DAY_MS
+        if (toTs < fromTs) [fromTs, toTs] = [toTs, fromTs]
+        const days = Math.max(1, Math.ceil((toTs - fromTs) / DAY_MS))
+        return { fromTs, toTs, days }
       }
 
       try {
@@ -1152,7 +1174,7 @@ export function Support({
         if (analyticsRunRef.current === runId) setAnalyticsLoading(false)
       }
     },
-    [t, token]
+    [t, token, customFrom, customTo]
   )
 
   useEffect(() => {
@@ -2042,9 +2064,8 @@ export function Support({
                         onValueChange={(value) => {
                           setAnalyticsRange(value as SupportAnalyticsRange)
                         }}
-                        disabled
                       >
-                        <SelectTrigger className="w-full sm:w-[180px]" disabled>
+                        <SelectTrigger className="w-full sm:w-[180px]">
                           <SelectValue placeholder={t('support.analytics.range')} />
                         </SelectTrigger>
                         <SelectContent>
@@ -2055,6 +2076,24 @@ export function Support({
                           ))}
                         </SelectContent>
                       </Select>
+                      {analyticsRange === 'custom' ? (
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Input
+                            type="datetime-local"
+                            value={customFrom}
+                            onChange={(e) => setCustomFrom(e.target.value)}
+                            className="w-full sm:w-[200px]"
+                            aria-label={t('support.analytics.customFrom')}
+                          />
+                          <Input
+                            type="datetime-local"
+                            value={customTo}
+                            onChange={(e) => setCustomTo(e.target.value)}
+                            className="w-full sm:w-[200px]"
+                            aria-label={t('support.analytics.customTo')}
+                          />
+                        </div>
+                      ) : null}
                       <Button type="button" variant="secondary" size="sm" onClick={refreshAnalytics} className="w-full sm:w-auto">
                         {t('support.analytics.refresh')}
                       </Button>
