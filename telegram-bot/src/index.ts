@@ -6360,7 +6360,8 @@ if (supportBot) {
     })
 
     const now = new Date()
-    await prisma.supportChat.upsert({
+    const existing = (await prisma.supportChat.findUnique({ where: { telegramId } })) as any
+    const chat = await prisma.supportChat.upsert({
       where: { telegramId },
       create: {
         telegramId,
@@ -6373,17 +6374,34 @@ if (supportBot) {
         lastMessageAt: now,
         lastInboundAt: now,
         lastMessageText: '/start',
+        unreadCount: 1,
       },
       update: {
         chatId,
         username: from.username || null,
         firstName: from.first_name || null,
         lastName: from.last_name || null,
+        status: existing?.status === 'ARCHIVE' ? 'NEW' : (existing?.status || 'NEW'),
+        acceptedBy: existing?.status === 'ARCHIVE' ? null : undefined,
+        acceptedAt: existing?.status === 'ARCHIVE' ? null : undefined,
+        archivedAt: existing?.status === 'ARCHIVE' ? null : undefined,
         lastMessageAt: now,
         lastInboundAt: now,
         lastMessageText: '/start',
+        unreadCount: { increment: 1 },
       },
     } as any)
+
+    // Save the /start command as an inbound message so it appears in CRM chat
+    await prisma.supportMessage.create({
+      data: {
+        supportChatId: chat.id,
+        direction: 'IN',
+        kind: 'TEXT',
+        text: '/start',
+        createdAt: now,
+      } as any,
+    })
 
     // Claim activation bonus (best-effort). This also activates INACTIVE users.
     let bonusGranted = false
@@ -6402,29 +6420,19 @@ if (supportBot) {
     const sentMessage = await ctx.reply(welcomeMessage)
 
     // Save welcome message to SupportMessage so it appears in CRM chat
+    // NOTE: We intentionally do NOT set lastOutboundAt here because the auto-welcome
+    // is not a real operator response. The timer should keep ticking until a human replies.
     try {
-      const supportChat = await prisma.supportChat.findUnique({ where: { telegramId } })
-      if (supportChat) {
-        await prisma.supportMessage.create({
-          data: {
-            supportChatId: supportChat.id,
-            direction: 'OUT',
-            kind: 'TEXT',
-            text: welcomeMessage,
-            telegramMessageId: sentMessage.message_id ?? null,
-            createdAt: now,
-          } as any,
-        })
-        // Update last message info on the chat
-        await prisma.supportChat.update({
-          where: { id: supportChat.id },
-          data: {
-            lastMessageAt: now,
-            lastOutboundAt: now,
-            lastMessageText: welcomeMessage.slice(0, 500),
-          } as any,
-        })
-      }
+      await prisma.supportMessage.create({
+        data: {
+          supportChatId: chat.id,
+          direction: 'OUT',
+          kind: 'TEXT',
+          text: welcomeMessage,
+          telegramMessageId: sentMessage.message_id ?? null,
+          createdAt: now,
+        } as any,
+      })
     } catch (err) {
       console.warn('Support bot /start: failed to save welcome message:', (err as any)?.message || err)
     }
