@@ -206,6 +206,7 @@ export function Support({
 
   const [search, setSearch] = useState('')
   const [operatorFilter, setOperatorFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [activeTab, setActiveTab] = useState<SupportChatsTab>('new')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set())
@@ -868,6 +869,13 @@ export function Support({
         return String(assigned || '') === operatorFilter
       })
     }
+
+    if (statusFilter !== 'all') {
+      raw = raw.filter((chat) => {
+        const stageId = chat.funnelStageId || chatStageMap[chat.chatId] || primaryStageId
+        return stageId === statusFilter
+      })
+    }
     const q = search.trim().toLowerCase()
     if (!q) return raw
 
@@ -899,7 +907,7 @@ export function Support({
 
       return terms.every((term) => haystack.includes(term))
     })
-  }, [activeTab, chats, funnelStages, chatStageMap, primaryStageId, search, operatorFilter, myUsername])
+  }, [activeTab, chats, funnelStages, chatStageMap, primaryStageId, search, operatorFilter, statusFilter, myUsername])
 
   useEffect(() => {
     chatsSnapshotRef.current = chats
@@ -1918,6 +1926,23 @@ export function Support({
                       {operatorOptions.map((name) => (
                         <SelectItem key={name} value={name}>
                           {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-xs text-muted-foreground">{t('supportBoard.statusFilter')}</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 w-[200px]">
+                      <SelectValue placeholder={t('supportBoard.statusFilter')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('supportBoard.statusAll')}</SelectItem>
+                      {funnelStages.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

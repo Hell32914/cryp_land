@@ -5702,10 +5702,16 @@ app.post('/api/user/:telegramId/paypal-capture', depositLimiter, requireUserAuth
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.deposit.update({
-        where: { id: deposit.id },
+      // SECURITY: Atomically check status to prevent double-credit with webhook handler
+      const updated = await tx.deposit.updateMany({
+        where: { id: deposit.id, status: 'PENDING' },
         data: { status: 'COMPLETED' },
       })
+
+      if (updated.count === 0) {
+        console.log(`⚠️ PayPal deposit ${deposit.id} already processed (race condition prevented)`)
+        return
+      }
 
       await tx.user.update({
         where: { id: deposit.userId },
@@ -5776,6 +5782,75 @@ app.post('/api/paypal-webhook', async (req, res) => {
   try {
     console.log('📨 PayPal Webhook received')
     
+    // SECURITY: Verify PayPal webhook signature
+    const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID
+    if (!PAYPAL_WEBHOOK_ID) {
+      console.error('❌ PAYPAL_WEBHOOK_ID not configured — rejecting webhook')
+      return res.sendStatus(403)
+    }
+    
+    const transmissionId = req.headers['paypal-transmission-id'] as string
+    const transmissionTime = req.headers['paypal-transmission-time'] as string
+    const transmissionSig = req.headers['paypal-transmission-sig'] as string
+    const certUrl = req.headers['paypal-cert-url'] as string
+    const authAlgo = req.headers['paypal-auth-algo'] as string
+    
+    if (!transmissionId || !transmissionTime || !transmissionSig || !certUrl || !authAlgo) {
+      console.error('❌ Missing PayPal webhook signature headers — possible forgery')
+      return res.sendStatus(403)
+    }
+    
+    // Verify webhook signature via PayPal API
+    try {
+      const { default: axios } = await import('axios')
+      const paypalEnv = (process.env.PAYPAL_ENV || 'live').toLowerCase()
+      const paypalBaseUrl = paypalEnv === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com'
+      const paypalClientId = process.env.PAYPAL_CLIENT_ID || ''
+      const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
+      
+      if (!paypalClientId || !paypalClientSecret) {
+        console.error('❌ PayPal credentials not configured')
+        return res.sendStatus(500)
+      }
+      
+      const authToken = Buffer.from(`${paypalClientId}:${paypalClientSecret}`).toString('base64')
+      const tokenRes = await axios.post(
+        `${paypalBaseUrl}/v1/oauth2/token`,
+        'grant_type=client_credentials',
+        { headers: { Authorization: `Basic ${authToken}`, 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10_000 }
+      )
+      const accessToken = tokenRes.data?.access_token
+      if (!accessToken) {
+        console.error('❌ Failed to get PayPal access token for webhook verification')
+        return res.sendStatus(500)
+      }
+      
+      const verifyRes = await axios.post(
+        `${paypalBaseUrl}/v1/notifications/verify-webhook-signature`,
+        {
+          auth_algo: authAlgo,
+          cert_url: certUrl,
+          transmission_id: transmissionId,
+          transmission_sig: transmissionSig,
+          transmission_time: transmissionTime,
+          webhook_id: PAYPAL_WEBHOOK_ID,
+          webhook_event: req.body
+        },
+        { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, timeout: 10_000 }
+      )
+      
+      const verificationStatus = verifyRes.data?.verification_status
+      if (verificationStatus !== 'SUCCESS') {
+        console.error(`❌ PayPal webhook signature verification FAILED: ${verificationStatus}`)
+        return res.sendStatus(403)
+      }
+      
+      console.log('✅ PayPal webhook signature verified')
+    } catch (verifyErr: any) {
+      console.error('❌ PayPal webhook signature verification error:', verifyErr.response?.data || verifyErr.message)
+      return res.sendStatus(403)
+    }
+    
     // Body is already parsed by express.json()
     const body = req.body
     
@@ -5819,12 +5894,24 @@ app.post('/api/paypal-webhook', async (req, res) => {
         if (capture.status === 'COMPLETED') {
           console.log(`✅ Payment captured successfully for order ${orderId}`)
           
-          // Update deposit and user balance
+          // SECURITY: Validate captured amount matches deposit
+          if (typeof capture.amountValue === 'number' && Math.abs(capture.amountValue - deposit.amount) > 0.01) {
+            console.error(`❌ Amount mismatch for PayPal order ${orderId}: captured=${capture.amountValue}, expected=${deposit.amount}`)
+            return res.sendStatus(200)
+          }
+          
+          // Update deposit and user balance (with race-condition guard)
           await prisma.$transaction(async (tx) => {
-            await tx.deposit.update({
-              where: { id: deposit.id },
+            const updated = await tx.deposit.updateMany({
+              where: { id: deposit.id, status: 'PENDING' },
               data: { status: 'COMPLETED' }
             })
+            
+            // SECURITY: Only credit balance if we actually transitioned from PENDING
+            if (updated.count === 0) {
+              console.log(`⚠️ Deposit ${deposit.id} already processed (race condition prevented)`)
+              return
+            }
             
             await tx.user.update({
               where: { id: deposit.userId },
@@ -5884,34 +5971,80 @@ app.post('/api/paypal-webhook', async (req, res) => {
       if (orderId) {
         console.log(`✅ Payment capture completed for order ${orderId}`)
         
-        const deposit = await prisma.deposit.findFirst({
-          where: {
-            paymentMethod: 'PAYPAL',
-            txHash: orderId,
-            status: 'PENDING'
-          },
-          include: { user: true }
-        })
-        
-        if (deposit) {
-          await prisma.$transaction(async (tx) => {
-            await tx.deposit.update({
-              where: { id: deposit.id },
-              data: { status: 'COMPLETED' }
-            })
-            
-            await tx.user.update({
-              where: { id: deposit.userId },
-              data: {
-                balance: { increment: deposit.amount },
-                totalDeposit: { increment: deposit.amount },
-                lifetimeDeposit: { increment: deposit.amount },
-                status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
-              }
-            })
+        // SECURITY: Verify the payment via PayPal API before crediting
+        try {
+          const { capturePayPalOrder } = await import('./paypal.js')
+          // Use PayPal API to verify order status (GET order details, not capture again)
+          const { default: axios } = await import('axios')
+          const paypalEnv = (process.env.PAYPAL_ENV || 'live').toLowerCase()
+          const paypalBaseUrl = paypalEnv === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com'
+          const paypalClientId = process.env.PAYPAL_CLIENT_ID || ''
+          const paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET || ''
+          const authToken = Buffer.from(`${paypalClientId}:${paypalClientSecret}`).toString('base64')
+          const tokenRes = await axios.post(
+            `${paypalBaseUrl}/v1/oauth2/token`,
+            'grant_type=client_credentials',
+            { headers: { Authorization: `Basic ${authToken}`, 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10_000 }
+          )
+          const accessToken = tokenRes.data?.access_token
+          
+          const orderRes = await axios.get(
+            `${paypalBaseUrl}/v2/checkout/orders/${encodeURIComponent(orderId)}`,
+            { headers: { Authorization: `Bearer ${accessToken}` }, timeout: 10_000 }
+          )
+          
+          const orderStatus = orderRes.data?.status
+          if (orderStatus !== 'COMPLETED') {
+            console.error(`❌ PayPal order ${orderId} not COMPLETED (status: ${orderStatus}) — rejecting`)
+            return res.sendStatus(200)
+          }
+          
+          // Verify captured amount
+          const capturedAmount = orderRes.data?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value
+          
+          const deposit = await prisma.deposit.findFirst({
+            where: {
+              paymentMethod: 'PAYPAL',
+              txHash: orderId,
+              status: 'PENDING'
+            },
+            include: { user: true }
           })
           
-          console.log(`🎉 Deposit completed via CAPTURE event for user ${deposit.user.telegramId}`)
+          if (deposit) {
+            // SECURITY: Verify amount matches
+            if (capturedAmount && Math.abs(parseFloat(capturedAmount) - deposit.amount) > 0.01) {
+              console.error(`❌ Amount mismatch for order ${orderId}: PayPal=${capturedAmount}, expected=${deposit.amount}`)
+              return res.sendStatus(200)
+            }
+            
+            await prisma.$transaction(async (tx) => {
+              const updated = await tx.deposit.updateMany({
+                where: { id: deposit.id, status: 'PENDING' },
+                data: { status: 'COMPLETED' }
+              })
+              
+              // SECURITY: Only credit if we transitioned from PENDING (prevent double-credit)
+              if (updated.count === 0) {
+                console.log(`⚠️ Deposit ${deposit.id} already processed (race condition prevented)`)
+                return
+              }
+              
+              await tx.user.update({
+                where: { id: deposit.userId },
+                data: {
+                  balance: { increment: deposit.amount },
+                  totalDeposit: { increment: deposit.amount },
+                  lifetimeDeposit: { increment: deposit.amount },
+                  status: deposit.user.status === 'INACTIVE' ? 'ACTIVE' : undefined
+                }
+              })
+            })
+            
+            console.log(`🎉 Deposit completed via CAPTURE event for user ${deposit.user.telegramId}`)
+          }
+        } catch (verifyErr: any) {
+          console.error('❌ Failed to verify PayPal payment:', verifyErr.message)
         }
       }
     }
@@ -6388,7 +6521,31 @@ app.post('/api/oxapay-callback', async (req, res) => {
       return res.json({ success: true, message: 'Already processed' })
     }
     
-    // SECURITY: Verify amount matches (if provided in callback)
+    // SECURITY: Verify payment status via OxaPay API (server-to-server verification)
+    // Never trust callback data alone — always confirm with OxaPay backend
+    try {
+      const { checkPaymentStatus } = await import('./oxapay.js')
+      const paymentInfo = await checkPaymentStatus(trackId)
+      
+      if (!paymentInfo || (paymentInfo.status !== 'Paid' && paymentInfo.status !== 'paid')) {
+        console.error(`❌ OxaPay API verification FAILED for trackId ${trackId}: API status=${paymentInfo?.status}`)
+        return res.status(403).json({ success: false, error: 'Payment not verified by OxaPay' })
+      }
+      
+      // SECURITY: Use amount from OxaPay API response (not from callback body)
+      const verifiedAmount = paymentInfo.amount ? parseFloat(paymentInfo.amount) : null
+      if (verifiedAmount !== null && Math.abs(verifiedAmount - deposit.amount) > 0.01) {
+        console.error(`❌ Amount mismatch for trackId ${trackId}: OxaPay API=${verifiedAmount}, expected=${deposit.amount}`)
+        return res.status(400).json({ success: false, error: 'Amount mismatch (API verification)' })
+      }
+      
+      console.log(`✅ OxaPay payment verified via API for trackId ${trackId}`)
+    } catch (verifyErr: any) {
+      console.error(`❌ OxaPay API verification error for trackId ${trackId}:`, verifyErr.message)
+      return res.status(500).json({ success: false, error: 'Payment verification failed' })
+    }
+    
+    // SECURITY: Verify amount matches (mandatory check from callback too)
     if (amount && Math.abs(parseFloat(amount) - deposit.amount) > 0.01) {
       console.error(`⚠️ Amount mismatch for trackId ${trackId}: callback=${amount}, expected=${deposit.amount}`)
       return res.status(400).json({ success: false, error: 'Amount mismatch' })
@@ -6397,11 +6554,12 @@ app.post('/api/oxapay-callback', async (req, res) => {
     const normalizedTxHash = typeof txID === 'string' && /[a-f0-9]{16,}/i.test(txID) ? txID : null
     const shouldClearLegacyTxHash = !normalizedTxHash && deposit.txHash === trackId
 
-    // SECURITY: Use transaction to ensure atomicity
+    // SECURITY: Use transaction to ensure atomicity + prevent double-credit
+    let wasCredited = false
     await prisma.$transaction(async (tx) => {
-      // Update deposit status to COMPLETED
-      await tx.deposit.update({
-        where: { id: deposit.id },
+      // SECURITY: Atomically check and update status to prevent race conditions
+      const updated = await tx.deposit.updateMany({
+        where: { id: deposit.id, status: { not: 'COMPLETED' } },
         data: {
           status: 'COMPLETED',
           trackId: deposit.trackId || trackId,
@@ -6410,6 +6568,14 @@ app.post('/api/oxapay-callback', async (req, res) => {
           ...(normalizedTxHash ? { txHash: normalizedTxHash } : (shouldClearLegacyTxHash ? { txHash: null } : {}))
         }
       })
+      
+      // SECURITY: Only credit balance if we actually transitioned the status
+      if (updated.count === 0) {
+        console.log(`⚠️ Deposit ${deposit.id} already completed (double-credit prevented)`)
+        return
+      }
+      
+      wasCredited = true
 
       // Add amount to user totalDeposit and activate account if needed
       await tx.user.update({
@@ -6422,6 +6588,10 @@ app.post('/api/oxapay-callback', async (req, res) => {
         }
       })
     })
+    
+    if (!wasCredited) {
+      return res.json({ success: true, message: 'Already processed' })
+    }
     
     // Fetch updated user data after transaction
     const updatedUser = await prisma.user.findUnique({
