@@ -1310,7 +1310,12 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
     }
 
     const users = await prisma.user.findMany({
-      where: { telegramId: { in: telegramIds } },
+      where: {
+        telegramId: {
+          in: telegramIds,
+          notIn: EXCLUDED_TELEGRAM_IDS,
+        },
+      },
       select: { id: true, telegramId: true, createdAt: true },
     })
 
@@ -1331,6 +1336,7 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
     const where: any = {
       userId: { in: userIds },
       status: 'COMPLETED',
+      paymentMethod: { not: 'ADMIN' },
       NOT: [{ currency: 'PROFIT' }],
     }
     if (fromDate || toDate) {
@@ -1345,6 +1351,7 @@ app.get('/api/admin/support/operators/deposits', requireAdminAuth, async (req, r
       where: {
         userId: { in: userIds },
         status: 'COMPLETED',
+        paymentMethod: { not: 'ADMIN' },
         NOT: [{ currency: 'PROFIT' }],
       },
       select: {
@@ -1522,7 +1529,12 @@ app.get('/api/admin/support/analytics/summary', requireAdminAuth, async (req, re
     }
 
     const users = await prisma.user.findMany({
-      where: { telegramId: { in: telegramIds } },
+      where: {
+        telegramId: {
+          in: telegramIds,
+          notIn: EXCLUDED_TELEGRAM_IDS,
+        },
+      },
       select: { id: true, telegramId: true },
     })
 
@@ -1550,6 +1562,7 @@ app.get('/api/admin/support/analytics/summary', requireAdminAuth, async (req, re
       where: {
         userId: { in: userIds },
         status: 'COMPLETED',
+        paymentMethod: { not: 'ADMIN' },
         NOT: [{ currency: 'PROFIT' }],
       },
       select: { userId: true, amount: true },
