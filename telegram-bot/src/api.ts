@@ -2041,12 +2041,21 @@ app.post(
         return res.status(400).json({ error: 'File is required' })
       }
       const uploadedTempPath = typeof (req.file as any).path === 'string' ? String((req.file as any).path) : null
-      const uploadedSize = Number((req.file as any).size || 0)
       if (!uploadedTempPath && (!req.file.buffer || req.file.buffer.length <= 0)) {
         return res.status(400).json({ error: 'Uploaded file is empty' })
       }
-      if (uploadedTempPath && uploadedSize <= 0) {
-        return res.status(400).json({ error: 'Uploaded file is empty' })
+      if (uploadedTempPath) {
+        const stat = await fs.stat(uploadedTempPath).catch(() => null)
+        if (!stat || stat.size <= 0) {
+          console.error('Support send document empty upload detected:', {
+            originalname: (req.file as any).originalname,
+            mimetype: (req.file as any).mimetype,
+            path: uploadedTempPath,
+            multerSize: (req.file as any).size,
+            statSize: stat?.size,
+          })
+          return res.status(400).json({ error: 'Uploaded file is empty' })
+        }
       }
 
       const parsed = supportSendDocumentSchema.safeParse(req.body)
