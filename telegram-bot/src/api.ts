@@ -799,6 +799,19 @@ const upload = multer({
   },
 })
 
+const uploadDocuments = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => {
+      const safe = sanitizeTelegramFileName(file.originalname, 'file.bin')
+      cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${safe}`)
+    },
+  }),
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+  },
+})
+
 app.get('/api/admin/support/chats', requireAdminAuth, async (req, res) => {
   try {
     // Self-heal: some legacy/buggy records may end up ACCEPTED without a funnel stage.
@@ -2013,7 +2026,7 @@ app.post(
 app.post(
   '/api/admin/support/chats/:chatId/documents',
   requireAdminAuth,
-  upload.single('file'),
+  uploadDocuments.single('file'),
   async (req, res) => {
     try {
       if (!supportBotInstance) {
@@ -2024,10 +2037,15 @@ app.post(
       const chat = await prisma.supportChat.findUnique({ where: { chatId } })
       if (!chat) return res.status(404).json({ error: 'Chat not found' })
 
-      if (!req.file || !req.file.buffer) {
+      if (!req.file) {
         return res.status(400).json({ error: 'File is required' })
       }
-      if (!Number.isFinite(req.file.size) || req.file.size <= 0 || req.file.buffer.length <= 0) {
+      const uploadedTempPath = typeof (req.file as any).path === 'string' ? String((req.file as any).path) : null
+      const uploadedSize = Number((req.file as any).size || 0)
+      if (!uploadedTempPath && (!req.file.buffer || req.file.buffer.length <= 0)) {
+        return res.status(400).json({ error: 'Uploaded file is empty' })
+      }
+      if (uploadedTempPath && uploadedSize <= 0) {
         return res.status(400).json({ error: 'Uploaded file is empty' })
       }
 
@@ -2073,17 +2091,19 @@ app.post(
       } as any
 
       let sent: any
-      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'support-doc-'))
-      const tmpFilePath = path.join(tmpDir, `${Date.now()}-${telegramFileName || 'file.bin'}`)
       try {
-        await fs.writeFile(tmpFilePath, Buffer.from(req.file.buffer))
+        const inputFile = uploadedTempPath
+          ? new InputFile(uploadedTempPath, telegramFileName)
+          : new InputFile(req.file.buffer, telegramFileName)
         sent = await supportBotInstance.api.sendDocument(
           chatId,
-          new InputFile(tmpFilePath, telegramFileName),
+          inputFile,
           sendOpts,
         )
       } finally {
-        await fs.rm(tmpDir, { recursive: true, force: true })
+        if (uploadedTempPath) {
+          await fs.unlink(uploadedTempPath).catch(() => {})
+        }
       }
 
       const telegramMessageId = Number((sent as any)?.message_id)
