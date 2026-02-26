@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -48,7 +49,7 @@ export function Users() {
   const [filterLeadStatus, setFilterLeadStatus] = useState('all')
   const [filterCountry, setFilterCountry] = useState('')
   const [filterTrafficker, setFilterTrafficker] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([])
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
   const tableScrollRef = useRef<HTMLDivElement | null>(null)
@@ -66,11 +67,13 @@ export function Users() {
     setFilterLeadStatus('all')
     setFilterCountry('')
     setFilterTrafficker('')
-    setFilterStatus('all')
+    setFilterStatuses([])
     setFilterDateFrom('')
     setFilterDateTo('')
     setPage(1)
   }
+
+  const filterStatusParam = filterStatuses.length > 0 ? filterStatuses.join(',') : 'all'
 
   const applyFilters = () => {
     setPage(1)
@@ -109,7 +112,7 @@ export function Users() {
   }, [])
 
   const { data, isLoading, isError } = useApiQuery(
-    ['users', debouncedSearch, sortBy, sortOrder, page, filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo], 
+    ['users', debouncedSearch, sortBy, sortOrder, page, filterLeadStatus, filterCountry, filterTrafficker, filterStatusParam, filterDateFrom, filterDateTo], 
     (authToken) => fetchUsers(authToken, {
       search: debouncedSearch,
       sortBy,
@@ -117,7 +120,7 @@ export function Users() {
       page,
       country: filterCountry.trim() || undefined,
       leadStatus: filterLeadStatus,
-      status: filterStatus,
+      status: filterStatusParam,
       trafficker: filterTrafficker.trim() || undefined,
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
@@ -128,11 +131,11 @@ export function Users() {
   )
 
   const { data: statsData } = useApiQuery(
-    ['users-stats', filterLeadStatus, filterCountry, filterTrafficker, filterStatus, filterDateFrom, filterDateTo],
+    ['users-stats', filterLeadStatus, filterCountry, filterTrafficker, filterStatusParam, filterDateFrom, filterDateTo],
     (authToken) => fetchUsersStats(authToken, {
       country: filterCountry.trim() || undefined,
       leadStatus: filterLeadStatus,
-      status: filterStatus,
+      status: filterStatusParam,
       trafficker: filterTrafficker.trim() || undefined,
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
@@ -547,21 +550,33 @@ export function Users() {
 
             <div>
               <label className="text-sm text-muted-foreground">{t('users.status')}</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value)
-                  setPage(1)
-                }}
-                className="mt-1 w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground"
-              >
-                <option value="all">{t('users.statusAll')}</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="INACTIVE">INACTIVE</option>
-                <option value="PENDING">PENDING</option>
-                <option value="KYC_REQUIRED">KYC_REQUIRED</option>
-                <option value="BLOCKED">BLOCKED</option>
-              </select>
+              <div className="mt-1 rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                {['ACTIVE', 'INACTIVE', 'PENDING', 'KYC_REQUIRED', 'BLOCKED'].map((statusValue) => {
+                  const checked = filterStatuses.includes(statusValue)
+                  return (
+                    <label key={statusValue} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(nextChecked) => {
+                          setFilterStatuses((prev) => {
+                            const shouldAdd = Boolean(nextChecked)
+                            if (shouldAdd) {
+                              if (prev.includes(statusValue)) return prev
+                              return [...prev, statusValue]
+                            }
+                            return prev.filter((value) => value !== statusValue)
+                          })
+                          setPage(1)
+                        }}
+                      />
+                      <span>{statusValue}</span>
+                    </label>
+                  )
+                })}
+                {filterStatuses.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">{t('users.statusAll')}</div>
+                ) : null}
+              </div>
             </div>
 
             <div>

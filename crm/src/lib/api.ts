@@ -1068,14 +1068,18 @@ export const fetchUsers = (token: string, opts?: {
 }) => {
   if (isTesterToken(token)) {
     let filteredUsers = [...MOCK_USERS]
+    const statusValues = String(opts?.status || '')
+      .split(',')
+      .map((v) => v.trim().toUpperCase())
+      .filter((v) => v && v !== 'ALL')
     if (opts?.country) {
       filteredUsers = filteredUsers.filter((user) =>
         user.country?.toLowerCase().includes(opts.country!.toLowerCase())
       )
     }
-    if (opts?.status && opts.status !== 'all') {
+    if (statusValues.length > 0) {
       filteredUsers = filteredUsers.filter((user) =>
-        String(user.status || '').toLowerCase() === String(opts.status).toLowerCase()
+        statusValues.includes(String(user.status || '').toUpperCase())
       )
     }
     if (opts?.trafficker) {
@@ -1149,15 +1153,19 @@ export const fetchUsersStats = (token: string, opts?: {
 }) => {
   if (isTesterToken(token)) {
     let filteredUsers = [...MOCK_USERS]
+    const statusValues = String(opts?.status || '')
+      .split(',')
+      .map((v) => v.trim().toUpperCase())
+      .filter((v) => v && v !== 'ALL')
     
     if (opts?.country) {
       filteredUsers = filteredUsers.filter((user) =>
         user.country?.toLowerCase().includes(opts.country!.toLowerCase())
       )
     }
-    if (opts?.status && opts.status !== 'all') {
+    if (statusValues.length > 0) {
       filteredUsers = filteredUsers.filter((user) =>
-        String(user.status || '').toLowerCase() === String(opts.status).toLowerCase()
+        statusValues.includes(String(user.status || '').toUpperCase())
       )
     }
     if (opts?.trafficker) {

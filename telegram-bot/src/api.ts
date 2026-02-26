@@ -4040,16 +4040,19 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
           : { country: { contains: countryValue, mode: Prisma.QueryMode.insensitive } })
       : null
 
-    const statusValue = String(status || '').trim()
+    const statusValues = String(status || '')
+      .split(',')
+      .map((v) => v.trim().toUpperCase())
+      .filter((v) => v && v !== 'ALL')
     
     const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
     const traffickerValue = String(trafficker || '').trim().toLowerCase()
-    const hasStatusFilter = statusValue && statusValue !== 'all'
+    const hasStatusFilter = statusValues.length > 0
     const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || Boolean(hasStatusFilter)
     
     // When using computed filter, DON'T apply statusFilter in DB - apply it on client instead
-    const statusFilter: Prisma.UserWhereInput | null = !requireComputedFilter && statusValue && statusValue !== 'all'
-      ? { status: { equals: statusValue, mode: Prisma.QueryMode.insensitive } }
+    const statusFilter: Prisma.UserWhereInput | null = !requireComputedFilter && hasStatusFilter
+      ? { status: { in: statusValues } }
       : null
 
     const fromDateRaw = typeof dateFrom === 'string' && dateFrom ? new Date(dateFrom) : null
@@ -4232,11 +4235,11 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       filteredUsers = filteredUsers.filter((u) => String(u.trafficerName || '').toLowerCase().includes(traffickerValue))
     }
 
-    if (statusValue && statusValue !== 'all') {
+    if (statusValues.length > 0) {
       // Use computeDisplayStatus to match the same logic the frontend uses for display
       filteredUsers = filteredUsers.filter((u) => {
         const displayStatus = computeDisplayStatus(u)
-        return String(displayStatus || '').toUpperCase() === statusValue.toUpperCase()
+        return statusValues.includes(String(displayStatus || '').toUpperCase())
       })
     }
 
@@ -4296,7 +4299,10 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
     } = req.query
 
     const countryValue = String(country).trim()
-    const statusValue = String(status || '').trim()
+    const statusValues = String(status || '')
+      .split(',')
+      .map((v) => v.trim().toUpperCase())
+      .filter((v) => v && v !== 'ALL')
     const leadStatusValue = String(leadStatus || '').trim().toLowerCase()
     const traffickerValue = String(trafficker || '').trim().toLowerCase()
 
@@ -4328,10 +4334,10 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
       : null
 
     // For status and leadStatus, we need to fetch users and filter client-side
-    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || (Boolean(statusValue) && statusValue !== 'all')
+    const requireComputedFilter = Boolean(leadStatusValue && leadStatusValue !== 'all') || Boolean(traffickerValue) || statusValues.length > 0
     
-    const statusFilter: Prisma.UserWhereInput | null = !requireComputedFilter && statusValue && statusValue !== 'all'
-      ? { status: { equals: statusValue, mode: Prisma.QueryMode.insensitive } }
+    const statusFilter: Prisma.UserWhereInput | null = !requireComputedFilter && statusValues.length > 0
+      ? { status: { in: statusValues } }
       : null
 
     const where: Prisma.UserWhereInput = {
@@ -4398,10 +4404,10 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
         filteredUsers = filteredUsers.filter((u) => String(u.trafficerName || '').toLowerCase().includes(traffickerValue))
       }
 
-      if (statusValue && statusValue !== 'all') {
+      if (statusValues.length > 0) {
         filteredUsers = filteredUsers.filter((u) => {
           const displayStatus = computeDisplayStatus(u)
-          return String(displayStatus || '').toUpperCase() === statusValue.toUpperCase()
+          return statusValues.includes(String(displayStatus || '').toUpperCase())
         })
       }
     }
