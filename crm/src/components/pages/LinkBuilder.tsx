@@ -26,8 +26,6 @@ import { useAuth } from '@/lib/auth'
 import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, generateChannelInviteLink, type MarketingLink } from '@/lib/api'
 
 const TELEGRAM_LANDING_DOMAIN = 'website.syntrix.uno'
-const TELEGRAM_CHANNEL_INVITE_LINK = 't.me/+GteJd3Lac8lkZTZi'
-
 interface SubIdParam {
   id: number
   key: string
@@ -39,7 +37,7 @@ export function LinkBuilder() {
   const { token } = useAuth()
   const [source, setSource] = useState('')
   const [linkType, setLinkType] = useState<'bot' | 'channel'>('bot')
-  const [selectedDomain, setSelectedDomain] = useState('website.syntrix.uno')
+  const [selectedDomain, setSelectedDomain] = useState('crypto.syntrixxx.site')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
   const [pixelConfirmed, setPixelConfirmed] = useState(false)
@@ -99,13 +97,11 @@ export function LinkBuilder() {
   }
 
   const botDomains = [
-    { value: 'website.syntrix.uno', label: 'website.syntrix.uno', color: 'bg-emerald-400' },
     { value: 'crypto.syntrixxx.site', label: 'crypto.syntrixxx.site', color: 'bg-amber-400' },
     { value: 'trade.syntrixxx.site', label: 'trade.syntrixxx.site', color: 'bg-pink-400' },
   ]
 
   const channelDomains = [
-    { value: TELEGRAM_CHANNEL_INVITE_LINK, label: TELEGRAM_CHANNEL_INVITE_LINK, color: 'bg-blue-400' },
     { value: 'info.syntrixxx.site', label: 'info.syntrixxx.site', color: 'bg-purple-400' },
     { value: 'ss.syntrixxx.space', label: 'ss.syntrixxx.space', color: 'bg-orange-400' },
     { value: 'road.syntrixxx.space', label: 'road.syntrixxx.space', color: 'bg-rose-400' },
