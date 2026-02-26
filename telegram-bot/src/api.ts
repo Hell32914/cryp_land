@@ -5011,7 +5011,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       const depStatus = deposit.status === 'COMPLETED' ? 'paid' : deposit.status === 'FAILED' ? 'failed' : 'processing'
       
       // Determine leadStatus
-      let leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active' = 'active'
+      let leadStatus: 'FTD' | 'reinvest' | 'active' = 'active'
       
       const firstRealDepositId = firstRealDepositIdByUserId.get(deposit.userId)
       const hasRealFtd = typeof firstRealDepositId === 'number'
@@ -5019,9 +5019,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
 
       if (isFirstRealDeposit) {
         leadStatus = 'FTD'
-      } else if (deposit.user.withdrawals.length > 0) {
-        leadStatus = 'withdraw'
-      } else if (hasRealFtd && deposit.user.dailyUpdates.length > 0) {
+      } else if (hasRealFtd && (deposit.user.dailyUpdates.length > 0 || deposit.user.withdrawals.length > 0)) {
         leadStatus = 'reinvest'
       }
 

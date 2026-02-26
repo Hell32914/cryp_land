@@ -246,7 +246,7 @@ export interface DepositRecord {
   createdAt: string
   user: UserRecord
   depStatus: 'processing' | 'paid' | 'failed'
-  leadStatus: 'FTD' | 'withdraw' | 'reinvest' | 'active'
+  leadStatus: 'FTD' | 'reinvest' | 'active'
   trafficSource: string | null
   referralLink: string | null
   trafficerName: string | null

@@ -75,9 +75,13 @@ export function Deposits() {
     return 'processing'
   }
 
+  const normalizeLeadStatus = (leadStatus: DepositRecord['leadStatus'] | string) => {
+    return leadStatus === 'withdraw' ? 'reinvest' : leadStatus
+  }
+
   const filteredDeposits = deposits.filter((deposit) => {
     const normalizedDepStatus = normalizeDepStatus(deposit)
-    if (filterLeadStatus !== 'all' && deposit.leadStatus !== filterLeadStatus) return false
+    if (filterLeadStatus !== 'all' && normalizeLeadStatus(deposit.leadStatus) !== filterLeadStatus) return false
     if (filterDepStatus !== 'all' && normalizedDepStatus !== filterDepStatus) return false
     if (filterDateFrom || filterDateTo) {
       const created = new Date(deposit.createdAt).getTime()
@@ -282,14 +286,18 @@ export function Deposits() {
                           })()}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
+                          {(() => {
+                            const normalizedLead = normalizeLeadStatus(latest.leadStatus)
+                            return (
                           <Badge variant="outline" className={
-                            latest.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                            latest.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                            latest.leadStatus === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            normalizedLead === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                            normalizedLead === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                             'bg-green-500/10 text-green-400 border-green-500/20'
                           }>
-                            {latest.leadStatus}
+                            {normalizedLead}
                           </Badge>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="text-sm text-blue-400 hidden xl:table-cell">
                           {latest.trafficerName || '—'}
@@ -348,14 +356,18 @@ export function Deposits() {
                                 })()}
                               </TableCell>
                               <TableCell className="hidden lg:table-cell">
+                                {(() => {
+                                  const normalizedLead = normalizeLeadStatus(deposit.leadStatus)
+                                  return (
                                 <Badge variant="outline" className={
-                                  deposit.leadStatus === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                                  deposit.leadStatus === 'withdraw' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                                  deposit.leadStatus === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                  normalizedLead === 'FTD' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                                  normalizedLead === 'reinvest' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                                   'bg-green-500/10 text-green-400 border-green-500/20'
                                 }>
-                                  {deposit.leadStatus}
+                                  {normalizedLead}
                                 </Badge>
+                                  )
+                                })()}
                               </TableCell>
                               <TableCell className="text-sm text-blue-400 hidden xl:table-cell">
                                 {deposit.trafficerName || '—'}
@@ -567,7 +579,6 @@ export function Deposits() {
               >
                 <option value="all">All</option>
                 <option value="FTD">FTD</option>
-                <option value="withdraw">withdraw</option>
                 <option value="reinvest">reinvest</option>
                 <option value="active">active</option>
               </select>
