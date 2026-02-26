@@ -402,6 +402,12 @@ const supportSendPhotoSchema = z.object({
   adminUsername: z.string().optional(),
 })
 
+const supportSendDocumentSchema = z.object({
+  caption: z.string().max(1024).optional(),
+  replyToId: z.coerce.number().int().positive().optional(),
+  adminUsername: z.string().optional(),
+})
+
 const supportNoteSchema = z.object({
   text: z.string().min(1).max(5000),
 })
@@ -773,8 +779,8 @@ let supportBotInstance: Bot | undefined
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    // Telegram Bot API allows up to ~10MB for photos; keep conservative
-    fileSize: 10 * 1024 * 1024,
+    // Shared upload limit for support photo/file attachments.
+    fileSize: 25 * 1024 * 1024,
   },
 })
 
@@ -1863,6 +1869,7 @@ app.delete('/api/admin/support/chats/:chatId/messages/:messageId', requireAdminA
       const kind = String((lastAny as any).kind || '').toUpperCase()
       const text = (lastAny as any).text as string | null | undefined
       if (kind === 'PHOTO') return text ? String(text) : '[Photo]'
+      if (kind === 'DOCUMENT') return text ? String(text) : '[File]'
       return text ?? null
     })()
 
@@ -1984,6 +1991,107 @@ app.post(
     } catch (error) {
       console.error('Support send photo error:', error)
       return res.status(500).json({ error: 'Failed to send photo' })
+    }
+  },
+)
+
+app.post(
+  '/api/admin/support/chats/:chatId/documents',
+  requireAdminAuth,
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      if (!supportBotInstance) {
+        return res.status(503).json({ error: 'Support bot is not configured' })
+      }
+
+      const chatId = String(req.params.chatId)
+      const chat = await prisma.supportChat.findUnique({ where: { chatId } })
+      if (!chat) return res.status(404).json({ error: 'Chat not found' })
+
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ error: 'File is required' })
+      }
+
+      const parsed = supportSendDocumentSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid payload' })
+      }
+      const { caption, replyToId } = parsed.data
+
+      const adminUsername = String((req as any).adminUsername || '').trim()
+      if (!adminUsername) return res.status(400).json({ error: 'Admin username missing' })
+
+      if (chat.status === 'ARCHIVE') {
+        return res.status(409).json({ error: 'Chat is archived' })
+      }
+      if (chat.status !== 'ACCEPTED') {
+        return res.status(409).json({ error: 'Chat must be accepted before replying' })
+      }
+      if (chat.acceptedBy && chat.acceptedBy !== adminUsername) {
+        return res.status(403).json({ error: 'Chat is accepted by another operator' })
+      }
+
+      let replyToTelegramMessageId: number | undefined
+      if (replyToId) {
+        const replyTarget = await prisma.supportMessage.findUnique({ where: { id: replyToId } })
+        if (!replyTarget || replyTarget.supportChatId !== chat.id) {
+          return res.status(404).json({ error: 'Reply target not found' })
+        }
+        const tgId = Number((replyTarget as any).telegramMessageId)
+        if (!Number.isFinite(tgId)) {
+          return res.status(409).json({ error: 'Cannot reply in Telegram: target message id is missing' })
+        }
+        replyToTelegramMessageId = tgId
+      }
+
+      const sent = await supportBotInstance.api.sendDocument(
+        chatId,
+        new InputFile(req.file.buffer, req.file.originalname || 'file.bin'),
+        {
+          ...(caption ? { caption } : {}),
+          ...(replyToTelegramMessageId
+            ? ({ reply_to_message_id: replyToTelegramMessageId, allow_sending_without_reply: true } as any)
+            : {}),
+        } as any,
+      )
+
+      const telegramMessageId = Number((sent as any)?.message_id)
+      const now = new Date()
+      const document = (sent as any)?.document as
+        | { file_id?: string; file_unique_id?: string; file_name?: string; mime_type?: string }
+        | undefined
+
+      const message = await prisma.supportMessage.create({
+        data: {
+          supportChatId: chat.id,
+          direction: 'OUT',
+          kind: 'DOCUMENT',
+          text: caption || null,
+          telegramMessageId: Number.isFinite(telegramMessageId) ? telegramMessageId : null,
+          replyToId: replyToId || null,
+          fileId: document?.file_id || null,
+          fileUniqueId: document?.file_unique_id || null,
+          fileName: document?.file_name || req.file.originalname || null,
+          mimeType: document?.mime_type || req.file.mimetype || null,
+          adminUsername: adminUsername || null,
+          createdAt: now,
+        },
+      })
+
+      await prisma.supportChat.update({
+        where: { id: chat.id },
+        data: {
+          lastMessageAt: now,
+          lastMessageText: caption ? caption.slice(0, 500) : '[File]',
+          lastOutboundAt: now,
+        },
+      })
+
+      return res.json(message)
+    } catch (error) {
+      console.error('Support send document error:', error)
+      return res.status(500).json({ error: 'Failed to send document' })
     }
   },
 )
@@ -2203,6 +2311,7 @@ async function recomputeSupportChatLastMetaById(supportChatId: number) {
     const kind = String((lastAny as any).kind || '').toUpperCase()
     const text = (lastAny as any).text as string | null | undefined
     if (kind === 'PHOTO') return text ? String(text) : '[Photo]'
+    if (kind === 'DOCUMENT') return text ? String(text) : '[File]'
     return text ?? null
   })()
 

@@ -379,19 +379,21 @@ export interface SupportMessageRecord {
   id: number
   supportChatId: number
   direction: 'IN' | 'OUT' | string
-  kind?: 'TEXT' | 'PHOTO' | string
+  kind?: 'TEXT' | 'PHOTO' | 'DOCUMENT' | string
   text: string | null
   replyToId?: number | null
   replyTo?: {
     id: number
     direction: 'IN' | 'OUT' | string
-    kind?: 'TEXT' | 'PHOTO' | string
+    kind?: 'TEXT' | 'PHOTO' | 'DOCUMENT' | string
     text: string | null
     fileId?: string | null
     adminUsername: string | null
     createdAt: string
   } | null
   fileId?: string | null
+  fileName?: string | null
+  mimeType?: string | null
   adminUsername: string | null
   userSeenAt?: string | null
   userSeenTelegramId?: string | null
@@ -1763,6 +1765,29 @@ export const sendSupportPhoto = async (token: string, chatId: string, file: File
   if (caption) form.append('caption', caption)
   if (opts?.replyToId) form.append('replyToId', String(opts.replyToId))
   return requestFormData<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/photos`, form, token)
+}
+
+export const sendSupportDocument = async (token: string, chatId: string, file: File, caption?: string, opts?: { replyToId?: number | null }) => {
+  if (isTesterToken(token)) {
+    return Promise.resolve({
+      id: Date.now(),
+      supportChatId: (MOCK_SUPPORT_CHATS.find((c) => c.chatId === chatId)?.id ?? 0),
+      direction: 'OUT',
+      kind: 'DOCUMENT',
+      text: caption || null,
+      replyToId: opts?.replyToId ?? null,
+      fileId: 'mock-document-id',
+      fileName: file.name || 'mock-file.txt',
+      mimeType: file.type || 'application/octet-stream',
+      adminUsername: 'tester',
+      createdAt: new Date().toISOString(),
+    } as SupportMessageRecord)
+  }
+  const form = new FormData()
+  form.append('file', file)
+  if (caption) form.append('caption', caption)
+  if (opts?.replyToId) form.append('replyToId', String(opts.replyToId))
+  return requestFormData<SupportMessageRecord>(`/api/admin/support/chats/${encodeURIComponent(chatId)}/documents`, form, token)
 }
 
 export const deleteSupportMessage = (token: string, chatId: string, messageId: number) =>

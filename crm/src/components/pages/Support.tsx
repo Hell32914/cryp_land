@@ -25,6 +25,7 @@ import {
   markSupportChatRead,
   markSupportChatUnread,
   sendSupportPhoto,
+  sendSupportDocument,
   sendSupportMessage,
   deleteSupportMessage,
   setSupportChatStage,
@@ -1695,6 +1696,26 @@ export function Support({
     },
   })
 
+  const sendDocumentMutation = useMutation({
+    mutationFn: ({ chatId, file, caption }: { chatId: string; file: File; caption?: string }) =>
+      sendSupportDocument(token!, chatId, file, caption, { replyToId: replyTo?.id || null }),
+    onSuccess: async () => {
+      setPhotoCaption('')
+      setPhotoFile(null)
+      setReplyTo(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      await queryClient.invalidateQueries({ queryKey: ['support-messages'] })
+      await queryClient.invalidateQueries({ queryKey: ['support-chats'] })
+      setScrollBehavior('smooth')
+      setShouldScrollMessagesToBottom(true)
+      scrollMessagesToBottom('smooth')
+      toast.success(t('support.sent'))
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || t('support.sendFailed'))
+    },
+  })
+
   const addNoteMutation = useMutation({
     mutationFn: ({ chatId, text }: { chatId: string; text: string }) => addSupportNote(token!, chatId, text),
     onSuccess: async () => {
@@ -1808,6 +1829,7 @@ export function Support({
   const replyPreviewText = (m: SupportMessageRecord | null) => {
     if (!m) return ''
     if (m.kind === 'PHOTO') return m.text ? m.text : `[${t('support.photo')}]`
+    if (m.kind === 'DOCUMENT') return m.text ? m.text : `[${t('support.file')}]`
     return (m.text || '').trim() || '—'
   }
 
@@ -1830,7 +1852,7 @@ export function Support({
     if (!token) return
 
     const fileIds = messages
-      .filter((m) => m.kind === 'PHOTO')
+      .filter((m) => m.kind === 'PHOTO' || m.kind === 'DOCUMENT')
       .map((m) => m.fileId)
       .filter((id): id is string => Boolean(id))
       .filter((id) => !fileUrlCache[id] && !fileLoadError[id])
@@ -2749,6 +2771,8 @@ export function Support({
                               <div className="truncate">
                                 {m.replyTo.kind === 'PHOTO'
                                   ? (m.replyTo.text ? m.replyTo.text : `[${t('support.photo')}]`)
+                                  : m.replyTo.kind === 'DOCUMENT'
+                                    ? (m.replyTo.text ? m.replyTo.text : `[${t('support.file')}]`)
                                   : (m.replyTo.text ?? '')}
                               </div>
                             </div>
@@ -2780,6 +2804,31 @@ export function Support({
                                 </div>
                               ) : (
                                 <div className="text-xs text-muted-foreground">{t('support.photoLoading')}</div>
+                              )}
+
+                              {m.text ? (
+                                <div className="whitespace-pre-wrap break-words">{m.text}</div>
+                              ) : null}
+                            </div>
+                          ) : m.kind === 'DOCUMENT' && m.fileId ? (
+                            <div className="space-y-2">
+                              {fileUrlCache[m.fileId] ? (
+                                <a
+                                  href={fileUrlCache[m.fileId]}
+                                  download={m.fileName || undefined}
+                                  className="inline-flex items-center gap-2 text-primary underline-offset-4 hover:underline"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <Paperclip size={16} />
+                                  <span>{m.fileName || t('support.downloadFile')}</span>
+                                </a>
+                              ) : fileLoadError[m.fileId] ? (
+                                <div className="text-xs text-muted-foreground">
+                                  {t('support.fileLoadFailed')}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground">{t('support.fileLoading')}</div>
                               )}
 
                               {m.text ? (
@@ -2994,6 +3043,26 @@ export function Support({
                     <div className="md:col-span-2">
                       <input
                         type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null
+                          if (!file || !selectedChatId) return
+                          setPhotoFile(file)
+                          sendDocumentMutation.mutate({
+                            chatId: selectedChatId,
+                            file,
+                            caption: photoCaption.trim() || undefined,
+                          })
+                        }}
+                        disabled={
+                          Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                          Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                        }
+                      />
+
+                      <input
+                        type="file"
                         accept="image/*"
                         ref={photoPickerRef}
                         className="hidden"
@@ -3017,6 +3086,21 @@ export function Support({
                         type="button"
                         variant="outline"
                         className="w-full justify-start gap-2"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={
+                          sendDocumentMutation.isPending ||
+                          Boolean(selectedChat?.status && String(selectedChat.status).toUpperCase() !== 'ACCEPTED') ||
+                          Boolean(selectedChat?.acceptedBy && myUsername && selectedChat.acceptedBy !== myUsername)
+                        }
+                      >
+                        <Paperclip size={18} />
+                        <span>{t('support.attachFile')}</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-start gap-2 mt-2"
                         onClick={() => photoPickerRef.current?.click()}
                         disabled={
                           sendPhotoMutation.isPending ||
