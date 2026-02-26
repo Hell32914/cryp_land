@@ -9,6 +9,9 @@ import type { Bot } from 'grammy'
 import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { promisify } from 'node:util'
+import { promises as fs } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 import multer from 'multer'
@@ -2024,6 +2027,9 @@ app.post(
       if (!req.file || !req.file.buffer) {
         return res.status(400).json({ error: 'File is required' })
       }
+      if (!Number.isFinite(req.file.size) || req.file.size <= 0 || req.file.buffer.length <= 0) {
+        return res.status(400).json({ error: 'Uploaded file is empty' })
+      }
 
       const parsed = supportSendDocumentSchema.safeParse(req.body)
       if (!parsed.success) {
@@ -2067,18 +2073,17 @@ app.post(
       } as any
 
       let sent: any
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'support-doc-'))
+      const tmpFilePath = path.join(tmpDir, `${Date.now()}-${telegramFileName || 'file.bin'}`)
       try {
+        await fs.writeFile(tmpFilePath, Buffer.from(req.file.buffer))
         sent = await supportBotInstance.api.sendDocument(
           chatId,
-          new InputFile(req.file.buffer, telegramFileName),
+          new InputFile(tmpFilePath, telegramFileName),
           sendOpts,
         )
-      } catch (firstError) {
-        sent = await supportBotInstance.api.sendDocument(
-          chatId,
-          new InputFile(req.file.buffer, 'file.bin'),
-          sendOpts,
-        )
+      } finally {
+        await fs.rm(tmpDir, { recursive: true, force: true })
       }
 
       const telegramMessageId = Number((sent as any)?.message_id)
