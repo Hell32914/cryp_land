@@ -62,6 +62,40 @@ const EXCLUDED_TELEGRAM_IDS = [
   '6003566866',  // наш
 ]
 
+const COUNTRY_CANONICAL_ALIASES: Record<string, string[]> = {
+  Netherlands: ['Netherlands', 'The Netherlands'],
+}
+
+const COUNTRY_ALIAS_TO_CANONICAL = Object.entries(COUNTRY_CANONICAL_ALIASES).reduce((acc, [canonical, aliases]) => {
+  aliases.forEach((alias) => {
+    acc[alias.toLowerCase()] = canonical
+  })
+  return acc
+}, {} as Record<string, string>)
+
+function normalizeCountryName(value: unknown): string {
+  const raw = String(value ?? '').trim()
+  if (!raw || raw.toLowerCase() === 'unknown') return 'Unknown'
+
+  const canonical = COUNTRY_ALIAS_TO_CANONICAL[raw.toLowerCase()]
+  if (canonical) return canonical
+
+  if (raw.toLowerCase().startsWith('the ')) {
+    const withoutArticle = raw.slice(4).trim()
+    const canonicalWithoutArticle = COUNTRY_ALIAS_TO_CANONICAL[withoutArticle.toLowerCase()]
+    if (canonicalWithoutArticle) return canonicalWithoutArticle
+  }
+
+  return raw
+}
+
+function getCountryAliasesForFilter(value: unknown): string[] {
+  const canonical = normalizeCountryName(value)
+  if (canonical === 'Unknown') return ['Unknown']
+  const aliases = COUNTRY_CANONICAL_ALIASES[canonical] || [canonical]
+  return Array.from(new Set([canonical, ...aliases]))
+}
+
 // Get IP geolocation data
 async function getIpGeoData(ip: string) {
   try {
@@ -69,7 +103,7 @@ async function getIpGeoData(ip: string) {
     const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,city,isp,timezone,proxy,query`)
     if (response.data.status === 'success') {
       return {
-        country: response.data.country || null,
+        country: normalizeCountryName(response.data.country),
         city: response.data.city || null,
         isp: response.data.isp || null,
         timezone: response.data.timezone || null,
@@ -3380,6 +3414,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const periodEnd = toParam ? new Date(toParam) : now
 
     const geoFilter = typeof req.query.geo === 'string' ? req.query.geo.trim() : ''
+    const geoFilterAliases = geoFilter ? getCountryAliasesForFilter(geoFilter) : []
     const streamFilter = typeof req.query.stream === 'string' ? req.query.stream.trim() : ''
 
     // Get database IDs of excluded users for filtering deposits/withdrawals/profits
@@ -3396,9 +3431,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const availableStreams = Array.from(new Set(marketingLinks.map(l => l.stream).filter(Boolean)))
       .map((s) => String(s))
       .sort()
-    const availableGeos = geoOptions
-      .map((g) => g.country || 'Unknown')
-      .filter(Boolean)
+    const availableGeos = Array.from(new Set(
+      geoOptions
+        .map((g) => normalizeCountryName(g.country))
+        .filter(Boolean)
+    ))
       .sort()
 
     const streamLinkIds = streamFilter
@@ -3416,7 +3453,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const userWhere = {
       isHidden: false,
       telegramId: { notIn: excludedTelegramIds },
-      ...(geoFilter ? { country: geoFilter } : {}),
+      ...(geoFilterAliases.length ? { country: { in: geoFilterAliases } } : {}),
       ...(streamFilter ? streamWhere : {}),
     }
     
@@ -3759,23 +3796,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }
     })
 
-    // Country metrics using period filters
-    const normalizeCountry = (value: unknown) => {
-      const raw = String(value ?? '').trim()
-      if (!raw || raw.toLowerCase() === 'unknown') return 'Unknown'
-      return raw
-    }
-
     const countryUserCount = new Map<string, number>()
     geoUsers.forEach((u) => {
-      const country = normalizeCountry(u.country)
+      const country = normalizeCountryName(u.country)
       countryUserCount.set(country, (countryUserCount.get(country) || 0) + 1)
     })
 
     // Deposit/withdrawal aggregates per country within period
     const countryDeposits = new Map<string, { total: number; byUser: Map<string, { amount: number; user: any }> }>()
     geoDeposits.forEach((d) => {
-      const country = normalizeCountry(d.user?.country)
+      const country = normalizeCountryName(d.user?.country)
       const userKey = String(d.user?.telegramId ?? 'unknown')
       if (!countryDeposits.has(country)) countryDeposits.set(country, { total: 0, byUser: new Map() })
       const entry = countryDeposits.get(country)!
@@ -3787,7 +3817,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     const countryWithdrawals = new Map<string, number>()
     geoWithdrawals.forEach((w) => {
-      const country = normalizeCountry(w.user?.country)
+      const country = normalizeCountryName(w.user?.country)
       countryWithdrawals.set(country, (countryWithdrawals.get(country) || 0) + Number(w.amount))
     })
 
@@ -5282,7 +5312,7 @@ async function getCountryFromIP(ip: string): Promise<string | null> {
     }
     
     const response = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 3000 })
-    return response.data.country_name || null
+    return normalizeCountryName(response.data.country_name)
   } catch (error) {
     console.error('Error getting country from IP:', error)
     return null
