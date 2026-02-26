@@ -16,7 +16,7 @@ import { useApiQuery } from '@/hooks/use-api-query'
 import { fetchOverview, type OverviewResponse } from '@/lib/api'
 
 type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
-type DailyRow = { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; spend: number }
+type DailyRow = { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; users: number; spend: number }
 
 class DashboardErrorBoundary extends Component<{ children: ReactNode; label?: string }, { hasError: boolean }> {
   state = { hasError: false }
@@ -245,6 +245,7 @@ export function Dashboard() {
       withdrawals: toNumber((row as any).withdrawals),
       profit: toNumber((row as any).profit),
       traffic: getLeadsValue(row as any),
+      users: toNumber((row as any).users),
       spend: toNumber((row as any).spend),
     })).filter((row) => Boolean((row as any).date))
   }
@@ -285,14 +286,15 @@ export function Dashboard() {
         acc.withdrawals += row.withdrawals
         acc.profit += row.profit
         acc.traffic += row.traffic
+        acc.users += row.users
         acc.spend += row.spend
         return acc
       },
-      { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, spend: 0 }
+      { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, users: 0, spend: 0 }
     )
 
     return (
-      <div className="rounded-md border border-border overflow-hidden min-w-[1200px]">
+      <div className="rounded-md border border-border overflow-hidden min-w-[1300px]">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -301,6 +303,7 @@ export function Dashboard() {
               <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
               <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
               <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.users')}</TableHead>
               <TableHead className="text-right">{t('dashboard.spend')}</TableHead>
               <TableHead className="text-right">{t('dashboard.netFlow')}</TableHead>
               <TableHead className="text-right">{t('dashboard.roi')}</TableHead>
@@ -330,6 +333,9 @@ export function Dashboard() {
                   <TableCell className="text-right text-indigo-400">
                     {row.traffic.toLocaleString()}
                   </TableCell>
+                  <TableCell className="text-right text-blue-400">
+                    {row.users.toLocaleString()}
+                  </TableCell>
                   <TableCell className="text-right text-red-400">
                     {formatCurrency(row.spend)}
                   </TableCell>
@@ -355,6 +361,9 @@ export function Dashboard() {
               </TableCell>
               <TableCell className="text-right font-semibold text-indigo-400">
                 {totals.traffic.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-blue-400">
+                {totals.users.toLocaleString()}
               </TableCell>
               <TableCell className="text-right font-semibold text-red-400">
                 {formatCurrency(totals.spend)}
@@ -805,7 +814,7 @@ export function Dashboard() {
                     onScroll={handleFullBottomScroll}
                     className="max-h-[60vh] overflow-auto"
                   >
-                    <div className="min-w-[1200px]">
+                    <div className="min-w-[1300px]">
                       {renderDailyTable(allTimeRows)}
                     </div>
                   </div>

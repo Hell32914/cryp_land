@@ -105,6 +105,7 @@ export interface FinancialPoint {
   withdrawals: number
   profit: number
   traffic: number
+  users?: number
   spend: number
 }
 
@@ -557,7 +558,8 @@ const MOCK_OVERVIEW: OverviewResponse = {
     deposits: 8000 + idx * 1200,
     withdrawals: 3000 + idx * 700,
     profit: 2000 + idx * 400,
-    traffic: 120 + idx * 10,
+    traffic: 100 + idx * 8,
+    users: 20 + idx * 2,
     spend: 1500 + idx * 120,
   })),
   geoData: [

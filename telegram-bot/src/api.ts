@@ -3578,7 +3578,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           ...userWhere,
           createdAt: periodWhere || { gte: chartStart },
         },
-        select: { createdAt: true },
+        select: { id: true, createdAt: true },
       }),
       prisma.deposit.findMany({
         where: depositWhere,
@@ -3620,12 +3620,29 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const daysDiff = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
     const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
-    const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; spend: number }>()
+    const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; users: number; spend: number }>()
     const ensureDailyEntry = (key: string) => {
       if (!dailySummaryMap.has(key)) {
-        dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, spend: 0 })
+        dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, users: 0, spend: 0 })
       }
       return dailySummaryMap.get(key)!
+    }
+
+    const trafficUserIds = trafficUsers.map((u) => u.id)
+    const convertedUserIds = new Set<number>()
+    if (trafficUserIds.length > 0) {
+      const convertedGroups = await prisma.deposit.groupBy({
+        by: ['userId'],
+        where: {
+          status: 'COMPLETED',
+          userId: { in: trafficUserIds, notIn: excludeUserIds },
+          ...realDepositFilter,
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
+      })
+      for (const row of convertedGroups) {
+        convertedUserIds.add(row.userId)
+      }
     }
 
     recentDeposits.forEach((deposit) => {
@@ -3663,12 +3680,18 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     trafficUsers.forEach((u) => {
       const key = getDateKey(u.createdAt)
+      const isConverted = convertedUserIds.has(u.id)
       const entry = seriesMap.get(key)
       if (entry) {
-        entry.traffic += 1
+        entry.traffic += isConverted ? 0 : 1
       }
       if (fullDaily) {
-        ensureDailyEntry(key).traffic += 1
+        const dailyEntry = ensureDailyEntry(key)
+        if (isConverted) {
+          dailyEntry.users += 1
+        } else {
+          dailyEntry.traffic += 1
+        }
       }
     })
 
