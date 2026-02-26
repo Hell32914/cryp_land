@@ -19,6 +19,13 @@
     (function () {
         var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
         var normalizedHost = host.replace(/^www\./, '');
+
+        if (normalizedHost === 'info.syntrixxx.site') {
+            fbq('init', '2377085479429610');
+            fbq('track', 'PageView');
+            return;
+        }
+
         var pixelByHost = {
             'info.syntrixxx.site': '2377085479429610',
             'website.syntrix.uno': '1070190051929151',
@@ -30,7 +37,7 @@
             'official.syntrixxx.space': '2284659832039389',
             'trade.syntrixxx.site': '1121382239874465',
             'trade.syntrixxx.website': '1121382239874465',
-            'crypto.syntrixxx.site': '25258398163810043'
+            'crypto.syntrixxx.site': '1070190051929151'
         };
         // Fallback to existing pixel for other mapped hostnames served by the same vhost
         var pixelId = pixelByHost[normalizedHost] || '1356561989350736';
@@ -45,7 +52,7 @@
             fbq('init', '26136975615938720');
         }
         // Keep legacy main pixel for hosts that don't have dedicated replacement
-        if (normalizedHost !== 'info.syntrixxx.site' && normalizedHost !== 'website.syntrix.uno') {
+        if (normalizedHost !== 'info.syntrixxx.site' && normalizedHost !== 'website.syntrix.uno' && normalizedHost !== 'crypto.syntrixxx.site') {
             fbq('init', '1896813627596190');
         }
         fbq('track', 'PageView');
