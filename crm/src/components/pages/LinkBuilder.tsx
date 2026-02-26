@@ -101,14 +101,14 @@ export function LinkBuilder() {
   const botDomains = [
     { value: 'website.syntrix.uno', label: 'website.syntrix.uno', color: 'bg-emerald-400' },
     { value: 'crypto.syntrixxx.site', label: 'crypto.syntrixxx.site', color: 'bg-amber-400' },
-    { value: 'trade.syntrixxx.website', label: 'trade.syntrixxx.website', color: 'bg-pink-400' },
+    { value: 'trade.syntrixxx.site', label: 'trade.syntrixxx.site', color: 'bg-pink-400' },
   ]
 
   const channelDomains = [
     { value: TELEGRAM_CHANNEL_INVITE_LINK, label: TELEGRAM_CHANNEL_INVITE_LINK, color: 'bg-blue-400' },
     { value: 'info.syntrixxx.site', label: 'info.syntrixxx.site', color: 'bg-purple-400' },
-    { value: 'ss.syntrixxx.website', label: 'ss.syntrixxx.website', color: 'bg-orange-400' },
-    { value: 'road.syntrixxx.website', label: 'road.syntrixxx.website', color: 'bg-rose-400' },
+    { value: 'ss.syntrixxx.space', label: 'ss.syntrixxx.space', color: 'bg-orange-400' },
+    { value: 'road.syntrixxx.space', label: 'road.syntrixxx.space', color: 'bg-rose-400' },
     { value: 'invest.syntrixxx.space', label: 'invest.syntrixxx.space', color: 'bg-cyan-400' },
     { value: 'official.syntrixxx.space', label: 'official.syntrixxx.space', color: 'bg-lime-400' },
   ]

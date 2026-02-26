@@ -22,10 +22,13 @@
         var pixelByHost = {
             'info.syntrixxx.site': '2377085479429610',
             'website.syntrix.uno': '1070190051929151',
+            'ss.syntrixxx.space': '1955236631777781',
             'ss.syntrixxx.website': '1955236631777781',
+            'road.syntrixxx.space': '1593545235016326',
             'road.syntrixxx.website': '1593545235016326',
             'invest.syntrixxx.space': '26136975615938720',
             'official.syntrixxx.space': '2284659832039389',
+            'trade.syntrixxx.site': '1121382239874465',
             'trade.syntrixxx.website': '1121382239874465',
             'crypto.syntrixxx.site': '25258398163810043'
         };
@@ -36,7 +39,7 @@
             // Add secondary pixel for UK without replacing existing
             fbq('init', '1207521808250750');
         }
-        if (normalizedHost === 'road.syntrixxx.website') {
+        if (normalizedHost === 'road.syntrixxx.website' || normalizedHost === 'road.syntrixxx.space') {
             // Add secondary pixel for FR without replacing existing
             fbq('init', '1593545235016326');
             fbq('init', '26136975615938720');
@@ -131,7 +134,9 @@
         // Домены, которые должны вести на TG-канал (трек-ссылка зависит от домена)
         const channelInviteByHost = {
             'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
+            'ss.syntrixxx.space': 'https://t.me/+YmFilnI8DbFjNWEy',
             'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
+            'road.syntrixxx.space': 'https://t.me/+TLo5_JI7r0wxODky',
             'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
             'invest.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',
             'invests.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',

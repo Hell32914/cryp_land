@@ -148,9 +148,12 @@ function calculateTariffPlan(balance: number) {
 const allowedOrigins = [
   'https://website.syntrix.uno',
   'https://crypto.syntrixxx.site',
+  'https://trade.syntrixxx.site',
   'https://trade.syntrixxx.website',
   'https://info.syntrixxx.site',
+  'https://ss.syntrixxx.space',
   'https://ss.syntrixxx.website',
+  'https://road.syntrixxx.space',
   'https://road.syntrixxx.website',
   'https://invest.syntrixxx.space',
   'https://invests.syntrixxx.space',

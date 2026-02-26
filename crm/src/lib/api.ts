@@ -814,8 +814,8 @@ const MOCK_MARKETING_LINKS: MarketingLink[] = [
   {
     linkId: 'QA-002',
     source: 'instagram',
-    domain: 'trade.syntrixxx.website',
-    linkUrl: 'https://trade.syntrixxx.website/?ref=QA-002',
+    domain: 'trade.syntrixxx.site',
+    linkUrl: 'https://trade.syntrixxx.site/?ref=QA-002',
     channelInviteLink: null,
     clicks: 980,
     conversions: 40,
