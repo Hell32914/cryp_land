@@ -1,8 +1,16 @@
-import { Component, type ReactNode, useMemo, useRef, useState } from 'react'
+import { Component, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAuth } from '@/lib/auth'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -13,10 +21,21 @@ import {
 } from '@/components/ui/table'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useApiQuery } from '@/hooks/use-api-query'
-import { fetchOverview, type OverviewResponse } from '@/lib/api'
+import { createExpense, fetchOverview, type OverviewResponse } from '@/lib/api'
 
 type PeriodType = 'all' | 'today' | 'week' | 'month' | 'custom'
-type DailyRow = { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; users: number; spend: number }
+type SummaryGroupBy = 'day' | 'week' | 'month'
+type DailyRow = {
+  date: string
+  label?: string
+  deposits: number
+  withdrawals: number
+  profit: number
+  traffic: number
+  users: number
+  spend: number
+  linkStats?: Array<{ linkId: string; linkName: string; leads: number }>
+}
 
 class DashboardErrorBoundary extends Component<{ children: ReactNode; label?: string }, { hasError: boolean }> {
   state = { hasError: false }
@@ -39,6 +58,8 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode; label?: st
 
 export function Dashboard() {
   const { t } = useTranslation()
+  const { token } = useAuth()
+  const queryClient = useQueryClient()
   const [period, setPeriod] = useState<PeriodType>('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -46,6 +67,8 @@ export function Dashboard() {
   const [streamFilter, setStreamFilter] = useState('')
   const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
   const [statsPage, setStatsPage] = useState(1)
+  const [summaryGroupBy, setSummaryGroupBy] = useState<SummaryGroupBy>('day')
+  const [selectedSummaryRow, setSelectedSummaryRow] = useState<DailyRow | null>(null)
   const compactBottomScrollRef = useRef<HTMLDivElement>(null)
   const fullBottomScrollRef = useRef<HTMLDivElement>(null)
   
@@ -103,6 +126,20 @@ export function Dashboard() {
     { staleTime: 30_000, refetchInterval: 30_000, refetchIntervalInBackground: true, refetchOnWindowFocus: false }
   )
 
+  const addSpendMutation = useMutation({
+    mutationFn: (payload: { date: string; amount: number }) =>
+      createExpense(token!, {
+        category: 'TRAFFIC',
+        comment: `Traffic spend (${payload.date})`,
+        amount: payload.amount,
+        createdAt: `${payload.date}T12:00:00.000Z`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['overview'] })
+      queryClient.invalidateQueries({ queryKey: ['overview-all-time'] })
+    },
+  })
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
 
@@ -146,6 +183,31 @@ export function Dashboard() {
       month: 'short',
       day: '2-digit',
     }).format(parsed)
+  }
+
+  const getWeekStartDate = (input: string) => {
+    const parsed = parseDateSafe(input)
+    if (!parsed) return null
+    const d = new Date(parsed)
+    const day = d.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    d.setDate(d.getDate() + diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+
+  const buildSummaryLabel = (dateKey: string, groupBy: SummaryGroupBy) => {
+    if (groupBy === 'day') return formatDate(dateKey)
+    if (groupBy === 'week') {
+      const start = parseDateSafe(dateKey)
+      if (!start) return dateKey
+      const end = new Date(start)
+      end.setDate(end.getDate() + 6)
+      return `${formatDate(start.toISOString().slice(0, 10))} – ${formatDate(end.toISOString().slice(0, 10))}`
+    }
+    const parsed = parseDateSafe(`${dateKey}-01`)
+    if (!parsed) return dateKey
+    return new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' }).format(parsed)
   }
 
   // Use period-based values for all filters (depositsPeriod contains all time data when no filter)
@@ -246,6 +308,7 @@ export function Dashboard() {
       profit: toNumber((row as any).profit),
       traffic: getLeadsValue(row as any),
       users: toNumber((row as any).users),
+      linkStats: Array.isArray((row as any).linkStats) ? (row as any).linkStats : [],
       spend: toNumber((row as any).spend),
     })).filter((row) => Boolean((row as any).date))
   }
@@ -266,10 +329,67 @@ export function Dashboard() {
     return rows
   }, [allTimeChartData])
 
+  const groupedRows = useMemo(() => {
+    if (summaryGroupBy === 'day') {
+      return allTimeRows.map((row) => ({
+        ...row,
+        label: buildSummaryLabel(row.date, 'day'),
+      }))
+    }
+
+    const map = new Map<string, DailyRow>()
+    for (const row of allTimeRows) {
+      let bucketKey = row.date
+      if (summaryGroupBy === 'week') {
+        const weekStart = getWeekStartDate(row.date)
+        bucketKey = weekStart ? weekStart.toISOString().slice(0, 10) : row.date
+      } else if (summaryGroupBy === 'month') {
+        const parsed = parseDateSafe(row.date)
+        bucketKey = parsed
+          ? `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`
+          : row.date.slice(0, 7)
+      }
+
+      const current = map.get(bucketKey) || {
+        date: bucketKey,
+        label: buildSummaryLabel(bucketKey, summaryGroupBy),
+        deposits: 0,
+        withdrawals: 0,
+        profit: 0,
+        traffic: 0,
+        users: 0,
+        spend: 0,
+        linkStats: [],
+      }
+
+      current.deposits += row.deposits
+      current.withdrawals += row.withdrawals
+      current.profit += row.profit
+      current.traffic += row.traffic
+      current.users += row.users
+      current.spend += row.spend
+
+      const linkMap = new Map((current.linkStats || []).map((entry) => [entry.linkId, { ...entry }]))
+      for (const link of row.linkStats || []) {
+        const prev = linkMap.get(link.linkId)
+        if (prev) prev.leads += link.leads
+        else linkMap.set(link.linkId, { ...link })
+      }
+      current.linkStats = Array.from(linkMap.values()).sort((a, b) => b.leads - a.leads)
+      map.set(bucketKey, current)
+    }
+
+    return Array.from(map.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [allTimeRows, summaryGroupBy])
+
+  useEffect(() => {
+    setStatsPage(1)
+  }, [summaryGroupBy, geoFilter, streamFilter])
+
   const pageSize = 20
-  const statsPageCount = Math.max(1, Math.ceil(allTimeRows.length / pageSize))
+  const statsPageCount = Math.max(1, Math.ceil(groupedRows.length / pageSize))
   const statsPageSafe = Math.min(statsPage, statsPageCount)
-  const compactRows = allTimeRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
+  const compactRows = groupedRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
 
   const handleFullBottomScroll = () => {
     // Scroll handler kept for potential future use
@@ -277,6 +397,23 @@ export function Dashboard() {
 
   const handleCompactBottomScroll = () => {
     // Scroll handler kept for potential future use
+  }
+
+  const handleSpendClick = (row: DailyRow, e: MouseEvent) => {
+    e.stopPropagation()
+    if (summaryGroupBy !== 'day') {
+      window.alert('Spend can be edited only in Day mode.')
+      return
+    }
+    if (!token) return
+    const value = window.prompt('Enter traffic spend amount for this date', row.spend ? String(row.spend) : '')
+    if (value === null) return
+    const amount = Number(value.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      window.alert('Please enter a valid positive amount.')
+      return
+    }
+    addSpendMutation.mutate({ date: row.date, amount })
   }
 
   const renderDailyTable = (rows: DailyRow[]) => {
@@ -319,8 +456,12 @@ export function Dashboard() {
                     ? (row.profit / row.deposits) * 100
                     : 0
               return (
-                <TableRow key={row.date}>
-                  <TableCell className="font-medium">{formatDate(row.date)}</TableCell>
+                <TableRow
+                  key={row.date}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedSummaryRow(row)}
+                >
+                  <TableCell className="font-medium">{row.label || formatDate(row.date)}</TableCell>
                   <TableCell className="text-right text-green-500">
                     {formatCurrency(row.deposits)}
                   </TableCell>
@@ -337,7 +478,14 @@ export function Dashboard() {
                     {row.users.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right text-red-400">
-                    {formatCurrency(row.spend)}
+                    <button
+                      type="button"
+                      className="underline-offset-2 hover:underline disabled:opacity-50"
+                      onClick={(e) => handleSpendClick(row, e)}
+                      disabled={addSpendMutation.isPending}
+                    >
+                      {formatCurrency(row.spend)}
+                    </button>
                   </TableCell>
                   <TableCell className={`text-right font-semibold ${netFlow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                     {formatCurrency(netFlow)}
@@ -755,19 +903,37 @@ export function Dashboard() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>Daily Summary</CardTitle>
-                <p className="text-sm text-muted-foreground">Aggregated by day for the full period</p>
+                <p className="text-sm text-muted-foreground">Click a row to view links and leads</p>
               </div>
-              <TabsList className="w-full sm:w-auto flex-nowrap justify-start overflow-x-auto">
-                <TabsTrigger value="compact" className="min-w-[120px] whitespace-nowrap">Compact</TabsTrigger>
-                <TabsTrigger value="full" className="min-w-[120px] whitespace-nowrap">Full</TabsTrigger>
-              </TabsList>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-md border border-border/70 p-1">
+                  {([
+                    { key: 'day', label: 'Day' },
+                    { key: 'week', label: 'Week' },
+                    { key: 'month', label: 'Month' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setSummaryGroupBy(opt.key)}
+                      className={`px-3 py-1.5 text-xs rounded ${summaryGroupBy === opt.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <TabsList className="w-full sm:w-auto flex-nowrap justify-start overflow-x-auto">
+                  <TabsTrigger value="compact" className="min-w-[120px] whitespace-nowrap">Compact</TabsTrigger>
+                  <TabsTrigger value="full" className="min-w-[120px] whitespace-nowrap">Full</TabsTrigger>
+                </TabsList>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             <TabsContent value="compact">
               {isAllTimeLoading ? (
                 <div className="h-[220px] w-full animate-pulse rounded-md bg-muted/50" />
-              ) : !allTimeRows.length ? (
+              ) : !groupedRows.length ? (
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
                 <div className="space-y-2">
@@ -805,7 +971,7 @@ export function Dashboard() {
             <TabsContent value="full">
               {isAllTimeLoading ? (
                 <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
-              ) : !allTimeRows.length ? (
+              ) : !groupedRows.length ? (
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
                 <div className="space-y-2">
@@ -815,7 +981,7 @@ export function Dashboard() {
                     className="max-h-[60vh] overflow-auto"
                   >
                     <div className="min-w-[1300px]">
-                      {renderDailyTable(allTimeRows)}
+                      {renderDailyTable(groupedRows)}
                     </div>
                   </div>
                 </div>
@@ -824,6 +990,38 @@ export function Dashboard() {
           </CardContent>
         </Tabs>
       </Card>
+
+      <Dialog open={!!selectedSummaryRow} onOpenChange={(open) => !open && setSelectedSummaryRow(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedSummaryRow?.label || (selectedSummaryRow ? formatDate(selectedSummaryRow.date) : '')}
+            </DialogTitle>
+          </DialogHeader>
+          {!selectedSummaryRow?.linkStats?.length ? (
+            <div className="text-sm text-muted-foreground">No link attribution data for this period</div>
+          ) : (
+            <div className="rounded-md border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>Link</TableHead>
+                    <TableHead className="text-right">Leads</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedSummaryRow.linkStats.map((item) => (
+                    <TableRow key={item.linkId}>
+                      <TableCell className="font-medium">{item.linkName || item.linkId}</TableCell>
+                      <TableCell className="text-right text-indigo-400">{item.leads.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Users Block */}

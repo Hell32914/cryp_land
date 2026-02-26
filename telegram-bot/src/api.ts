@@ -3384,7 +3384,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     // Get database IDs of excluded users for filtering deposits/withdrawals/profits
     const [marketingLinks, geoOptions, excludedUsers] = await Promise.all([
-      prisma.marketingLink.findMany({ select: { linkId: true, stream: true } }),
+      prisma.marketingLink.findMany({ select: { linkId: true, stream: true, source: true, channelInviteLink: true } }),
       prisma.user.groupBy({ by: ['country'], where: { isHidden: false } }),
       prisma.user.findMany({
         where: { telegramId: { in: excludedTelegramIds } },
@@ -3578,7 +3578,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           ...userWhere,
           createdAt: periodWhere || { gte: chartStart },
         },
-        select: { id: true, createdAt: true },
+        select: { id: true, createdAt: true, utmParams: true },
       }),
       prisma.deposit.findMany({
         where: depositWhere,
@@ -3621,11 +3621,62 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
     const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; users: number; spend: number }>()
+    const dailyLinkLeadsMap = new Map<string, Map<string, { linkId: string; linkName: string; leads: number }>>()
     const ensureDailyEntry = (key: string) => {
       if (!dailySummaryMap.has(key)) {
         dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, users: 0, spend: 0 })
       }
       return dailySummaryMap.get(key)!
+    }
+
+    const mkLinkIds = new Set(marketingLinks.map((l) => l.linkId))
+    const linkNameById = new Map(marketingLinks.map((l) => [l.linkId, String(l.source || l.linkId)] as const))
+    const linksByChannelInvite = new Map(
+      marketingLinks
+        .filter((l) => Boolean((l as any).channelInviteLink))
+        .map((l) => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l.linkId] as const)
+    )
+
+    const extractAttributedLinkId = (user: { utmParams: string | null }): string | null => {
+      const raw = user.utmParams
+      if (typeof raw === 'string') {
+        const directMk = raw.match(/mk_[a-zA-Z0-9_]+/)
+        if (directMk && mkLinkIds.has(directMk[0])) return directMk[0]
+
+        if (raw.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(raw)
+            const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
+            const mk = candidate.match(/mk_[a-zA-Z0-9_]+/)
+            if (mk && mkLinkIds.has(mk[0])) return mk[0]
+
+            const inv = parsed?.inviteLink
+            const key = normalizeInviteLink(inv)
+            if (key) {
+              const fromInvite = linksByChannelInvite.get(key)
+              if (fromInvite) return fromInvite
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+
+      return null
+    }
+
+    const addDailyLinkLead = (dateKey: string, linkId: string) => {
+      if (!dailyLinkLeadsMap.has(dateKey)) {
+        dailyLinkLeadsMap.set(dateKey, new Map())
+      }
+      const mapForDate = dailyLinkLeadsMap.get(dateKey)!
+      const name = linkNameById.get(linkId) || linkId
+      const prev = mapForDate.get(linkId)
+      if (prev) {
+        prev.leads += 1
+      } else {
+        mapForDate.set(linkId, { linkId, linkName: name, leads: 1 })
+      }
     }
 
     const trafficUserIds = trafficUsers.map((u) => u.id)
@@ -3681,6 +3732,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     trafficUsers.forEach((u) => {
       const key = getDateKey(u.createdAt)
       const isConverted = convertedUserIds.has(u.id)
+      const attributedLinkId = extractAttributedLinkId(u) || 'unattributed'
       const entry = seriesMap.get(key)
       if (entry) {
         entry.traffic += isConverted ? 0 : 1
@@ -3691,6 +3743,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           dailyEntry.users += 1
         } else {
           dailyEntry.traffic += 1
+          addDailyLinkLead(key, attributedLinkId)
         }
       }
     })
@@ -3917,7 +3970,13 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     }
 
     const dailySummary = fullDaily
-      ? Array.from(dailySummaryMap.values()).sort((a, b) => (a.date > b.date ? -1 : 1))
+      ? Array.from(dailySummaryMap.values())
+          .sort((a, b) => (a.date > b.date ? -1 : 1))
+          .map((entry) => {
+            const linkStats = Array.from((dailyLinkLeadsMap.get(entry.date) || new Map()).values())
+              .sort((a, b) => b.leads - a.leads)
+            return { ...entry, linkStats }
+          })
       : undefined
 
     return res.json({
@@ -5092,6 +5151,7 @@ const expenseSchema = z.object({
   category: z.string().min(1),
   comment: z.string().min(1),
   amount: z.number().positive(),
+  createdAt: z.coerce.date().optional(),
 })
 
 app.post('/api/admin/expenses', requireAdminAuth, async (req, res) => {
@@ -5101,7 +5161,13 @@ app.post('/api/admin/expenses', requireAdminAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid expense payload' })
     }
 
-    const expense = await prisma.expense.create({ data: parsed.data })
+    const { createdAt, ...payload } = parsed.data
+    const expense = await prisma.expense.create({
+      data: {
+        ...payload,
+        ...(createdAt ? { createdAt } : {}),
+      },
+    })
 
     return res.status(201).json(expense)
   } catch (error) {

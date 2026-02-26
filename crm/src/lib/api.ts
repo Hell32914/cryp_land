@@ -106,6 +106,11 @@ export interface FinancialPoint {
   profit: number
   traffic: number
   users?: number
+  linkStats?: Array<{
+    linkId: string
+    linkName: string
+    leads: number
+  }>
   spend: number
 }
 
@@ -1372,14 +1377,14 @@ export const fetchExpenses = (token: string) =>
     ? Promise.resolve(MOCK_EXPENSES_RESPONSE)
     : request<ExpensesResponse>('/api/admin/expenses', {}, token)
 
-export const createExpense = (token: string, data: { category: string; comment: string; amount: number }) =>
+export const createExpense = (token: string, data: { category: string; comment: string; amount: number; createdAt?: string }) =>
   isTesterToken(token)
     ? Promise.resolve({
         id: Date.now(),
         category: data.category,
         comment: data.comment,
         amount: data.amount,
-        createdAt: new Date().toISOString(),
+        createdAt: data.createdAt || new Date().toISOString(),
       } as ExpenseRecord)
     : request<ExpenseRecord>(
         '/api/admin/expenses',
