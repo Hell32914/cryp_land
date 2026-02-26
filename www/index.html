@@ -20,6 +20,7 @@
         var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
         var pixelByHost = {
             'info.syntrixxx.site': '2377085479429610',
+            'website.syntrix.uno': '1070190051929151',
             'ss.syntrixxx.website': '1955236631777781',
             'road.syntrixxx.website': '1593545235016326',
             'invest.syntrixxx.space': '26136975615938720',
@@ -39,17 +40,16 @@
             fbq('init', '1593545235016326');
             fbq('init', '26136975615938720');
         }
-        if (host === 'website.syntrix.uno') {
-            // Add secondary pixel for the main bot domain without replacing existing
+        // Keep legacy main pixel for hosts that don't have dedicated replacement
+        if (host !== 'info.syntrixxx.site' && host !== 'website.syntrix.uno') {
             fbq('init', '1896813627596190');
         }
-        // Ensure the main domain pixel is always initialized
-        fbq('init', '1896813627596190');
         fbq('track', 'PageView');
     })();
     </script>
     <noscript>
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=2377085479429610&ev=PageView&noscript=1" />
+        <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1070190051929151&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1955236631777781&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1593545235016326&ev=PageView&noscript=1" />
         <img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=26136975615938720&ev=PageView&noscript=1" />
