@@ -422,6 +422,18 @@ const supportBroadcastCreateSchema = z.object({
   text: z.string().max(4096).optional(),
 })
 
+function sanitizeTelegramFileName(input?: string | null, fallback = 'file.bin'): string {
+  const raw = String(input || '').trim()
+  if (!raw) return fallback
+  const cleaned = raw
+    .replace(/[\x00-\x1F\x7F]+/g, '')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!cleaned) return fallback
+  return cleaned.slice(0, 120)
+}
+
 function canonicalizeSupportStageId(value?: string | null): string | null {
   if (typeof value !== 'string') return null
   const raw = value.trim()
@@ -2045,16 +2057,29 @@ app.post(
         replyToTelegramMessageId = tgId
       }
 
-      const sent = await supportBotInstance.api.sendDocument(
-        chatId,
-        new InputFile(req.file.buffer, req.file.originalname || 'file.bin'),
-        {
-          ...(caption ? { caption } : {}),
-          ...(replyToTelegramMessageId
-            ? ({ reply_to_message_id: replyToTelegramMessageId, allow_sending_without_reply: true } as any)
-            : {}),
-        } as any,
-      )
+      const telegramFileName = sanitizeTelegramFileName(req.file.originalname, 'file.bin')
+
+      const sendOpts = {
+        ...(caption ? { caption } : {}),
+        ...(replyToTelegramMessageId
+          ? ({ reply_to_message_id: replyToTelegramMessageId, allow_sending_without_reply: true } as any)
+          : {}),
+      } as any
+
+      let sent: any
+      try {
+        sent = await supportBotInstance.api.sendDocument(
+          chatId,
+          new InputFile(req.file.buffer, telegramFileName),
+          sendOpts,
+        )
+      } catch (firstError) {
+        sent = await supportBotInstance.api.sendDocument(
+          chatId,
+          new InputFile(req.file.buffer, 'file.bin'),
+          sendOpts,
+        )
+      }
 
       const telegramMessageId = Number((sent as any)?.message_id)
       const now = new Date()
@@ -2072,7 +2097,7 @@ app.post(
           replyToId: replyToId || null,
           fileId: document?.file_id || null,
           fileUniqueId: document?.file_unique_id || null,
-          fileName: document?.file_name || req.file.originalname || null,
+          fileName: document?.file_name || telegramFileName || null,
           mimeType: document?.mime_type || req.file.mimetype || null,
           adminUsername: adminUsername || null,
           createdAt: now,
@@ -2089,9 +2114,16 @@ app.post(
       })
 
       return res.json(message)
-    } catch (error) {
-      console.error('Support send document error:', error)
-      return res.status(500).json({ error: 'Failed to send document' })
+    } catch (error: any) {
+      const detailedMessage = String(
+        error?.description ||
+        error?.response?.description ||
+        error?.response?.data?.description ||
+        error?.message ||
+        'Failed to send document'
+      )
+      console.error('Support send document error:', detailedMessage)
+      return res.status(500).json({ error: detailedMessage })
     }
   },
 )
