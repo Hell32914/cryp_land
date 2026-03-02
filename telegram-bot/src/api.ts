@@ -4097,6 +4097,7 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   referredBy: user.referredBy || null,
   withdrawalStatus: user.kycRequired ? 'verification' : (user.isBlocked ? 'blocked' : 'allowed'),
   firstDepositAmount: user.firstDepositAmount || 0,
+  firstDepositAt: user.firstDepositAt || null,
   languageCode: user.languageCode || null,
   marketingSource: user.marketingSource || null,
   utmParams: user.utmParams || null,
@@ -4230,7 +4231,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     }) as Array<Prisma.UserGetPayload<{
       include: {
         referrals: { select: { id: true } }
-        deposits: { select: { amount: true } }
+        deposits: { select: { amount: true, createdAt: true } }
         dailyUpdates: { select: { amount: true } }
       }
     }>>
@@ -4558,7 +4559,17 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
 
 app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
   try {
-    const { search = '', limit = '50', page = '1', sortBy = 'totalDeposit', sortOrder = 'desc', from, to } = req.query
+    const {
+      search = '',
+      limit = '50',
+      page = '1',
+      sortBy = 'totalDeposit',
+      sortOrder = 'desc',
+      from,
+      to,
+      geo = '',
+      link = '',
+    } = req.query
     const take = Math.min(parseInt(String(limit), 10) || 50, 100)
     const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
     const skip = (pageNum - 1) * take
@@ -4609,29 +4620,15 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
       AND: [baseWhere, searchWhere].filter(Boolean) as Prisma.UserWhereInput[],
     }
 
-    const totalCount = await prisma.user.count({ where })
-    const totalPages = Math.ceil(totalCount / take) || 1
-
-    const sortByField = String(sortBy)
-    let dbSortField = sortByField
-    if (sortByField === 'totalDeposit') {
-      dbSortField = 'lifetimeDeposit'
-    } else if (sortByField === 'balance') {
-      dbSortField = 'totalDeposit'
-    }
-
     const users = await prisma.user.findMany({
       where,
-      orderBy: { [dbSortField]: sortOrder === 'asc' ? 'asc' : 'desc' },
-      take,
-      skip,
       include: {
         referrals: { select: { id: true } },
         deposits: {
           where: { status: 'COMPLETED', NOT: [{ currency: 'PROFIT' }] },
           orderBy: { createdAt: 'asc' },
           take: 1,
-          select: { amount: true },
+          select: { amount: true, createdAt: true },
         },
         dailyUpdates: {
           select: { amount: true },
@@ -4640,7 +4637,7 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
     }) as Array<Prisma.UserGetPayload<{
       include: {
         referrals: { select: { id: true } }
-        deposits: { select: { amount: true } }
+        deposits: { select: { amount: true, createdAt: true } }
         dailyUpdates: { select: { amount: true } }
       }
     }>>
@@ -4705,6 +4702,7 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
         ...user,
         referralCount: user.referrals.length,
         firstDepositAmount: firstDeposit?.amount || 0,
+        firstDepositAt: firstDeposit?.createdAt || null,
         totalProfit,
         trafficerName: marketingLink?.trafficerName || null,
         linkName: marketingLink
@@ -4721,14 +4719,90 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
 
     const mappedUsers = enrichedUsers.map(u => mapUserSummary(u))
 
+    const geoFilter = String(geo || '').trim()
+    const linkFilter = String(link || '').trim()
+
+    let filteredUsers = mappedUsers
+    if (geoFilter) {
+      const geoCanonical = normalizeCountryName(geoFilter)
+      filteredUsers = filteredUsers.filter((u) => normalizeCountryName(u.country) === geoCanonical)
+    }
+    if (linkFilter) {
+      filteredUsers = filteredUsers.filter((u) => String(u.linkId || '') === linkFilter)
+    }
+
+    const sortByField = String(sortBy || 'totalDeposit')
+    const sortMultiplier = String(sortOrder).toLowerCase() === 'asc' ? 1 : -1
+
+    const compareDate = (a: string | null | undefined, b: string | null | undefined) => {
+      const aTime = a ? new Date(a).getTime() : 0
+      const bTime = b ? new Date(b).getTime() : 0
+      return (aTime - bTime) * sortMultiplier
+    }
+
+    const compareNumber = (a: number | null | undefined, b: number | null | undefined) => {
+      const aNum = Number(a || 0)
+      const bNum = Number(b || 0)
+      return (aNum - bNum) * sortMultiplier
+    }
+
+    const compareString = (a: string | null | undefined, b: string | null | undefined) => {
+      const aVal = String(a || '').toLowerCase()
+      const bVal = String(b || '').toLowerCase()
+      return aVal.localeCompare(bVal) * sortMultiplier
+    }
+
+    filteredUsers.sort((a, b) => {
+      switch (sortByField) {
+        case 'balance':
+          return compareNumber(a.balance, b.balance)
+        case 'firstDepositAt':
+          return compareDate(a.firstDepositAt, b.firstDepositAt)
+        case 'country':
+          return compareString(a.country, b.country)
+        case 'linkName': {
+          const aLink = a.linkName || a.linkId || ''
+          const bLink = b.linkName || b.linkId || ''
+          return compareString(aLink, bLink)
+        }
+        case 'createdAt':
+          return compareDate(a.createdAt, b.createdAt)
+        case 'totalDeposit':
+        default:
+          return compareNumber(a.totalDeposit, b.totalDeposit)
+      }
+    })
+
+    const totalCount = filteredUsers.length
+    const totalPages = Math.ceil(totalCount / take) || 1
+    const pageSafe = Math.min(pageNum, totalPages)
+    const pageStart = (pageSafe - 1) * take
+    const pagedUsers = filteredUsers.slice(pageStart, pageStart + take)
+
+    const geoOptions = Array.from(new Set(mappedUsers.map((u) => normalizeCountryName(u.country)).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+    const linkMap = new Map<string, string>()
+    mappedUsers.forEach((u) => {
+      if (!u.linkId) return
+      if (!linkMap.has(u.linkId)) {
+        linkMap.set(u.linkId, u.linkName || u.linkId)
+      }
+    })
+    const linkOptions = Array.from(linkMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+
     return res.json({
-      users: mappedUsers,
-      count: mappedUsers.length,
+      users: pagedUsers,
+      count: pagedUsers.length,
       totalCount,
-      page: pageNum,
+      page: pageSafe,
       totalPages,
-      hasNextPage: pageNum < totalPages,
-      hasPrevPage: pageNum > 1,
+      hasNextPage: pageSafe < totalPages,
+      hasPrevPage: pageSafe > 1,
+      filters: {
+        geos: geoOptions,
+        links: linkOptions,
+      },
     })
   } catch (error) {
     console.error('Admin deposit users error:', error)

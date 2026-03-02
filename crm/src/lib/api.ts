@@ -197,6 +197,7 @@ export interface UserRecord {
   referredBy: string | null
   withdrawalStatus: 'allowed' | 'blocked' | 'verification'
   firstDepositAmount: number
+  firstDepositAt?: string | null
   languageCode: string | null
   marketingSource: string | null
   utmParams: string | null
@@ -214,6 +215,10 @@ export interface UsersResponse {
   totalPages: number
   hasNextPage: boolean
   hasPrevPage: boolean
+  filters?: {
+    geos: string[]
+    links: Array<{ id: string; name: string }>
+  }
 }
 
 export interface BonusUsersResponse {
@@ -1304,9 +1309,36 @@ export const fetchSupportAnalyticsSummary = (token: string) => {
   )
 }
 
-export const fetchDepositUsers = (token: string, opts?: { page?: number; limit?: number; search?: string; from?: string; to?: string }) => {
+export const fetchDepositUsers = (
+  token: string,
+  opts?: {
+    page?: number
+    limit?: number
+    search?: string
+    from?: string
+    to?: string
+    sortBy?: 'totalDeposit' | 'balance' | 'firstDepositAt' | 'country' | 'linkName' | 'createdAt'
+    sortOrder?: 'asc' | 'desc'
+    geo?: string
+    link?: string
+  }
+) => {
   if (isTesterToken(token)) {
-    const users = MOCK_USERS.filter((u) => u.totalDeposit > 0)
+    let users = MOCK_USERS.filter((u) => u.totalDeposit > 0)
+    if (opts?.search) {
+      const q = opts.search.toLowerCase()
+      users = users.filter((u) =>
+        String(u.telegramId).toLowerCase().includes(q) ||
+        String(u.username || '').toLowerCase().includes(q) ||
+        String(u.fullName || '').toLowerCase().includes(q)
+      )
+    }
+    if (opts?.geo) {
+      users = users.filter((u) => String(u.country || '') === String(opts.geo))
+    }
+    if (opts?.link) {
+      users = users.filter((u) => String(u.linkId || '') === String(opts.link))
+    }
     return Promise.resolve({
       users,
       count: users.length,
@@ -1315,6 +1347,13 @@ export const fetchDepositUsers = (token: string, opts?: { page?: number; limit?:
       totalPages: 1,
       hasNextPage: false,
       hasPrevPage: false,
+      filters: {
+        geos: Array.from(new Set(MOCK_USERS.map((u) => u.country).filter(Boolean as any))).sort((a, b) => String(a).localeCompare(String(b))),
+        links: Array.from(new Set(MOCK_USERS.map((u) => u.linkId).filter(Boolean as any))).map((id) => ({
+          id: String(id),
+          name: String(MOCK_USERS.find((u) => u.linkId === id)?.linkName || id),
+        })),
+      },
     })
   }
   const params = new URLSearchParams()
@@ -1323,6 +1362,10 @@ export const fetchDepositUsers = (token: string, opts?: { page?: number; limit?:
   if (opts?.search) params.set('search', String(opts.search))
   if (opts?.from) params.set('from', String(opts.from))
   if (opts?.to) params.set('to', String(opts.to))
+  if (opts?.sortBy) params.set('sortBy', String(opts.sortBy))
+  if (opts?.sortOrder) params.set('sortOrder', String(opts.sortOrder))
+  if (opts?.geo) params.set('geo', String(opts.geo))
+  if (opts?.link) params.set('link', String(opts.link))
   const query = params.toString()
   return request<UsersResponse>(`/api/admin/deposit-users${query ? `?${query}` : ''}`, {}, token)
 }

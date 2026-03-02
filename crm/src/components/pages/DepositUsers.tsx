@@ -46,16 +46,46 @@ export function DepositUsers() {
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [sortBy, setSortBy] = useState<'totalDeposit' | 'balance' | 'firstDepositAt' | 'country' | 'linkName'>('totalDeposit')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [geoFilter, setGeoFilter] = useState('')
+  const [linkFilter, setLinkFilter] = useState('')
   const pageSize = 50
 
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '—'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '—'
+    return date.toLocaleString()
+  }
+
+  const toggleSort = (field: 'totalDeposit' | 'balance' | 'firstDepositAt' | 'country' | 'linkName') => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(field)
+      setSortOrder(field === 'country' || field === 'linkName' ? 'asc' : 'desc')
+    }
+    setPage(1)
+  }
+
+  const sortIndicator = (field: 'totalDeposit' | 'balance' | 'firstDepositAt' | 'country' | 'linkName') => {
+    if (sortBy !== field) return '↕'
+    return sortOrder === 'asc' ? '↑' : '↓'
+  }
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['deposit-users', token, page, search, dateFrom, dateTo],
+    queryKey: ['deposit-users', token, page, search, dateFrom, dateTo, sortBy, sortOrder, geoFilter, linkFilter],
     queryFn: () => fetchDepositUsers(token!, {
       page,
       limit: pageSize,
       search: search.trim() || undefined,
       from: dateFrom || undefined,
       to: dateTo || undefined,
+      sortBy,
+      sortOrder,
+      geo: geoFilter || undefined,
+      link: linkFilter || undefined,
     }),
     enabled: !!token,
     refetchInterval: 15000,
@@ -124,27 +154,79 @@ export function DepositUsers() {
                 onClick={() => {
                   setDateFrom('')
                   setDateTo('')
+                  setGeoFilter('')
+                  setLinkFilter('')
                   setPage(1)
                 }}
-                disabled={!dateFrom && !dateTo}
+                disabled={!dateFrom && !dateTo && !geoFilter && !linkFilter}
               >
                 {t('users.reset')}
               </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={geoFilter}
+                onChange={(e) => {
+                  setGeoFilter(e.target.value)
+                  setPage(1)
+                }}
+                className="h-9 w-[180px] rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="">All GEO</option>
+                {(data?.filters?.geos || []).map((geo) => (
+                  <option key={geo} value={geo}>{geo}</option>
+                ))}
+              </select>
+              <select
+                value={linkFilter}
+                onChange={(e) => {
+                  setLinkFilter(e.target.value)
+                  setPage(1)
+                }}
+                className="h-9 w-[240px] rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="">All Links</option>
+                {(data?.filters?.links || []).map((link) => (
+                  <option key={link.id} value={link.id}>{link.name} ({link.id})</option>
+                ))}
+              </select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-x-auto">
-            <Table className="min-w-[760px]">
+            <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
                   <TableHead className="hidden md:table-cell">Telegram ID</TableHead>
                   <TableHead>Username</TableHead>
                   <TableHead className="hidden md:table-cell">Full Name</TableHead>
-                  <TableHead className="text-right">Total Deposit</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="hidden lg:table-cell">Country</TableHead>
+                  <TableHead className="text-right">
+                    <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('totalDeposit')}>
+                      Total Deposit {sortIndicator('totalDeposit')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('balance')}>
+                      Balance {sortIndicator('balance')}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('firstDepositAt')}>
+                      First Deposit Date {sortIndicator('firstDepositAt')}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('linkName')}>
+                      Source Link {sortIndicator('linkName')}
+                    </button>
+                  </TableHead>
+                  <TableHead className="hidden lg:table-cell">
+                    <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('country')}>
+                      Country {sortIndicator('country')}
+                    </button>
+                  </TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Details</TableHead>
                 </TableRow>
@@ -153,20 +235,20 @@ export function DepositUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={9}>
+                      <TableCell colSpan={11}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-destructive">
+                    <TableCell colSpan={11} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-muted-foreground">
+                    <TableCell colSpan={11} className="text-muted-foreground">
                       {t('depositUsers.empty')}
                     </TableCell>
                   </TableRow>
@@ -188,6 +270,11 @@ export function DepositUsers() {
                       </TableCell>
                       <TableCell className="text-right font-mono text-cyan-400 text-sm">
                         ${user.balance.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{formatDateTime(user.firstDepositAt)}</TableCell>
+                      <TableCell className="text-sm">
+                        <div className="font-medium truncate max-w-[260px]">{user.linkName || '—'}</div>
+                        <div className="text-xs text-muted-foreground">{user.linkId || '—'}</div>
                       </TableCell>
                       <TableCell className="text-sm hidden lg:table-cell">{user.country}</TableCell>
                       <TableCell>
@@ -317,6 +404,10 @@ export function DepositUsers() {
                     </div>
                   </div>
                   <div>
+                    <div className="text-sm text-muted-foreground">First Deposit Date</div>
+                    <div className="font-medium text-sm">{formatDateTime(selectedUser.firstDepositAt)}</div>
+                  </div>
+                  <div>
                     <div className="text-sm text-muted-foreground">Total Withdrawals</div>
                     <div className="font-mono font-medium">${selectedUser.totalWithdraw.toFixed(2)}</div>
                   </div>
@@ -360,6 +451,13 @@ export function DepositUsers() {
                 <div className="pt-4 border-t border-border">
                   <div className="text-sm font-medium mb-3">Marketing Data</div>
                   <div className="grid grid-cols-2 gap-4">
+                    {selectedUser.linkName && (
+                      <div>
+                        <div className="text-sm text-muted-foreground">Source Link</div>
+                        <div className="font-medium">{selectedUser.linkName}</div>
+                        <div className="text-xs text-muted-foreground">{selectedUser.linkId || '—'}</div>
+                      </div>
+                    )}
                     {selectedUser.marketingSource && (
                       <div>
                         <div className="text-sm text-muted-foreground">Traffic Source</div>
