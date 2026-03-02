@@ -103,10 +103,10 @@ export function LinkBuilder() {
 
   const channelDomains = [
     { value: 'info.syntrixxx.site', label: 'info.syntrixxx.site', color: 'bg-purple-400' },
-    { value: 'ss.syntrixxx.space', label: 'ss.syntrixxx.space', color: 'bg-orange-400' },
-    { value: 'road.syntrixxx.space', label: 'road.syntrixxx.space', color: 'bg-rose-400' },
-    { value: 'invest.syntrixxx.space', label: 'invest.syntrixxx.space', color: 'bg-cyan-400' },
-    { value: 'official.syntrixxx.space', label: 'official.syntrixxx.space', color: 'bg-lime-400' },
+    { value: 'ss.syntrixxx.site', label: 'ss.syntrixxx.site', color: 'bg-orange-400' },
+    { value: 'road.syntrixxx.site', label: 'road.syntrixxx.site', color: 'bg-rose-400' },
+    { value: 'invest.syntrixxx.site', label: 'invest.syntrixxx.site', color: 'bg-cyan-400' },
+    { value: 'official.syntrixxx.site', label: 'official.syntrixxx.site', color: 'bg-lime-400' },
   ]
 
   const domains = linkType === 'bot' ? botDomains : channelDomains

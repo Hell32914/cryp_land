@@ -12,11 +12,11 @@ function getTelegramChannelTrackingUrl() {
   const host = window.location.hostname.toLowerCase()
   const map: Record<string, string> = {
     'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
-    'ss.syntrixxx.space': 'https://t.me/+YmFilnI8DbFjNWEy',
+    'ss.syntrixxx.site': 'https://t.me/+YmFilnI8DbFjNWEy',
     'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
-    'road.syntrixxx.space': 'https://t.me/+TLo5_JI7r0wxODky',
+    'road.syntrixxx.site': 'https://t.me/+TLo5_JI7r0wxODky',
     'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
-    'invest.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',
+    'invest.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
   }
 
   return map[host] || 'https://t.me/SyntrixAI'

@@ -29,12 +29,12 @@
         var pixelByHost = {
             'info.syntrixxx.site': '2377085479429610',
             'website.syntrix.uno': '1070190051929151',
-            'ss.syntrixxx.space': '1955236631777781',
+            'ss.syntrixxx.site': '1955236631777781',
             'ss.syntrixxx.website': '1955236631777781',
-            'road.syntrixxx.space': '1593545235016326',
+            'road.syntrixxx.site': '1593545235016326',
             'road.syntrixxx.website': '1593545235016326',
-            'invest.syntrixxx.space': '26136975615938720',
-            'official.syntrixxx.space': '2284659832039389',
+            'invest.syntrixxx.site': '26136975615938720',
+            'official.syntrixxx.site': '2284659832039389',
             'trade.syntrixxx.site': '1121382239874465',
             'trade.syntrixxx.website': '1121382239874465',
             'crypto.syntrixxx.site': '2377085479429610'
@@ -42,11 +42,11 @@
         // Fallback to existing pixel for other mapped hostnames served by the same vhost
         var pixelId = pixelByHost[normalizedHost] || '1356561989350736';
         fbq('init', pixelId);
-        if (normalizedHost === 'invest.syntrixxx.space') {
+        if (normalizedHost === 'invest.syntrixxx.site') {
             // Add secondary pixel for UK without replacing existing
             fbq('init', '1207521808250750');
         }
-        if (normalizedHost === 'road.syntrixxx.website' || normalizedHost === 'road.syntrixxx.space') {
+        if (normalizedHost === 'road.syntrixxx.website' || normalizedHost === 'road.syntrixxx.site') {
             // Add secondary pixel for FR without replacing existing
             fbq('init', '1593545235016326');
             fbq('init', '26136975615938720');
@@ -81,7 +81,7 @@
                 var normalizedHost = host.replace(/^www\./, '');
                 var tiktokPixelByHost = {
                         'trade.syntrixxx.site': 'D6G7EVJC77UEP1KMS76G',
-                        'official.syntrixxx.space': 'D6G7FLRC77UAM1VL72GG'
+                        'official.syntrixxx.site': 'D6G7FLRC77UAM1VL72GG'
                 };
                 var tiktokPixelId = tiktokPixelByHost[normalizedHost];
                 if (!tiktokPixelId) return;
@@ -165,14 +165,14 @@
         // Домены, которые должны вести на TG-канал (трек-ссылка зависит от домена)
         const channelInviteByHost = {
             'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
-            'ss.syntrixxx.space': 'https://t.me/+YmFilnI8DbFjNWEy',
+            'ss.syntrixxx.site': 'https://t.me/+YmFilnI8DbFjNWEy',
             'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
-            'road.syntrixxx.space': 'https://t.me/+TLo5_JI7r0wxODky',
+            'road.syntrixxx.site': 'https://t.me/+TLo5_JI7r0wxODky',
             'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
-            'invest.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',
-            'invests.syntrixxx.space': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'invest.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'invests.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
             // оставляем существующее поведение для доменов, где трек-ссылка не задана
-            'official.syntrixxx.space': 'https://t.me/+tvQ2u0yoEJRhOTBi'
+            'official.syntrixxx.site': 'https://t.me/+tvQ2u0yoEJRhOTBi'
         };
 
         // Получаем текущий домен
