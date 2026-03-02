@@ -110,6 +110,7 @@ export interface FinancialPoint {
     linkId: string
     linkName: string
     leads: number
+    users?: number
   }>
   spend: number
 }

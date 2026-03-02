@@ -3661,7 +3661,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
     const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; users: number; spend: number }>()
-    const dailyLinkLeadsMap = new Map<string, Map<string, { linkId: string; linkName: string; leads: number }>>()
+    const dailyLinkStatsMap = new Map<string, Map<string, { linkId: string; linkName: string; leads: number; users: number }>>()
     const ensureDailyEntry = (key: string) => {
       if (!dailySummaryMap.has(key)) {
         dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, users: 0, spend: 0 })
@@ -3705,17 +3705,22 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       return null
     }
 
-    const addDailyLinkLead = (dateKey: string, linkId: string) => {
-      if (!dailyLinkLeadsMap.has(dateKey)) {
-        dailyLinkLeadsMap.set(dateKey, new Map())
+    const addDailyLinkStat = (dateKey: string, linkId: string, metric: 'leads' | 'users') => {
+      if (!dailyLinkStatsMap.has(dateKey)) {
+        dailyLinkStatsMap.set(dateKey, new Map())
       }
-      const mapForDate = dailyLinkLeadsMap.get(dateKey)!
+      const mapForDate = dailyLinkStatsMap.get(dateKey)!
       const name = linkNameById.get(linkId) || linkId
       const prev = mapForDate.get(linkId)
       if (prev) {
-        prev.leads += 1
+        prev[metric] += 1
       } else {
-        mapForDate.set(linkId, { linkId, linkName: name, leads: 1 })
+        mapForDate.set(linkId, {
+          linkId,
+          linkName: name,
+          leads: metric === 'leads' ? 1 : 0,
+          users: metric === 'users' ? 1 : 0,
+        })
       }
     }
 
@@ -3781,9 +3786,10 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         const dailyEntry = ensureDailyEntry(key)
         if (isConverted) {
           dailyEntry.users += 1
+          addDailyLinkStat(key, attributedLinkId, 'users')
         } else {
           dailyEntry.traffic += 1
-          addDailyLinkLead(key, attributedLinkId)
+          addDailyLinkStat(key, attributedLinkId, 'leads')
         }
       }
     })
@@ -4006,8 +4012,8 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       ? Array.from(dailySummaryMap.values())
           .sort((a, b) => (a.date > b.date ? -1 : 1))
           .map((entry) => {
-            const linkStats = Array.from((dailyLinkLeadsMap.get(entry.date) || new Map()).values())
-              .sort((a, b) => b.leads - a.leads)
+            const linkStats = Array.from((dailyLinkStatsMap.get(entry.date) || new Map()).values())
+              .sort((a, b) => (b.leads + b.users) - (a.leads + a.users))
             return { ...entry, linkStats }
           })
       : undefined

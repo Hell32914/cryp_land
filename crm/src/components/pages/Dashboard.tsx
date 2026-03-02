@@ -38,7 +38,7 @@ type DailyRow = {
   traffic: number
   users: number
   spend: number
-  linkStats?: Array<{ linkId: string; linkName: string; leads: number }>
+  linkStats?: Array<{ linkId: string; linkName: string; leads: number; users?: number }>
 }
 
 class DashboardErrorBoundary extends Component<{ children: ReactNode; label?: string }, { hasError: boolean }> {
@@ -199,6 +199,18 @@ export function Dashboard() {
     d.setDate(d.getDate() + diff)
     d.setHours(0, 0, 0, 0)
     return d
+  }
+
+  const getBucketKeyByGroup = (date: string, groupBy: SummaryGroupBy) => {
+    if (groupBy === 'day') return date
+    if (groupBy === 'week') {
+      const weekStart = getWeekStartDate(date)
+      return weekStart ? weekStart.toISOString().slice(0, 10) : date
+    }
+    const parsed = parseDateSafe(date)
+    return parsed
+      ? `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`
+      : date.slice(0, 7)
   }
 
   const buildSummaryLabel = (dateKey: string, groupBy: SummaryGroupBy) => {
@@ -377,10 +389,14 @@ export function Dashboard() {
       const linkMap = new Map((current.linkStats || []).map((entry) => [entry.linkId, { ...entry }]))
       for (const link of row.linkStats || []) {
         const prev = linkMap.get(link.linkId)
-        if (prev) prev.leads += link.leads
-        else linkMap.set(link.linkId, { ...link })
+        if (prev) {
+          prev.leads += link.leads
+          prev.users = (prev.users || 0) + (link.users || 0)
+        } else {
+          linkMap.set(link.linkId, { ...link, users: link.users || 0 })
+        }
       }
-      current.linkStats = Array.from(linkMap.values()).sort((a, b) => b.leads - a.leads)
+      current.linkStats = Array.from(linkMap.values()).sort((a, b) => (b.leads + (b.users || 0)) - (a.leads + (a.users || 0)))
       map.set(bucketKey, current)
     }
 
@@ -423,6 +439,43 @@ export function Dashboard() {
     if (summaryDateRange?.to) return formatter.format(summaryDateRange.to)
     return 'Period'
   }, [summaryDateRange])
+
+  const selectedSummaryAttributionRows = useMemo(() => {
+    if (!selectedSummaryRow) return [] as Array<{ date: string; linkId: string; linkName: string; leads: number; users: number }>
+
+    if (summaryGroupBy === 'day') {
+      return (selectedSummaryRow.linkStats || [])
+        .map((item) => ({
+          date: selectedSummaryRow.date,
+          linkId: item.linkId,
+          linkName: item.linkName,
+          leads: item.leads,
+          users: item.users || 0,
+        }))
+        .sort((a, b) => (b.leads + b.users) - (a.leads + a.users))
+    }
+
+    const selectedBucket = getBucketKeyByGroup(selectedSummaryRow.date, summaryGroupBy)
+    const rows: Array<{ date: string; linkId: string; linkName: string; leads: number; users: number }> = []
+
+    for (const row of allTimeRows) {
+      if (getBucketKeyByGroup(row.date, summaryGroupBy) !== selectedBucket) continue
+      for (const item of row.linkStats || []) {
+        rows.push({
+          date: row.date,
+          linkId: item.linkId,
+          linkName: item.linkName,
+          leads: item.leads,
+          users: item.users || 0,
+        })
+      }
+    }
+
+    return rows.sort((a, b) => {
+      if (a.date === b.date) return (b.leads + b.users) - (a.leads + a.users)
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    })
+  }, [allTimeRows, selectedSummaryRow, summaryGroupBy])
 
   useEffect(() => {
     setStatsPage(1)
@@ -1066,22 +1119,29 @@ export function Dashboard() {
               {selectedSummaryRow?.label || (selectedSummaryRow ? formatDate(selectedSummaryRow.date) : '')}
             </DialogTitle>
           </DialogHeader>
-          {!selectedSummaryRow?.linkStats?.length ? (
+          {!selectedSummaryAttributionRows.length ? (
             <div className="text-sm text-muted-foreground">No link attribution data for this period</div>
           ) : (
             <div className="rounded-md border border-border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead>Date</TableHead>
                     <TableHead>Link</TableHead>
                     <TableHead className="text-right">Leads</TableHead>
+                    <TableHead className="text-right">Users</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedSummaryRow.linkStats.map((item) => (
-                    <TableRow key={item.linkId}>
-                      <TableCell className="font-medium">{item.linkName || item.linkId}</TableCell>
+                  {selectedSummaryAttributionRows.map((item, index) => (
+                    <TableRow key={`${item.date}-${item.linkId}-${index}`}>
+                      <TableCell className="font-medium">{formatDate(item.date)}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{item.linkName || item.linkId}</div>
+                        <div className="text-xs text-muted-foreground">{item.linkId}</div>
+                      </TableCell>
                       <TableCell className="text-right text-indigo-400">{item.leads.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-blue-400">{item.users.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
