@@ -1,8 +1,12 @@
 import { Component, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar } from '@phosphor-icons/react'
+import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar as CalendarIcon } from '@phosphor-icons/react'
+import type { DateRange } from 'react-day-picker'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useAuth } from '@/lib/auth'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -68,6 +72,7 @@ export function Dashboard() {
   const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({})
   const [statsPage, setStatsPage] = useState(1)
   const [summaryGroupBy, setSummaryGroupBy] = useState<SummaryGroupBy>('day')
+  const [summaryDateRange, setSummaryDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedSummaryRow, setSelectedSummaryRow] = useState<DailyRow | null>(null)
   const compactBottomScrollRef = useRef<HTMLDivElement>(null)
   const fullBottomScrollRef = useRef<HTMLDivElement>(null)
@@ -382,14 +387,51 @@ export function Dashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [allTimeRows, summaryGroupBy])
 
+  const summaryFilteredRows = useMemo(() => {
+    if (!summaryDateRange?.from && !summaryDateRange?.to) return groupedRows
+
+    const startDate = summaryDateRange?.from ? new Date(summaryDateRange.from) : null
+    if (startDate) startDate.setHours(0, 0, 0, 0)
+
+    const endDate = summaryDateRange?.to
+      ? new Date(summaryDateRange.to)
+      : summaryDateRange?.from
+        ? new Date(summaryDateRange.from)
+        : null
+    if (endDate) endDate.setHours(23, 59, 59, 999)
+
+    return groupedRows.filter((row) => {
+      const rowDate = parseDateSafe(row.date)
+      if (!rowDate) return false
+      if (startDate && rowDate < startDate) return false
+      if (endDate && rowDate > endDate) return false
+      return true
+    })
+  }, [groupedRows, summaryDateRange])
+
+  const summaryRangeLabel = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    })
+    if (!summaryDateRange?.from && !summaryDateRange?.to) return 'Period'
+    if (summaryDateRange?.from && summaryDateRange?.to) {
+      return `${formatter.format(summaryDateRange.from)} - ${formatter.format(summaryDateRange.to)}`
+    }
+    if (summaryDateRange?.from) return formatter.format(summaryDateRange.from)
+    if (summaryDateRange?.to) return formatter.format(summaryDateRange.to)
+    return 'Period'
+  }, [summaryDateRange])
+
   useEffect(() => {
     setStatsPage(1)
-  }, [summaryGroupBy, geoFilter, streamFilter])
+  }, [summaryGroupBy, geoFilter, streamFilter, summaryDateRange])
 
   const pageSize = 20
-  const statsPageCount = Math.max(1, Math.ceil(groupedRows.length / pageSize))
+  const statsPageCount = Math.max(1, Math.ceil(summaryFilteredRows.length / pageSize))
   const statsPageSafe = Math.min(statsPage, statsPageCount)
-  const compactRows = groupedRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
+  const compactRows = summaryFilteredRows.slice((statsPageSafe - 1) * pageSize, statsPageSafe * pageSize)
 
   const handleFullBottomScroll = () => {
     // Scroll handler kept for potential future use
@@ -544,7 +586,7 @@ export function Dashboard() {
         
         {/* Period Selector */}
         <div className="flex flex-wrap items-center gap-2">
-          <Calendar size={20} className="text-foreground" />
+          <CalendarIcon size={20} className="text-foreground" />
           {periodButtons.map((btn) => (
             <button
               key={btn.key}
@@ -922,6 +964,32 @@ export function Dashboard() {
                     </button>
                   ))}
                 </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8">
+                      <CalendarIcon size={14} />
+                      {summaryRangeLabel}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      selected={summaryDateRange}
+                      onSelect={setSummaryDateRange}
+                      numberOfMonths={2}
+                    />
+                    <div className="flex items-center justify-end border-t border-border p-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSummaryDateRange(undefined)}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <TabsList className="w-full sm:w-auto flex-nowrap justify-start overflow-x-auto">
                   <TabsTrigger value="compact" className="min-w-[120px] whitespace-nowrap">Compact</TabsTrigger>
                   <TabsTrigger value="full" className="min-w-[120px] whitespace-nowrap">Full</TabsTrigger>
@@ -933,7 +1001,7 @@ export function Dashboard() {
             <TabsContent value="compact">
               {isAllTimeLoading ? (
                 <div className="h-[220px] w-full animate-pulse rounded-md bg-muted/50" />
-              ) : !groupedRows.length ? (
+              ) : !summaryFilteredRows.length ? (
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
                 <div className="space-y-2">
@@ -971,7 +1039,7 @@ export function Dashboard() {
             <TabsContent value="full">
               {isAllTimeLoading ? (
                 <div className="h-[260px] w-full animate-pulse rounded-md bg-muted/50" />
-              ) : !groupedRows.length ? (
+              ) : !summaryFilteredRows.length ? (
                 <div className="text-center text-muted-foreground py-8">No daily data</div>
               ) : (
                 <div className="space-y-2">
@@ -981,7 +1049,7 @@ export function Dashboard() {
                     className="max-h-[60vh] overflow-auto"
                   >
                     <div className="min-w-[1300px]">
-                      {renderDailyTable(groupedRows)}
+                      {renderDailyTable(summaryFilteredRows)}
                     </div>
                   </div>
                 </div>
