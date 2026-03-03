@@ -20,39 +20,36 @@
         var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
         var normalizedHost = host.replace(/^www\./, '');
 
-        if (normalizedHost === 'info.syntrixxx.site') {
+        if (normalizedHost === 'info.ssyntirx.fun') {
             fbq('init', '2377085479429610');
             fbq('track', 'PageView');
             return;
         }
 
         var pixelByHost = {
-            'info.syntrixxx.site': '2377085479429610',
-            'website.syntrix.uno': '1070190051929151',
-            'ss.syntrixxx.site': '1955236631777781',
-            'ss.syntrixxx.website': '1955236631777781',
-            'road.syntrixxx.site': '1593545235016326',
-            'road.syntrixxx.website': '1593545235016326',
-            'invest.syntrixxx.site': '26136975615938720',
-            'official.syntrixxx.site': '2284659832039389',
-            'trade.syntrixxx.site': '1121382239874465',
-            'trade.syntrixxx.website': '1121382239874465',
-            'crypto.syntrixxx.site': '2377085479429610'
+            'info.ssyntirx.fun': '2377085479429610',
+            'website.ssyntirx.fun': '1070190051929151',
+            'ss.ssyntirx.fun': '1955236631777781',
+            'road.ssyntirx.fun': '1593545235016326',
+            'invest.ssyntirx.fun': '26136975615938720',
+            'official.ssyntirx.fun': '2284659832039389',
+            'trade.ssyntirx.fun': '1121382239874465',
+            'crypto.ssyntirx.fun': '2377085479429610'
         };
         // Fallback to existing pixel for other mapped hostnames served by the same vhost
         var pixelId = pixelByHost[normalizedHost] || '1356561989350736';
         fbq('init', pixelId);
-        if (normalizedHost === 'invest.syntrixxx.site') {
+        if (normalizedHost === 'invest.ssyntirx.fun') {
             // Add secondary pixel for UK without replacing existing
             fbq('init', '1207521808250750');
         }
-        if (normalizedHost === 'road.syntrixxx.website' || normalizedHost === 'road.syntrixxx.site') {
+        if (normalizedHost === 'road.ssyntirx.fun') {
             // Add secondary pixel for FR without replacing existing
             fbq('init', '1593545235016326');
             fbq('init', '26136975615938720');
         }
         // Keep legacy main pixel for hosts that don't have dedicated replacement
-        if (normalizedHost !== 'info.syntrixxx.site' && normalizedHost !== 'website.syntrix.uno' && normalizedHost !== 'crypto.syntrixxx.site') {
+        if (normalizedHost !== 'info.ssyntirx.fun' && normalizedHost !== 'website.ssyntirx.fun' && normalizedHost !== 'crypto.ssyntirx.fun') {
             fbq('init', '1896813627596190');
         }
         fbq('track', 'PageView');
@@ -80,8 +77,8 @@
                 var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
                 var normalizedHost = host.replace(/^www\./, '');
                 var tiktokPixelByHost = {
-                        'trade.syntrixxx.site': 'D6G7EVJC77UEP1KMS76G',
-                        'official.syntrixxx.site': 'D6G7FLRC77UAM1VL72GG'
+                        'trade.ssyntirx.fun': 'D6G7EVJC77UEP1KMS76G',
+                        'official.ssyntirx.fun': 'D6G7FLRC77UAM1VL72GG'
                 };
                 var tiktokPixelId = tiktokPixelByHost[normalizedHost];
                 if (!tiktokPixelId) return;
@@ -164,15 +161,13 @@
     <script>
         // Домены, которые должны вести на TG-канал (трек-ссылка зависит от домена)
         const channelInviteByHost = {
-            'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
-            'ss.syntrixxx.site': 'https://t.me/+YmFilnI8DbFjNWEy',
-            'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
-            'road.syntrixxx.site': 'https://t.me/+TLo5_JI7r0wxODky',
-            'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
-            'invest.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
-            'invests.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'info.ssyntirx.fun': 'https://t.me/+ETuBMJ9s2Js1NmIy',
+            'ss.ssyntirx.fun': 'https://t.me/+YmFilnI8DbFjNWEy',
+            'road.ssyntirx.fun': 'https://t.me/+TLo5_JI7r0wxODky',
+            'invest.ssyntirx.fun': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'invests.ssyntirx.fun': 'https://t.me/+6w-QvvLfkt9iNzg6',
             // оставляем существующее поведение для доменов, где трек-ссылка не задана
-            'official.syntrixxx.site': 'https://t.me/+tvQ2u0yoEJRhOTBi'
+            'official.ssyntirx.fun': 'https://t.me/+tvQ2u0yoEJRhOTBi'
         };
 
         // Получаем текущий домен
@@ -228,7 +223,7 @@
             if (extra) extra.textContent = 't.me/SyntrixAI';
             
             const description = document.querySelector('.tgme_page_description');
-            if (description) description.innerHTML = 'The first auto-trading bot that uses real-time AI to trade crypto for you!<br/><br/>Maximum profit — minimum time<br/><br/>SyntrixtBot: <a href="https://t.me/AiSyntrixTrade_bot">@AiSyntrixTrade_bot</a><br/>Website: <a href="https://website.syntrix.uno/">https://website.syntrix.uno/</a><br/><br/>Support: <a href="https://t.me/syntrix_support_bot">@syntrix_support_bot</a>';
+            if (description) description.innerHTML = 'The first auto-trading bot that uses real-time AI to trade crypto for you!<br/><br/>Maximum profit — minimum time<br/><br/>SyntrixtBot: <a href="https://t.me/AiSyntrixTrade_bot">@AiSyntrixTrade_bot</a><br/>Website: <a href="https://website.ssyntirx.fun/">https://website.ssyntirx.fun/</a><br/><br/>Support: <a href="https://t.me/syntrix_support_bot">@syntrix_support_bot</a>';
 
             // Если есть ref, используем персональный инвайт для точной атрибуции
             if (refParam && refParam.startsWith('mk_')) {

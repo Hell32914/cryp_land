@@ -146,18 +146,15 @@ function calculateTariffPlan(balance: number) {
 
 // Configure CORS with allowed origins
 const allowedOrigins = [
-  'https://website.syntrix.uno',
-  'https://crypto.syntrixxx.site',
-  'https://trade.syntrixxx.site',
-  'https://trade.syntrixxx.website',
-  'https://info.syntrixxx.site',
-  'https://ss.syntrixxx.site',
-  'https://ss.syntrixxx.website',
-  'https://road.syntrixxx.site',
-  'https://road.syntrixxx.website',
-  'https://invest.syntrixxx.site',
-  'https://invests.syntrixxx.site',
-  'https://official.syntrixxx.site',
+  'https://website.ssyntirx.fun',
+  'https://crypto.ssyntirx.fun',
+  'https://trade.ssyntirx.fun',
+  'https://info.ssyntirx.fun',
+  'https://ss.ssyntirx.fun',
+  'https://road.ssyntirx.fun',
+  'https://invest.ssyntirx.fun',
+  'https://invests.ssyntirx.fun',
+  'https://official.ssyntirx.fun',
   'https://appmini.syntrix.uno',
   'https://admin.syntrix.uno',
   'https://syntrix-crm.onrender.com',
@@ -6130,7 +6127,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
         }
       })
 
-      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://website.syntrix.uno'
+      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://website.ssyntirx.fun'
       const cancelUrl = process.env.PAYPAL_CANCEL_URL || returnUrl
 
       const { createPayPalOrder } = await import('./paypal.js')
@@ -7270,7 +7267,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
 
 // ============= MARKETING LINKS ENDPOINTS =============
 
-const DEFAULT_LANDING_DOMAIN = 'website.syntrix.uno'
+const DEFAULT_LANDING_DOMAIN = 'website.ssyntirx.fun'
 
 const normalizeDomain = (domain?: string | null) => {
   if (!domain) return DEFAULT_LANDING_DOMAIN

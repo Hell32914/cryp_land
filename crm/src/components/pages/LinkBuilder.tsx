@@ -25,7 +25,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, generateChannelInviteLink, type MarketingLink } from '@/lib/api'
 
-const TELEGRAM_LANDING_DOMAIN = 'website.syntrix.uno'
+const TELEGRAM_LANDING_DOMAIN = 'website.ssyntirx.fun'
 interface SubIdParam {
   id: number
   key: string
@@ -37,7 +37,7 @@ export function LinkBuilder() {
   const { token } = useAuth()
   const [source, setSource] = useState('')
   const [linkType, setLinkType] = useState<'bot' | 'channel'>('bot')
-  const [selectedDomain, setSelectedDomain] = useState('crypto.syntrixxx.site')
+  const [selectedDomain, setSelectedDomain] = useState('crypto.ssyntirx.fun')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
   const [pixelConfirmed, setPixelConfirmed] = useState(false)
@@ -97,16 +97,16 @@ export function LinkBuilder() {
   }
 
   const botDomains = [
-    { value: 'crypto.syntrixxx.site', label: 'crypto.syntrixxx.site', color: 'bg-amber-400' },
-    { value: 'trade.syntrixxx.site', label: 'trade.syntrixxx.site', color: 'bg-pink-400' },
+    { value: 'crypto.ssyntirx.fun', label: 'crypto.ssyntirx.fun', color: 'bg-amber-400' },
+    { value: 'trade.ssyntirx.fun', label: 'trade.ssyntirx.fun', color: 'bg-pink-400' },
   ]
 
   const channelDomains = [
-    { value: 'info.syntrixxx.site', label: 'info.syntrixxx.site', color: 'bg-purple-400' },
-    { value: 'ss.syntrixxx.site', label: 'ss.syntrixxx.site', color: 'bg-orange-400' },
-    { value: 'road.syntrixxx.site', label: 'road.syntrixxx.site', color: 'bg-rose-400' },
-    { value: 'invest.syntrixxx.site', label: 'invest.syntrixxx.site', color: 'bg-cyan-400' },
-    { value: 'official.syntrixxx.site', label: 'official.syntrixxx.site', color: 'bg-lime-400' },
+    { value: 'info.ssyntirx.fun', label: 'info.ssyntirx.fun', color: 'bg-purple-400' },
+    { value: 'ss.ssyntirx.fun', label: 'ss.ssyntirx.fun', color: 'bg-orange-400' },
+    { value: 'road.ssyntirx.fun', label: 'road.ssyntirx.fun', color: 'bg-rose-400' },
+    { value: 'invest.ssyntirx.fun', label: 'invest.ssyntirx.fun', color: 'bg-cyan-400' },
+    { value: 'official.ssyntirx.fun', label: 'official.ssyntirx.fun', color: 'bg-lime-400' },
   ]
 
   const domains = linkType === 'bot' ? botDomains : channelDomains
@@ -133,7 +133,7 @@ export function LinkBuilder() {
     if (!saved) return
     try {
       const parsed = JSON.parse(saved) as Record<string, boolean>
-      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.syntrix.uno'
+      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.ssyntirx.fun'
       setPixelConfirmed(!!parsed[normalizedDomain])
     } catch {}
   }, [selectedDomain])
@@ -169,7 +169,7 @@ export function LinkBuilder() {
   // When user selects a domain that already has a pixel saved, prefill the textarea
   useEffect(() => {
     if (!links.length) return
-    const normalize = (d?: string) => (d || 'website.syntrix.uno').trim().toLowerCase()
+    const normalize = (d?: string) => (d || 'website.ssyntirx.fun').trim().toLowerCase()
     const targetDomain = normalize(selectedDomain)
 
     const found = links.find((l) => {
@@ -388,7 +388,7 @@ export function LinkBuilder() {
                     onChange={(e) => {
                       const next = e.target.checked
                       setPixelConfirmed(next)
-                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.syntrix.uno'
+                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.ssyntirx.fun'
                       const saved = localStorage.getItem('pixelConfirmationByDomain')
                       let map: Record<string, boolean> = {}
                       try { if (saved) map = JSON.parse(saved) as Record<string, boolean> } catch {}
