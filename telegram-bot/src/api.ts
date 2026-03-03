@@ -3473,11 +3473,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       ? { ...userWhere, createdAt: periodWhere }
       : userWhere
 
-    // Exclude ADMIN deposits (manual balance credits) and PROFIT deposits (synthetic profit records)
-    const realDepositFilter = { paymentMethod: { not: 'ADMIN' }, NOT: [{ currency: 'PROFIT' }] }
+    // Exclude synthetic PROFIT deposits from all deposit KPIs.
+    const nonProfitDepositFilter = { NOT: [{ currency: 'PROFIT' }] }
+    // No-admin deposits only (for dedicated no-admin KPI cards/metrics).
+    const realDepositFilter = { paymentMethod: { not: 'ADMIN' }, ...nonProfitDepositFilter }
     const depositWhere = periodWhere
       ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...realDepositFilter, ...(hasFilters ? { user: userWhere } : {}) }
       : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...realDepositFilter, ...(hasFilters ? { user: userWhere } : {}) }
+    const depositWhereWithAdmin = periodWhere
+      ? { status: 'COMPLETED', userId: { notIn: excludeUserIds }, createdAt: periodWhere, ...nonProfitDepositFilter, ...(hasFilters ? { user: userWhere } : {}) }
+      : { status: 'COMPLETED', userId: { notIn: excludeUserIds }, ...nonProfitDepositFilter, ...(hasFilters ? { user: userWhere } : {}) }
 
     // Include both COMPLETED and APPROVED withdrawals in analytics.
     // APPROVED = admin approved & funds sent/being sent (CRM already displays these as COMPLETED).
@@ -3494,10 +3499,12 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       usersForBalance,
       adminCreditsAgg,
       depositsTodayAgg,
+      depositsTodayWithAdminAgg,
       withdrawalsTodayAgg,
       profitAgg,
       // Period deposits/withdrawals for KPI cards
       depositsInPeriodAgg,
+      depositsInPeriodWithAdminAgg,
       withdrawalsInPeriodAgg,
       recentDeposits,
       recentWithdrawals,
@@ -3564,6 +3571,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           ...(hasFilters ? { user: userWhere } : {}),
         },
       }),
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
+          createdAt: { gte: startOfToday },
+          ...nonProfitDepositFilter,
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
+      }),
       prisma.withdrawal.aggregate({
         _sum: { amount: true },
         where: {
@@ -3588,6 +3605,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       prisma.deposit.aggregate({
         _sum: { amount: true },
         where: depositWhere,
+      }),
+      // Deposits in selected period including ADMIN (for Total Deposits KPI)
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: depositWhereWithAdmin,
       }),
       // Withdrawals in selected period (for KPI)
       prisma.withdrawal.aggregate({
@@ -4076,11 +4098,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         totalBalance: Number((balanceAgg as any)._sum.totalDeposit ?? 0),
         totalDepositsNoAdmin: Number(totalDepositsNoAdminAgg._sum.amount ?? 0),
         totalBalanceNoAdmin,
-        depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
+        depositsToday: Number(depositsTodayWithAdminAgg._sum.amount ?? 0),
         withdrawalsToday: Number(withdrawalsTodayAgg._sum.amount ?? 0),
         profitPeriod: Number(profitAgg._sum.amount ?? 0),
         // Period-based KPIs (all time if no period specified)
-        depositsPeriod: Number(depositsInPeriodAgg._sum.amount ?? 0),
+        depositsPeriod: Number(depositsInPeriodWithAdminAgg._sum.amount ?? 0),
         withdrawalsPeriod: Number(withdrawalsInPeriodAgg._sum.amount ?? 0),
         // Admin deposit tracking
         adminDeposits: totalAdminDeposits,
