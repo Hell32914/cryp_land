@@ -259,6 +259,12 @@ export function Dashboard() {
       gradient: 'from-indigo-500 to-indigo-600',
     },
     {
+      title: t('dashboard.totalDepositsNoAdmin'),
+      value: data ? formatCurrency(data.kpis.totalDepositsNoAdmin) : '—',
+      icon: ArrowCircleDown,
+      gradient: 'from-teal-500 to-teal-600',
+    },
+    {
       title: depositsLabel,
       value: data ? formatCurrency(period === 'today' ? data.kpis.depositsToday : data.kpis.depositsPeriod) : '—',
       icon: ArrowCircleDown,

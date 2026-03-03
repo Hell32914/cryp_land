@@ -92,6 +92,7 @@ export interface KPIResponse {
   totalUsers: number
   activeUsersPeriod: number
   totalBalance: number
+  totalDepositsNoAdmin: number
   totalBalanceNoAdmin: number
   depositsToday: number
   withdrawalsToday: number
@@ -584,6 +585,7 @@ const MOCK_OVERVIEW: OverviewResponse = {
     totalUsers: 1280,
     activeUsersPeriod: 972,
     totalBalance: 240_000,
+    totalDepositsNoAdmin: 86_000,
     totalBalanceNoAdmin: 240_000,
     depositsToday: 12_400,
     withdrawalsToday: 4_200,

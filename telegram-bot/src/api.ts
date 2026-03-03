@@ -3490,6 +3490,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       totalUsers,
       periodUsersForStatus,
       balanceAgg,
+      totalDepositsNoAdminAgg,
       usersForBalance,
       adminCreditsAgg,
       depositsTodayAgg,
@@ -3521,6 +3522,15 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }),
       // totalDeposit is the working balance; legacy `balance` may be stale in old data.
       prisma.user.aggregate({ _sum: { totalDeposit: true }, where: userWhere }),
+      prisma.deposit.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'COMPLETED',
+          userId: { notIn: excludeUserIds },
+          ...realDepositFilter,
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
+      }),
       prisma.user.findMany({
         where: userWhere,
         select: { id: true, totalDeposit: true },
@@ -4064,6 +4074,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         totalUsers,
         activeUsersPeriod,
         totalBalance: Number((balanceAgg as any)._sum.totalDeposit ?? 0),
+        totalDepositsNoAdmin: Number(totalDepositsNoAdminAgg._sum.amount ?? 0),
         totalBalanceNoAdmin,
         depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
         withdrawalsToday: Number(withdrawalsTodayAgg._sum.amount ?? 0),
