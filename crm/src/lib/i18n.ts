@@ -353,6 +353,7 @@ const resources = {
       dashboard: {
         title: 'Analytics Dashboard',
         totalUsers: 'Total Users',
+        activeUsersPeriod: 'Active Users (Period)',
         totalBalance: 'Total Balance',
         totalBalanceNoAdmin: 'Total Balance (No Admin Credits)',
         filterGeo: 'Geo',
@@ -806,6 +807,7 @@ const resources = {
       dashboard: {
         title: 'Панель аналитики',
         totalUsers: 'Всего пользователей',
+        activeUsersPeriod: 'Активные пользователи (Период)',
         totalBalance: 'Общий баланс',
         totalBalanceNoAdmin: 'Общий баланс без админ начислений',
         filterGeo: 'Гео',
@@ -1015,6 +1017,7 @@ const resources = {
       dashboard: {
         title: 'Панель аналітики',
         totalUsers: 'Всього користувачів',
+        activeUsersPeriod: 'Активні користувачі (Період)',
         totalBalance: 'Загальний баланс',
         totalBalanceNoAdmin: 'Загальний баланс без адмін нарахувань',
         filterGeo: 'Гео',

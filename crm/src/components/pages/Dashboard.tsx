@@ -241,6 +241,12 @@ export function Dashboard() {
       gradient: 'from-blue-500 to-blue-600',
     },
     {
+      title: t('dashboard.activeUsersPeriod'),
+      value: data ? data.kpis.activeUsersPeriod.toLocaleString() : '—',
+      icon: Users,
+      gradient: 'from-emerald-500 to-emerald-600',
+    },
+    {
       title: t('dashboard.totalBalance'),
       value: data ? formatCurrency(data.kpis.totalBalance) : '—',
       icon: Wallet,

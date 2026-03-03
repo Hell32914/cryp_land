@@ -3488,6 +3488,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     const [
       totalUsers,
+      periodUsersForStatus,
       balanceAgg,
       usersForBalance,
       adminCreditsAgg,
@@ -3508,6 +3509,16 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       expenses,
     ] = await Promise.all([
       prisma.user.count({ where: userWherePeriod }),
+      prisma.user.findMany({
+        where: userWherePeriod,
+        select: {
+          status: true,
+          isBlocked: true,
+          country: true,
+          marketingSource: true,
+          botStartedAt: true,
+        },
+      }),
       // totalDeposit is the working balance; legacy `balance` may be stale in old data.
       prisma.user.aggregate({ _sum: { totalDeposit: true }, where: userWhere }),
       prisma.user.findMany({
@@ -3677,6 +3688,12 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const totalAdminBalance = Number(adminBalanceRows[0]?.total ?? 0)
     // Admin reinvest = current admin portion of totalDeposit minus direct admin deposits
     const totalAdminReinvest = Math.max(totalAdminBalance - totalAdminDeposits, 0)
+
+    const activeUsersPeriod = periodUsersForStatus.reduce((count, user) => {
+      if (user.isBlocked) return count
+      const displayStatus = String(computeDisplayStatus(user)).toUpperCase()
+      return displayStatus === 'ACTIVE' ? count + 1 : count
+    }, 0)
 
     // Build date series dynamically based on period
     const effectiveStart = periodStart || chartStart
@@ -4045,6 +4062,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     return res.json({
       kpis: {
         totalUsers,
+        activeUsersPeriod,
         totalBalance: Number((balanceAgg as any)._sum.totalDeposit ?? 0),
         totalBalanceNoAdmin,
         depositsToday: Number(depositsTodayAgg._sum.amount ?? 0),
