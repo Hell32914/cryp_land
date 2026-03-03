@@ -2571,6 +2571,13 @@ bot.on('message:text', async (ctx) => {
       }
     })
 
+    // Track admin deposit separately (raw query for new field)
+    await prisma.$executeRawUnsafe(
+      `UPDATE "User" SET "adminDeposit" = COALESCE("adminDeposit", 0) + $1 WHERE "id" = $2`,
+      amount,
+      userId
+    )
+
     // Create referral chain if user reached referral activation deposit
     if (shouldActivateReferral) {
       await createReferralChain(user)
@@ -5653,6 +5660,12 @@ async function accrueDailyProfit() {
         continue
       }
 
+      // Calculate admin deposit ratio for splitting profit
+      const adminRatio = (user.totalDeposit > 0 && (user as any).adminDeposit > 0)
+        ? Math.min((user as any).adminDeposit / user.totalDeposit, 1)
+        : 0
+      const adminDailyProfit = dailyProfit * adminRatio
+
       // Mark that today's schedule has been generated
       await prisma.user.update({
         where: { id: user.id },
@@ -5688,10 +5701,17 @@ async function accrueDailyProfit() {
         },
       })
       
+      // Calculate admin amount per update proportionally
+      const totalDepositUpdatesAmount = depositUpdates.reduce((s, u) => s + u.amount, 0)
+
       // Create new daily updates (notifications will be sent by scheduler)
       for (const update of updates) {
         const isTokenUpdate = tokenUpdates.includes(update)
-        await prisma.dailyProfitUpdate.create({
+        // Admin amount is proportional to the update's share of total deposit profit
+        const updateAdminAmount = (!isTokenUpdate && totalDepositUpdatesAmount > 0)
+          ? (update.amount / totalDepositUpdatesAmount) * adminDailyProfit
+          : 0
+        const created = await prisma.dailyProfitUpdate.create({
           data: {
             userId: user.id,
             amount: update.amount,
@@ -5700,6 +5720,14 @@ async function accrueDailyProfit() {
             dailyTotal: totalDailyProfit
           }
         })
+        // Set adminAmount via raw query (new field not yet in Prisma types)
+        if (updateAdminAmount > 0) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "DailyProfitUpdate" SET "adminAmount" = $1 WHERE "id" = $2`,
+            updateAdminAmount,
+            created.id
+          )
+        }
       }
 
       const bonusInfo = bonusProfit > 0 ? ` + $${bonusProfit.toFixed(4)} token` : ''
@@ -5837,11 +5865,12 @@ async function sendScheduledNotifications() {
       try {
         // Apply profit accrual and mark update as notified first.
         // This ensures profit keeps accumulating even if Telegram delivery fails.
+        const updateAdminAmount = (update as any).adminAmount || 0
         await prisma.$transaction([
           prisma.user.update({
             where: { id: update.userId },
             data: {
-              profit: { increment: update.amount }
+              profit: { increment: update.amount },
             }
           }),
           prisma.dailyProfitUpdate.update({
@@ -5849,6 +5878,14 @@ async function sendScheduledNotifications() {
             data: { notified: true }
           })
         ])
+        // Update admin profit tracking (raw query for new field)
+        if (updateAdminAmount > 0) {
+          await prisma.$executeRawUnsafe(
+            `UPDATE "User" SET "adminProfit" = COALESCE("adminProfit", 0) + $1 WHERE "id" = $2`,
+            updateAdminAmount,
+            update.userId
+          )
+        }
 
         // Best-effort Telegram notification
         try {

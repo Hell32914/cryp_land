@@ -97,6 +97,11 @@ export interface KPIResponse {
   profitPeriod: number
   depositsPeriod: number
   withdrawalsPeriod: number
+  // Admin deposit tracking
+  adminDeposits: number
+  adminProfit: number
+  adminReinvest: number
+  adminBalance: number
 }
 
 export interface FinancialPoint {
@@ -201,6 +206,9 @@ export interface UserRecord {
   languageCode: string | null
   marketingSource: string | null
   utmParams: string | null
+  // Admin deposit tracking
+  adminDeposit: number
+  adminProfit: number
   // Marketing link info
   trafficerName: string | null
   linkName: string | null
@@ -476,6 +484,8 @@ const MOCK_USERS: UserRecord[] = [
     trafficerName: 'QA Team',
     linkName: 'QA Link A',
     linkId: 'QA-001',
+    adminDeposit: 0,
+    adminProfit: 0,
   },
   {
     id: 2,
@@ -509,6 +519,8 @@ const MOCK_USERS: UserRecord[] = [
     trafficerName: 'QA Team',
     linkName: 'QA Link B',
     linkId: 'QA-002',
+    adminDeposit: 0,
+    adminProfit: 0,
   },
   {
     id: 3,
@@ -542,6 +554,8 @@ const MOCK_USERS: UserRecord[] = [
     trafficerName: 'QA Team',
     linkName: 'QA Link C',
     linkId: 'QA-003',
+    adminDeposit: 0,
+    adminProfit: 0,
   },
 ]
 
@@ -555,6 +569,10 @@ const MOCK_OVERVIEW: OverviewResponse = {
     profitPeriod: 18_600,
     depositsPeriod: 86_000,
     withdrawalsPeriod: 32_500,
+    adminDeposits: 0,
+    adminProfit: 0,
+    adminReinvest: 0,
+    adminBalance: 0,
   },
   financialData: Array.from({ length: 7 }).map((_, idx) => ({
     date: isoDaysAgo(6 - idx),

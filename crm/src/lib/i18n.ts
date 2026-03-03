@@ -367,6 +367,10 @@ const resources = {
         deposits: 'Deposits',
         withdrawals: 'Withdrawals',
         profit: 'Profit',
+        adminDeposits: 'Admin Deposits',
+        adminProfit: 'Admin Profit',
+        adminReinvest: 'Admin Reinvest',
+        adminBalance: 'Admin Balance (Total)',
       },
       users: {
         title: 'Users',
@@ -806,6 +810,10 @@ const resources = {
         deposits: 'Депозиты',
         withdrawals: 'Выводы',
         profit: 'Прибыль',
+        adminDeposits: 'Админ депозиты',
+        adminProfit: 'Админ профит',
+        adminReinvest: 'Админ реинвест',
+        adminBalance: 'Админ баланс (Всего)',
       },
       users: {
         title: 'Пользователи',
@@ -1014,6 +1022,10 @@ const resources = {
         deposits: 'Депозити',
         withdrawals: 'Виведення',
         profit: 'Прибуток',
+        adminDeposits: 'Адмін депозити',
+        adminProfit: 'Адмін профіт',
+        adminReinvest: 'Адмін реінвест',
+        adminBalance: 'Адмін баланс (Всього)',
       },
       users: {
         title: 'Користувачі',

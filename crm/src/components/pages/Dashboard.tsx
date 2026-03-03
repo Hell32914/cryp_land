@@ -1,6 +1,6 @@
 import { Component, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar as CalendarIcon } from '@phosphor-icons/react'
+import { Users, Wallet, ArrowCircleDown, ArrowCircleUp, TrendUp, Calendar as CalendarIcon, ShieldStar, ArrowsClockwise } from '@phosphor-icons/react'
 import type { DateRange } from 'react-day-picker'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -269,6 +269,33 @@ export function Dashboard() {
       value: data ? formatCurrency(data.kpis.profitPeriod) : '—',
       icon: TrendUp,
       gradient: 'from-cyan-500 to-cyan-600',
+    },
+  ]
+
+  const adminCards = [
+    {
+      title: t('dashboard.adminDeposits'),
+      value: data ? formatCurrency(data.kpis.adminDeposits) : '—',
+      icon: ShieldStar,
+      gradient: 'from-rose-500 to-rose-600',
+    },
+    {
+      title: t('dashboard.adminProfit'),
+      value: data ? formatCurrency(data.kpis.adminProfit) : '—',
+      icon: ShieldStar,
+      gradient: 'from-pink-500 to-pink-600',
+    },
+    {
+      title: t('dashboard.adminReinvest'),
+      value: data ? formatCurrency(data.kpis.adminReinvest) : '—',
+      icon: ArrowsClockwise,
+      gradient: 'from-amber-500 to-amber-600',
+    },
+    {
+      title: t('dashboard.adminBalance'),
+      value: data ? formatCurrency(data.kpis.adminBalance) : '—',
+      icon: Wallet,
+      gradient: 'from-red-500 to-red-600',
     },
   ]
 
@@ -707,6 +734,30 @@ export function Dashboard() {
           const Icon = kpi.icon
           return (
             <Card key={kpi.title} className="relative overflow-hidden">
+              <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${kpi.gradient} opacity-10 rounded-full -mr-8 -mt-8`} />
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {kpi.title}
+                </CardTitle>
+                <div className={`p-2 rounded-lg bg-gradient-to-br ${kpi.gradient}`}>
+                  <Icon size={20} weight="bold" className="text-white" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? <span className="inline-flex h-6 w-20 animate-pulse rounded bg-muted" /> : kpi.value}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {adminCards.map((kpi) => {
+          const Icon = kpi.icon
+          return (
+            <Card key={kpi.title} className="relative overflow-hidden border-rose-500/20">
               <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${kpi.gradient} opacity-10 rounded-full -mr-8 -mt-8`} />
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">

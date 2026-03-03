@@ -229,6 +229,7 @@ export function DepositUsers() {
                     </button>
                   </TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Admin Dep.</TableHead>
                   <TableHead className="text-right">Details</TableHead>
                 </TableRow>
               </TableHeader>
@@ -236,20 +237,20 @@ export function DepositUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={12}>
+                      <TableCell colSpan={13}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-destructive">
+                    <TableCell colSpan={13} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-muted-foreground">
+                    <TableCell colSpan={13} className="text-muted-foreground">
                       {t('depositUsers.empty')}
                     </TableCell>
                   </TableRow>
@@ -283,6 +284,9 @@ export function DepositUsers() {
                         <Badge variant="outline" className={getStatusColor(user.status)}>
                           {user.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-rose-400 text-sm">
+                        {(user.adminDeposit || 0) > 0 ? `$${user.adminDeposit.toFixed(2)}` : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="ghost">
@@ -412,6 +416,14 @@ export function DepositUsers() {
                   <div>
                     <div className="text-sm text-muted-foreground">Total Withdrawals</div>
                     <div className="font-mono font-medium">${selectedUser.totalWithdraw.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Admin Deposit</div>
+                    <div className="font-mono font-medium text-rose-400">${(selectedUser.adminDeposit || 0).toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Admin Profit (Unreinvested)</div>
+                    <div className="font-mono font-medium text-pink-400">${(selectedUser.adminProfit || 0).toFixed(2)}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Withdrawal Status</div>

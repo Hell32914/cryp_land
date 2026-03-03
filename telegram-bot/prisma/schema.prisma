@@ -46,6 +46,8 @@ model User {
   contactSupportBonusGrantedAt DateTime?
   contactSupportBonusExpiresAt DateTime?
   contactSupportBonusAmountGranted Float @default(0)
+  adminDeposit      Float         @default(0)
+  adminProfit       Float         @default(0)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   
@@ -73,6 +75,7 @@ model DailyProfitUpdate {
   userId      Int
   user        User     @relation("UserDailyUpdates", fields: [userId], references: [id])
   amount      Float
+  adminAmount Float    @default(0)
   source      String   @default("DEPOSIT")
   timestamp   DateTime
   dailyTotal  Float

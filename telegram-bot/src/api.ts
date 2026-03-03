@@ -3654,6 +3654,34 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       return sum + Math.max(user.totalDeposit - adminCredits, 0)
     }, 0)
 
+    // Admin deposit tracking metrics
+    // Using raw queries for new fields until Prisma client is regenerated
+    const adminProfitRows: Array<{ total: number }> = await prisma.$queryRawUnsafe(`
+      SELECT COALESCE(SUM("adminAmount"), 0) as total FROM "DailyProfitUpdate"
+      WHERE "userId" NOT IN (${excludeUserIds.length ? excludeUserIds.join(',') : '0'})
+      ${periodWhere ? `AND "timestamp" >= '${periodWhere.gte.toISOString()}' AND "timestamp" <= '${periodWhere.lte.toISOString()}'` : ''}
+    `)
+    const adminDepositTotalAgg = await prisma.deposit.aggregate({
+      _sum: { amount: true },
+      where: {
+        status: 'COMPLETED',
+        paymentMethod: 'ADMIN',
+        userId: { notIn: excludeUserIds },
+        ...(periodWhere ? { createdAt: periodWhere } : {}),
+        ...(hasFilters ? { user: userWhere } : {}),
+      },
+    })
+    const adminBalanceRows: Array<{ total: number }> = await prisma.$queryRawUnsafe(`
+      SELECT COALESCE(SUM("adminDeposit"), 0) as total FROM "User"
+      WHERE "isHidden" = false AND "telegramId" NOT IN (${excludedTelegramIds.map(id => `'${id}'`).join(',') || "''"})
+    `)
+
+    const totalAdminProfit = Number(adminProfitRows[0]?.total ?? 0)
+    const totalAdminDeposits = Number(adminDepositTotalAgg._sum.amount ?? 0)
+    const totalAdminBalance = Number(adminBalanceRows[0]?.total ?? 0)
+    // Admin reinvest = current admin portion of totalDeposit minus direct admin deposits
+    const totalAdminReinvest = Math.max(totalAdminBalance - totalAdminDeposits, 0)
+
     // Build date series dynamically based on period
     const effectiveStart = periodStart || chartStart
     const effectiveEnd = periodEnd
@@ -4029,6 +4057,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         // Period-based KPIs (all time if no period specified)
         depositsPeriod: Number(depositsInPeriodAgg._sum.amount ?? 0),
         withdrawalsPeriod: Number(withdrawalsInPeriodAgg._sum.amount ?? 0),
+        // Admin deposit tracking
+        adminDeposits: totalAdminDeposits,
+        adminProfit: totalAdminProfit,
+        adminReinvest: totalAdminReinvest,
+        adminBalance: totalAdminBalance,
       },
       financialData: Array.from(seriesMap.values()),
       dailySummary,
@@ -4101,6 +4134,9 @@ const mapUserSummary = (user: any, marketingLink?: any) => ({
   languageCode: user.languageCode || null,
   marketingSource: user.marketingSource || null,
   utmParams: user.utmParams || null,
+  // Admin deposit tracking
+  adminDeposit: user.adminDeposit || 0,
+  adminProfit: user.adminProfit || 0,
   // Marketing link info (from joined data or stored linkId)
   trafficerName: marketingLink?.trafficerName || user.trafficerName || null,
   linkName: marketingLink?.linkName || user.linkName || null,
@@ -5634,8 +5670,10 @@ app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => 
     }
 
     const profitAmount = user.profit
+    const adminProfitAmount = (user as any).adminProfit || 0
 
     // Move profit to balance and reset profit
+    // Admin portion of profit goes to adminDeposit to maintain tracking
     const updatedUser = await prisma.user.update({
       where: { telegramId },
       data: {
@@ -5645,6 +5683,20 @@ app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => 
         plan: calculatePlanProgress(user.totalDeposit + profitAmount).currentPlan
       }
     })
+
+    // Update admin tracking fields (raw query to avoid Prisma type issues before regeneration)
+    if (adminProfitAmount > 0) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "User" SET "adminDeposit" = "adminDeposit" + $1, "adminProfit" = 0 WHERE "telegramId" = $2`,
+        adminProfitAmount,
+        telegramId
+      )
+    } else {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "User" SET "adminProfit" = 0 WHERE "telegramId" = $1`,
+        telegramId
+      )
+    }
 
     // Create notification
     await prisma.notification.create({
