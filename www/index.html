@@ -20,36 +20,36 @@
         var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
         var normalizedHost = host.replace(/^www\./, '');
 
-        if (normalizedHost === 'info.ssyntirx.fun') {
+        if (normalizedHost === 'info.ssyntrix.fun') {
             fbq('init', '2377085479429610');
             fbq('track', 'PageView');
             return;
         }
 
         var pixelByHost = {
-            'info.ssyntirx.fun': '2377085479429610',
+            'info.ssyntrix.fun': '2377085479429610',
             'website.syntrix.uno': '1070190051929151',
-            'ss.ssyntirx.fun': '1955236631777781',
-            'road.ssyntirx.fun': '1593545235016326',
-            'invest.ssyntirx.fun': '26136975615938720',
-            'official.ssyntirx.fun': '2284659832039389',
-            'trade.ssyntirx.fun': '1121382239874465',
-            'crypto.ssyntirx.fun': '2377085479429610'
+            'ss.ssyntrix.fun': '1955236631777781',
+            'road.ssyntrix.fun': '1593545235016326',
+            'invest.ssyntrix.fun': '26136975615938720',
+            'official.ssyntrix.fun': '2284659832039389',
+            'trade.ssyntrix.fun': '1121382239874465',
+            'crypto.ssyntrix.fun': '2377085479429610'
         };
         // Fallback to existing pixel for other mapped hostnames served by the same vhost
         var pixelId = pixelByHost[normalizedHost] || '1356561989350736';
         fbq('init', pixelId);
-        if (normalizedHost === 'invest.ssyntirx.fun') {
+        if (normalizedHost === 'invest.ssyntrix.fun') {
             // Add secondary pixel for UK without replacing existing
             fbq('init', '1207521808250750');
         }
-        if (normalizedHost === 'road.ssyntirx.fun') {
+        if (normalizedHost === 'road.ssyntrix.fun') {
             // Add secondary pixel for FR without replacing existing
             fbq('init', '1593545235016326');
             fbq('init', '26136975615938720');
         }
         // Keep legacy main pixel for hosts that don't have dedicated replacement
-        if (normalizedHost !== 'info.ssyntirx.fun' && normalizedHost !== 'website.syntrix.uno' && normalizedHost !== 'crypto.ssyntirx.fun') {
+        if (normalizedHost !== 'info.ssyntrix.fun' && normalizedHost !== 'website.syntrix.uno' && normalizedHost !== 'crypto.ssyntrix.fun') {
             fbq('init', '1896813627596190');
         }
         fbq('track', 'PageView');
@@ -77,8 +77,8 @@
                 var host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
                 var normalizedHost = host.replace(/^www\./, '');
                 var tiktokPixelByHost = {
-                        'trade.ssyntirx.fun': 'D6G7EVJC77UEP1KMS76G',
-                        'official.ssyntirx.fun': 'D6G7FLRC77UAM1VL72GG'
+                        'trade.ssyntrix.fun': 'D6G7EVJC77UEP1KMS76G',
+                        'official.ssyntrix.fun': 'D6G7FLRC77UAM1VL72GG'
                 };
                 var tiktokPixelId = tiktokPixelByHost[normalizedHost];
                 if (!tiktokPixelId) return;
@@ -161,12 +161,12 @@
     <script>
         // Домены, которые должны вести на TG-канал (трек-ссылка зависит от домена)
         const channelInviteByHost = {
-            'info.ssyntirx.fun': 'https://t.me/+ETuBMJ9s2Js1NmIy',
-            'ss.ssyntirx.fun': 'https://t.me/+YmFilnI8DbFjNWEy',
-            'road.ssyntirx.fun': 'https://t.me/+TLo5_JI7r0wxODky',
-            'invest.ssyntirx.fun': 'https://t.me/+6w-QvvLfkt9iNzg6',
+            'info.ssyntrix.fun': 'https://t.me/+ETuBMJ9s2Js1NmIy',
+            'ss.ssyntrix.fun': 'https://t.me/+YmFilnI8DbFjNWEy',
+            'road.ssyntrix.fun': 'https://t.me/+TLo5_JI7r0wxODky',
+            'invest.ssyntrix.fun': 'https://t.me/+6w-QvvLfkt9iNzg6',
             // оставляем существующее поведение для доменов, где трек-ссылка не задана
-            'official.ssyntirx.fun': 'https://t.me/+tvQ2u0yoEJRhOTBi'
+            'official.ssyntrix.fun': 'https://t.me/+tvQ2u0yoEJRhOTBi'
         };
 
         // Получаем текущий домен

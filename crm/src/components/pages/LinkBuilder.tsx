@@ -37,7 +37,7 @@ export function LinkBuilder() {
   const { token } = useAuth()
   const [source, setSource] = useState('')
   const [linkType, setLinkType] = useState<'bot' | 'channel'>('bot')
-  const [selectedDomain, setSelectedDomain] = useState('crypto.ssyntirx.fun')
+  const [selectedDomain, setSelectedDomain] = useState('crypto.ssyntrix.fun')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
   const [pixelConfirmed, setPixelConfirmed] = useState(false)
@@ -97,16 +97,16 @@ export function LinkBuilder() {
   }
 
   const botDomains = [
-    { value: 'crypto.ssyntirx.fun', label: 'crypto.ssyntirx.fun', color: 'bg-amber-400' },
-    { value: 'trade.ssyntirx.fun', label: 'trade.ssyntirx.fun', color: 'bg-pink-400' },
+    { value: 'crypto.ssyntrix.fun', label: 'crypto.ssyntrix.fun', color: 'bg-amber-400' },
+    { value: 'trade.ssyntrix.fun', label: 'trade.ssyntrix.fun', color: 'bg-pink-400' },
   ]
 
   const channelDomains = [
-    { value: 'info.ssyntirx.fun', label: 'info.ssyntirx.fun', color: 'bg-purple-400' },
-    { value: 'ss.ssyntirx.fun', label: 'ss.ssyntirx.fun', color: 'bg-orange-400' },
-    { value: 'road.ssyntirx.fun', label: 'road.ssyntirx.fun', color: 'bg-rose-400' },
-    { value: 'invest.ssyntirx.fun', label: 'invest.ssyntirx.fun', color: 'bg-cyan-400' },
-    { value: 'official.ssyntirx.fun', label: 'official.ssyntirx.fun', color: 'bg-lime-400' },
+    { value: 'info.ssyntrix.fun', label: 'info.ssyntrix.fun', color: 'bg-purple-400' },
+    { value: 'ss.ssyntrix.fun', label: 'ss.ssyntrix.fun', color: 'bg-orange-400' },
+    { value: 'road.ssyntrix.fun', label: 'road.ssyntrix.fun', color: 'bg-rose-400' },
+    { value: 'invest.ssyntrix.fun', label: 'invest.ssyntrix.fun', color: 'bg-cyan-400' },
+    { value: 'official.ssyntrix.fun', label: 'official.ssyntrix.fun', color: 'bg-lime-400' },
   ]
 
   const domains = linkType === 'bot' ? botDomains : channelDomains
