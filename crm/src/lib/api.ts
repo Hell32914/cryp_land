@@ -720,7 +720,7 @@ const MOCK_DEPOSITS: DepositRecord[] = [
     depStatus: 'paid',
     leadStatus: 'FTD',
     trafficSource: 'telegram',
-    referralLink: 'https://website.ssyntirx.fun/?ref=QA-001',
+    referralLink: 'https://website.syntrix.uno/?ref=QA-001',
     trafficerName: 'QA Team',
     linkName: 'QA Link A',
   },
@@ -737,7 +737,7 @@ const MOCK_DEPOSITS: DepositRecord[] = [
     depStatus: 'processing',
     leadStatus: 'active',
     trafficSource: 'instagram',
-    referralLink: 'https://website.ssyntirx.fun/?ref=QA-002',
+    referralLink: 'https://website.syntrix.uno/?ref=QA-002',
     trafficerName: 'QA Team',
     linkName: 'QA Link B',
   },
@@ -754,7 +754,7 @@ const MOCK_DEPOSITS: DepositRecord[] = [
     depStatus: 'failed',
     leadStatus: 'reinvest',
     trafficSource: 'google',
-    referralLink: 'https://website.ssyntirx.fun/?ref=QA-003',
+    referralLink: 'https://website.syntrix.uno/?ref=QA-003',
     trafficerName: 'QA Team',
     linkName: 'QA Link C',
   },
@@ -821,8 +821,8 @@ const MOCK_MARKETING_LINKS: MarketingLink[] = [
   {
     linkId: 'QA-001',
     source: 'telegram',
-    domain: 'website.ssyntirx.fun',
-    linkUrl: 'https://website.ssyntirx.fun/?ref=QA-001',
+    domain: 'website.syntrix.uno',
+    linkUrl: 'https://website.syntrix.uno/?ref=QA-001',
     channelInviteLink: null,
     clicks: 1420,
     conversions: 64,
@@ -836,7 +836,7 @@ const MOCK_MARKETING_LINKS: MarketingLink[] = [
     stream: 'stream-a',
     geo: 'US',
     creative: 'banner-a',
-    creativeUrl: 'https://website.ssyntirx.fun/creative/banner-a',
+    creativeUrl: 'https://website.syntrix.uno/creative/banner-a',
     leadsToday: 8,
     leadsWeek: 42,
     totalLeads: 220,
@@ -872,7 +872,7 @@ const MOCK_MARKETING_LINKS: MarketingLink[] = [
     stream: 'stream-b',
     geo: 'CA',
     creative: 'banner-b',
-    creativeUrl: 'https://website.ssyntirx.fun/creative/banner-b',
+    creativeUrl: 'https://website.syntrix.uno/creative/banner-b',
     leadsToday: 4,
     leadsWeek: 18,
     totalLeads: 140,
@@ -1598,7 +1598,7 @@ export const createMarketingLink = (token: string, data: {
   isTesterToken(token)
     ? Promise.resolve((() => {
         const newId = `QA-${Date.now()}`
-        const domain = (data.domain || 'website.ssyntirx.fun').trim()
+        const domain = (data.domain || 'website.syntrix.uno').trim()
         const linkUrl = `https://${domain.replace(/^https?:\/\//i, '')}/?ref=${newId}`
         const base = MOCK_MARKETING_LINKS[0]
         return {

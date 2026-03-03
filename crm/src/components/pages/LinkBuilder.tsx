@@ -25,7 +25,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { createMarketingLink, fetchMarketingLinks, toggleMarketingLink, deleteMarketingLink, generateChannelInviteLink, type MarketingLink } from '@/lib/api'
 
-const TELEGRAM_LANDING_DOMAIN = 'website.ssyntirx.fun'
+const TELEGRAM_LANDING_DOMAIN = 'website.syntrix.uno'
 interface SubIdParam {
   id: number
   key: string
@@ -133,7 +133,7 @@ export function LinkBuilder() {
     if (!saved) return
     try {
       const parsed = JSON.parse(saved) as Record<string, boolean>
-      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.ssyntirx.fun'
+      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.syntrix.uno'
       setPixelConfirmed(!!parsed[normalizedDomain])
     } catch {}
   }, [selectedDomain])
@@ -169,7 +169,7 @@ export function LinkBuilder() {
   // When user selects a domain that already has a pixel saved, prefill the textarea
   useEffect(() => {
     if (!links.length) return
-    const normalize = (d?: string) => (d || 'website.ssyntirx.fun').trim().toLowerCase()
+    const normalize = (d?: string) => (d || 'website.syntrix.uno').trim().toLowerCase()
     const targetDomain = normalize(selectedDomain)
 
     const found = links.find((l) => {
@@ -388,7 +388,7 @@ export function LinkBuilder() {
                     onChange={(e) => {
                       const next = e.target.checked
                       setPixelConfirmed(next)
-                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.ssyntirx.fun'
+                      const normalizedDomain = selectedDomain.trim().toLowerCase() || 'website.syntrix.uno'
                       const saved = localStorage.getItem('pixelConfirmationByDomain')
                       let map: Record<string, boolean> = {}
                       try { if (saved) map = JSON.parse(saved) as Record<string, boolean> } catch {}

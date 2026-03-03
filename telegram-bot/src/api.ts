@@ -146,14 +146,13 @@ function calculateTariffPlan(balance: number) {
 
 // Configure CORS with allowed origins
 const allowedOrigins = [
-  'https://website.ssyntirx.fun',
+  'https://website.syntrix.uno',
   'https://crypto.ssyntirx.fun',
   'https://trade.ssyntirx.fun',
   'https://info.ssyntirx.fun',
   'https://ss.ssyntirx.fun',
   'https://road.ssyntirx.fun',
   'https://invest.ssyntirx.fun',
-  'https://invests.ssyntirx.fun',
   'https://official.ssyntirx.fun',
   'https://appmini.syntrix.uno',
   'https://admin.syntrix.uno',
@@ -6127,7 +6126,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
         }
       })
 
-      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://website.ssyntirx.fun'
+      const returnUrl = process.env.PAYPAL_RETURN_URL || process.env.TELEGRAM_APP_URL || process.env.WEBAPP_URL || 'https://website.syntrix.uno'
       const cancelUrl = process.env.PAYPAL_CANCEL_URL || returnUrl
 
       const { createPayPalOrder } = await import('./paypal.js')
@@ -7267,7 +7266,7 @@ app.post('/api/oxapay-callback', async (req, res) => {
 
 // ============= MARKETING LINKS ENDPOINTS =============
 
-const DEFAULT_LANDING_DOMAIN = 'website.ssyntirx.fun'
+const DEFAULT_LANDING_DOMAIN = 'website.syntrix.uno'
 
 const normalizeDomain = (domain?: string | null) => {
   if (!domain) return DEFAULT_LANDING_DOMAIN
