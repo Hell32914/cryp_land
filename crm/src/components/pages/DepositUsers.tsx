@@ -195,7 +195,7 @@ export function DepositUsers() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-x-auto">
-            <Table className="min-w-[1200px]">
+            <Table className="min-w-[1320px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
@@ -217,6 +217,7 @@ export function DepositUsers() {
                       First Deposit Date {sortIndicator('firstDepositAt')}
                     </button>
                   </TableHead>
+                  <TableHead>Registration Date</TableHead>
                   <TableHead>
                     <button type="button" className="inline-flex items-center gap-1" onClick={() => toggleSort('linkName')}>
                       Source Link {sortIndicator('linkName')}
@@ -235,20 +236,20 @@ export function DepositUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={11}>
+                      <TableCell colSpan={12}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-destructive">
+                    <TableCell colSpan={12} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-muted-foreground">
+                    <TableCell colSpan={12} className="text-muted-foreground">
                       {t('depositUsers.empty')}
                     </TableCell>
                   </TableRow>
@@ -272,6 +273,7 @@ export function DepositUsers() {
                         ${user.balance.toFixed(2)}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatDateTime(user.firstDepositAt)}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{formatDateTime(user.createdAt)}</TableCell>
                       <TableCell className="text-sm">
                         <div className="font-medium truncate max-w-[260px]">{user.linkName || '—'}</div>
                         <div className="text-xs text-muted-foreground">{user.linkId || '—'}</div>
