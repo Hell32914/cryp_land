@@ -1996,7 +1996,10 @@ function App() {
           )}
 
           {activeTab === 'trade' && userData?.arbitrageTradeEnabled && (
-            <TradeTab title={(t as any).trade ?? 'Trade'} />
+            <TradeTab
+              title={(t as any).trade ?? 'Trade'}
+              exchangeLimit={Math.max(1, Number(userData?.tradeExchangesLimit || 1))}
+            />
           )}
           
           {activeTab === 'wallet' && (

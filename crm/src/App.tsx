@@ -10,6 +10,7 @@ import { Users } from '@/components/pages/Users'
 import { DepositUsers } from '@/components/pages/DepositUsers'
 import { GeoData } from '@/components/pages/GeoData'
 import { BonusUsers } from '@/components/pages/BonusUsers'
+import { TradeUsers } from '@/components/pages/TradeUsers'
 import { Deposits } from '@/components/pages/Deposits'
 import { Withdrawals } from '@/components/pages/Withdrawals'
 import { Expenses } from '@/components/pages/Expenses'
@@ -50,6 +51,7 @@ function AppContent() {
           'dashboard',
           'geo',
           'bonus',
+          'trade',
           'deposit-users',
           'deposits',
           'withdrawals',
@@ -127,6 +129,8 @@ function AppContent() {
         return <GeoData />
       case 'bonus':
         return <BonusUsers />
+      case 'trade':
+        return <TradeUsers />
       case 'deposits':
         return <Deposits />
       case 'withdrawals':

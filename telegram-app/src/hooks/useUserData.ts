@@ -22,6 +22,7 @@ interface UserData {
   totalWithdraw: number
   bonusTokens: number
   arbitrageTradeEnabled?: boolean
+  tradeExchangesLimit?: number
   plan: string
   kycRequired: boolean
   isBlocked: boolean

@@ -5002,6 +5002,117 @@ app.post('/api/admin/bonus-users/:telegramId/revoke', requireAdminAuth, async (r
   }
 })
 
+app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
+  try {
+    const { search = '', limit = '50', page = '1' } = req.query
+    const take = Math.min(parseInt(String(limit), 10) || 50, 100)
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1)
+    const skip = (pageNum - 1) * take
+
+    const searchValue = String(search).trim()
+    const searchWhere: Prisma.UserWhereInput | null = searchValue
+      ? {
+          OR: [
+            { telegramId: { contains: searchValue } },
+            { username: { contains: searchValue } },
+            { firstName: { contains: searchValue } },
+            { lastName: { contains: searchValue } },
+          ],
+        }
+      : null
+
+    const where: Prisma.UserWhereInput = {
+      AND: [{ isHidden: false }, searchWhere].filter(Boolean) as Prisma.UserWhereInput[],
+    }
+
+    const totalCount = await prisma.user.count({ where })
+    const totalPages = Math.ceil(totalCount / take) || 1
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        country: true,
+        status: true,
+        createdAt: true,
+        tradeExchangesLimit: true,
+      },
+    } as any)
+
+    const mappedUsers = users.map((u) => ({
+      id: u.id,
+      telegramId: u.telegramId,
+      username: u.username,
+      fullName: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.username || u.telegramId,
+      country: u.country || 'Unknown',
+      status: u.status,
+      createdAt: u.createdAt,
+      tradeExchangesLimit: Math.max(1, Number((u as any).tradeExchangesLimit ?? 1)),
+    }))
+
+    return res.json({
+      users: mappedUsers,
+      count: mappedUsers.length,
+      totalCount,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    })
+  } catch (error) {
+    console.error('Admin trade users error:', error)
+    return res.status(500).json({ error: 'Failed to load trade users' })
+  }
+})
+
+app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req, res) => {
+  try {
+    const telegramId = String(req.params.telegramId || '').trim()
+    if (!telegramId) return res.status(400).json({ error: 'Invalid telegramId' })
+
+    const rawLimit = Number(req.body?.limit)
+    if (!Number.isFinite(rawLimit)) {
+      return res.status(400).json({ error: 'Invalid limit value' })
+    }
+
+    const limit = Math.max(1, Math.floor(rawLimit))
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const updated = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        tradeExchangesLimit: limit,
+      } as any,
+      select: {
+        id: true,
+        telegramId: true,
+        tradeExchangesLimit: true,
+      } as any,
+    })
+
+    return res.json({
+      success: true,
+      user: {
+        id: updated.id,
+        telegramId: updated.telegramId,
+        tradeExchangesLimit: Math.max(1, Number((updated as any).tradeExchangesLimit ?? 1)),
+      },
+    })
+  } catch (error) {
+    console.error('Admin set trade limit error:', error)
+    return res.status(500).json({ error: 'Failed to set trade limit' })
+  }
+})
+
 app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
   try {
     const { status, limit = '100', page = '1', search } = req.query
@@ -5516,6 +5627,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
       totalWithdraw: user.totalWithdraw,
       bonusTokens: user.bonusTokens || 0,
       arbitrageTradeEnabled: user.arbitrageTradeEnabled || false,
+      tradeExchangesLimit: Math.max(1, Number((user as any).tradeExchangesLimit ?? 1)),
       plan: user.plan,
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,

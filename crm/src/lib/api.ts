@@ -249,6 +249,25 @@ export interface BonusUsersResponse {
   hasPrevPage: boolean
 }
 
+export interface TradeUsersResponse {
+  users: Array<{
+    id: number
+    telegramId: string
+    username: string | null
+    fullName: string
+    country: string
+    status: string
+    createdAt: string
+    tradeExchangesLimit: number
+  }>
+  count: number
+  totalCount: number
+  page: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
 export interface DepositRecord {
   id: number
   status: string
@@ -1425,6 +1444,46 @@ export const revokeUserBonus = (token: string, telegramId: string) =>
     {
       method: 'POST',
       body: JSON.stringify({}),
+    },
+    token
+  )
+
+export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: number; search?: string }) => {
+  if (isTesterToken(token)) {
+    const source = MOCK_USERS.slice(0, 50)
+    return Promise.resolve({
+      users: source.map((u) => ({
+        id: Number(u.id),
+        telegramId: String(u.telegramId),
+        username: u.username || null,
+        fullName: u.fullName || u.username || String(u.telegramId),
+        country: u.country || 'Unknown',
+        status: u.status,
+        createdAt: u.createdAt,
+        tradeExchangesLimit: 1,
+      })),
+      count: source.length,
+      totalCount: source.length,
+      page: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false,
+    } as TradeUsersResponse)
+  }
+  const params = new URLSearchParams()
+  if (opts?.page) params.set('page', String(opts.page))
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.search) params.set('search', String(opts.search))
+  const query = params.toString()
+  return request<TradeUsersResponse>(`/api/admin/trade-users${query ? `?${query}` : ''}`, {}, token)
+}
+
+export const setUserTradeExchangeLimit = (token: string, telegramId: string, limit: number) =>
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number } }>(
+    `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ limit }),
     },
     token
   )

@@ -46,9 +46,10 @@ function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) 
 
 type TradeTabProps = {
   title?: string
+  exchangeLimit?: number
 }
 
-export function TradeTab({ title }: TradeTabProps) {
+export function TradeTab({ title, exchangeLimit = 1 }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg?v=20260123' },
@@ -65,12 +66,49 @@ export function TradeTab({ title }: TradeTabProps) {
     []
   )
 
-  const [selectedExchangeId, setSelectedExchangeId] = useState<string>(() => {
-    const saved = localStorage.getItem('trade_selectedExchangeId')
-    return saved ?? exchanges[0]?.id ?? 'binance'
+  const [selectedExchangeIds, setSelectedExchangeIds] = useState<string[]>(() => {
+    const legacySelectedId = localStorage.getItem('trade_selectedExchangeId')
+    const saved = localStorage.getItem('trade_selectedExchangeIds')
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((value) => String(value))
+            .filter((value, index, arr) => arr.indexOf(value) === index)
+            .slice(0, Math.max(1, exchangeLimit))
+        }
+      } catch {
+        // ignore invalid data
+      }
+    }
+
+    if (legacySelectedId) {
+      return [legacySelectedId]
+    }
+
+    return exchanges[0]?.id ? [exchanges[0].id] : ['binance']
   })
 
-  const selectedExchange = exchanges.find((e) => e.id === selectedExchangeId)
+  const normalizedExchangeLimit = Math.max(1, exchangeLimit)
+  const selectedExchangeNames = exchanges
+    .filter((exchange) => selectedExchangeIds.includes(exchange.id))
+    .map((exchange) => exchange.name)
+
+  const toggleExchange = (exchangeId: string) => {
+    setSelectedExchangeIds((prev) => {
+      if (prev.includes(exchangeId)) {
+        return prev.filter((id) => id !== exchangeId)
+      }
+
+      if (prev.length >= normalizedExchangeLimit) {
+        return prev
+      }
+
+      return [...prev, exchangeId]
+    })
+  }
 
   const assets = useMemo(
     () => [
@@ -187,15 +225,30 @@ export function TradeTab({ title }: TradeTabProps) {
 
   const canStart =
     selectedAssets.length > 0 &&
-    Boolean(selectedExchangeId) &&
+    selectedExchangeIds.length > 0 &&
     Boolean(selectedPriceCheckId) &&
     Boolean(riskProfile) &&
     Boolean(arbitrageType)
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('trade_selectedExchangeId', selectedExchangeId)
-  }, [selectedExchangeId])
+    const availableExchangeIds = new Set(exchanges.map((exchange) => exchange.id))
+    setSelectedExchangeIds((prev) => {
+      const filtered = prev.filter((id) => availableExchangeIds.has(id))
+      const unique = filtered.filter((id, index, arr) => arr.indexOf(id) === index)
+      const limited = unique.slice(0, normalizedExchangeLimit)
+      if (limited.length === 0) {
+        return exchanges[0]?.id ? [exchanges[0].id] : prev
+      }
+      return limited
+    })
+  }, [exchanges, normalizedExchangeLimit])
+
+  useEffect(() => {
+    const limitedSelected = selectedExchangeIds.slice(0, normalizedExchangeLimit)
+    localStorage.setItem('trade_selectedExchangeIds', JSON.stringify(limitedSelected))
+    localStorage.setItem('trade_selectedExchangeId', limitedSelected[0] || '')
+  }, [normalizedExchangeLimit, selectedExchangeIds])
 
   useEffect(() => {
     localStorage.setItem('trade_selectedAssets', JSON.stringify(selectedAssets))
@@ -227,22 +280,32 @@ export function TradeTab({ title }: TradeTabProps) {
           <div>
             <div className="text-sm font-medium">Exchange</div>
             <div className="text-xs text-muted-foreground mt-1">Choose the exchange for trade setup</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Available exchanges: {normalizedExchangeLimit}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">Selected: {selectedExchange?.name ?? '—'}</div>
+          <div className="text-xs text-muted-foreground text-right">
+            Selected ({selectedExchangeIds.length}/{normalizedExchangeLimit}):{' '}
+            {selectedExchangeNames.length ? selectedExchangeNames.join(', ') : '—'}
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {exchanges.map((exchange) => {
-            const isSelected = exchange.id === selectedExchangeId
+            const isSelected = selectedExchangeIds.includes(exchange.id)
+            const isDisabled = !isSelected && selectedExchangeIds.length >= normalizedExchangeLimit
             return (
               <button
                 key={exchange.id}
                 type="button"
-                onClick={() => setSelectedExchangeId(exchange.id)}
+                onClick={() => toggleExchange(exchange.id)}
+                disabled={isDisabled}
                 className={
-                  'flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ' +
+                  'flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed ' +
                   (isSelected
                     ? 'border-primary/50 bg-primary/10'
+                    : isDisabled
+                      ? 'border-border/30 bg-muted/20 text-muted-foreground/60'
                     : 'border-border/50 bg-background/30 hover:bg-background/50')
                 }
               >
@@ -435,7 +498,7 @@ export function TradeTab({ title }: TradeTabProps) {
         </div>
 
         <div className="mt-3 text-xs text-muted-foreground">
-          Config: {selectedExchange?.name ?? '—'} • {selectedAssets.length || 0} assets • {selectedPriceCheck?.label ?? '—'}
+          Config: {selectedExchangeNames.length ? selectedExchangeNames.join(', ') : '—'} • {selectedAssets.length || 0} assets • {selectedPriceCheck?.label ?? '—'}
         </div>
       </div>
     </div>
