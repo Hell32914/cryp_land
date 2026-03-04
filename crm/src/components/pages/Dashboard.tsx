@@ -36,6 +36,7 @@ type DailyRow = {
   withdrawals: number
   profit: number
   traffic: number
+  ftd: number
   users: number
   spend: number
   linkStats?: Array<{ linkId: string; linkName: string; leads: number; users?: number }>
@@ -384,6 +385,7 @@ export function Dashboard() {
       withdrawals: toNumber((row as any).withdrawals),
       profit: toNumber((row as any).profit),
       traffic: getLeadsValue(row as any),
+      ftd: toNumber((row as any).ftd ?? (row as any).ftdCount),
       users: toNumber((row as any).users),
       linkStats: Array.isArray((row as any).linkStats) ? (row as any).linkStats : [],
       spend: toNumber((row as any).spend),
@@ -434,6 +436,7 @@ export function Dashboard() {
         withdrawals: 0,
         profit: 0,
         traffic: 0,
+        ftd: 0,
         users: 0,
         spend: 0,
         linkStats: [],
@@ -443,6 +446,7 @@ export function Dashboard() {
       current.withdrawals += row.withdrawals
       current.profit += row.profit
       current.traffic += row.traffic
+      current.ftd += row.ftd
       current.users += row.users
       current.spend += row.spend
 
@@ -578,15 +582,16 @@ export function Dashboard() {
         acc.withdrawals += row.withdrawals
         acc.profit += row.profit
         acc.traffic += row.traffic
+        acc.ftd += row.ftd
         acc.users += row.users
         acc.spend += row.spend
         return acc
       },
-      { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, users: 0, spend: 0 }
+      { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, ftd: 0, users: 0, spend: 0 }
     )
 
     return (
-      <div className="rounded-md border border-border overflow-hidden min-w-[1300px]">
+      <div className="rounded-md border border-border overflow-hidden min-w-[1380px]">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -595,6 +600,7 @@ export function Dashboard() {
               <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
               <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
               <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.ftd')}</TableHead>
               <TableHead className="text-right">{t('dashboard.users')}</TableHead>
               <TableHead className="text-right">{t('dashboard.spend')}</TableHead>
               <TableHead className="text-right">{t('dashboard.netFlow')}</TableHead>
@@ -628,6 +634,9 @@ export function Dashboard() {
                   </TableCell>
                   <TableCell className="text-right text-indigo-400">
                     {row.traffic.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right text-yellow-400">
+                    {row.ftd.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right text-blue-400">
                     {row.users.toLocaleString()}
@@ -664,6 +673,9 @@ export function Dashboard() {
               </TableCell>
               <TableCell className="text-right font-semibold text-indigo-400">
                 {totals.traffic.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-yellow-400">
+                {totals.ftd.toLocaleString()}
               </TableCell>
               <TableCell className="text-right font-semibold text-blue-400">
                 {totals.users.toLocaleString()}

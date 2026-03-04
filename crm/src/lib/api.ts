@@ -112,6 +112,7 @@ export interface FinancialPoint {
   withdrawals: number
   profit: number
   traffic: number
+  ftd?: number
   users?: number
   linkStats?: Array<{
     linkId: string

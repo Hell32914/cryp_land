@@ -430,7 +430,7 @@ export function Users() {
                       <TableCell className="text-sm text-blue-400">
                         {user.trafficerName || '—'}
                       </TableCell>
-                      <TableCell className="text-sm text-purple-400 max-w-[120px] truncate" title={user.linkName || ''}>
+                      <TableCell className="text-sm text-purple-400 whitespace-normal break-all" title={user.linkName || ''}>
                         {user.linkName || '—'}
                       </TableCell>
                       <TableCell>

@@ -82,6 +82,7 @@ export function SupportBroadcasts() {
       { id: getPrimaryStageId(), label: t('support.funnel.primary'), locked: true },
       { id: 'secondary', label: t('support.funnel.secondary') },
       { id: 'decision', label: t('support.funnel.decision') },
+      { id: 'trade', label: t('support.funnel.trade') },
       { id: 'success', label: t('support.funnel.success') },
       { id: 'fail', label: t('support.funnel.fail') },
       { id: 'not-active-2', label: t('support.funnel.notActive2') },

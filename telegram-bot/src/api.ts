@@ -3634,7 +3634,7 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
           ...realDepositFilter,
           ...(hasFilters ? { user: userWhere } : {}),
         },
-        select: { amount: true, createdAt: true },
+        select: { amount: true, createdAt: true, userId: true },
       }),
       prisma.withdrawal.findMany({
         where: {
@@ -3743,11 +3743,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const daysDiff = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
     const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
-    const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; users: number; spend: number }>()
+    const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; ftd: number; users: number; spend: number }>()
     const dailyLinkStatsMap = new Map<string, Map<string, { linkId: string; linkName: string; leads: number; users: number }>>()
     const ensureDailyEntry = (key: string) => {
       if (!dailySummaryMap.has(key)) {
-        dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, users: 0, spend: 0 })
+        dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, ftd: 0, users: 0, spend: 0 })
       }
       return dailySummaryMap.get(key)!
     }
@@ -3851,6 +3851,36 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         ensureDailyEntry(key).deposits += deposit.amount
       }
     })
+
+    const isInSummaryWindow = (date: Date) => {
+      if (periodWhere) {
+        return date >= periodWhere.gte && date <= periodWhere.lte
+      }
+      return date >= chartStart && date <= periodEnd
+    }
+
+    const depositUserIds = Array.from(new Set(recentDeposits.map((d) => d.userId)))
+    if (depositUserIds.length > 0) {
+      const firstDepositRows = await prisma.deposit.groupBy({
+        by: ['userId'],
+        _min: { createdAt: true },
+        where: {
+          status: 'COMPLETED',
+          userId: { in: depositUserIds, notIn: excludeUserIds },
+          ...realDepositFilter,
+          ...(hasFilters ? { user: userWhere } : {}),
+        },
+      })
+
+      for (const row of firstDepositRows) {
+        const firstDepositAt = row._min?.createdAt ? new Date(row._min.createdAt) : null
+        if (!firstDepositAt || !isInSummaryWindow(firstDepositAt)) continue
+        const key = getDateKey(firstDepositAt)
+        if (fullDaily) {
+          ensureDailyEntry(key).ftd += 1
+        }
+      }
+    }
 
     recentWithdrawals.forEach((withdrawal) => {
       const key = getDateKey(withdrawal.createdAt)
