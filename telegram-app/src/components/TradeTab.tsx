@@ -47,9 +47,10 @@ function ExchangeIcon({ name, src, fallbackText, selected }: ExchangeIconProps) 
 type TradeTabProps = {
   title?: string
   exchangeLimit?: number
+  assetLimit?: number
 }
 
-export function TradeTab({ title, exchangeLimit = 1 }: TradeTabProps) {
+export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg?v=20260123' },
@@ -92,6 +93,7 @@ export function TradeTab({ title, exchangeLimit = 1 }: TradeTabProps) {
   })
 
   const normalizedExchangeLimit = Math.max(1, exchangeLimit)
+  const normalizedAssetLimit = Math.max(1, assetLimit)
   const selectedExchangeNames = exchanges
     .filter((exchange) => selectedExchangeIds.includes(exchange.id))
     .map((exchange) => exchange.name)
@@ -138,12 +140,29 @@ export function TradeTab({ title, exchangeLimit = 1 }: TradeTabProps) {
 
   const [selectedAssets, setSelectedAssets] = useState<string[]>(() => {
     const saved = localStorage.getItem('trade_selectedAssets')
-    return saved ? JSON.parse(saved) : ['BTC', 'ETH', 'USDT']
+    const fallback = ['BTC', 'ETH', 'USDT'].slice(0, Math.max(1, assetLimit))
+
+    if (!saved) return fallback
+
+    try {
+      const parsed = JSON.parse(saved)
+      if (!Array.isArray(parsed)) return fallback
+
+      const normalized = parsed
+        .map((value) => String(value))
+        .filter((value, index, arr) => arr.indexOf(value) === index)
+        .slice(0, Math.max(1, assetLimit))
+
+      return normalized.length ? normalized : fallback
+    } catch {
+      return fallback
+    }
   })
 
   const toggleAsset = (symbol: string) => {
     setSelectedAssets((prev) => {
       if (prev.includes(symbol)) return prev.filter((s) => s !== symbol)
+      if (prev.length >= normalizedAssetLimit) return prev
       return [...prev, symbol]
     })
   }
@@ -251,6 +270,21 @@ export function TradeTab({ title, exchangeLimit = 1 }: TradeTabProps) {
   }, [normalizedExchangeLimit, selectedExchangeIds])
 
   useEffect(() => {
+    const availableAssets = new Set(assets)
+    setSelectedAssets((prev) => {
+      const filtered = prev.filter((asset) => availableAssets.has(asset))
+      const unique = filtered.filter((asset, index, arr) => arr.indexOf(asset) === index)
+      const limited = unique.slice(0, normalizedAssetLimit)
+
+      if (limited.length > 0) {
+        return limited
+      }
+
+      return assets.slice(0, normalizedAssetLimit)
+    })
+  }, [assets, normalizedAssetLimit])
+
+  useEffect(() => {
     localStorage.setItem('trade_selectedAssets', JSON.stringify(selectedAssets))
   }, [selectedAssets])
 
@@ -327,25 +361,30 @@ export function TradeTab({ title, exchangeLimit = 1 }: TradeTabProps) {
           <div>
             <div className="text-sm font-medium">Assets</div>
             <div className="text-xs text-muted-foreground mt-1">Select assets to include</div>
+            <div className="text-xs text-muted-foreground mt-1">Available assets: {normalizedAssetLimit}</div>
           </div>
           <div className="text-xs text-muted-foreground text-right">
-            Selected ({selectedAssets.length}): {selectedAssets.length ? selectedAssets.join(', ') : '—'}
+            Selected ({selectedAssets.length}/{normalizedAssetLimit}): {selectedAssets.length ? selectedAssets.join(', ') : '—'}
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {assets.map((symbol) => {
             const isSelected = selectedAssets.includes(symbol)
+            const isDisabled = !isSelected && selectedAssets.length >= normalizedAssetLimit
             return (
               <button
                 key={symbol}
                 type="button"
                 onClick={() => toggleAsset(symbol)}
+                disabled={isDisabled}
                 className={
-                  'rounded-full border px-3 py-1.5 text-sm transition-colors ' +
+                  'rounded-full border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed ' +
                   (isSelected
                     ? 'border-primary/50 bg-primary/10 text-foreground'
-                    : 'border-border/50 bg-background/30 text-muted-foreground hover:bg-background/50 hover:text-foreground')
+                    : isDisabled
+                      ? 'border-border/30 bg-muted/20 text-muted-foreground/60'
+                      : 'border-border/50 bg-background/30 text-muted-foreground hover:bg-background/50 hover:text-foreground')
                 }
               >
                 {symbol}

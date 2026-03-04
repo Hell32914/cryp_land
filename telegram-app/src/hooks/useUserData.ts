@@ -23,6 +23,7 @@ interface UserData {
   bonusTokens: number
   arbitrageTradeEnabled?: boolean
   tradeExchangesLimit?: number
+  tradeAssetsLimit?: number
   plan: string
   kycRequired: boolean
   isBlocked: boolean

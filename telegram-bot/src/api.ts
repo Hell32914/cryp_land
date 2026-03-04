@@ -5149,6 +5149,7 @@ app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
         status: true,
         createdAt: true,
         tradeExchangesLimit: true,
+        tradeAssetsLimit: true,
       },
     } as any)
 
@@ -5161,6 +5162,7 @@ app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
       status: u.status,
       createdAt: u.createdAt,
       tradeExchangesLimit: Math.max(1, Number((u as any).tradeExchangesLimit ?? 1)),
+      tradeAssetsLimit: Math.max(1, Number((u as any).tradeAssetsLimit ?? 2)),
     }))
 
     return res.json({
@@ -5183,25 +5185,35 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
     const telegramId = String(req.params.telegramId || '').trim()
     if (!telegramId) return res.status(400).json({ error: 'Invalid telegramId' })
 
-    const rawLimit = Number(req.body?.limit)
-    if (!Number.isFinite(rawLimit)) {
+    const rawExchangeLimit = Number(req.body?.exchangeLimit ?? req.body?.limit)
+    const rawAssetsLimit = Number(req.body?.assetsLimit)
+
+    const hasExchangeLimit = Number.isFinite(rawExchangeLimit)
+    const hasAssetsLimit = Number.isFinite(rawAssetsLimit)
+
+    if (!hasExchangeLimit && !hasAssetsLimit) {
       return res.status(400).json({ error: 'Invalid limit value' })
     }
-
-    const limit = Math.max(1, Math.floor(rawLimit))
 
     const user = await prisma.user.findUnique({ where: { telegramId } })
     if (!user) return res.status(404).json({ error: 'User not found' })
 
+    const updateData: Record<string, number> = {}
+    if (hasExchangeLimit) {
+      updateData.tradeExchangesLimit = Math.max(1, Math.floor(rawExchangeLimit))
+    }
+    if (hasAssetsLimit) {
+      updateData.tradeAssetsLimit = Math.max(1, Math.floor(rawAssetsLimit))
+    }
+
     const updated = await prisma.user.update({
       where: { telegramId },
-      data: {
-        tradeExchangesLimit: limit,
-      } as any,
+      data: updateData as any,
       select: {
         id: true,
         telegramId: true,
         tradeExchangesLimit: true,
+        tradeAssetsLimit: true,
       } as any,
     })
 
@@ -5211,6 +5223,7 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
         id: updated.id,
         telegramId: updated.telegramId,
         tradeExchangesLimit: Math.max(1, Number((updated as any).tradeExchangesLimit ?? 1)),
+        tradeAssetsLimit: Math.max(1, Number((updated as any).tradeAssetsLimit ?? 2)),
       },
     })
   } catch (error) {
@@ -5734,6 +5747,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
       bonusTokens: user.bonusTokens || 0,
       arbitrageTradeEnabled: user.arbitrageTradeEnabled || false,
       tradeExchangesLimit: Math.max(1, Number((user as any).tradeExchangesLimit ?? 1)),
+      tradeAssetsLimit: Math.max(1, Number((user as any).tradeAssetsLimit ?? 2)),
       plan: user.plan,
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,

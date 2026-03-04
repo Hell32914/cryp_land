@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAuth } from '@/lib/auth'
-import { fetchTradeUsers, setUserTradeExchangeLimit } from '@/lib/api'
+import { fetchTradeUsers, setUserTradeAssetsLimit, setUserTradeExchangeLimit } from '@/lib/api'
 
 const getStatusColor = (status: string) => {
   switch (status?.toUpperCase?.()) {
@@ -38,7 +38,8 @@ export function TradeUsers() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [draftLimits, setDraftLimits] = useState<Record<string, string>>({})
+  const [draftExchangeLimits, setDraftExchangeLimits] = useState<Record<string, string>>({})
+  const [draftAssetLimits, setDraftAssetLimits] = useState<Record<string, string>>({})
   const pageSize = 50
 
   const { data, isLoading, isError } = useQuery({
@@ -55,11 +56,21 @@ export function TradeUsers() {
   const users = data?.users ?? []
 
   useEffect(() => {
-    setDraftLimits((prev) => {
+    setDraftExchangeLimits((prev) => {
       const next = { ...prev }
       for (const user of users) {
         if (typeof next[user.telegramId] === 'undefined') {
           next[user.telegramId] = String(Math.max(1, Number(user.tradeExchangesLimit || 1)))
+        }
+      }
+      return next
+    })
+
+    setDraftAssetLimits((prev) => {
+      const next = { ...prev }
+      for (const user of users) {
+        if (typeof next[user.telegramId] === 'undefined') {
+          next[user.telegramId] = String(Math.max(1, Number(user.tradeAssetsLimit || 2)))
         }
       }
       return next
@@ -72,24 +83,45 @@ export function TradeUsers() {
     }
   }, [data?.totalCount, users.length])
 
-  const setLimitMutation = useMutation({
+  const setExchangeLimitMutation = useMutation({
     mutationFn: ({ telegramId, limit }: { telegramId: string; limit: number }) => setUserTradeExchangeLimit(token!, telegramId, limit),
     onSuccess: (_, vars) => {
-      setDraftLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.limit) }))
+      setDraftExchangeLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.limit) }))
       queryClient.invalidateQueries({ queryKey: ['trade-users'] })
     },
   })
 
-  const submitLimit = (telegramId: string, fallbackCurrent: number) => {
-    const raw = Number(draftLimits[telegramId])
+  const setAssetLimitMutation = useMutation({
+    mutationFn: ({ telegramId, assetsLimit }: { telegramId: string; assetsLimit: number }) =>
+      setUserTradeAssetsLimit(token!, telegramId, assetsLimit),
+    onSuccess: (_, vars) => {
+      setDraftAssetLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.assetsLimit) }))
+      queryClient.invalidateQueries({ queryKey: ['trade-users'] })
+    },
+  })
+
+  const submitExchangeLimit = (telegramId: string, fallbackCurrent: number) => {
+    const raw = Number(draftExchangeLimits[telegramId])
     const normalized = Math.max(1, Number.isFinite(raw) ? Math.floor(raw) : fallbackCurrent)
-    setLimitMutation.mutate({ telegramId, limit: normalized })
+    setExchangeLimitMutation.mutate({ telegramId, limit: normalized })
   }
 
-  const stepLimit = (telegramId: string, current: number, delta: number) => {
+  const submitAssetLimit = (telegramId: string, fallbackCurrent: number) => {
+    const raw = Number(draftAssetLimits[telegramId])
+    const normalized = Math.max(1, Number.isFinite(raw) ? Math.floor(raw) : fallbackCurrent)
+    setAssetLimitMutation.mutate({ telegramId, assetsLimit: normalized })
+  }
+
+  const stepExchangeLimit = (telegramId: string, current: number, delta: number) => {
     const next = Math.max(1, current + delta)
-    setDraftLimits((prev) => ({ ...prev, [telegramId]: String(next) }))
-    setLimitMutation.mutate({ telegramId, limit: next })
+    setDraftExchangeLimits((prev) => ({ ...prev, [telegramId]: String(next) }))
+    setExchangeLimitMutation.mutate({ telegramId, limit: next })
+  }
+
+  const stepAssetLimit = (telegramId: string, current: number, delta: number) => {
+    const next = Math.max(1, current + delta)
+    setDraftAssetLimits((prev) => ({ ...prev, [telegramId]: String(next) }))
+    setAssetLimitMutation.mutate({ telegramId, assetsLimit: next })
   }
 
   return (
@@ -124,7 +156,7 @@ export function TradeUsers() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-x-auto">
-            <Table className="min-w-[980px]">
+            <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
@@ -134,6 +166,7 @@ export function TradeUsers() {
                   <TableHead className="hidden lg:table-cell">Country</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">{t('trade.exchangesLimit')}</TableHead>
+                  <TableHead className="text-right">{t('trade.assetsLimit')}</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -141,30 +174,43 @@ export function TradeUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={8}>
+                      <TableCell colSpan={9}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-destructive">
+                    <TableCell colSpan={9} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-muted-foreground">
+                    <TableCell colSpan={9} className="text-muted-foreground">
                       {t('trade.empty')}
                     </TableCell>
                   </TableRow>
                 ) : (
                   users.map((user) => {
-                    const currentLimit = Math.max(1, Number(user.tradeExchangesLimit || 1))
-                    const draftValue = draftLimits[user.telegramId] ?? String(currentLimit)
-                    const draftNumeric = Number(draftValue)
-                    const normalizedDraft = Math.max(1, Number.isFinite(draftNumeric) ? Math.floor(draftNumeric) : currentLimit)
-                    const isDirty = normalizedDraft !== currentLimit
+                    const currentExchangeLimit = Math.max(1, Number(user.tradeExchangesLimit || 1))
+                    const draftExchangeValue = draftExchangeLimits[user.telegramId] ?? String(currentExchangeLimit)
+                    const draftExchangeNumeric = Number(draftExchangeValue)
+                    const normalizedExchangeDraft = Math.max(
+                      1,
+                      Number.isFinite(draftExchangeNumeric) ? Math.floor(draftExchangeNumeric) : currentExchangeLimit,
+                    )
+                    const isExchangeDirty = normalizedExchangeDraft !== currentExchangeLimit
+
+                    const currentAssetsLimit = Math.max(1, Number(user.tradeAssetsLimit || 2))
+                    const draftAssetValue = draftAssetLimits[user.telegramId] ?? String(currentAssetsLimit)
+                    const draftAssetNumeric = Number(draftAssetValue)
+                    const normalizedAssetDraft = Math.max(
+                      1,
+                      Number.isFinite(draftAssetNumeric) ? Math.floor(draftAssetNumeric) : currentAssetsLimit,
+                    )
+                    const isAssetDirty = normalizedAssetDraft !== currentAssetsLimit
+                    const isMutationPending = setExchangeLimitMutation.isPending || setAssetLimitMutation.isPending
 
                     return (
                       <TableRow key={user.id} className="hover:bg-muted/30">
@@ -181,39 +227,78 @@ export function TradeUsers() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono font-semibold text-cyan-400 text-sm">
-                          {currentLimit}
+                          {currentExchangeLimit}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-violet-400 text-sm">
+                          {currentAssetsLimit}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => stepLimit(user.telegramId, currentLimit, -1)}
-                              disabled={setLimitMutation.isPending || currentLimit <= 1}
-                            >
-                              -1
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => stepLimit(user.telegramId, currentLimit, 1)}
-                              disabled={setLimitMutation.isPending}
-                            >
-                              +1
-                            </Button>
-                            <Input
-                              value={draftValue}
-                              onChange={(e) => setDraftLimits((prev) => ({ ...prev, [user.telegramId]: e.target.value }))}
-                              className="w-20 text-right"
-                              inputMode="numeric"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => submitLimit(user.telegramId, currentLimit)}
-                              disabled={setLimitMutation.isPending || !isDirty}
-                            >
-                              {t('trade.save')}
-                            </Button>
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xs text-muted-foreground min-w-16 text-right">EX</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => stepExchangeLimit(user.telegramId, currentExchangeLimit, -1)}
+                                disabled={isMutationPending || currentExchangeLimit <= 1}
+                              >
+                                -1
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => stepExchangeLimit(user.telegramId, currentExchangeLimit, 1)}
+                                disabled={isMutationPending}
+                              >
+                                +1
+                              </Button>
+                              <Input
+                                value={draftExchangeValue}
+                                onChange={(e) => setDraftExchangeLimits((prev) => ({ ...prev, [user.telegramId]: e.target.value }))}
+                                className="w-16 text-right"
+                                inputMode="numeric"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => submitExchangeLimit(user.telegramId, currentExchangeLimit)}
+                                disabled={isMutationPending || !isExchangeDirty}
+                              >
+                                {t('trade.save')}
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xs text-muted-foreground min-w-16 text-right">AS</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => stepAssetLimit(user.telegramId, currentAssetsLimit, -1)}
+                                disabled={isMutationPending || currentAssetsLimit <= 1}
+                              >
+                                -1
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => stepAssetLimit(user.telegramId, currentAssetsLimit, 1)}
+                                disabled={isMutationPending}
+                              >
+                                +1
+                              </Button>
+                              <Input
+                                value={draftAssetValue}
+                                onChange={(e) => setDraftAssetLimits((prev) => ({ ...prev, [user.telegramId]: e.target.value }))}
+                                className="w-16 text-right"
+                                inputMode="numeric"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => submitAssetLimit(user.telegramId, currentAssetsLimit)}
+                                disabled={isMutationPending || !isAssetDirty}
+                              >
+                                {t('trade.save')}
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>

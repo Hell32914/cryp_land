@@ -263,6 +263,7 @@ export interface TradeUsersResponse {
     status: string
     createdAt: string
     tradeExchangesLimit: number
+    tradeAssetsLimit: number
   }>
   count: number
   totalCount: number
@@ -1467,6 +1468,7 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
         status: u.status,
         createdAt: u.createdAt,
         tradeExchangesLimit: 1,
+        tradeAssetsLimit: 2,
       })),
       count: source.length,
       totalCount: source.length,
@@ -1485,11 +1487,21 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
 }
 
 export const setUserTradeExchangeLimit = (token: string, telegramId: string, limit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
       body: JSON.stringify({ limit }),
+    },
+    token
+  )
+
+export const setUserTradeAssetsLimit = (token: string, telegramId: string, assetsLimit: number) =>
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number } }>(
+    `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ assetsLimit }),
     },
     token
   )

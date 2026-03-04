@@ -1999,6 +1999,7 @@ function App() {
             <TradeTab
               title={(t as any).trade ?? 'Trade'}
               exchangeLimit={Math.max(1, Number(userData?.tradeExchangesLimit || 1))}
+              assetLimit={Math.max(1, Number(userData?.tradeAssetsLimit || 2))}
             />
           )}
           

@@ -43,6 +43,7 @@ model User {
   isActiveReferral  Boolean       @default(false)
   bonusTokens       Float         @default(0)
   tradeExchangesLimit Int         @default(1)
+  tradeAssetsLimit  Int           @default(2)
   contactSupportSeen Boolean      @default(false)
   contactSupportBonusGrantedAt DateTime?
   contactSupportBonusExpiresAt DateTime?
