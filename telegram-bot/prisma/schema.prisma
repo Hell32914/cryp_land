@@ -45,6 +45,7 @@ model User {
   tradeExchangesLimit Int         @default(1)
   tradeAssetsLimit  Int           @default(2)
   tradeArbitrageTypeLimit Int     @default(1)
+  tradePriceCheckLimit Int         @default(1)
   tradeClientExchanges String?
   tradeClientAssets String?
   tradeClientPriceCheckId String?

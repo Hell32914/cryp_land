@@ -2001,6 +2001,8 @@ function App() {
               exchangeLimit={Math.max(1, Number(userData?.tradeExchangesLimit || 1))}
               assetLimit={Math.max(1, Number(userData?.tradeAssetsLimit || 2))}
               arbitrageTypeLimit={Math.max(1, Number(userData?.tradeArbitrageTypeLimit || 1))}
+              priceCheckLimit={Math.max(1, Number(userData?.tradePriceCheckLimit || 1))}
+              currentBalance={Math.max(0, Number(userProfile.balance || 0))}
               telegramId={telegramUserId}
               authToken={authToken}
             />

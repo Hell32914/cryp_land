@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 const API_URL = 'https://api.syntrix.uno'
 
@@ -51,11 +52,22 @@ type TradeTabProps = {
   exchangeLimit?: number
   assetLimit?: number
   arbitrageTypeLimit?: number
+  priceCheckLimit?: number
+  currentBalance?: number
   telegramId?: string
   authToken?: string | null
 }
 
-export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTypeLimit = 1, telegramId, authToken = null }: TradeTabProps) {
+export function TradeTab({
+  title,
+  exchangeLimit = 1,
+  assetLimit = 2,
+  arbitrageTypeLimit = 1,
+  priceCheckLimit = 1,
+  currentBalance = 0,
+  telegramId,
+  authToken = null,
+}: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg?v=20260123' },
@@ -100,6 +112,7 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
   const normalizedExchangeLimit = Math.max(1, exchangeLimit)
   const normalizedAssetLimit = Math.max(1, assetLimit)
   const normalizedArbitrageTypeLimit = Math.max(1, arbitrageTypeLimit)
+  const normalizedPriceCheckLimit = Math.max(1, Math.min(6, priceCheckLimit))
   const selectedExchangeNames = exchanges
     .filter((exchange) => selectedExchangeIds.includes(exchange.id))
     .map((exchange) => exchange.name)
@@ -189,7 +202,20 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
     const saved = localStorage.getItem('trade_selectedPriceCheckId')
     return saved ?? '60s'
   })
+
+  const unlockedPriceCheckOptions = useMemo(
+    () => priceCheckOptions.slice(0, Math.min(normalizedPriceCheckLimit, priceCheckOptions.length)),
+    [priceCheckOptions, normalizedPriceCheckLimit]
+  )
+
   const selectedPriceCheck = priceCheckOptions.find((o) => o.id === selectedPriceCheckId)
+  const nextLockedPriceCheck = priceCheckOptions.find((option) => !unlockedPriceCheckOptions.some((unlocked) => unlocked.id === option.id))
+
+  const checksPerMinuteCurrent = selectedPriceCheck ? Math.max(1, Math.round(60_000 / selectedPriceCheck.intervalMs)) : 1
+  const checksPerMinuteNext = nextLockedPriceCheck ? Math.max(1, Math.round(60_000 / nextLockedPriceCheck.intervalMs)) : checksPerMinuteCurrent
+  const checksBoost = Number((checksPerMinuteNext / Math.max(1, checksPerMinuteCurrent)).toFixed(1))
+
+  const topUpToUnlock10s = Math.max(0, Math.ceil(600 - Math.max(0, Number(currentBalance || 0))))
 
   // Removed deposit section
 
@@ -303,6 +329,13 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
   useEffect(() => {
     localStorage.setItem('trade_selectedAssets', JSON.stringify(selectedAssets))
   }, [selectedAssets])
+
+  useEffect(() => {
+    setSelectedPriceCheckId((prev) => {
+      if (unlockedPriceCheckOptions.some((item) => item.id === prev)) return prev
+      return unlockedPriceCheckOptions[0]?.id || '60s'
+    })
+  }, [unlockedPriceCheckOptions])
 
   useEffect(() => {
     localStorage.setItem('trade_selectedPriceCheckId', selectedPriceCheckId)
@@ -476,6 +509,7 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
             <div className="text-xs text-muted-foreground mt-1">
               More frequent checks = more data points for analysis. Faster options can be monetized.
             </div>
+            <div className="text-xs text-muted-foreground mt-1">Available frequencies: {unlockedPriceCheckOptions.length}</div>
           </div>
           <div className="text-xs text-muted-foreground text-right">
             Selected: {selectedPriceCheck?.label ?? '—'}
@@ -486,16 +520,20 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {priceCheckOptions.map((opt) => {
             const isSelected = opt.id === selectedPriceCheckId
+            const isDisabled = !isSelected && !unlockedPriceCheckOptions.some((item) => item.id === opt.id)
             return (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => setSelectedPriceCheckId(opt.id)}
+                disabled={isDisabled}
                 className={
-                  'rounded-lg border px-3 py-2 text-left transition-colors ' +
+                  'rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed ' +
                   (isSelected
                     ? 'border-primary/50 bg-primary/10'
-                    : 'border-border/50 bg-background/30 hover:bg-background/50')
+                    : isDisabled
+                      ? 'border-border/30 bg-muted/20 text-muted-foreground/60'
+                      : 'border-border/50 bg-background/30 hover:bg-background/50')
                 }
               >
                 <div className="flex items-center justify-between gap-2">
@@ -520,6 +558,20 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
         <div className="mt-3 text-xs text-muted-foreground">
           Tip: Very fast intervals (1s / 0.5s) increase traffic and battery usage.
         </div>
+
+        {nextLockedPriceCheck ? (
+          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/10 p-3 space-y-1">
+            <div className="text-xs font-medium text-primary">Upgrade suggestion</div>
+            <div className="text-xs text-muted-foreground">
+              Balance: ${Math.max(0, Number(currentBalance || 0)).toFixed(0)}. Next unlock: {nextLockedPriceCheck.label} with up to {checksPerMinuteNext} checks/min ({checksBoost}x faster).
+            </div>
+            {!unlockedPriceCheckOptions.some((item) => item.id === '10s') ? (
+              <div className="text-xs text-muted-foreground">
+                Example: if balance is ${Math.max(0, Number(currentBalance || 0)).toFixed(0)}, top up ${topUpToUnlock10s.toFixed(0)} to unlock 10s analysis mode.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card/40 p-4">
@@ -628,6 +680,7 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
               onClick={() => {
                 syncActionRef.current = 'disable'
                 setBotRunning(false)
+                toast.success('Красавчик! Всё сделал правильно. Ожидайте начисление прибыли на ваш аккаунт.')
               }}
             >
               Disable

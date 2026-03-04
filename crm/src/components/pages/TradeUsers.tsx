@@ -28,6 +28,7 @@ import {
   setUserTradeArbitrageTypeLimit,
   setUserTradeAssetsLimit,
   setUserTradeExchangeLimit,
+  setUserTradePriceCheckLimit,
 } from '@/lib/api'
 
 const getStatusColor = (status: string) => {
@@ -55,6 +56,7 @@ export function TradeUsers() {
   const [draftExchangeLimits, setDraftExchangeLimits] = useState<Record<string, string>>({})
   const [draftAssetLimits, setDraftAssetLimits] = useState<Record<string, string>>({})
   const [draftArbitrageTypeLimits, setDraftArbitrageTypeLimits] = useState<Record<string, string>>({})
+  const [draftPriceCheckLimits, setDraftPriceCheckLimits] = useState<Record<string, string>>({})
   const pageSize = 50
 
   const { data, isLoading, isError } = useQuery({
@@ -108,6 +110,16 @@ export function TradeUsers() {
       }
       return next
     })
+
+    setDraftPriceCheckLimits((prev) => {
+      const next = { ...prev }
+      for (const user of users) {
+        if (typeof next[user.telegramId] === 'undefined') {
+          next[user.telegramId] = String(Math.max(1, Number((user as any).tradePriceCheckLimit || 1)))
+        }
+      }
+      return next
+    })
   }, [users])
 
   useEffect(() => {
@@ -116,6 +128,7 @@ export function TradeUsers() {
     setDraftExchangeLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number(selectedTradeUserDetails.tradeExchangesLimit || 1))) }))
     setDraftAssetLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number(selectedTradeUserDetails.tradeAssetsLimit || 2))) }))
     setDraftArbitrageTypeLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number(selectedTradeUserDetails.tradeArbitrageTypeLimit || 1))) }))
+    setDraftPriceCheckLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number((selectedTradeUserDetails as any).tradePriceCheckLimit || 1))) }))
   }, [selectedTradeUserDetails])
 
   const totals = useMemo(() => {
@@ -146,6 +159,15 @@ export function TradeUsers() {
       setUserTradeArbitrageTypeLimit(token!, telegramId, arbitrageTypeLimit),
     onSuccess: (_, vars) => {
       setDraftArbitrageTypeLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.arbitrageTypeLimit) }))
+      queryClient.invalidateQueries({ queryKey: ['trade-users'] })
+    },
+  })
+
+  const setPriceCheckLimitMutation = useMutation({
+    mutationFn: ({ telegramId, priceCheckLimit }: { telegramId: string; priceCheckLimit: number }) =>
+      setUserTradePriceCheckLimit(token!, telegramId, priceCheckLimit),
+    onSuccess: (_, vars) => {
+      setDraftPriceCheckLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.priceCheckLimit) }))
       queryClient.invalidateQueries({ queryKey: ['trade-users'] })
     },
   })
@@ -195,14 +217,28 @@ export function TradeUsers() {
     setArbitrageTypeLimitMutation.mutate({ telegramId, arbitrageTypeLimit: next })
   }
 
+  const submitPriceCheckLimit = (telegramId: string, fallbackCurrent: number) => {
+    const raw = Number(draftPriceCheckLimits[telegramId])
+    const normalized = Math.max(1, Math.min(6, Number.isFinite(raw) ? Math.floor(raw) : fallbackCurrent))
+    setPriceCheckLimitMutation.mutate({ telegramId, priceCheckLimit: normalized })
+  }
+
+  const stepPriceCheckLimit = (telegramId: string, current: number, delta: number) => {
+    const next = Math.max(1, Math.min(6, current + delta))
+    setDraftPriceCheckLimits((prev) => ({ ...prev, [telegramId]: String(next) }))
+    setPriceCheckLimitMutation.mutate({ telegramId, priceCheckLimit: next })
+  }
+
   const selectedTelegramId = selectedTradeUserDetails?.telegramId || ''
   const popupCurrentExchangeLimit = Math.max(1, Number(selectedTradeUserDetails?.tradeExchangesLimit || 1))
   const popupCurrentAssetsLimit = Math.max(1, Number(selectedTradeUserDetails?.tradeAssetsLimit || 2))
   const popupCurrentArbitrageTypeLimit = Math.max(1, Number(selectedTradeUserDetails?.tradeArbitrageTypeLimit || 1))
+  const popupCurrentPriceCheckLimit = Math.max(1, Math.min(6, Number((selectedTradeUserDetails as any)?.tradePriceCheckLimit || 1)))
 
   const popupDraftExchangeValue = draftExchangeLimits[selectedTelegramId] ?? String(popupCurrentExchangeLimit)
   const popupDraftAssetsValue = draftAssetLimits[selectedTelegramId] ?? String(popupCurrentAssetsLimit)
   const popupDraftArbitrageTypeValue = draftArbitrageTypeLimits[selectedTelegramId] ?? String(popupCurrentArbitrageTypeLimit)
+  const popupDraftPriceCheckValue = draftPriceCheckLimits[selectedTelegramId] ?? String(popupCurrentPriceCheckLimit)
 
   const popupNormalizedExchangeDraft = Math.max(
     1,
@@ -216,15 +252,21 @@ export function TradeUsers() {
     1,
     Number.isFinite(Number(popupDraftArbitrageTypeValue)) ? Math.floor(Number(popupDraftArbitrageTypeValue)) : popupCurrentArbitrageTypeLimit,
   )
+  const popupNormalizedPriceCheckDraft = Math.max(
+    1,
+    Math.min(6, Number.isFinite(Number(popupDraftPriceCheckValue)) ? Math.floor(Number(popupDraftPriceCheckValue)) : popupCurrentPriceCheckLimit),
+  )
 
   const popupExchangeDirty = popupNormalizedExchangeDraft !== popupCurrentExchangeLimit
   const popupAssetsDirty = popupNormalizedAssetsDraft !== popupCurrentAssetsLimit
   const popupArbitrageTypeDirty = popupNormalizedArbitrageTypeDraft !== popupCurrentArbitrageTypeLimit
+  const popupPriceCheckDirty = popupNormalizedPriceCheckDraft !== popupCurrentPriceCheckLimit
 
   const popupMutationPending =
     setExchangeLimitMutation.isPending ||
     setAssetLimitMutation.isPending ||
     setArbitrageTypeLimitMutation.isPending ||
+    setPriceCheckLimitMutation.isPending ||
     setTradeAccessMutation.isPending
 
   return (
@@ -259,7 +301,7 @@ export function TradeUsers() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-x-auto">
-            <Table className="min-w-[1400px]">
+            <Table className="min-w-[1500px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
@@ -272,6 +314,7 @@ export function TradeUsers() {
                   <TableHead className="text-right">{t('trade.exchangesLimit')}</TableHead>
                   <TableHead className="text-right">{t('trade.assetsLimit')}</TableHead>
                   <TableHead className="text-right">{t('trade.arbitrageTypeLimit')}</TableHead>
+                  <TableHead className="text-right">Price check</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -279,20 +322,20 @@ export function TradeUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={11}>
+                      <TableCell colSpan={12}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-destructive">
+                    <TableCell colSpan={12} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-muted-foreground">
+                    <TableCell colSpan={12} className="text-muted-foreground">
                       {t('trade.empty')}
                     </TableCell>
                   </TableRow>
@@ -324,10 +367,21 @@ export function TradeUsers() {
                       Number.isFinite(draftArbitrageTypeNumeric) ? Math.floor(draftArbitrageTypeNumeric) : currentArbitrageTypeLimit,
                     )
                     const isArbitrageTypeDirty = normalizedArbitrageTypeDraft !== currentArbitrageTypeLimit
+
+                    const currentPriceCheckLimit = Math.max(1, Math.min(6, Number((user as any).tradePriceCheckLimit || 1)))
+                    const draftPriceCheckValue = draftPriceCheckLimits[user.telegramId] ?? String(currentPriceCheckLimit)
+                    const draftPriceCheckNumeric = Number(draftPriceCheckValue)
+                    const normalizedPriceCheckDraft = Math.max(
+                      1,
+                      Math.min(6, Number.isFinite(draftPriceCheckNumeric) ? Math.floor(draftPriceCheckNumeric) : currentPriceCheckLimit),
+                    )
+                    const isPriceCheckDirty = normalizedPriceCheckDraft !== currentPriceCheckLimit
+
                     const isMutationPending =
                       setExchangeLimitMutation.isPending ||
                       setAssetLimitMutation.isPending ||
-                      setArbitrageTypeLimitMutation.isPending
+                      setArbitrageTypeLimitMutation.isPending ||
+                      setPriceCheckLimitMutation.isPending
 
                     return (
                       <TableRow key={user.id} className="hover:bg-muted/30">
@@ -364,6 +418,9 @@ export function TradeUsers() {
                         </TableCell>
                         <TableCell className="text-right font-mono font-semibold text-amber-400 text-sm">
                           {currentArbitrageTypeLimit}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-sky-400 text-sm">
+                          {currentPriceCheckLimit}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end gap-2">
@@ -470,6 +527,39 @@ export function TradeUsers() {
                                 {t('trade.save')}
                               </Button>
                             </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xs text-muted-foreground min-w-16 text-right">PF</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => stepPriceCheckLimit(user.telegramId, currentPriceCheckLimit, -1)}
+                                disabled={isMutationPending || currentPriceCheckLimit <= 1}
+                              >
+                                -1
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => stepPriceCheckLimit(user.telegramId, currentPriceCheckLimit, 1)}
+                                disabled={isMutationPending || currentPriceCheckLimit >= 6}
+                              >
+                                +1
+                              </Button>
+                              <Input
+                                value={draftPriceCheckValue}
+                                onChange={(e) => setDraftPriceCheckLimits((prev) => ({ ...prev, [user.telegramId]: e.target.value }))}
+                                className="w-16 text-right"
+                                inputMode="numeric"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => submitPriceCheckLimit(user.telegramId, currentPriceCheckLimit)}
+                                disabled={isMutationPending || !isPriceCheckDirty}
+                              >
+                                {t('trade.save')}
+                              </Button>
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -545,6 +635,8 @@ export function TradeUsers() {
                   </div>
                   <div className="text-xs text-muted-foreground mt-3">Registered</div>
                   <div className="text-sm">{new Date(selectedTradeUserDetails.createdAt).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground mt-3">Price check access level</div>
+                  <div className="text-sm">{Math.max(1, Math.min(6, Number((selectedTradeUserDetails as any).tradePriceCheckLimit || 1)))}</div>
                 </div>
               </div>
 
@@ -671,6 +763,39 @@ export function TradeUsers() {
                     size="sm"
                     onClick={() => submitArbitrageTypeLimit(selectedTelegramId, popupCurrentArbitrageTypeLimit)}
                     disabled={popupMutationPending || !popupArbitrageTypeDirty}
+                  >
+                    {t('trade.save')}
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground min-w-16">PF</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => stepPriceCheckLimit(selectedTelegramId, popupCurrentPriceCheckLimit, -1)}
+                    disabled={popupMutationPending || popupCurrentPriceCheckLimit <= 1}
+                  >
+                    -1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => stepPriceCheckLimit(selectedTelegramId, popupCurrentPriceCheckLimit, 1)}
+                    disabled={popupMutationPending || popupCurrentPriceCheckLimit >= 6}
+                  >
+                    +1
+                  </Button>
+                  <Input
+                    value={popupDraftPriceCheckValue}
+                    onChange={(e) => setDraftPriceCheckLimits((prev) => ({ ...prev, [selectedTelegramId]: e.target.value }))}
+                    className="w-20 text-right"
+                    inputMode="numeric"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => submitPriceCheckLimit(selectedTelegramId, popupCurrentPriceCheckLimit)}
+                    disabled={popupMutationPending || !popupPriceCheckDirty}
                   >
                     {t('trade.save')}
                   </Button>

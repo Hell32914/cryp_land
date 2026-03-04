@@ -266,6 +266,7 @@ export interface TradeUsersResponse {
     tradeExchangesLimit: number
     tradeAssetsLimit: number
     tradeArbitrageTypeLimit: number
+    tradePriceCheckLimit: number
     tradeClientLastAction: string | null
     tradeClientSyncedAt: string | null
   }>
@@ -291,6 +292,7 @@ export interface TradeUserDetailsResponse {
     tradeExchangesLimit: number
     tradeAssetsLimit: number
     tradeArbitrageTypeLimit: number
+    tradePriceCheckLimit: number
     sync: {
       exchanges: string[]
       assets: string[]
@@ -1506,6 +1508,7 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
         tradeExchangesLimit: 1,
         tradeAssetsLimit: 2,
         tradeArbitrageTypeLimit: 1,
+        tradePriceCheckLimit: 1,
         tradeClientLastAction: 'settings_update',
         tradeClientSyncedAt: u.createdAt,
       })),
@@ -1542,6 +1545,7 @@ export const fetchTradeUserDetails = (token: string, telegramId: string) => {
         tradeExchangesLimit: 1,
         tradeAssetsLimit: 2,
         tradeArbitrageTypeLimit: 1,
+        tradePriceCheckLimit: 1,
         sync: {
           exchanges: ['binance'],
           assets: ['BTC', 'ETH'],
@@ -1564,7 +1568,7 @@ export const fetchTradeUserDetails = (token: string, telegramId: string) => {
 }
 
 export const setUserTradeExchangeLimit = (token: string, telegramId: string, limit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number; tradePriceCheckLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
@@ -1574,7 +1578,7 @@ export const setUserTradeExchangeLimit = (token: string, telegramId: string, lim
   )
 
 export const setUserTradeAssetsLimit = (token: string, telegramId: string, assetsLimit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number; tradePriceCheckLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
@@ -1584,7 +1588,7 @@ export const setUserTradeAssetsLimit = (token: string, telegramId: string, asset
   )
 
 export const setUserTradeArbitrageTypeLimit = (token: string, telegramId: string, arbitrageTypeLimit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number; tradePriceCheckLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
@@ -1593,8 +1597,18 @@ export const setUserTradeArbitrageTypeLimit = (token: string, telegramId: string
     token
   )
 
+export const setUserTradePriceCheckLimit = (token: string, telegramId: string, priceCheckLimit: number) =>
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number; tradePriceCheckLimit: number } }>(
+    `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ priceCheckLimit }),
+    },
+    token
+  )
+
 export const setUserTradeAccess = (token: string, telegramId: string, tradeEnabled: boolean) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number; tradePriceCheckLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',

@@ -5171,6 +5171,7 @@ app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
         tradeExchangesLimit: true,
         tradeAssetsLimit: true,
         tradeArbitrageTypeLimit: true,
+        tradePriceCheckLimit: true,
         tradeClientLastAction: true,
         tradeClientSyncedAt: true,
       },
@@ -5188,6 +5189,7 @@ app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
       tradeExchangesLimit: Math.max(1, Number((u as any).tradeExchangesLimit ?? 1)),
       tradeAssetsLimit: Math.max(1, Number((u as any).tradeAssetsLimit ?? 2)),
       tradeArbitrageTypeLimit: Math.max(1, Number((u as any).tradeArbitrageTypeLimit ?? 1)),
+      tradePriceCheckLimit: Math.max(1, Number((u as any).tradePriceCheckLimit ?? 1)),
       tradeClientLastAction: ((u as any).tradeClientLastAction as string | null) || null,
       tradeClientSyncedAt: ((u as any).tradeClientSyncedAt as Date | null) || null,
     }))
@@ -5215,11 +5217,13 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
     const rawExchangeLimit = Number(req.body?.exchangeLimit ?? req.body?.limit)
     const rawAssetsLimit = Number(req.body?.assetsLimit)
     const rawArbitrageTypeLimit = Number(req.body?.arbitrageTypeLimit)
+    const rawPriceCheckLimit = Number(req.body?.priceCheckLimit)
     const rawTradeEnabled = req.body?.tradeEnabled
 
     const hasExchangeLimit = Number.isFinite(rawExchangeLimit)
     const hasAssetsLimit = Number.isFinite(rawAssetsLimit)
     const hasArbitrageTypeLimit = Number.isFinite(rawArbitrageTypeLimit)
+    const hasPriceCheckLimit = Number.isFinite(rawPriceCheckLimit)
     const hasTradeEnabled =
       typeof rawTradeEnabled === 'boolean' ||
       (typeof rawTradeEnabled === 'string' && ['1', '0', 'true', 'false'].includes(rawTradeEnabled.trim().toLowerCase()))
@@ -5229,7 +5233,7 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
         ? rawTradeEnabled
         : String(rawTradeEnabled).trim().toLowerCase() === '1' || String(rawTradeEnabled).trim().toLowerCase() === 'true'
 
-    if (!hasExchangeLimit && !hasAssetsLimit && !hasArbitrageTypeLimit && !hasTradeEnabled) {
+    if (!hasExchangeLimit && !hasAssetsLimit && !hasArbitrageTypeLimit && !hasPriceCheckLimit && !hasTradeEnabled) {
       return res.status(400).json({ error: 'Invalid limit value' })
     }
 
@@ -5245,6 +5249,9 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
     }
     if (hasArbitrageTypeLimit) {
       updateData.tradeArbitrageTypeLimit = Math.max(1, Math.floor(rawArbitrageTypeLimit))
+    }
+    if (hasPriceCheckLimit) {
+      updateData.tradePriceCheckLimit = Math.max(1, Math.min(6, Math.floor(rawPriceCheckLimit)))
     }
     if (hasTradeEnabled) {
       updateData.arbitrageTradeEnabled = normalizedTradeEnabled
@@ -5263,6 +5270,7 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
         tradeExchangesLimit: true,
         tradeAssetsLimit: true,
         tradeArbitrageTypeLimit: true,
+        tradePriceCheckLimit: true,
         tradeAccessUpdatedBy: true,
         tradeAccessUpdatedAt: true,
       } as any,
@@ -5277,6 +5285,7 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
         tradeExchangesLimit: Math.max(1, Number((updated as any).tradeExchangesLimit ?? 1)),
         tradeAssetsLimit: Math.max(1, Number((updated as any).tradeAssetsLimit ?? 2)),
         tradeArbitrageTypeLimit: Math.max(1, Number((updated as any).tradeArbitrageTypeLimit ?? 1)),
+        tradePriceCheckLimit: Math.max(1, Number((updated as any).tradePriceCheckLimit ?? 1)),
         tradeAccessUpdatedBy: ((updated as any).tradeAccessUpdatedBy as string | null) || null,
         tradeAccessUpdatedAt: ((updated as any).tradeAccessUpdatedAt as Date | null) || null,
       },
@@ -5307,6 +5316,7 @@ app.get('/api/admin/trade-users/:telegramId', requireAdminAuth, async (req, res)
         tradeExchangesLimit: true,
         tradeAssetsLimit: true,
         tradeArbitrageTypeLimit: true,
+        tradePriceCheckLimit: true,
         tradeClientExchanges: true,
         tradeClientAssets: true,
         tradeClientPriceCheckId: true,
@@ -5336,6 +5346,7 @@ app.get('/api/admin/trade-users/:telegramId', requireAdminAuth, async (req, res)
         tradeExchangesLimit: Math.max(1, Number((user as any).tradeExchangesLimit ?? 1)),
         tradeAssetsLimit: Math.max(1, Number((user as any).tradeAssetsLimit ?? 2)),
         tradeArbitrageTypeLimit: Math.max(1, Number((user as any).tradeArbitrageTypeLimit ?? 1)),
+        tradePriceCheckLimit: Math.max(1, Number((user as any).tradePriceCheckLimit ?? 1)),
         sync: {
           exchanges: parseStoredTradeList((user as any).tradeClientExchanges),
           assets: parseStoredTradeList((user as any).tradeClientAssets),
@@ -5946,6 +5957,7 @@ app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
       tradeExchangesLimit: Math.max(1, Number((user as any).tradeExchangesLimit ?? 1)),
       tradeAssetsLimit: Math.max(1, Number((user as any).tradeAssetsLimit ?? 2)),
       tradeArbitrageTypeLimit: Math.max(1, Number((user as any).tradeArbitrageTypeLimit ?? 1)),
+      tradePriceCheckLimit: Math.max(1, Number((user as any).tradePriceCheckLimit ?? 1)),
       plan: user.plan,
       kycRequired: user.kycRequired,
       isBlocked: user.isBlocked,
