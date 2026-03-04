@@ -45,6 +45,16 @@ model User {
   tradeExchangesLimit Int         @default(1)
   tradeAssetsLimit  Int           @default(2)
   tradeArbitrageTypeLimit Int     @default(1)
+  tradeClientExchanges String?
+  tradeClientAssets String?
+  tradeClientPriceCheckId String?
+  tradeClientRiskProfile String?
+  tradeClientArbitrageType String?
+  tradeClientBotRunning Boolean   @default(false)
+  tradeClientLastAction String?
+  tradeClientSyncedAt DateTime?
+  tradeAccessUpdatedBy String?
+  tradeAccessUpdatedAt DateTime?
   contactSupportSeen Boolean      @default(false)
   contactSupportBonusGrantedAt DateTime?
   contactSupportBonusExpiresAt DateTime?

@@ -1,5 +1,7 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+
+const API_URL = 'https://api.syntrix.uno'
 
 type ExchangeIconProps = {
   name: string
@@ -49,9 +51,11 @@ type TradeTabProps = {
   exchangeLimit?: number
   assetLimit?: number
   arbitrageTypeLimit?: number
+  telegramId?: string
+  authToken?: string | null
 }
 
-export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTypeLimit = 1 }: TradeTabProps) {
+export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTypeLimit = 1, telegramId, authToken = null }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg?v=20260123' },
@@ -251,6 +255,8 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
     const saved = localStorage.getItem('trade_botRunning')
     return saved === '1' || saved === 'true'
   })
+  const syncActionRef = useRef<'settings_update' | 'start' | 'disable'>('settings_update')
+  const lastSyncedPayloadRef = useRef('')
 
   const canStart =
     selectedAssets.length > 0 &&
@@ -320,6 +326,54 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
       return unlockedArbitrageTypes[0]?.id || 'direct'
     })
   }, [unlockedArbitrageTypes])
+
+  useEffect(() => {
+    if (!telegramId || !authToken) return
+
+    const syncPayload = {
+      selectedExchangeIds,
+      selectedAssets,
+      selectedPriceCheckId,
+      riskProfile,
+      arbitrageType,
+      botRunning,
+    }
+
+    const payloadSignature = JSON.stringify(syncPayload)
+    const action = syncActionRef.current
+
+    if (action === 'settings_update' && payloadSignature === lastSyncedPayloadRef.current) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/user/${encodeURIComponent(telegramId)}/trade-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            ...syncPayload,
+            action,
+          }),
+        })
+
+        if (response.ok) {
+          lastSyncedPayloadRef.current = payloadSignature
+        }
+      } catch (error) {
+        console.error('Failed to sync trade settings:', error)
+      } finally {
+        if (action !== 'settings_update') {
+          syncActionRef.current = 'settings_update'
+        }
+      }
+    }, action === 'settings_update' ? 600 : 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [telegramId, authToken, selectedExchangeIds, selectedAssets, selectedPriceCheckId, riskProfile, arbitrageType, botRunning])
 
   return (
     <div className="p-4 space-y-4">
@@ -559,12 +613,23 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
               aria-pressed={botRunning}
               className={botRunning ? 'ring-2 ring-primary/40' : undefined}
               onClick={() => {
-                if (!botRunning && canStart) setBotRunning(true)
+                if (!botRunning && canStart) {
+                  syncActionRef.current = 'start'
+                  setBotRunning(true)
+                }
               }}
             >
               Start
             </Button>
-            <Button type="button" variant="destructive" disabled={!botRunning} onClick={() => setBotRunning(false)}>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!botRunning}
+              onClick={() => {
+                syncActionRef.current = 'disable'
+                setBotRunning(false)
+              }}
+            >
               Disable
             </Button>
           </div>

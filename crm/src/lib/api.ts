@@ -262,9 +262,12 @@ export interface TradeUsersResponse {
     country: string
     status: string
     createdAt: string
+    tradeEnabled: boolean
     tradeExchangesLimit: number
     tradeAssetsLimit: number
     tradeArbitrageTypeLimit: number
+    tradeClientLastAction: string | null
+    tradeClientSyncedAt: string | null
   }>
   count: number
   totalCount: number
@@ -272,6 +275,37 @@ export interface TradeUsersResponse {
   totalPages: number
   hasNextPage: boolean
   hasPrevPage: boolean
+}
+
+export interface TradeUserDetailsResponse {
+  success: boolean
+  user: {
+    id: number
+    telegramId: string
+    username: string | null
+    fullName: string
+    country: string
+    status: string
+    createdAt: string
+    tradeEnabled: boolean
+    tradeExchangesLimit: number
+    tradeAssetsLimit: number
+    tradeArbitrageTypeLimit: number
+    sync: {
+      exchanges: string[]
+      assets: string[]
+      priceCheckId: string | null
+      riskProfile: string | null
+      arbitrageType: string | null
+      botRunning: boolean
+      lastAction: string | null
+      syncedAt: string | null
+    }
+    accessAudit: {
+      updatedBy: string | null
+      updatedAt: string | null
+    }
+  }
 }
 
 export interface DepositRecord {
@@ -1468,9 +1502,12 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
         country: u.country || 'Unknown',
         status: u.status,
         createdAt: u.createdAt,
+        tradeEnabled: true,
         tradeExchangesLimit: 1,
         tradeAssetsLimit: 2,
         tradeArbitrageTypeLimit: 1,
+        tradeClientLastAction: 'settings_update',
+        tradeClientSyncedAt: u.createdAt,
       })),
       count: source.length,
       totalCount: source.length,
@@ -1488,8 +1525,46 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
   return request<TradeUsersResponse>(`/api/admin/trade-users${query ? `?${query}` : ''}`, {}, token)
 }
 
+export const fetchTradeUserDetails = (token: string, telegramId: string) => {
+  if (isTesterToken(token)) {
+    const source = MOCK_USERS[0]
+    return Promise.resolve({
+      success: true,
+      user: {
+        id: Number(source?.id || 1),
+        telegramId: String(telegramId || source?.telegramId || '0'),
+        username: source?.username || null,
+        fullName: source?.fullName || source?.username || String(telegramId || source?.telegramId || '0'),
+        country: source?.country || 'Unknown',
+        status: source?.status || 'ACTIVE',
+        createdAt: source?.createdAt || new Date().toISOString(),
+        tradeEnabled: true,
+        tradeExchangesLimit: 1,
+        tradeAssetsLimit: 2,
+        tradeArbitrageTypeLimit: 1,
+        sync: {
+          exchanges: ['binance'],
+          assets: ['BTC', 'ETH'],
+          priceCheckId: '60s',
+          riskProfile: 'moderate',
+          arbitrageType: 'direct',
+          botRunning: false,
+          lastAction: 'settings_update',
+          syncedAt: new Date().toISOString(),
+        },
+        accessAudit: {
+          updatedBy: 'tester',
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    } as TradeUserDetailsResponse)
+  }
+
+  return request<TradeUserDetailsResponse>(`/api/admin/trade-users/${encodeURIComponent(telegramId)}`, {}, token)
+}
+
 export const setUserTradeExchangeLimit = (token: string, telegramId: string, limit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
@@ -1499,7 +1574,7 @@ export const setUserTradeExchangeLimit = (token: string, telegramId: string, lim
   )
 
 export const setUserTradeAssetsLimit = (token: string, telegramId: string, assetsLimit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
@@ -1509,11 +1584,21 @@ export const setUserTradeAssetsLimit = (token: string, telegramId: string, asset
   )
 
 export const setUserTradeArbitrageTypeLimit = (token: string, telegramId: string, arbitrageTypeLimit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
       body: JSON.stringify({ arbitrageTypeLimit }),
+    },
+    token
+  )
+
+export const setUserTradeAccess = (token: string, telegramId: string, tradeEnabled: boolean) =>
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeEnabled: boolean; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+    `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ tradeEnabled }),
     },
     token
   )

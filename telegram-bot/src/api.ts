@@ -5108,6 +5108,25 @@ app.post('/api/admin/bonus-users/:telegramId/revoke', requireAdminAuth, async (r
   }
 })
 
+const parseStoredTradeList = (rawValue: unknown): string[] => {
+  if (typeof rawValue !== 'string' || !rawValue.trim()) return []
+
+  try {
+    const parsed = JSON.parse(rawValue)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .filter((value, index, arr) => arr.indexOf(value) === index)
+  } catch {
+    return rawValue
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .filter((value, index, arr) => arr.indexOf(value) === index)
+  }
+}
+
 app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
   try {
     const { search = '', limit = '50', page = '1' } = req.query
@@ -5148,9 +5167,12 @@ app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
         country: true,
         status: true,
         createdAt: true,
+        arbitrageTradeEnabled: true,
         tradeExchangesLimit: true,
         tradeAssetsLimit: true,
         tradeArbitrageTypeLimit: true,
+        tradeClientLastAction: true,
+        tradeClientSyncedAt: true,
       },
     } as any)
 
@@ -5162,9 +5184,12 @@ app.get('/api/admin/trade-users', requireAdminAuth, async (req, res) => {
       country: u.country || 'Unknown',
       status: u.status,
       createdAt: u.createdAt,
+      tradeEnabled: Boolean((u as any).arbitrageTradeEnabled),
       tradeExchangesLimit: Math.max(1, Number((u as any).tradeExchangesLimit ?? 1)),
       tradeAssetsLimit: Math.max(1, Number((u as any).tradeAssetsLimit ?? 2)),
       tradeArbitrageTypeLimit: Math.max(1, Number((u as any).tradeArbitrageTypeLimit ?? 1)),
+      tradeClientLastAction: ((u as any).tradeClientLastAction as string | null) || null,
+      tradeClientSyncedAt: ((u as any).tradeClientSyncedAt as Date | null) || null,
     }))
 
     return res.json({
@@ -5190,19 +5215,28 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
     const rawExchangeLimit = Number(req.body?.exchangeLimit ?? req.body?.limit)
     const rawAssetsLimit = Number(req.body?.assetsLimit)
     const rawArbitrageTypeLimit = Number(req.body?.arbitrageTypeLimit)
+    const rawTradeEnabled = req.body?.tradeEnabled
 
     const hasExchangeLimit = Number.isFinite(rawExchangeLimit)
     const hasAssetsLimit = Number.isFinite(rawAssetsLimit)
     const hasArbitrageTypeLimit = Number.isFinite(rawArbitrageTypeLimit)
+    const hasTradeEnabled =
+      typeof rawTradeEnabled === 'boolean' ||
+      (typeof rawTradeEnabled === 'string' && ['1', '0', 'true', 'false'].includes(rawTradeEnabled.trim().toLowerCase()))
 
-    if (!hasExchangeLimit && !hasAssetsLimit && !hasArbitrageTypeLimit) {
+    const normalizedTradeEnabled =
+      typeof rawTradeEnabled === 'boolean'
+        ? rawTradeEnabled
+        : String(rawTradeEnabled).trim().toLowerCase() === '1' || String(rawTradeEnabled).trim().toLowerCase() === 'true'
+
+    if (!hasExchangeLimit && !hasAssetsLimit && !hasArbitrageTypeLimit && !hasTradeEnabled) {
       return res.status(400).json({ error: 'Invalid limit value' })
     }
 
     const user = await prisma.user.findUnique({ where: { telegramId } })
     if (!user) return res.status(404).json({ error: 'User not found' })
 
-    const updateData: Record<string, number> = {}
+    const updateData: Record<string, any> = {}
     if (hasExchangeLimit) {
       updateData.tradeExchangesLimit = Math.max(1, Math.floor(rawExchangeLimit))
     }
@@ -5212,6 +5246,12 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
     if (hasArbitrageTypeLimit) {
       updateData.tradeArbitrageTypeLimit = Math.max(1, Math.floor(rawArbitrageTypeLimit))
     }
+    if (hasTradeEnabled) {
+      updateData.arbitrageTradeEnabled = normalizedTradeEnabled
+    }
+
+    updateData.tradeAccessUpdatedBy = String((req as any).adminUsername || 'system')
+    updateData.tradeAccessUpdatedAt = new Date()
 
     const updated = await prisma.user.update({
       where: { telegramId },
@@ -5219,9 +5259,12 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
       select: {
         id: true,
         telegramId: true,
+        arbitrageTradeEnabled: true,
         tradeExchangesLimit: true,
         tradeAssetsLimit: true,
         tradeArbitrageTypeLimit: true,
+        tradeAccessUpdatedBy: true,
+        tradeAccessUpdatedAt: true,
       } as any,
     })
 
@@ -5230,14 +5273,88 @@ app.post('/api/admin/trade-users/:telegramId/set', requireAdminAuth, async (req,
       user: {
         id: updated.id,
         telegramId: updated.telegramId,
+        tradeEnabled: Boolean((updated as any).arbitrageTradeEnabled),
         tradeExchangesLimit: Math.max(1, Number((updated as any).tradeExchangesLimit ?? 1)),
         tradeAssetsLimit: Math.max(1, Number((updated as any).tradeAssetsLimit ?? 2)),
         tradeArbitrageTypeLimit: Math.max(1, Number((updated as any).tradeArbitrageTypeLimit ?? 1)),
+        tradeAccessUpdatedBy: ((updated as any).tradeAccessUpdatedBy as string | null) || null,
+        tradeAccessUpdatedAt: ((updated as any).tradeAccessUpdatedAt as Date | null) || null,
       },
     })
   } catch (error) {
     console.error('Admin set trade limit error:', error)
     return res.status(500).json({ error: 'Failed to set trade limit' })
+  }
+})
+
+app.get('/api/admin/trade-users/:telegramId', requireAdminAuth, async (req, res) => {
+  try {
+    const telegramId = String(req.params.telegramId || '').trim()
+    if (!telegramId) return res.status(400).json({ error: 'Invalid telegramId' })
+
+    const user = await prisma.user.findUnique({
+      where: { telegramId },
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        country: true,
+        status: true,
+        createdAt: true,
+        arbitrageTradeEnabled: true,
+        tradeExchangesLimit: true,
+        tradeAssetsLimit: true,
+        tradeArbitrageTypeLimit: true,
+        tradeClientExchanges: true,
+        tradeClientAssets: true,
+        tradeClientPriceCheckId: true,
+        tradeClientRiskProfile: true,
+        tradeClientArbitrageType: true,
+        tradeClientBotRunning: true,
+        tradeClientLastAction: true,
+        tradeClientSyncedAt: true,
+        tradeAccessUpdatedBy: true,
+        tradeAccessUpdatedAt: true,
+      } as any,
+    })
+
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        telegramId: user.telegramId,
+        username: user.username,
+        fullName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.username || user.telegramId,
+        country: user.country || 'Unknown',
+        status: user.status,
+        createdAt: user.createdAt,
+        tradeEnabled: Boolean((user as any).arbitrageTradeEnabled),
+        tradeExchangesLimit: Math.max(1, Number((user as any).tradeExchangesLimit ?? 1)),
+        tradeAssetsLimit: Math.max(1, Number((user as any).tradeAssetsLimit ?? 2)),
+        tradeArbitrageTypeLimit: Math.max(1, Number((user as any).tradeArbitrageTypeLimit ?? 1)),
+        sync: {
+          exchanges: parseStoredTradeList((user as any).tradeClientExchanges),
+          assets: parseStoredTradeList((user as any).tradeClientAssets),
+          priceCheckId: ((user as any).tradeClientPriceCheckId as string | null) || null,
+          riskProfile: ((user as any).tradeClientRiskProfile as string | null) || null,
+          arbitrageType: ((user as any).tradeClientArbitrageType as string | null) || null,
+          botRunning: Boolean((user as any).tradeClientBotRunning),
+          lastAction: ((user as any).tradeClientLastAction as string | null) || null,
+          syncedAt: ((user as any).tradeClientSyncedAt as Date | null) || null,
+        },
+        accessAudit: {
+          updatedBy: ((user as any).tradeAccessUpdatedBy as string | null) || null,
+          updatedAt: ((user as any).tradeAccessUpdatedAt as Date | null) || null,
+        },
+      },
+    })
+  } catch (error) {
+    console.error('Admin trade user details error:', error)
+    return res.status(500).json({ error: 'Failed to load trade user details' })
   }
 })
 
@@ -5698,6 +5815,77 @@ function getClientIP(req: express.Request): string {
   
   return req.socket.remoteAddress || 'unknown'
 }
+
+const normalizeTradeSyncListInput = (value: unknown, maxItems = 20, maxItemLength = 48): string[] => {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((item) => String(item || '').trim().slice(0, maxItemLength))
+    .filter(Boolean)
+    .filter((item, index, arr) => arr.indexOf(item) === index)
+    .slice(0, maxItems)
+}
+
+const normalizeTradeSyncValue = (value: unknown, maxLength = 48): string | null => {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalized ? normalized.slice(0, maxLength) : null
+}
+
+const normalizeTradeSyncBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === '1' || normalized === 'true'
+  }
+  return false
+}
+
+app.post('/api/user/:telegramId/trade-sync', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId as string
+
+    const selectedExchangeIds = normalizeTradeSyncListInput(req.body?.selectedExchangeIds, 12, 64)
+    const selectedAssets = normalizeTradeSyncListInput(req.body?.selectedAssets, 64, 32)
+    const selectedPriceCheckId = normalizeTradeSyncValue(req.body?.selectedPriceCheckId, 32)
+    const riskProfile = normalizeTradeSyncValue(req.body?.riskProfile, 32)
+    const arbitrageType = normalizeTradeSyncValue(req.body?.arbitrageType, 48)
+    const botRunning = normalizeTradeSyncBoolean(req.body?.botRunning)
+    const action = normalizeTradeSyncValue(req.body?.action, 32) || 'settings_update'
+
+    const updated = await prisma.user.update({
+      where: { telegramId },
+      data: {
+        tradeClientExchanges: JSON.stringify(selectedExchangeIds),
+        tradeClientAssets: JSON.stringify(selectedAssets),
+        tradeClientPriceCheckId: selectedPriceCheckId,
+        tradeClientRiskProfile: riskProfile,
+        tradeClientArbitrageType: arbitrageType,
+        tradeClientBotRunning: botRunning,
+        tradeClientLastAction: action,
+        tradeClientSyncedAt: new Date(),
+      } as any,
+      select: {
+        telegramId: true,
+        tradeClientSyncedAt: true,
+        tradeClientLastAction: true,
+        tradeClientBotRunning: true,
+      } as any,
+    })
+
+    return res.json({
+      success: true,
+      telegramId: updated.telegramId,
+      syncedAt: (updated as any).tradeClientSyncedAt,
+      lastAction: (updated as any).tradeClientLastAction,
+      botRunning: Boolean((updated as any).tradeClientBotRunning),
+    })
+  } catch (error) {
+    console.error('User trade sync error:', error)
+    return res.status(500).json({ error: 'Failed to sync trade settings' })
+  }
+})
 
 app.get('/api/user/:telegramId', requireUserAuth, async (req, res) => {
   try {

@@ -7,6 +7,12 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -15,7 +21,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAuth } from '@/lib/auth'
-import { fetchTradeUsers, setUserTradeArbitrageTypeLimit, setUserTradeAssetsLimit, setUserTradeExchangeLimit } from '@/lib/api'
+import {
+  fetchTradeUserDetails,
+  fetchTradeUsers,
+  setUserTradeAccess,
+  setUserTradeArbitrageTypeLimit,
+  setUserTradeAssetsLimit,
+  setUserTradeExchangeLimit,
+} from '@/lib/api'
 
 const getStatusColor = (status: string) => {
   switch (status?.toUpperCase?.()) {
@@ -38,6 +51,7 @@ export function TradeUsers() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [selectedTradeUserId, setSelectedTradeUserId] = useState<string | null>(null)
   const [draftExchangeLimits, setDraftExchangeLimits] = useState<Record<string, string>>({})
   const [draftAssetLimits, setDraftAssetLimits] = useState<Record<string, string>>({})
   const [draftArbitrageTypeLimits, setDraftArbitrageTypeLimits] = useState<Record<string, string>>({})
@@ -55,6 +69,14 @@ export function TradeUsers() {
   })
 
   const users = data?.users ?? []
+
+  const tradeUserDetailsQuery = useQuery({
+    queryKey: ['trade-user-details', token, selectedTradeUserId],
+    queryFn: () => fetchTradeUserDetails(token!, selectedTradeUserId!),
+    enabled: !!token && !!selectedTradeUserId,
+  })
+
+  const selectedTradeUserDetails = tradeUserDetailsQuery.data?.user ?? null
 
   useEffect(() => {
     setDraftExchangeLimits((prev) => {
@@ -88,6 +110,14 @@ export function TradeUsers() {
     })
   }, [users])
 
+  useEffect(() => {
+    if (!selectedTradeUserDetails) return
+    const telegramId = selectedTradeUserDetails.telegramId
+    setDraftExchangeLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number(selectedTradeUserDetails.tradeExchangesLimit || 1))) }))
+    setDraftAssetLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number(selectedTradeUserDetails.tradeAssetsLimit || 2))) }))
+    setDraftArbitrageTypeLimits((prev) => ({ ...prev, [telegramId]: String(Math.max(1, Number(selectedTradeUserDetails.tradeArbitrageTypeLimit || 1))) }))
+  }, [selectedTradeUserDetails])
+
   const totals = useMemo(() => {
     return {
       count: data?.totalCount ?? users.length,
@@ -117,6 +147,15 @@ export function TradeUsers() {
     onSuccess: (_, vars) => {
       setDraftArbitrageTypeLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.arbitrageTypeLimit) }))
       queryClient.invalidateQueries({ queryKey: ['trade-users'] })
+    },
+  })
+
+  const setTradeAccessMutation = useMutation({
+    mutationFn: ({ telegramId, tradeEnabled }: { telegramId: string; tradeEnabled: boolean }) =>
+      setUserTradeAccess(token!, telegramId, tradeEnabled),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['trade-users'] })
+      queryClient.invalidateQueries({ queryKey: ['trade-user-details', token, vars.telegramId] })
     },
   })
 
@@ -156,6 +195,38 @@ export function TradeUsers() {
     setArbitrageTypeLimitMutation.mutate({ telegramId, arbitrageTypeLimit: next })
   }
 
+  const selectedTelegramId = selectedTradeUserDetails?.telegramId || ''
+  const popupCurrentExchangeLimit = Math.max(1, Number(selectedTradeUserDetails?.tradeExchangesLimit || 1))
+  const popupCurrentAssetsLimit = Math.max(1, Number(selectedTradeUserDetails?.tradeAssetsLimit || 2))
+  const popupCurrentArbitrageTypeLimit = Math.max(1, Number(selectedTradeUserDetails?.tradeArbitrageTypeLimit || 1))
+
+  const popupDraftExchangeValue = draftExchangeLimits[selectedTelegramId] ?? String(popupCurrentExchangeLimit)
+  const popupDraftAssetsValue = draftAssetLimits[selectedTelegramId] ?? String(popupCurrentAssetsLimit)
+  const popupDraftArbitrageTypeValue = draftArbitrageTypeLimits[selectedTelegramId] ?? String(popupCurrentArbitrageTypeLimit)
+
+  const popupNormalizedExchangeDraft = Math.max(
+    1,
+    Number.isFinite(Number(popupDraftExchangeValue)) ? Math.floor(Number(popupDraftExchangeValue)) : popupCurrentExchangeLimit,
+  )
+  const popupNormalizedAssetsDraft = Math.max(
+    1,
+    Number.isFinite(Number(popupDraftAssetsValue)) ? Math.floor(Number(popupDraftAssetsValue)) : popupCurrentAssetsLimit,
+  )
+  const popupNormalizedArbitrageTypeDraft = Math.max(
+    1,
+    Number.isFinite(Number(popupDraftArbitrageTypeValue)) ? Math.floor(Number(popupDraftArbitrageTypeValue)) : popupCurrentArbitrageTypeLimit,
+  )
+
+  const popupExchangeDirty = popupNormalizedExchangeDraft !== popupCurrentExchangeLimit
+  const popupAssetsDirty = popupNormalizedAssetsDraft !== popupCurrentAssetsLimit
+  const popupArbitrageTypeDirty = popupNormalizedArbitrageTypeDraft !== popupCurrentArbitrageTypeLimit
+
+  const popupMutationPending =
+    setExchangeLimitMutation.isPending ||
+    setAssetLimitMutation.isPending ||
+    setArbitrageTypeLimitMutation.isPending ||
+    setTradeAccessMutation.isPending
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -188,7 +259,7 @@ export function TradeUsers() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-x-auto">
-            <Table className="min-w-[1320px]">
+            <Table className="min-w-[1400px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
@@ -197,6 +268,7 @@ export function TradeUsers() {
                   <TableHead className="hidden md:table-cell">Full Name</TableHead>
                   <TableHead className="hidden lg:table-cell">Country</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Access</TableHead>
                   <TableHead className="text-right">{t('trade.exchangesLimit')}</TableHead>
                   <TableHead className="text-right">{t('trade.assetsLimit')}</TableHead>
                   <TableHead className="text-right">{t('trade.arbitrageTypeLimit')}</TableHead>
@@ -207,20 +279,20 @@ export function TradeUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={10}>
+                      <TableCell colSpan={11}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-destructive">
+                    <TableCell colSpan={11} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-muted-foreground">
+                    <TableCell colSpan={11} className="text-muted-foreground">
                       {t('trade.empty')}
                     </TableCell>
                   </TableRow>
@@ -263,12 +335,25 @@ export function TradeUsers() {
                         <TableCell className="font-mono text-sm text-muted-foreground hidden md:table-cell">
                           {user.telegramId}
                         </TableCell>
-                        <TableCell className="font-medium text-sm">{user.username || '—'}</TableCell>
+                        <TableCell className="font-medium text-sm">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTradeUserId(user.telegramId)}
+                            className="text-left hover:underline underline-offset-4"
+                          >
+                            {user.username || user.fullName || user.telegramId}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-sm hidden md:table-cell">{user.fullName}</TableCell>
                         <TableCell className="text-sm hidden lg:table-cell">{user.country}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getStatusColor(user.status)}>
                             {user.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={user.tradeEnabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'}>
+                            {user.tradeEnabled ? 'Enabled' : 'Disabled'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono font-semibold text-cyan-400 text-sm">
@@ -423,6 +508,190 @@ export function TradeUsers() {
           ) : null}
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedTradeUserId} onOpenChange={(open) => !open && setSelectedTradeUserId(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Trade Control Panel</DialogTitle>
+          </DialogHeader>
+
+          {tradeUserDetailsQuery.isLoading ? (
+            <div className="space-y-3">
+              <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
+              <div className="h-28 w-full animate-pulse rounded bg-muted/50" />
+              <div className="h-28 w-full animate-pulse rounded bg-muted/50" />
+            </div>
+          ) : tradeUserDetailsQuery.isError || !selectedTradeUserDetails ? (
+            <div className="text-sm text-destructive">{t('common.error')}</div>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-lg border p-4 space-y-1">
+                  <div className="text-xs text-muted-foreground">Telegram ID</div>
+                  <div className="font-mono text-sm">{selectedTradeUserDetails.telegramId}</div>
+                  <div className="text-xs text-muted-foreground mt-3">User</div>
+                  <div className="text-sm font-medium">{selectedTradeUserDetails.username || selectedTradeUserDetails.fullName || selectedTradeUserDetails.telegramId}</div>
+                </div>
+
+                <div className="rounded-lg border p-4 space-y-1">
+                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={getStatusColor(selectedTradeUserDetails.status)}>
+                      {selectedTradeUserDetails.status}
+                    </Badge>
+                    <Badge variant="outline" className={selectedTradeUserDetails.tradeEnabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'}>
+                      {selectedTradeUserDetails.tradeEnabled ? 'Trade enabled' : 'Trade disabled'}
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-3">Registered</div>
+                  <div className="text-sm">{new Date(selectedTradeUserDetails.createdAt).toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="text-sm font-medium">Access management</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setTradeAccessMutation.mutate({ telegramId: selectedTradeUserDetails.telegramId, tradeEnabled: true })}
+                    disabled={popupMutationPending || selectedTradeUserDetails.tradeEnabled}
+                  >
+                    Grant access
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setTradeAccessMutation.mutate({ telegramId: selectedTradeUserDetails.telegramId, tradeEnabled: false })}
+                    disabled={popupMutationPending || !selectedTradeUserDetails.tradeEnabled}
+                  >
+                    Revoke access
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Last access update: {selectedTradeUserDetails.accessAudit.updatedAt ? new Date(selectedTradeUserDetails.accessAudit.updatedAt).toLocaleString() : '—'}
+                  {' • '}
+                  By: {selectedTradeUserDetails.accessAudit.updatedBy || '—'}
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="text-sm font-medium">Paid settings control</div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground min-w-16">EX</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => stepExchangeLimit(selectedTelegramId, popupCurrentExchangeLimit, -1)}
+                    disabled={popupMutationPending || popupCurrentExchangeLimit <= 1}
+                  >
+                    -1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => stepExchangeLimit(selectedTelegramId, popupCurrentExchangeLimit, 1)}
+                    disabled={popupMutationPending}
+                  >
+                    +1
+                  </Button>
+                  <Input
+                    value={popupDraftExchangeValue}
+                    onChange={(e) => setDraftExchangeLimits((prev) => ({ ...prev, [selectedTelegramId]: e.target.value }))}
+                    className="w-20 text-right"
+                    inputMode="numeric"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => submitExchangeLimit(selectedTelegramId, popupCurrentExchangeLimit)}
+                    disabled={popupMutationPending || !popupExchangeDirty}
+                  >
+                    {t('trade.save')}
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground min-w-16">AS</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => stepAssetLimit(selectedTelegramId, popupCurrentAssetsLimit, -1)}
+                    disabled={popupMutationPending || popupCurrentAssetsLimit <= 1}
+                  >
+                    -1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => stepAssetLimit(selectedTelegramId, popupCurrentAssetsLimit, 1)}
+                    disabled={popupMutationPending}
+                  >
+                    +1
+                  </Button>
+                  <Input
+                    value={popupDraftAssetsValue}
+                    onChange={(e) => setDraftAssetLimits((prev) => ({ ...prev, [selectedTelegramId]: e.target.value }))}
+                    className="w-20 text-right"
+                    inputMode="numeric"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => submitAssetLimit(selectedTelegramId, popupCurrentAssetsLimit)}
+                    disabled={popupMutationPending || !popupAssetsDirty}
+                  >
+                    {t('trade.save')}
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground min-w-16">AR</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => stepArbitrageTypeLimit(selectedTelegramId, popupCurrentArbitrageTypeLimit, -1)}
+                    disabled={popupMutationPending || popupCurrentArbitrageTypeLimit <= 1}
+                  >
+                    -1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => stepArbitrageTypeLimit(selectedTelegramId, popupCurrentArbitrageTypeLimit, 1)}
+                    disabled={popupMutationPending}
+                  >
+                    +1
+                  </Button>
+                  <Input
+                    value={popupDraftArbitrageTypeValue}
+                    onChange={(e) => setDraftArbitrageTypeLimits((prev) => ({ ...prev, [selectedTelegramId]: e.target.value }))}
+                    className="w-20 text-right"
+                    inputMode="numeric"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => submitArbitrageTypeLimit(selectedTelegramId, popupCurrentArbitrageTypeLimit)}
+                    disabled={popupMutationPending || !popupArbitrageTypeDirty}
+                  >
+                    {t('trade.save')}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-2">
+                <div className="text-sm font-medium">Client sync snapshot</div>
+                <div className="text-sm text-muted-foreground">Last synced: {selectedTradeUserDetails.sync.syncedAt ? new Date(selectedTradeUserDetails.sync.syncedAt).toLocaleString() : '—'}</div>
+                <div className="text-sm">Action: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.lastAction || '—'}</span></div>
+                <div className="text-sm">Bot: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.botRunning ? 'Running' : 'Stopped'}</span></div>
+                <div className="text-sm">Exchanges: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.exchanges.length ? selectedTradeUserDetails.sync.exchanges.join(', ') : '—'}</span></div>
+                <div className="text-sm">Assets: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.assets.length ? selectedTradeUserDetails.sync.assets.join(', ') : '—'}</span></div>
+                <div className="text-sm">Price check: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.priceCheckId || '—'}</span></div>
+                <div className="text-sm">Risk profile: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.riskProfile || '—'}</span></div>
+                <div className="text-sm">Arbitrage type: <span className="text-muted-foreground">{selectedTradeUserDetails.sync.arbitrageType || '—'}</span></div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
