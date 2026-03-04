@@ -247,7 +247,10 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
     [arbitrageTypes, normalizedArbitrageTypeLimit]
   )
 
-  const [botRunning, setBotRunning] = useState(false)
+  const [botRunning, setBotRunning] = useState<boolean>(() => {
+    const saved = localStorage.getItem('trade_botRunning')
+    return saved === '1' || saved === 'true'
+  })
 
   const canStart =
     selectedAssets.length > 0 &&
@@ -306,6 +309,10 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
   useEffect(() => {
     localStorage.setItem('trade_arbitrageType', arbitrageType)
   }, [arbitrageType])
+
+  useEffect(() => {
+    localStorage.setItem('trade_botRunning', botRunning ? '1' : '0')
+  }, [botRunning])
 
   useEffect(() => {
     setArbitrageType((prev) => {
@@ -546,7 +553,15 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTy
             </div>
           </div>
           <div className="flex gap-2">
-            <Button type="button" disabled={!canStart || botRunning} onClick={() => setBotRunning(true)}>
+            <Button
+              type="button"
+              disabled={!canStart && !botRunning}
+              aria-pressed={botRunning}
+              className={botRunning ? 'ring-2 ring-primary/40' : undefined}
+              onClick={() => {
+                if (!botRunning && canStart) setBotRunning(true)
+              }}
+            >
               Start
             </Button>
             <Button type="button" variant="destructive" disabled={!botRunning} onClick={() => setBotRunning(false)}>
