@@ -190,6 +190,27 @@ export function Dashboard() {
     }).format(parsed)
   }
 
+  const isGenericSourceName = (value: string) => /^(facebook|instagram|google|tiktok|telegram|channel|unknown|unattributed)$/i.test(value.trim())
+
+  const getSummaryLinkDisplay = (item: { linkId: string; linkName: string }) => {
+    const linkId = String(item.linkId || '').trim()
+    const linkName = String(item.linkName || '').trim()
+
+    if (!linkName) {
+      return { primary: linkId, secondary: '' }
+    }
+
+    if (isGenericSourceName(linkName) && linkId && linkId !== linkName) {
+      return { primary: linkId, secondary: linkName }
+    }
+
+    if (!linkId || linkId === linkName) {
+      return { primary: linkName, secondary: '' }
+    }
+
+    return { primary: linkName, secondary: linkId }
+  }
+
   const getWeekStartDate = (input: string) => {
     const parsed = parseDateSafe(input)
     if (!parsed) return null
@@ -1196,17 +1217,22 @@ export function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedSummaryAttributionRows.map((item, index) => (
-                    <TableRow key={`${item.date}-${item.linkId}-${index}`}>
-                      <TableCell className="font-medium">{formatDate(item.date)}</TableCell>
-                      <TableCell>
-                        <div className="font-medium">{item.linkName || item.linkId}</div>
-                        <div className="text-xs text-muted-foreground">{item.linkId}</div>
-                      </TableCell>
-                      <TableCell className="text-right text-indigo-400">{item.leads.toLocaleString()}</TableCell>
-                      <TableCell className="text-right text-blue-400">{item.users.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
+                  {selectedSummaryAttributionRows.map((item, index) => {
+                    const linkDisplay = getSummaryLinkDisplay(item)
+                    return (
+                      <TableRow key={`${item.date}-${item.linkId}-${index}`}>
+                        <TableCell className="font-medium">{formatDate(item.date)}</TableCell>
+                        <TableCell>
+                          <div className="font-medium break-all">{linkDisplay.primary}</div>
+                          {linkDisplay.secondary ? (
+                            <div className="text-xs text-muted-foreground break-all">{linkDisplay.secondary}</div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-right text-indigo-400">{item.leads.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-blue-400">{item.users.toLocaleString()}</TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

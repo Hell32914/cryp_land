@@ -3418,7 +3418,17 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
 
     // Get database IDs of excluded users for filtering deposits/withdrawals/profits
     const [marketingLinks, geoOptions, excludedUsers] = await Promise.all([
-      prisma.marketingLink.findMany({ select: { linkId: true, stream: true, source: true, channelInviteLink: true } }),
+      prisma.marketingLink.findMany({
+        select: {
+          linkId: true,
+          source: true,
+          trafficerName: true,
+          stream: true,
+          geo: true,
+          creative: true,
+          channelInviteLink: true,
+        },
+      }),
       prisma.user.groupBy({ by: ['country'], where: { isHidden: false } }),
       prisma.user.findMany({
         where: { telegramId: { in: excludedTelegramIds } },
@@ -3743,7 +3753,22 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     }
 
     const mkLinkIds = new Set(marketingLinks.map((l) => l.linkId))
-    const linkNameById = new Map(marketingLinks.map((l) => [l.linkId, String(l.source || l.linkId)] as const))
+    const buildOverviewLinkName = (link: (typeof marketingLinks)[number]) => {
+      const parts = [
+        String(link.trafficerName || '').trim(),
+        String(link.stream || '').trim(),
+        String(link.geo || '').trim(),
+        String(link.creative || '').trim(),
+      ].filter(Boolean)
+
+      if (parts.length > 0) {
+        return parts.join('_')
+      }
+
+      const source = String(link.source || '').trim()
+      return source || link.linkId
+    }
+    const linkNameById = new Map(marketingLinks.map((l) => [l.linkId, buildOverviewLinkName(l)] as const))
     const linksByChannelInvite = new Map(
       marketingLinks
         .filter((l) => Boolean((l as any).channelInviteLink))
@@ -3783,7 +3808,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         dailyLinkStatsMap.set(dateKey, new Map())
       }
       const mapForDate = dailyLinkStatsMap.get(dateKey)!
-      const name = linkNameById.get(linkId) || linkId
+      const name = linkId === 'unattributed'
+        ? 'Unattributed'
+        : (linkNameById.get(linkId) || linkId)
       const prev = mapForDate.get(linkId)
       if (prev) {
         prev[metric] += 1
