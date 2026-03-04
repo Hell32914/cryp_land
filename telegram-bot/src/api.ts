@@ -3743,11 +3743,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const daysDiff = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
     const seriesMap = buildDateSeries(Math.min(daysDiff, 30), effectiveStart) // Max 30 days on chart
 
-    const dailySummaryMap = new Map<string, { date: string; deposits: number; withdrawals: number; profit: number; traffic: number; ftd: number; users: number; spend: number }>()
+    const dailySummaryMap = new Map<string, { date: string; deposits: number; depositCount: number; withdrawals: number; profit: number; traffic: number; ftd: number; users: number; spend: number }>()
     const dailyLinkStatsMap = new Map<string, Map<string, { linkId: string; linkName: string; leads: number; users: number }>>()
     const ensureDailyEntry = (key: string) => {
       if (!dailySummaryMap.has(key)) {
-        dailySummaryMap.set(key, { date: key, deposits: 0, withdrawals: 0, profit: 0, traffic: 0, ftd: 0, users: 0, spend: 0 })
+        dailySummaryMap.set(key, { date: key, deposits: 0, depositCount: 0, withdrawals: 0, profit: 0, traffic: 0, ftd: 0, users: 0, spend: 0 })
       }
       return dailySummaryMap.get(key)!
     }
@@ -3848,7 +3848,9 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
         entry.deposits += deposit.amount
       }
       if (fullDaily) {
-        ensureDailyEntry(key).deposits += deposit.amount
+        const dailyEntry = ensureDailyEntry(key)
+        dailyEntry.deposits += deposit.amount
+        dailyEntry.depositCount += 1
       }
     })
 

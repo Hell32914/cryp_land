@@ -33,6 +33,7 @@ type DailyRow = {
   date: string
   label?: string
   deposits: number
+  depositCount: number
   withdrawals: number
   profit: number
   traffic: number
@@ -382,6 +383,7 @@ export function Dashboard() {
     return rows.map((row) => ({
       ...row,
       deposits: toNumber((row as any).deposits),
+      depositCount: toNumber((row as any).depositCount ?? (row as any).depositsCount),
       withdrawals: toNumber((row as any).withdrawals),
       profit: toNumber((row as any).profit),
       traffic: getLeadsValue(row as any),
@@ -433,6 +435,7 @@ export function Dashboard() {
         date: bucketKey,
         label: buildSummaryLabel(bucketKey, summaryGroupBy),
         deposits: 0,
+        depositCount: 0,
         withdrawals: 0,
         profit: 0,
         traffic: 0,
@@ -443,6 +446,7 @@ export function Dashboard() {
       }
 
       current.deposits += row.deposits
+      current.depositCount += row.depositCount
       current.withdrawals += row.withdrawals
       current.profit += row.profit
       current.traffic += row.traffic
@@ -579,6 +583,7 @@ export function Dashboard() {
     const totals = rows.reduce(
       (acc, row) => {
         acc.deposits += row.deposits
+        acc.depositCount += row.depositCount
         acc.withdrawals += row.withdrawals
         acc.profit += row.profit
         acc.traffic += row.traffic
@@ -587,16 +592,17 @@ export function Dashboard() {
         acc.spend += row.spend
         return acc
       },
-      { deposits: 0, withdrawals: 0, profit: 0, traffic: 0, ftd: 0, users: 0, spend: 0 }
+      { deposits: 0, depositCount: 0, withdrawals: 0, profit: 0, traffic: 0, ftd: 0, users: 0, spend: 0 }
     )
 
     return (
-      <div className="rounded-md border border-border overflow-hidden min-w-[1380px]">
+      <div className="rounded-md border border-border overflow-hidden min-w-[1460px]">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead>{t('dashboard.date')}</TableHead>
               <TableHead className="text-right">{t('dashboard.deposits')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.depositsCount')}</TableHead>
               <TableHead className="text-right">{t('dashboard.withdrawals')}</TableHead>
               <TableHead className="text-right">{t('dashboard.profit')}</TableHead>
               <TableHead className="text-right">{t('dashboard.traffic')}</TableHead>
@@ -625,6 +631,9 @@ export function Dashboard() {
                   <TableCell className="font-medium">{row.label || formatDate(row.date)}</TableCell>
                   <TableCell className="text-right text-green-500">
                     {formatCurrency(row.deposits)}
+                  </TableCell>
+                  <TableCell className="text-right text-emerald-400">
+                    {row.depositCount.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right text-orange-500">
                     {formatCurrency(row.withdrawals)}
@@ -664,6 +673,9 @@ export function Dashboard() {
               <TableCell className="font-semibold">Total</TableCell>
               <TableCell className="text-right font-semibold text-green-500">
                 {formatCurrency(totals.deposits)}
+              </TableCell>
+              <TableCell className="text-right font-semibold text-emerald-400">
+                {totals.depositCount.toLocaleString()}
               </TableCell>
               <TableCell className="text-right font-semibold text-orange-500">
                 {formatCurrency(totals.withdrawals)}

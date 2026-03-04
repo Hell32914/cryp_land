@@ -109,6 +109,7 @@ export interface KPIResponse {
 export interface FinancialPoint {
   date: string
   deposits: number
+  depositCount?: number
   withdrawals: number
   profit: number
   traffic: number
