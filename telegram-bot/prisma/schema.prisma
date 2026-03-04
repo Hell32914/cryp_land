@@ -44,6 +44,7 @@ model User {
   bonusTokens       Float         @default(0)
   tradeExchangesLimit Int         @default(1)
   tradeAssetsLimit  Int           @default(2)
+  tradeArbitrageTypeLimit Int     @default(1)
   contactSupportSeen Boolean      @default(false)
   contactSupportBonusGrantedAt DateTime?
   contactSupportBonusExpiresAt DateTime?

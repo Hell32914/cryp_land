@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAuth } from '@/lib/auth'
-import { fetchTradeUsers, setUserTradeAssetsLimit, setUserTradeExchangeLimit } from '@/lib/api'
+import { fetchTradeUsers, setUserTradeArbitrageTypeLimit, setUserTradeAssetsLimit, setUserTradeExchangeLimit } from '@/lib/api'
 
 const getStatusColor = (status: string) => {
   switch (status?.toUpperCase?.()) {
@@ -40,6 +40,7 @@ export function TradeUsers() {
   const [page, setPage] = useState(1)
   const [draftExchangeLimits, setDraftExchangeLimits] = useState<Record<string, string>>({})
   const [draftAssetLimits, setDraftAssetLimits] = useState<Record<string, string>>({})
+  const [draftArbitrageTypeLimits, setDraftArbitrageTypeLimits] = useState<Record<string, string>>({})
   const pageSize = 50
 
   const { data, isLoading, isError } = useQuery({
@@ -75,6 +76,16 @@ export function TradeUsers() {
       }
       return next
     })
+
+    setDraftArbitrageTypeLimits((prev) => {
+      const next = { ...prev }
+      for (const user of users) {
+        if (typeof next[user.telegramId] === 'undefined') {
+          next[user.telegramId] = String(Math.max(1, Number(user.tradeArbitrageTypeLimit || 1)))
+        }
+      }
+      return next
+    })
   }, [users])
 
   const totals = useMemo(() => {
@@ -96,6 +107,15 @@ export function TradeUsers() {
       setUserTradeAssetsLimit(token!, telegramId, assetsLimit),
     onSuccess: (_, vars) => {
       setDraftAssetLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.assetsLimit) }))
+      queryClient.invalidateQueries({ queryKey: ['trade-users'] })
+    },
+  })
+
+  const setArbitrageTypeLimitMutation = useMutation({
+    mutationFn: ({ telegramId, arbitrageTypeLimit }: { telegramId: string; arbitrageTypeLimit: number }) =>
+      setUserTradeArbitrageTypeLimit(token!, telegramId, arbitrageTypeLimit),
+    onSuccess: (_, vars) => {
+      setDraftArbitrageTypeLimits((prev) => ({ ...prev, [vars.telegramId]: String(vars.arbitrageTypeLimit) }))
       queryClient.invalidateQueries({ queryKey: ['trade-users'] })
     },
   })
@@ -122,6 +142,18 @@ export function TradeUsers() {
     const next = Math.max(1, current + delta)
     setDraftAssetLimits((prev) => ({ ...prev, [telegramId]: String(next) }))
     setAssetLimitMutation.mutate({ telegramId, assetsLimit: next })
+  }
+
+  const submitArbitrageTypeLimit = (telegramId: string, fallbackCurrent: number) => {
+    const raw = Number(draftArbitrageTypeLimits[telegramId])
+    const normalized = Math.max(1, Number.isFinite(raw) ? Math.floor(raw) : fallbackCurrent)
+    setArbitrageTypeLimitMutation.mutate({ telegramId, arbitrageTypeLimit: normalized })
+  }
+
+  const stepArbitrageTypeLimit = (telegramId: string, current: number, delta: number) => {
+    const next = Math.max(1, current + delta)
+    setDraftArbitrageTypeLimits((prev) => ({ ...prev, [telegramId]: String(next) }))
+    setArbitrageTypeLimitMutation.mutate({ telegramId, arbitrageTypeLimit: next })
   }
 
   return (
@@ -156,7 +188,7 @@ export function TradeUsers() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border border-border overflow-x-auto">
-            <Table className="min-w-[1180px]">
+            <Table className="min-w-[1320px]">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableHead>ID</TableHead>
@@ -167,6 +199,7 @@ export function TradeUsers() {
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">{t('trade.exchangesLimit')}</TableHead>
                   <TableHead className="text-right">{t('trade.assetsLimit')}</TableHead>
+                  <TableHead className="text-right">{t('trade.arbitrageTypeLimit')}</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -174,20 +207,20 @@ export function TradeUsers() {
                 {isLoading ? (
                   [...Array(8)].map((_, idx) => (
                     <TableRow key={idx}>
-                      <TableCell colSpan={9}>
+                      <TableCell colSpan={10}>
                         <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-destructive">
+                    <TableCell colSpan={10} className="text-destructive">
                       {t('common.error')}
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-muted-foreground">
+                    <TableCell colSpan={10} className="text-muted-foreground">
                       {t('trade.empty')}
                     </TableCell>
                   </TableRow>
@@ -210,7 +243,19 @@ export function TradeUsers() {
                       Number.isFinite(draftAssetNumeric) ? Math.floor(draftAssetNumeric) : currentAssetsLimit,
                     )
                     const isAssetDirty = normalizedAssetDraft !== currentAssetsLimit
-                    const isMutationPending = setExchangeLimitMutation.isPending || setAssetLimitMutation.isPending
+
+                    const currentArbitrageTypeLimit = Math.max(1, Number(user.tradeArbitrageTypeLimit || 1))
+                    const draftArbitrageTypeValue = draftArbitrageTypeLimits[user.telegramId] ?? String(currentArbitrageTypeLimit)
+                    const draftArbitrageTypeNumeric = Number(draftArbitrageTypeValue)
+                    const normalizedArbitrageTypeDraft = Math.max(
+                      1,
+                      Number.isFinite(draftArbitrageTypeNumeric) ? Math.floor(draftArbitrageTypeNumeric) : currentArbitrageTypeLimit,
+                    )
+                    const isArbitrageTypeDirty = normalizedArbitrageTypeDraft !== currentArbitrageTypeLimit
+                    const isMutationPending =
+                      setExchangeLimitMutation.isPending ||
+                      setAssetLimitMutation.isPending ||
+                      setArbitrageTypeLimitMutation.isPending
 
                     return (
                       <TableRow key={user.id} className="hover:bg-muted/30">
@@ -231,6 +276,9 @@ export function TradeUsers() {
                         </TableCell>
                         <TableCell className="text-right font-mono font-semibold text-violet-400 text-sm">
                           {currentAssetsLimit}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-amber-400 text-sm">
+                          {currentArbitrageTypeLimit}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end gap-2">
@@ -295,6 +343,44 @@ export function TradeUsers() {
                                 size="sm"
                                 onClick={() => submitAssetLimit(user.telegramId, currentAssetsLimit)}
                                 disabled={isMutationPending || !isAssetDirty}
+                              >
+                                {t('trade.save')}
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xs text-muted-foreground min-w-16 text-right">AR</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => stepArbitrageTypeLimit(user.telegramId, currentArbitrageTypeLimit, -1)}
+                                disabled={isMutationPending || currentArbitrageTypeLimit <= 1}
+                              >
+                                -1
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => stepArbitrageTypeLimit(user.telegramId, currentArbitrageTypeLimit, 1)}
+                                disabled={isMutationPending}
+                              >
+                                +1
+                              </Button>
+                              <Input
+                                value={draftArbitrageTypeValue}
+                                onChange={(e) =>
+                                  setDraftArbitrageTypeLimits((prev) => ({
+                                    ...prev,
+                                    [user.telegramId]: e.target.value,
+                                  }))
+                                }
+                                className="w-16 text-right"
+                                inputMode="numeric"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => submitArbitrageTypeLimit(user.telegramId, currentArbitrageTypeLimit)}
+                                disabled={isMutationPending || !isArbitrageTypeDirty}
                               >
                                 {t('trade.save')}
                               </Button>

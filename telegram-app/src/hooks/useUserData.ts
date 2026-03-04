@@ -24,6 +24,7 @@ interface UserData {
   arbitrageTradeEnabled?: boolean
   tradeExchangesLimit?: number
   tradeAssetsLimit?: number
+  tradeArbitrageTypeLimit?: number
   plan: string
   kycRequired: boolean
   isBlocked: boolean

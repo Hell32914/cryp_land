@@ -264,6 +264,7 @@ export interface TradeUsersResponse {
     createdAt: string
     tradeExchangesLimit: number
     tradeAssetsLimit: number
+    tradeArbitrageTypeLimit: number
   }>
   count: number
   totalCount: number
@@ -1469,6 +1470,7 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
         createdAt: u.createdAt,
         tradeExchangesLimit: 1,
         tradeAssetsLimit: 2,
+        tradeArbitrageTypeLimit: 1,
       })),
       count: source.length,
       totalCount: source.length,
@@ -1487,7 +1489,7 @@ export const fetchTradeUsers = (token: string, opts?: { page?: number; limit?: n
 }
 
 export const setUserTradeExchangeLimit = (token: string, telegramId: string, limit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
@@ -1497,11 +1499,21 @@ export const setUserTradeExchangeLimit = (token: string, telegramId: string, lim
   )
 
 export const setUserTradeAssetsLimit = (token: string, telegramId: string, assetsLimit: number) =>
-  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number } }>(
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
     `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
     {
       method: 'POST',
       body: JSON.stringify({ assetsLimit }),
+    },
+    token
+  )
+
+export const setUserTradeArbitrageTypeLimit = (token: string, telegramId: string, arbitrageTypeLimit: number) =>
+  request<{ success: boolean; user: { id: number; telegramId: string; tradeExchangesLimit: number; tradeAssetsLimit: number; tradeArbitrageTypeLimit: number } }>(
+    `/api/admin/trade-users/${encodeURIComponent(telegramId)}/set`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ arbitrageTypeLimit }),
     },
     token
   )

@@ -48,9 +48,10 @@ type TradeTabProps = {
   title?: string
   exchangeLimit?: number
   assetLimit?: number
+  arbitrageTypeLimit?: number
 }
 
-export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabProps) {
+export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2, arbitrageTypeLimit = 1 }: TradeTabProps) {
   const exchanges = useMemo(
     () => [
       { id: 'binance', name: 'Binance', iconText: 'B', iconSrc: '/logo_trade/binance.jpg?v=20260123' },
@@ -94,6 +95,7 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabP
 
   const normalizedExchangeLimit = Math.max(1, exchangeLimit)
   const normalizedAssetLimit = Math.max(1, assetLimit)
+  const normalizedArbitrageTypeLimit = Math.max(1, arbitrageTypeLimit)
   const selectedExchangeNames = exchanges
     .filter((exchange) => selectedExchangeIds.includes(exchange.id))
     .map((exchange) => exchange.name)
@@ -217,7 +219,7 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabP
 
   const [arbitrageType, setArbitrageType] = useState<'direct' | 'direct_triangular' | 'triangular_fast'>(() => {
     const saved = localStorage.getItem('trade_arbitrageType')
-    return (saved as 'direct' | 'direct_triangular' | 'triangular_fast') ?? 'direct_triangular'
+    return (saved as 'direct' | 'direct_triangular' | 'triangular_fast') ?? 'direct'
   })
   const arbitrageTypes = useMemo(
     () => [
@@ -238,6 +240,11 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabP
       },
     ],
     []
+  )
+
+  const unlockedArbitrageTypes = useMemo(
+    () => arbitrageTypes.slice(0, Math.min(normalizedArbitrageTypeLimit, arbitrageTypes.length)),
+    [arbitrageTypes, normalizedArbitrageTypeLimit]
   )
 
   const [botRunning, setBotRunning] = useState(false)
@@ -299,6 +306,13 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabP
   useEffect(() => {
     localStorage.setItem('trade_arbitrageType', arbitrageType)
   }, [arbitrageType])
+
+  useEffect(() => {
+    setArbitrageType((prev) => {
+      if (unlockedArbitrageTypes.some((item) => item.id === prev)) return prev
+      return unlockedArbitrageTypes[0]?.id || 'direct'
+    })
+  }, [unlockedArbitrageTypes])
 
   return (
     <div className="p-4 space-y-4">
@@ -489,6 +503,7 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabP
           <div>
             <div className="text-sm font-medium">Arbitrage type</div>
             <div className="text-xs text-muted-foreground mt-1">Choose the arbitrage execution mode.</div>
+            <div className="text-xs text-muted-foreground mt-1">Available types: {unlockedArbitrageTypes.length}</div>
           </div>
           <div className="text-xs text-muted-foreground text-right">
             Selected: {arbitrageTypes.find((t) => t.id === arbitrageType)?.title}
@@ -498,16 +513,20 @@ export function TradeTab({ title, exchangeLimit = 1, assetLimit = 2 }: TradeTabP
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
           {arbitrageTypes.map((t) => {
             const isSelected = t.id === arbitrageType
+            const isDisabled = !isSelected && !unlockedArbitrageTypes.some((item) => item.id === t.id)
             return (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setArbitrageType(t.id)}
+                disabled={isDisabled}
                 className={
-                  'rounded-lg border px-3 py-2 text-left transition-colors ' +
+                  'rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed ' +
                   (isSelected
                     ? 'border-primary/50 bg-primary/10'
-                    : 'border-border/50 bg-background/30 hover:bg-background/50')
+                    : isDisabled
+                      ? 'border-border/30 bg-muted/20 text-muted-foreground/60'
+                      : 'border-border/50 bg-background/30 hover:bg-background/50')
                 }
               >
                 <div className="text-sm font-medium">{t.title}</div>
