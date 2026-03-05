@@ -6429,8 +6429,8 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
       return res.status(404).json({ error: 'User not found' })
     }
 
-    if (!amount || amount < 50) {
-      return res.status(400).json({ error: 'Minimum deposit amount is $50' })
+    if (!amount || amount < 10) {
+      return res.status(400).json({ error: 'Minimum deposit amount is $10' })
     }
 
     const paymentMethod = String(method || 'OXAPAY').toUpperCase()
