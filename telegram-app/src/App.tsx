@@ -510,8 +510,8 @@ function App() {
     }
 
     const amount = parseFloat(depositAmountInput)
-    if (isNaN(amount) || amount < 50) {
-      toast.error('Minimum deposit amount is $50')
+    if (isNaN(amount) || amount < 10) {
+      toast.error('Minimum deposit amount is $10')
       return
     }
 
@@ -1333,7 +1333,7 @@ function App() {
                 type="number"
                 value={depositAmountInput}
                 onChange={(e) => setDepositAmountInput(e.target.value)}
-                placeholder="Enter amount"
+                placeholder="$10 - $100,000+"
                 className="h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg"
               />
             </div>
