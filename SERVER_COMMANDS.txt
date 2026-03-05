@@ -55,12 +55,19 @@ pm2 status
 # ВАЖНО: перед запуском убедитесь, что A-записи доменов указывают на 45.147.248.134
 sudo certbot --nginx -d crypto.siintrix.site -d trade.siintrix.site -d info.siintrix.site -d ss.siintrix.site -d road.siintrix.site -d invest.siintrix.site -d official.siintrix.site
 
-# 13. SSL для нового домена crypto.syntr1x.uno
-# ВАЖНО: сначала добавьте A-запись crypto.syntr1x.uno -> 45.147.248.134
-sudo certbot --nginx --cert-name syntr1x.uno -d crypto.syntr1x.uno
+# 13. SSL для новых доменов crypto.syntr1x.uno и info.syntr1x.uno
+# ВАЖНО: сначала добавьте A-записи:
+# crypto.syntr1x.uno -> 45.147.248.134
+# info.syntr1x.uno   -> 45.147.248.134
+# Выпуск сертификата без nginx-installer (устраняет ошибку "Could not automatically find a matching server block")
+sudo certbot certonly --webroot -w /root/cryp_land/www --cert-name syntr1x.uno --expand -d crypto.syntr1x.uno -d info.syntr1x.uno
 
 # Проверка и перезагрузка nginx
 sudo nginx -t && sudo systemctl reload nginx
+
+# Если есть старый нерезолвящийся сертификат siintrix.site, отключите его renewal-конфиг
+# (иначе certbot renew --dry-run будет падать из-за NXDOMAIN)
+# sudo mv /etc/letsencrypt/renewal/crypto.siintrix.site.conf /etc/letsencrypt/renewal/crypto.siintrix.site.conf.disabled
 
 # Проверка автообновления сертификатов
 sudo certbot renew --dry-run

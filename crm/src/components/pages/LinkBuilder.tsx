@@ -102,7 +102,7 @@ export function LinkBuilder() {
   ]
 
   const channelDomains = [
-    { value: 'crypto.syntr1x.uno', label: 'crypto.syntr1x.uno (info)', color: 'bg-purple-400' },
+    { value: 'info.syntr1x.uno', label: 'info.syntr1x.uno', color: 'bg-purple-400' },
     { value: 'ss.siintrix.site', label: 'ss.siintrix.site', color: 'bg-orange-400' },
     { value: 'road.siintrix.site', label: 'road.siintrix.site', color: 'bg-rose-400' },
     { value: 'invest.siintrix.site', label: 'invest.siintrix.site', color: 'bg-cyan-400' },
