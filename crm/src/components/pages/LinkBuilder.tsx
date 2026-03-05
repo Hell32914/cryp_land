@@ -37,7 +37,7 @@ export function LinkBuilder() {
   const { token } = useAuth()
   const [source, setSource] = useState('')
   const [linkType, setLinkType] = useState<'bot' | 'channel'>('bot')
-  const [selectedDomain, setSelectedDomain] = useState('crypto.siintrix.site')
+  const [selectedDomain, setSelectedDomain] = useState('crypto.syntr1x.uno')
   const [trackingPixel, setTrackingPixel] = useState('')
   const [pixelLoadedFromDomain, setPixelLoadedFromDomain] = useState(false)
   const [pixelConfirmed, setPixelConfirmed] = useState(false)
@@ -97,12 +97,12 @@ export function LinkBuilder() {
   }
 
   const botDomains = [
-    { value: 'crypto.siintrix.site', label: 'crypto.siintrix.site', color: 'bg-amber-400' },
+    { value: 'crypto.syntr1x.uno', label: 'crypto.syntr1x.uno', color: 'bg-amber-400' },
     { value: 'trade.siintrix.site', label: 'trade.siintrix.site', color: 'bg-pink-400' },
   ]
 
   const channelDomains = [
-    { value: 'info.siintrix.site', label: 'info.siintrix.site', color: 'bg-purple-400' },
+    { value: 'crypto.syntr1x.uno', label: 'crypto.syntr1x.uno (info)', color: 'bg-purple-400' },
     { value: 'ss.siintrix.site', label: 'ss.siintrix.site', color: 'bg-orange-400' },
     { value: 'road.siintrix.site', label: 'road.siintrix.site', color: 'bg-rose-400' },
     { value: 'invest.siintrix.site', label: 'invest.siintrix.site', color: 'bg-cyan-400' },
