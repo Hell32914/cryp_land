@@ -152,12 +152,6 @@
 
         <div class="actions">
             <a id="primaryBtn" class="btn btn-primary" href="https://t.me/AiSyntrixTrade_bot">Open Telegram</a>
-            <a class="btn btn-secondary" href="https://website.syntrix.uno" target="_blank" rel="noopener noreferrer">Open Website</a>
-        </div>
-
-        <div class="meta">
-            <div>Host: <code id="hostInfo">-</code></div>
-            <div>Ref: <code id="refInfo">-</code></div>
         </div>
     </main>
 
@@ -179,11 +173,6 @@
 
             var primaryBtn = document.getElementById('primaryBtn');
             var description = document.getElementById('description');
-            var hostInfo = document.getElementById('hostInfo');
-            var refInfo = document.getElementById('refInfo');
-
-            if (hostInfo) hostInfo.textContent = host || '-';
-            if (refInfo) refInfo.textContent = ref || '-';
 
             var targetUrl;
             if (channelInviteByHost[host]) {
