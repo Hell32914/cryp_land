@@ -45,28 +45,4 @@
         ttq.page();
     }(window, document, "ttq");
 
-    // Meta Pixel
-    !function(f, b, e, v, n, s, t) {
-        if (f.fbq) {
-            return;
-        }
-        n = f.fbq = function() {
-            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-        };
-        if (!f._fbq) {
-            f._fbq = n;
-        }
-        n.push = n;
-        n.loaded = true;
-        n.version = "2.0";
-        n.queue = [];
-        s = b.createElement(e);
-        s.async = true;
-        s.src = v;
-        t = b.getElementsByTagName(e)[0];
-        t.parentNode.insertBefore(s, t);
-    }(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-
-    fbq("init", "2377085479429610");
-    fbq("track", "PageView");
 })();
