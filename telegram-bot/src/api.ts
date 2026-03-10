@@ -302,6 +302,176 @@ function normalizeInviteLink(value: unknown): string | null {
   return v || null
 }
 
+type MarketingAttributionLink = {
+  linkId: string
+  source?: string | null
+  stream?: string | null
+  geo?: string | null
+  creative?: string | null
+  trafficerName?: string | null
+}
+
+function extractMkLinkId(value: unknown): string | null {
+  if (!value) return null
+
+  const raw = typeof value === 'string' ? value : JSON.stringify(value)
+  const match = raw.match(/mk_[a-zA-Z0-9_-]+/)
+  return match ? match[0] : null
+}
+
+function tryParseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('{')) return null
+
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+function collectNestedStringCandidates(value: unknown, limit = 32): string[] {
+  const candidates = new Set<string>()
+
+  const visit = (entry: unknown, depth: number) => {
+    if (depth > 3 || candidates.size >= limit || entry == null) return
+
+    if (typeof entry === 'string') {
+      const trimmed = entry.trim()
+      if (!trimmed) return
+
+      candidates.add(trimmed)
+
+      const parsed = tryParseJsonRecord(trimmed)
+      if (parsed) {
+        visit(parsed, depth + 1)
+      }
+      return
+    }
+
+    if (Array.isArray(entry)) {
+      for (const item of entry) {
+        visit(item, depth + 1)
+        if (candidates.size >= limit) break
+      }
+      return
+    }
+
+    if (typeof entry === 'object') {
+      for (const nestedValue of Object.values(entry)) {
+        visit(nestedValue, depth + 1)
+        if (candidates.size >= limit) break
+      }
+    }
+  }
+
+  visit(value, 0)
+  return Array.from(candidates)
+}
+
+function tokenVariants(token: string): string[] {
+  const normalized = token.toLowerCase().trim()
+  if (!normalized) return []
+  if (normalized === 'fb') return ['fb', 'facebook']
+  if (normalized === 'tt') return ['tt', 'tiktok']
+  if (normalized === 'ig') return ['ig', 'instagram']
+  if (normalized === 'yt') return ['yt', 'youtube']
+  return [normalized]
+}
+
+function guessLinkIdByInviteName(inviteName: unknown, marketingLinks: MarketingAttributionLink[]): string | null {
+  const raw = String(inviteName || '').trim().toLowerCase()
+  if (!raw) return null
+
+  const tokens = raw.split(/[^a-z0-9]+/).map((token) => token.trim()).filter(Boolean)
+  if (tokens.length === 0) return null
+
+  let best: { linkId: string; score: number } | null = null
+  let secondBestScore = -1
+
+  for (const link of marketingLinks) {
+    const fields = [
+      String(link.linkId || '').toLowerCase(),
+      String(link.source || '').toLowerCase(),
+      String(link.stream || '').toLowerCase(),
+      String(link.geo || '').toLowerCase(),
+      String(link.creative || '').toLowerCase(),
+      String(link.trafficerName || '').toLowerCase(),
+    ]
+
+    let score = 0
+    for (const token of tokens) {
+      const variants = tokenVariants(token)
+      const matched = variants.some((variant) => fields.some((field) => field.includes(variant)))
+      if (matched) score += 1
+    }
+
+    if (!best || score > best.score) {
+      secondBestScore = best?.score ?? -1
+      best = { linkId: link.linkId, score }
+    } else if (score > secondBestScore) {
+      secondBestScore = score
+    }
+  }
+
+  if (!best) return null
+
+  const minRequiredScore = Math.min(2, tokens.length)
+  if (best.score < minRequiredScore) return null
+  if (best.score === secondBestScore) return null
+
+  return best.linkId
+}
+
+function extractAttributedMarketingLinkId(
+  user: { utmParams?: unknown; linkId?: unknown },
+  options: {
+    marketingLinks: MarketingAttributionLink[]
+    mkLinkIds: Set<string>
+    linksByChannelInvite: Map<string, string>
+  }
+): string | null {
+  const { marketingLinks, mkLinkIds, linksByChannelInvite } = options
+  const directCandidates = [user.linkId, user.utmParams, ...collectNestedStringCandidates(user.utmParams)]
+  let fallbackAttributedLinkId: string | null = null
+
+  for (const candidate of directCandidates) {
+    const raw = String(candidate || '').trim()
+    if (!raw || raw.toLowerCase() === 'channel') continue
+
+    if (mkLinkIds.has(raw)) return raw
+
+    const extracted = extractMkLinkId(raw)
+    if (extracted) {
+      fallbackAttributedLinkId = fallbackAttributedLinkId || extracted
+      if (mkLinkIds.has(extracted)) return extracted
+    }
+  }
+
+  const parsed = tryParseJsonRecord(user.utmParams)
+  if (!parsed) return fallbackAttributedLinkId
+
+  const inviteLink = parsed.inviteLink
+  const inviteLookupKey = normalizeInviteLink(inviteLink) || String(inviteLink || '').trim() || null
+  if (inviteLookupKey) {
+    const resolvedFromInvite = linksByChannelInvite.get(inviteLookupKey)
+    if (resolvedFromInvite) return resolvedFromInvite
+  }
+
+  const guessedFromInviteName = guessLinkIdByInviteName(parsed.inviteLinkName, marketingLinks)
+  if (guessedFromInviteName && mkLinkIds.has(guessedFromInviteName)) {
+    return guessedFromInviteName
+  }
+
+  return fallbackAttributedLinkId
+}
+
 function normalizeTelegramChatIdForApi(value: string): string {
   const raw = String(value || '').trim()
   if (!raw) return raw
@@ -4392,157 +4562,24 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 
     // Get all marketing links to match with users
     const marketingLinks = await prisma.marketingLink.findMany()
+    const mkLinkIds = new Set(marketingLinks.map(l => l.linkId))
     const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
     const linksByChannelInvite = new Map(
       marketingLinks
         .filter(l => Boolean((l as any).channelInviteLink))
-        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l.linkId] as const)
     )
-
-    const tokenVariants = (token: string): string[] => {
-      const t = token.toLowerCase().trim()
-      if (!t) return []
-      if (t === 'fb') return ['fb', 'facebook']
-      if (t === 'tt') return ['tt', 'tiktok']
-      if (t === 'ig') return ['ig', 'instagram']
-      if (t === 'yt') return ['yt', 'youtube']
-      return [t]
-    }
-
-    const guessLinkIdByInviteName = (inviteName: unknown): string | null => {
-      const raw = String(inviteName || '').trim().toLowerCase()
-      if (!raw) return null
-
-      const tokens = raw.split(/[^a-z0-9]+/).map((t) => t.trim()).filter(Boolean)
-      if (tokens.length === 0) return null
-
-      let best: { linkId: string; score: number } | null = null
-      let secondBestScore = -1
-
-      for (const link of marketingLinks) {
-        const fields = [
-          String(link.linkId || '').toLowerCase(),
-          String(link.source || '').toLowerCase(),
-          String(link.stream || '').toLowerCase(),
-          String(link.geo || '').toLowerCase(),
-          String(link.creative || '').toLowerCase(),
-          String(link.trafficerName || '').toLowerCase(),
-        ]
-
-        let score = 0
-        for (const token of tokens) {
-          const variants = tokenVariants(token)
-          const matched = variants.some((variant) => fields.some((f) => f.includes(variant)))
-          if (matched) score += 1
-        }
-
-        if (!best || score > best.score) {
-          secondBestScore = best?.score ?? -1
-          best = { linkId: link.linkId, score }
-        } else if (score > secondBestScore) {
-          secondBestScore = score
-        }
-      }
-
-      if (!best) return null
-      const minRequiredScore = Math.min(2, tokens.length)
-      if (best.score < minRequiredScore) return null
-      if (best.score === secondBestScore) return null
-
-      return best.linkId
-    }
 
     // Calculate additional fields and get marketing link info
     const enrichedUsers = await Promise.all(users.map(async (user) => {
       const firstDeposit = user.deposits[0]
       const totalProfit = user.dailyUpdates.reduce((sum: number, update: { amount: number }) => sum + update.amount, 0)
-      
-      // Find marketing link for this user by linkId stored in utmParams
-      let marketingLink: (typeof marketingLinks)[number] | null = null
-      let attributedLinkId: string | null = null
-
-      const applyLinkIdCandidate = (candidate: unknown) => {
-        const raw = String(candidate || '').trim()
-        if (!raw) return
-
-        const direct = linksByLinkId.get(raw)
-        if (direct) {
-          marketingLink = direct
-          attributedLinkId = String(direct.linkId)
-          return
-        }
-
-        const mkMatch = raw.match(/mk_[a-zA-Z0-9_-]+/)
-        if (mkMatch) {
-          const mk = mkMatch[0]
-          attributedLinkId = mk
-          const matchedMkLink = linksByLinkId.get(mk) || null
-          if (matchedMkLink) {
-            marketingLink = matchedMkLink
-          }
-        }
-      }
-
-      if (user.utmParams) {
-        const rawUtmValue = String(user.utmParams).trim()
-        if (rawUtmValue && rawUtmValue.toLowerCase() !== 'channel' && !rawUtmValue.startsWith('{')) {
-          applyLinkIdCandidate(rawUtmValue)
-        }
-      }
-
-      // Also check if user has linkId directly stored
-      if (!marketingLink && (user as any).linkId) {
-        applyLinkIdCandidate((user as any).linkId)
-      }
-
-      // Channel attribution: if the user joined via a Telegram invite link whose name contains mk_...
-      // (recommended: set the invite link name to the marketing linkId), attribute the lead to that link.
-      if (!marketingLink) {
-        const rawUtm = (user as any).utmParams
-        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(rawUtm)
-            const inviteLinkName = parsed?.inviteLinkName
-            const inviteLink = parsed?.inviteLink
-            const candidateSource = String(inviteLinkName || inviteLink || '')
-            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_-]+/)
-            const candidateLinkId = mkMatch ? mkMatch[0] : null
-            if (candidateLinkId) {
-              attributedLinkId = candidateLinkId
-              marketingLink = linksByLinkId.get(candidateLinkId) || null
-            } else {
-              const guessedLinkId = guessLinkIdByInviteName(inviteLinkName)
-              if (guessedLinkId) {
-                attributedLinkId = guessedLinkId
-                marketingLink = linksByLinkId.get(guessedLinkId) || null
-              }
-            }
-          } catch {
-            // ignore JSON parse errors
-          }
-        }
-      }
-
-      // Channel attribution: exact match by inviteLink URL against stored marketingLink.channelInviteLink
-      if (!marketingLink) {
-        const rawUtm = (user as any).utmParams
-        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(rawUtm)
-            const inviteLink = parsed?.inviteLink
-            if (inviteLink) {
-              const key = normalizeInviteLink(inviteLink) || String(inviteLink)
-              const matchedLink = linksByChannelInvite.get(key) || null
-              if (matchedLink) {
-                marketingLink = matchedLink
-                attributedLinkId = String(matchedLink.linkId)
-              }
-            }
-          } catch {
-            // ignore JSON parse errors
-          }
-        }
-      }
+      const attributedLinkId = extractAttributedMarketingLinkId(user, {
+        marketingLinks,
+        mkLinkIds,
+        linksByChannelInvite,
+      })
+      const marketingLink = attributedLinkId ? linksByLinkId.get(attributedLinkId) || null : null
       
       // CRM users table should display the marketing Link ID itself (mk_...).
       const linkName = marketingLink?.linkId || attributedLinkId || null
@@ -4854,60 +4891,23 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
     }>>
 
     const marketingLinks = await prisma.marketingLink.findMany()
+    const mkLinkIds = new Set(marketingLinks.map(l => l.linkId))
     const linksByLinkId = new Map(marketingLinks.map(l => [l.linkId, l]))
     const linksByChannelInvite = new Map(
       marketingLinks
         .filter(l => Boolean((l as any).channelInviteLink))
-        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l.linkId] as const)
     )
 
     const enrichedUsers = await Promise.all(users.map(async (user) => {
       const firstDeposit = user.deposits[0]
       const totalProfit = user.dailyUpdates.reduce((sum: number, update: { amount: number }) => sum + update.amount, 0)
-
-      let marketingLink = null
-      if (user.utmParams) {
-        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
-        if (linkIdMatch) {
-          marketingLink = linksByLinkId.get(linkIdMatch[0])
-        }
-      }
-      if (!marketingLink && (user as any).linkId) {
-        marketingLink = linksByLinkId.get((user as any).linkId)
-      }
-      if (!marketingLink) {
-        const rawUtm = (user as any).utmParams
-        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(rawUtm)
-            const inviteLinkName = parsed?.inviteLinkName
-            const inviteLink = parsed?.inviteLink
-            const candidateSource = String(inviteLinkName || inviteLink || '')
-            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_-]+/)
-            const candidateLinkId = mkMatch ? mkMatch[0] : null
-            if (candidateLinkId) {
-              marketingLink = linksByLinkId.get(candidateLinkId) || null
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-      if (!marketingLink) {
-        const rawUtm = (user as any).utmParams
-        if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(rawUtm)
-            const inviteLink = parsed?.inviteLink
-            if (inviteLink) {
-              const key = normalizeInviteLink(inviteLink) || String(inviteLink)
-              marketingLink = linksByChannelInvite.get(key) || null
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
+      const attributedLinkId = extractAttributedMarketingLinkId(user, {
+        marketingLinks,
+        mkLinkIds,
+        linksByChannelInvite,
+      })
+      const marketingLink = attributedLinkId ? linksByLinkId.get(attributedLinkId) || null : null
 
       return {
         ...user,
@@ -4923,8 +4923,8 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
               marketingLink.geo,
               marketingLink.creative,
             ].filter(Boolean).join('_') || marketingLink.linkId
-          : null,
-        linkId: marketingLink?.linkId || null,
+          : attributedLinkId,
+        linkId: marketingLink?.linkId || attributedLinkId || null,
       }
     }))
 
