@@ -4399,6 +4399,59 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
     )
 
+    const tokenVariants = (token: string): string[] => {
+      const t = token.toLowerCase().trim()
+      if (!t) return []
+      if (t === 'fb') return ['fb', 'facebook']
+      if (t === 'tt') return ['tt', 'tiktok']
+      if (t === 'ig') return ['ig', 'instagram']
+      if (t === 'yt') return ['yt', 'youtube']
+      return [t]
+    }
+
+    const guessLinkIdByInviteName = (inviteName: unknown): string | null => {
+      const raw = String(inviteName || '').trim().toLowerCase()
+      if (!raw) return null
+
+      const tokens = raw.split(/[^a-z0-9]+/).map((t) => t.trim()).filter(Boolean)
+      if (tokens.length === 0) return null
+
+      let best: { linkId: string; score: number } | null = null
+      let secondBestScore = -1
+
+      for (const link of marketingLinks) {
+        const fields = [
+          String(link.linkId || '').toLowerCase(),
+          String(link.source || '').toLowerCase(),
+          String(link.stream || '').toLowerCase(),
+          String(link.geo || '').toLowerCase(),
+          String(link.creative || '').toLowerCase(),
+          String(link.trafficerName || '').toLowerCase(),
+        ]
+
+        let score = 0
+        for (const token of tokens) {
+          const variants = tokenVariants(token)
+          const matched = variants.some((variant) => fields.some((f) => f.includes(variant)))
+          if (matched) score += 1
+        }
+
+        if (!best || score > best.score) {
+          secondBestScore = best?.score ?? -1
+          best = { linkId: link.linkId, score }
+        } else if (score > secondBestScore) {
+          secondBestScore = score
+        }
+      }
+
+      if (!best) return null
+      const minRequiredScore = Math.min(2, tokens.length)
+      if (best.score < minRequiredScore) return null
+      if (best.score === secondBestScore) return null
+
+      return best.linkId
+    }
+
     // Calculate additional fields and get marketing link info
     const enrichedUsers = await Promise.all(users.map(async (user) => {
       const firstDeposit = user.deposits[0]
@@ -4457,6 +4510,12 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             if (candidateLinkId) {
               attributedLinkId = candidateLinkId
               marketingLink = linksByLinkId.get(candidateLinkId) || null
+            } else {
+              const guessedLinkId = guessLinkIdByInviteName(inviteLinkName)
+              if (guessedLinkId) {
+                attributedLinkId = guessedLinkId
+                marketingLink = linksByLinkId.get(guessedLinkId) || null
+              }
             }
           } catch {
             // ignore JSON parse errors

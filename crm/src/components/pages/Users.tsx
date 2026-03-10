@@ -388,7 +388,8 @@ export function Users() {
                     const linkIdFromRecord = String(user.linkId || '').trim()
                     const linkIdFromName = String(user.linkName || '').match(/mk_[a-zA-Z0-9_-]+/)?.[0] || ''
                     const linkIdFromUtm = String(user.utmParams || '').match(/mk_[a-zA-Z0-9_-]+/)?.[0] || ''
-                    const displayLinkId = linkIdFromRecord || linkIdFromName || linkIdFromUtm
+                    const rawLinkName = String(user.linkName || '').trim()
+                    const displayLinkId = linkIdFromRecord || linkIdFromName || linkIdFromUtm || rawLinkName
 
                     return (
                     <TableRow key={user.id} className="hover:bg-muted/30">
