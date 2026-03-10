@@ -41,43 +41,57 @@ function normalizeInviteLink(value: unknown): string | null {
   if (typeof value !== 'string') return null
   let v = value.trim()
   if (!v) return null
-  v = v.replace(/^https?:\/\//i, '')
-  v = v.replace(/^www\./i, '')
-  v = v.replace(/^t\.me\//i, '')
-  v = v.replace(/^telegram\.me\//i, '')
+  try {
+    v = decodeURIComponent(v)
+  } catch {
+    // Keep raw value if it isn't URI-encoded.
+  }
+  v = v.replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, '')
+  v = v.replace(/^@/, '')
+  v = v.split(/[?#]/)[0] || v
+  v = v.replace(/^joinchat\//i, '')
+  v = v.replace(/^\+/, '')
   v = v.replace(/\/+$/g, '')
+
+  // Invite links and @channel links use the first path segment as identifier.
+  if (v.includes('/')) {
+    v = v.split('/')[0] || v
+  }
+
   return v || null
 }
 
 function extractMkLinkId(value: unknown): string | null {
   if (!value) return null
   const s = typeof value === 'string' ? value : JSON.stringify(value)
-  const m = s.match(/mk_[a-zA-Z0-9_]+/)
+  const m = s.match(/mk_[a-zA-Z0-9_-]+/)
   return m ? m[0] : null
 }
 
 async function resolveMarketingLinkIdFromInvite(inviteLink: any): Promise<string | null> {
   // 1) Best case: invite link has a name equal to mk_...
   const mkFromName = extractMkLinkId(inviteLink?.name)
-  if (mkFromName) return mkFromName
+  if (mkFromName) {
+    const foundById = await prisma.marketingLink.findUnique({
+      where: { linkId: mkFromName },
+      select: { linkId: true },
+    }).catch(() => null)
+    if (foundById?.linkId) return String(foundById.linkId)
+  }
 
   // 2) Fallback: match invite URL against stored marketingLink.channelInviteLink
   const inviteUrl = inviteLink?.invite_link || inviteLink
   const normalizedInvite = normalizeInviteLink(inviteUrl)
   if (!normalizedInvite) return null
 
-  try {
-    const links = await prisma.marketingLink.findMany({
-      where: { channelInviteLink: { not: null } },
-      select: { linkId: true, channelInviteLink: true },
-    })
+  const links = await prisma.marketingLink.findMany({
+    where: { channelInviteLink: { not: null } },
+    select: { linkId: true, channelInviteLink: true },
+  }).catch(() => [])
 
-    for (const l of links as any[]) {
-      const normalizedStored = normalizeInviteLink(l.channelInviteLink)
-      if (normalizedStored && normalizedStored === normalizedInvite) return String(l.linkId)
-    }
-  } catch {
-    // ignore
+  for (const l of links as any[]) {
+    const normalizedStored = normalizeInviteLink(l.channelInviteLink)
+    if (normalizedStored && normalizedStored === normalizedInvite) return String(l.linkId)
   }
 
   return null
@@ -288,7 +302,7 @@ bot.on('chat_member', async (ctx) => {
     // Prefer precise mk_* attribution when available.
     if (resolvedLinkId) {
       const cur = String(existing.utmParams || '').trim()
-      const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_]+/))
+      const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_-]+/))
       if (!alreadyHasMk) data.utmParams = resolvedLinkId
     } else if (!existing.utmParams) {
       data.utmParams = utmParams
@@ -406,7 +420,7 @@ bot.on('chat_join_request', async (ctx) => {
     if (!existing.marketingSource) data.marketingSource = 'Channel'
     if (resolvedLinkId) {
       const cur = String(existing.utmParams || '').trim()
-      const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_]+/))
+      const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_-]+/))
       if (!alreadyHasMk) data.utmParams = resolvedLinkId
     } else if (!existing.utmParams) {
       data.utmParams = utmParams
@@ -829,7 +843,7 @@ bot.command('start', async (ctx) => {
   // but store the precise mk_* attribution in utmParams.
   if (user && linkId) {
     const cur = String(user.utmParams || '').trim()
-    const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_]+/))
+    const alreadyHasMk = Boolean(cur.match(/mk_[a-zA-Z0-9_-]+/))
     if (!alreadyHasMk) {
       user = await prisma.user.update({
         where: { telegramId },

@@ -282,11 +282,23 @@ function normalizeInviteLink(value: unknown): string | null {
   if (typeof value !== 'string') return null
   let v = value.trim()
   if (!v) return null
-  v = v.replace(/^https?:\/\//i, '')
-  v = v.replace(/^www\./i, '')
-  v = v.replace(/^t\.me\//i, '')
-  v = v.replace(/^telegram\.me\//i, '')
+  try {
+    v = decodeURIComponent(v)
+  } catch {
+    // Keep raw value if it isn't URI-encoded.
+  }
+  v = v.replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, '')
+  v = v.replace(/^@/, '')
+  v = v.split(/[?#]/)[0] || v
+  v = v.replace(/^joinchat\//i, '')
+  v = v.replace(/^\+/, '')
   v = v.replace(/\/+$/g, '')
+
+  // Invite links and @channel links use the first path segment as identifier.
+  if (v.includes('/')) {
+    v = v.split('/')[0] || v
+  }
+
   return v || null
 }
 
@@ -3778,14 +3790,14 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
     const extractAttributedLinkId = (user: { utmParams: string | null }): string | null => {
       const raw = user.utmParams
       if (typeof raw === 'string') {
-        const directMk = raw.match(/mk_[a-zA-Z0-9_]+/)
+        const directMk = raw.match(/mk_[a-zA-Z0-9_-]+/)
         if (directMk && mkLinkIds.has(directMk[0])) return directMk[0]
 
         if (raw.trim().startsWith('{')) {
           try {
             const parsed = JSON.parse(raw)
             const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
-            const mk = candidate.match(/mk_[a-zA-Z0-9_]+/)
+            const mk = candidate.match(/mk_[a-zA-Z0-9_-]+/)
             if (mk && mkLinkIds.has(mk[0])) return mk[0]
 
             const inv = parsed?.inviteLink
@@ -4396,7 +4408,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       let marketingLink = null
       if (user.utmParams) {
         // Check if utmParams contains a linkId (mk_...)
-        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
         if (linkIdMatch) {
           marketingLink = linksByLinkId.get(linkIdMatch[0])
         }
@@ -4416,7 +4428,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             const inviteLinkName = parsed?.inviteLinkName
             const inviteLink = parsed?.inviteLink
             const candidateSource = String(inviteLinkName || inviteLink || '')
-            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_]+/)
+            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_-]+/)
             const candidateLinkId = mkMatch ? mkMatch[0] : null
             if (candidateLinkId) {
               marketingLink = linksByLinkId.get(candidateLinkId) || null
@@ -4468,8 +4480,14 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
           if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
             try {
               const parsed = JSON.parse(rawUtm)
-              if (parsed?.inviteLinkName) channelLinkName = String(parsed.inviteLinkName)
-              else if (parsed?.inviteLink) channelLinkName = String(parsed.inviteLink)
+              // Avoid exposing arbitrary invite labels (e.g. "Fb ES") as CRM links.
+              // Keep CHANNEL unless invite name explicitly contains a mk_* id.
+              if (parsed?.inviteLinkName) {
+                const inviteName = String(parsed.inviteLinkName)
+                if (inviteName.match(/mk_[a-zA-Z0-9_-]+/)) {
+                  channelLinkName = inviteName
+                }
+              }
             } catch {
               // ignore JSON parse errors
             }
@@ -4642,7 +4660,7 @@ app.get('/api/admin/users-stats', requireAdminAuth, async (req, res) => {
         if (utmParams && typeof utmParams === 'string' && utmParams.trim().startsWith('{')) {
           try {
             const parsed = JSON.parse(utmParams)
-            const linkIdMatch = parsed?.linkId || (typeof parsed === 'string' ? parsed.match?.(/mk_[a-zA-Z0-9_]+/) : null)
+            const linkIdMatch = parsed?.linkId || (typeof parsed === 'string' ? parsed.match?.(/mk_[a-zA-Z0-9_-]+/) : null)
             if (linkIdMatch) {
               const link = linksByLinkId.get(typeof linkIdMatch === 'string' ? linkIdMatch : linkIdMatch[0])
               trafficerName = link?.trafficerName || null
@@ -4798,7 +4816,7 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
 
       let marketingLink = null
       if (user.utmParams) {
-        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
         if (linkIdMatch) {
           marketingLink = linksByLinkId.get(linkIdMatch[0])
         }
@@ -4814,7 +4832,7 @@ app.get('/api/admin/deposit-users', requireAdminAuth, async (req, res) => {
             const inviteLinkName = parsed?.inviteLinkName
             const inviteLink = parsed?.inviteLink
             const candidateSource = String(inviteLinkName || inviteLink || '')
-            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_]+/)
+            const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_-]+/)
             const candidateLinkId = mkMatch ? mkMatch[0] : null
             if (candidateLinkId) {
               marketingLink = linksByLinkId.get(candidateLinkId) || null
@@ -5513,7 +5531,7 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
       let marketingLink = null
       let linkName = null
       if (deposit.user.utmParams) {
-        const linkIdMatch = deposit.user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        const linkIdMatch = deposit.user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
         if (linkIdMatch) {
           marketingLink = linksByLinkId.get(linkIdMatch[0])
           if (marketingLink) {
@@ -7644,7 +7662,7 @@ app.get('/api/marketing-links/:linkId/channel-invite', async (req, res) => {
   try {
     const { linkId } = req.params
     if (!linkId) return res.status(400).json({ error: 'linkId is required' })
-    if (!/^mk_[a-zA-Z0-9_]+$/.test(linkId)) {
+    if (!/^mk_[a-zA-Z0-9_-]+$/.test(linkId)) {
       return res.status(400).json({ error: 'Invalid linkId' })
     }
 
@@ -7744,14 +7762,14 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     const extractAttributedLinkId = (user: any): string | null => {
       const raw = user?.utmParams
       if (typeof raw === 'string') {
-        const directMk = raw.match(/mk_[a-zA-Z0-9_]+/)
+        const directMk = raw.match(/mk_[a-zA-Z0-9_-]+/)
         if (directMk && mkLinkIds.has(directMk[0])) return directMk[0]
 
         if (raw.trim().startsWith('{')) {
           try {
             const parsed = JSON.parse(raw)
             const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
-            const mk = candidate.match(/mk_[a-zA-Z0-9_]+/)
+            const mk = candidate.match(/mk_[a-zA-Z0-9_-]+/)
             if (mk && mkLinkIds.has(mk[0])) return mk[0]
 
             const inv = parsed?.inviteLink
@@ -7923,7 +7941,7 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
       try {
         const parsed = JSON.parse(trimmed)
         const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
-        const match = candidate.match(/mk_[a-zA-Z0-9_]+/)
+        const match = candidate.match(/mk_[a-zA-Z0-9_-]+/)
         const linkId = match ? match[0] : null
         if (linkId && mkLinkIds.has(linkId)) return linkId
       } catch {
@@ -7938,7 +7956,7 @@ app.get('/api/admin/marketing-stats', requireAdminAuth, async (_req, res) => {
 
       // If user has mk_... stored directly in utmParams, attribute by that linkId (more precise)
       if (user.utmParams) {
-        const directMk = user.utmParams.match(/mk_[a-zA-Z0-9_]+/)
+        const directMk = user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
         if (directMk && mkLinkIds.has(directMk[0])) {
           source = directMk[0]
         }
