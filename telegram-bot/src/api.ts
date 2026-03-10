@@ -4406,16 +4406,23 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       
       // Find marketing link for this user by linkId stored in utmParams
       let marketingLink = null
+      let attributedLinkId: string | null = null
       if (user.utmParams) {
         // Check if utmParams contains a linkId (mk_...)
         const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
         if (linkIdMatch) {
+          attributedLinkId = linkIdMatch[0]
           marketingLink = linksByLinkId.get(linkIdMatch[0])
         }
       }
       // Also check if user has linkId directly stored
       if (!marketingLink && (user as any).linkId) {
-        marketingLink = linksByLinkId.get((user as any).linkId)
+        const rawLinkId = String((user as any).linkId)
+        const directLinkMatch = rawLinkId.match(/mk_[a-zA-Z0-9_-]+/)
+        if (directLinkMatch) {
+          attributedLinkId = directLinkMatch[0]
+          marketingLink = linksByLinkId.get(directLinkMatch[0])
+        }
       }
 
       // Channel attribution: if the user joined via a Telegram invite link whose name contains mk_...
@@ -4431,6 +4438,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             const mkMatch = candidateSource.match(/mk_[a-zA-Z0-9_-]+/)
             const candidateLinkId = mkMatch ? mkMatch[0] : null
             if (candidateLinkId) {
+              attributedLinkId = candidateLinkId
               marketingLink = linksByLinkId.get(candidateLinkId) || null
             }
           } catch {
@@ -4448,7 +4456,11 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             const inviteLink = parsed?.inviteLink
             if (inviteLink) {
               const key = normalizeInviteLink(inviteLink) || String(inviteLink)
-              marketingLink = linksByChannelInvite.get(key) || null
+              const matchedLink = linksByChannelInvite.get(key) || null
+              if (matchedLink) {
+                marketingLink = matchedLink
+                attributedLinkId = String(matchedLink.linkId)
+              }
             }
           } catch {
             // ignore JSON parse errors
@@ -4475,24 +4487,8 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
           || String((user as any).utmParams || '').toLowerCase() === 'channel'
 
         if (isChannelSource) {
-          let channelLinkName: string | null = 'CHANNEL'
-          const rawUtm = (user as any).utmParams
-          if (rawUtm && typeof rawUtm === 'string' && rawUtm.trim().startsWith('{')) {
-            try {
-              const parsed = JSON.parse(rawUtm)
-              // Avoid exposing arbitrary invite labels (e.g. "Fb ES") as CRM links.
-              // Keep CHANNEL unless invite name explicitly contains a mk_* id.
-              if (parsed?.inviteLinkName) {
-                const inviteName = String(parsed.inviteLinkName)
-                if (inviteName.match(/mk_[a-zA-Z0-9_-]+/)) {
-                  channelLinkName = inviteName
-                }
-              }
-            } catch {
-              // ignore JSON parse errors
-            }
-          }
-          linkName = channelLinkName
+          // Prefer attributed mk_* linkId over generic CHANNEL label.
+          linkName = attributedLinkId || 'CHANNEL'
         }
       }
       
@@ -4503,7 +4499,7 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         totalProfit,
         trafficerName: marketingLink?.trafficerName || null,
         linkName: linkName,
-        linkId: marketingLink?.linkId || null,
+        linkId: marketingLink?.linkId || attributedLinkId || null,
       }
     }))
 
