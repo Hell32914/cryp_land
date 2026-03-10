@@ -348,7 +348,7 @@ export function Users() {
                     </TableHead>
                     <TableHead className="text-right">Net (D-W)</TableHead>
                     <TableHead>Trafficker</TableHead>
-                    <TableHead>Link Name</TableHead>
+                    <TableHead>Link ID</TableHead>
                     <TableHead>Blocked</TableHead>
                     <TableHead className="text-center">Referrals</TableHead>
                     <TableHead 
@@ -385,6 +385,10 @@ export function Users() {
                     const normalizedStatus = String(user.status || '').toUpperCase()
                     const displayStatus = isLeadLike && normalizedStatus === 'ACTIVE' ? 'INACTIVE' : user.status
                     const statusClass = getStatusColor(isLeadLike && normalizedStatus === 'ACTIVE' ? 'INACTIVE' : user.status)
+                    const linkIdFromRecord = String(user.linkId || '').trim()
+                    const linkIdFromName = String(user.linkName || '').match(/mk_[a-zA-Z0-9_-]+/)?.[0] || ''
+                    const linkIdFromUtm = String(user.utmParams || '').match(/mk_[a-zA-Z0-9_-]+/)?.[0] || ''
+                    const displayLinkId = linkIdFromRecord || linkIdFromName || linkIdFromUtm
 
                     return (
                     <TableRow key={user.id} className="hover:bg-muted/30">
@@ -430,8 +434,8 @@ export function Users() {
                       <TableCell className="text-sm text-blue-400">
                         {user.trafficerName || '—'}
                       </TableCell>
-                      <TableCell className="text-sm text-purple-400 whitespace-normal break-all" title={user.linkName || ''}>
-                        {user.linkName || '—'}
+                      <TableCell className="text-sm text-purple-400 whitespace-normal break-all" title={displayLinkId || ''}>
+                        {displayLinkId || '—'}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={user.isBlocked ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}>
