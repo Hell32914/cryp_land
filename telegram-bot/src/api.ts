@@ -4408,18 +4408,29 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       let marketingLink = null
       let attributedLinkId: string | null = null
       if (user.utmParams) {
+        const rawUtmValue = String(user.utmParams).trim()
+        if (rawUtmValue && rawUtmValue.toLowerCase() !== 'channel' && !rawUtmValue.startsWith('{')) {
+          attributedLinkId = rawUtmValue
+          marketingLink = linksByLinkId.get(rawUtmValue) || null
+        }
+
         // Check if utmParams contains a linkId (mk_...)
-        const linkIdMatch = user.utmParams.match(/mk_[a-zA-Z0-9_-]+/)
-        if (linkIdMatch) {
+        const linkIdMatch = String(user.utmParams).match(/mk_[a-zA-Z0-9_-]+/)
+        if (!marketingLink && linkIdMatch) {
           attributedLinkId = linkIdMatch[0]
           marketingLink = linksByLinkId.get(linkIdMatch[0])
         }
       }
       // Also check if user has linkId directly stored
       if (!marketingLink && (user as any).linkId) {
-        const rawLinkId = String((user as any).linkId)
+        const rawLinkId = String((user as any).linkId).trim()
+        if (rawLinkId) {
+          attributedLinkId = rawLinkId
+          marketingLink = linksByLinkId.get(rawLinkId) || null
+        }
+
         const directLinkMatch = rawLinkId.match(/mk_[a-zA-Z0-9_-]+/)
-        if (directLinkMatch) {
+        if (!marketingLink && directLinkMatch) {
           attributedLinkId = directLinkMatch[0]
           marketingLink = linksByLinkId.get(directLinkMatch[0])
         }
@@ -4440,6 +4451,14 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
             if (candidateLinkId) {
               attributedLinkId = candidateLinkId
               marketingLink = linksByLinkId.get(candidateLinkId) || null
+            } else if (!attributedLinkId) {
+              const rawInviteName = String(inviteLinkName || '').trim()
+              const rawInviteLink = String(inviteLink || '').trim()
+              if (rawInviteName) {
+                attributedLinkId = rawInviteName
+              } else if (rawInviteLink) {
+                attributedLinkId = normalizeInviteLink(rawInviteLink) || rawInviteLink
+              }
             }
           } catch {
             // ignore JSON parse errors
@@ -4480,6 +4499,12 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         linkName = parts.length > 0 ? parts.join('_') : marketingLink.linkId
       }
 
+      // Fallback: if we could attribute user to mk_* but marketing link metadata is missing,
+      // still expose the traffic link id in CRM instead of an empty value.
+      if (!linkName && attributedLinkId) {
+        linkName = attributedLinkId
+      }
+
       // If user came from Telegram channel, expose it as Link Name in CRM.
       // This makes channel leads visible even without mk_ marketing links.
       if (!linkName) {
@@ -4489,6 +4514,15 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
         if (isChannelSource) {
           // Prefer attributed mk_* linkId over generic CHANNEL label.
           linkName = attributedLinkId || 'CHANNEL'
+        }
+      }
+
+      // Final fallback for legacy traffic: keep some attribution visible in CRM
+      // even when marketing link metadata is unavailable.
+      if (!linkName) {
+        const rawSource = String((user as any).marketingSource || '').trim()
+        if (rawSource && rawSource.toLowerCase() !== 'channel') {
+          linkName = rawSource
         }
       }
       
