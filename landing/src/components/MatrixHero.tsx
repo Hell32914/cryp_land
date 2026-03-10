@@ -4,10 +4,12 @@ import { motion } from "framer-motion"
 import { useEffect, useRef } from "react"
 import { Cpu, Lightning, TrendUp, ArrowRight } from "@phosphor-icons/react"
 import { useLanguage } from "@/lib/LanguageContext"
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 export function MatrixHero() {
   const { t } = useLanguage()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { botUrl } = useTelegramTrackingUrls()
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -179,7 +181,7 @@ export function MatrixHero() {
                 className="group relative overflow-hidden px-8 py-6 text-base shadow-lg transition-all hover:shadow-xl"
                 asChild
               >
-                <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                <a href={botUrl} target="_blank" rel="noopener noreferrer">
                   <motion.div
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                     initial={{ x: "-100%" }}

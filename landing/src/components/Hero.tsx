@@ -3,9 +3,11 @@ import { ArrowRight, Sparkle, Lightning } from "@phosphor-icons/react"
 import { motion } from "framer-motion"
 import { useLanguage } from "@/lib/LanguageContext"
 import { Logo } from "@/components/Logo"
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 export function Hero() {
   const { t } = useLanguage()
+  const { botUrl } = useTelegramTrackingUrls()
   
   return (
     <section className="relative overflow-hidden py-20 lg:py-32">
@@ -102,7 +104,7 @@ export function Hero() {
             transition={{ delay: 0.6, duration: 0.6 }}
           >
             <Button size="lg" className="group relative overflow-hidden px-8 py-6 text-base shadow-lg transition-all hover:shadow-xl" asChild>
-              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+              <a href={botUrl} target="_blank" rel="noopener noreferrer">
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                   initial={{ x: "-100%" }}

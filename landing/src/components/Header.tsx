@@ -5,29 +5,15 @@ import { motion, AnimatePresence } from "framer-motion"
 import { LanguageSelector } from "@/components/LanguageSelector"
 import { useLanguage } from "@/lib/LanguageContext"
 import { WhitepaperDialog } from "@/components/WhitepaperDialog"
-
-function getTelegramChannelTrackingUrl() {
-  if (typeof window === 'undefined') return 'https://t.me/SyntrixAI'
-
-  const host = window.location.hostname.toLowerCase()
-  const map: Record<string, string> = {
-    'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
-    'ss.syntrixxx.site': 'https://t.me/+YmFilnI8DbFjNWEy',
-    'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
-    'road.syntrixxx.site': 'https://t.me/+TLo5_JI7r0wxODky',
-    'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
-    'invest.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
-  }
-
-  return map[host] || 'https://t.me/SyntrixAI'
-}
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { t } = useLanguage()
+  const { botUrl, channelUrl } = useTelegramTrackingUrls()
 
   const navItems = [
-    { label: t.header.telegramChannel, href: getTelegramChannelTrackingUrl(), external: true }
+    { label: t.header.telegramChannel, href: channelUrl, external: true }
   ]
 
   return (
@@ -111,7 +97,7 @@ export function Header() {
           >
             <LanguageSelector />
             <Button className="group relative overflow-hidden" asChild>
-              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+              <a href={botUrl} target="_blank" rel="noopener noreferrer">
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                   initial={{ x: "-100%" }}
@@ -159,7 +145,7 @@ export function Header() {
                 <div className="flex flex-col gap-2 pt-4">
                   <LanguageSelector />
                   <Button className="w-full" asChild>
-                    <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                    <a href={botUrl} target="_blank" rel="noopener noreferrer">
                       {t.header.getStarted}
                     </a>
                   </Button>

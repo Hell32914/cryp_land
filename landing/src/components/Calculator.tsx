@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { TrendUp, CurrencyDollar } from "@phosphor-icons/react"
 import { motion } from "framer-motion"
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 const tariffPlans = [
   { name: 'Bronze', minDeposit: 50, maxDeposit: 99, dailyPercent: 0.3 },
@@ -26,6 +27,7 @@ const timePeriods = [
 ]
 
 export function Calculator() {
+  const { botUrl } = useTelegramTrackingUrls()
   const [investment, setInvestment] = useState<string>("1000")
   const [days, setDays] = useState<string>("30")
   const [reinvest, setReinvest] = useState<boolean>(false)
@@ -255,7 +257,7 @@ export function Calculator() {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button size="lg" className="group relative overflow-hidden px-8 shadow-lg" asChild>
-                  <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                  <a href={botUrl} target="_blank" rel="noopener noreferrer">
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                       initial={{ x: "-100%" }}

@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { useLanguage } from "@/lib/LanguageContext"
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 export function FinalCTA() {
   const { t } = useLanguage()
+  const { botUrl } = useTelegramTrackingUrls()
   
   return (
     <section className="relative overflow-hidden py-24 md:py-32">
@@ -46,7 +48,7 @@ export function FinalCTA() {
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg px-12 py-6 h-auto shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               asChild
             >
-              <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+              <a href={botUrl} target="_blank" rel="noopener noreferrer">
                 {t.finalCTA?.button || "JOIN BOT"}
               </a>
             </Button>

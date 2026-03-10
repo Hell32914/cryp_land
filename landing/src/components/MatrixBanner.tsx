@@ -2,9 +2,11 @@ import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { useEffect, useRef } from "react"
 import { TelegramLogo } from "@phosphor-icons/react"
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 export function MatrixBanner() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { botUrl } = useTelegramTrackingUrls()
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -128,7 +130,7 @@ export function MatrixBanner() {
                 }}
                 asChild
               >
-                <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                <a href={botUrl} target="_blank" rel="noopener noreferrer">
                   <motion.span
                     className="relative flex items-center gap-2"
                     whileHover={{ scale: 1.05 }}

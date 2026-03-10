@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check } from "@phosphor-icons/react"
 import { motion } from "framer-motion"
+import { useTelegramTrackingUrls } from "@/lib/telegram-links"
 
 const plans = [
   {
@@ -54,6 +55,7 @@ const plans = [
 ]
 
 export function Pricing() {
+  const { botUrl } = useTelegramTrackingUrls()
   return (
     <section className="py-20 lg:py-28">
       <div className="container mx-auto max-w-6xl px-4">
@@ -111,7 +113,7 @@ export function Pricing() {
                     size="lg"
                     asChild
                   >
-                    <a href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">
+                    <a href={botUrl} target="_blank" rel="noopener noreferrer">
                       Начать сейчас
                     </a>
                   </Button>
