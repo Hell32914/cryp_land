@@ -771,6 +771,8 @@ bot.command('start', async (ctx) => {
     } else if (startPayload.startsWith('mk_')) {
       // Marketing link: mk_<linkId>
       linkId = startPayload
+      // Always store the linkId in utmParams for attribution (even if MarketingLink record is missing)
+      utmParams = linkId
 
       // Track click in marketing link
       const marketingLink = await prisma.marketingLink.findUnique({
@@ -784,8 +786,6 @@ bot.command('start', async (ctx) => {
         }).catch(() => {})
 
         marketingSource = marketingLink.source
-        // Store the linkId in utmParams so we can match it later
-        utmParams = linkId
         // Get language from marketing link
         preferredLanguage = marketingLink.language
       }
