@@ -267,7 +267,10 @@ bot.on('chat_member', async (ctx) => {
     if (oldStatus && !leftStatuses.has(oldStatus)) return
 
     const telegramId = String(user.id)
+    console.log(`[chat_member] JOIN telegramId=${telegramId} username=@${user.username} oldStatus=${oldStatus} newStatus=${newStatus}`)
+    console.log(`[chat_member] invite_link:`, JSON.stringify(chatMemberUpdate.invite_link || null))
     const resolvedLinkId = await resolveMarketingLinkIdFromInvite(chatMemberUpdate.invite_link)
+    console.log(`[chat_member] resolvedLinkId=${resolvedLinkId}`)
     const utmParams = resolvedLinkId ? resolvedLinkId : buildChannelUtmParams(chatMemberUpdate.invite_link)
 
     const existing = await prisma.user.findUnique({ where: { telegramId } })
@@ -387,7 +390,10 @@ bot.on('chat_join_request', async (ctx) => {
     if (!user?.id) return
 
     const telegramId = String(user.id)
+    console.log(`[chat_join_request] telegramId=${telegramId} username=@${user.username}`)
+    console.log(`[chat_join_request] invite_link:`, JSON.stringify(joinRequest.invite_link || null))
     const resolvedLinkId = await resolveMarketingLinkIdFromInvite(joinRequest.invite_link)
+    console.log(`[chat_join_request] resolvedLinkId=${resolvedLinkId}`)
     const utmParams = resolvedLinkId ? resolvedLinkId : buildChannelUtmParams(joinRequest.invite_link)
 
     const existing = await prisma.user.findUnique({ where: { telegramId } })
