@@ -758,6 +758,7 @@ bot.command('start', async (ctx) => {
 
   // Parse referral code or marketing params from start parameter (for both new and existing users)
   const startPayload = ctx.match as string
+  console.log(`[/start] telegramId=${telegramId} username=@${ctx.from?.username} startPayload="${startPayload || ''}"`)
   let referrerId: string | null = null
   let marketingSource: string | null = null
   let utmParams: string | null = null
@@ -815,6 +816,8 @@ bot.command('start', async (ctx) => {
       }
     }
   }
+
+  console.log(`[/start] PARSED: linkId=${linkId} utmParams=${utmParams} marketingSource=${marketingSource} referrerId=${referrerId}`)
 
   // Check if user is blocked
   const existingUser = await prisma.user.findUnique({
@@ -875,6 +878,7 @@ bot.command('start', async (ctx) => {
   }
 
   if (!user) {
+    console.log(`[/start] CREATING NEW USER: telegramId=${telegramId} utmParams=${utmParams} marketingSource=${marketingSource} linkId=${linkId}`)
     user = await prisma.user.create({
       data: {
         telegramId,
