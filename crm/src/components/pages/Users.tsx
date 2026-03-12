@@ -348,7 +348,7 @@ export function Users() {
                     </TableHead>
                     <TableHead className="text-right">Net (D-W)</TableHead>
                     <TableHead>Trafficker</TableHead>
-                    <TableHead>Link ID</TableHead>
+                    <TableHead>Link Name</TableHead>
                     <TableHead>Blocked</TableHead>
                     <TableHead className="text-center">Referrals</TableHead>
                     <TableHead 
@@ -385,11 +385,11 @@ export function Users() {
                     const normalizedStatus = String(user.status || '').toUpperCase()
                     const displayStatus = isLeadLike && normalizedStatus === 'ACTIVE' ? 'INACTIVE' : user.status
                     const statusClass = getStatusColor(isLeadLike && normalizedStatus === 'ACTIVE' ? 'INACTIVE' : user.status)
+                    const rawLinkName = String(user.linkName || '').trim()
                     const linkIdFromRecord = String(user.linkId || '').trim()
                     const linkIdFromName = String(user.linkName || '').match(/mk_[a-zA-Z0-9_-]+/)?.[0] || ''
                     const linkIdFromUtm = String(user.utmParams || '').match(/mk_[a-zA-Z0-9_-]+/)?.[0] || ''
-                    const rawLinkName = String(user.linkName || '').trim()
-                    const displayLinkId = linkIdFromRecord || linkIdFromName || linkIdFromUtm || rawLinkName
+                    const displayLinkId = rawLinkName || linkIdFromRecord || linkIdFromName || linkIdFromUtm
 
                     return (
                     <TableRow key={user.id} className="hover:bg-muted/30">
