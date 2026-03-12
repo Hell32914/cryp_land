@@ -207,7 +207,7 @@ export function RefLinks() {
                   <TableRow>
                     <TableHead className="sticky left-0 z-20 bg-muted/50 border-r border-border shadow-[2px_0_0_0_rgba(0,0,0,0.06)]">Trafficker</TableHead>
                     <TableHead>Source</TableHead>
-                    <TableHead>Link ID</TableHead>
+                    <TableHead>Link Name</TableHead>
                     <TableHead>Stream</TableHead>
                     <TableHead>Geo</TableHead>
                     <TableHead>Creative</TableHead>
@@ -323,8 +323,8 @@ export function RefLinks() {
                                   </TableCell>
                                   <TableCell className="text-muted-foreground">{link.source || '—'}</TableCell>
                                   <TableCell>
-                                    <Badge variant="outline" className="font-mono text-xs">
-                                      {link.linkId}
+                                    <Badge variant="outline" className="font-mono text-xs" title={link.linkId}>
+                                      {link.linkName || link.linkId}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-purple-400">
