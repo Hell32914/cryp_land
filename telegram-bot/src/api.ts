@@ -7816,39 +7816,12 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
     const linksByChannelInvite = new Map(
       links
         .filter(l => Boolean((l as any).channelInviteLink))
-        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l] as const)
+        .map(l => [normalizeInviteLink((l as any).channelInviteLink) || String((l as any).channelInviteLink), l.linkId] as const)
     )
-
-    const extractAttributedLinkId = (user: any): string | null => {
-      const raw = user?.utmParams
-      if (typeof raw === 'string') {
-        const directMk = raw.match(/mk_[a-zA-Z0-9_-]+/)
-        if (directMk && mkLinkIds.has(directMk[0])) return directMk[0]
-
-        if (raw.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(raw)
-            const candidate = String(parsed?.inviteLinkName || parsed?.inviteLink || '')
-            const mk = candidate.match(/mk_[a-zA-Z0-9_-]+/)
-            if (mk && mkLinkIds.has(mk[0])) return mk[0]
-
-            const inv = parsed?.inviteLink
-            const key = normalizeInviteLink(inv)
-            if (key) {
-              const link = linksByChannelInvite.get(key)
-              if (link) return link.linkId
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-      return null
-    }
 
     const usersByLinkId = new Map<string, any[]>()
     for (const u of usersAll) {
-      const linkId = extractAttributedLinkId(u)
+      const linkId = extractAttributedMarketingLinkId(u, { marketingLinks: links, mkLinkIds, linksByChannelInvite })
       if (!linkId) continue
       const arr = usersByLinkId.get(linkId) || []
       arr.push(u)
