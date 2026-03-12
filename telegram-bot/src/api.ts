@@ -7804,8 +7804,9 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
 
     // Include users attributed via channel joins (invite links), not only direct bot start payload.
     // This restores per-link visibility for channel funnels.
+    // Note: no EXCLUDED_TELEGRAM_IDS filter here — same as the Users table, so stats match what admins see.
     const usersAll = await prisma.user.findMany({
-      where: { isHidden: false, telegramId: { notIn: EXCLUDED_TELEGRAM_IDS } },
+      where: { isHidden: false },
       include: {
         deposits: { where: { status: 'COMPLETED', NOT: [{ currency: 'PROFIT' }], paymentMethod: { not: 'ADMIN' } } },
         withdrawals: { where: { status: { in: ['COMPLETED', 'APPROVED'] } } },
