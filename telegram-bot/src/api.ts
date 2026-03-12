@@ -4588,8 +4588,10 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
       })
       const marketingLink = attributedLinkId ? linksByLinkId.get(attributedLinkId) || null : null
       
-      // CRM users table should display the marketing Link ID itself (mk_...).
-      const linkName = marketingLink?.linkId || attributedLinkId || null
+      // CRM users table should display a human-readable link name.
+      const linkName = marketingLink
+        ? ([marketingLink.trafficerName, marketingLink.stream, marketingLink.geo, marketingLink.creative].filter(Boolean).join('_') || marketingLink.source)
+        : (attributedLinkId || null)
       
       return {
         ...user,
@@ -7929,7 +7931,7 @@ app.get('/api/admin/marketing-links', requireAdminAuth, async (_req, res) => {
         createdAt: link.createdAt.toISOString(),
         trackingPixel: link.trackingPixel,
         ownerName: link.trafficerName || 'Unknown',
-        linkName: link.source,
+        linkName: [link.trafficerName, link.stream, link.geo, link.creative].filter(Boolean).join('_') || link.source,
         trafficerName: link.trafficerName,
         stream: link.stream,
         geo: link.geo,
