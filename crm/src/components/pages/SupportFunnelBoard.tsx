@@ -409,9 +409,13 @@ export function SupportFunnelBoard() {
       normalizeStageId(chatStageMap[chat.chatId], stageAliases) ||
       primaryStageId
 
+    // Keep operator-selected funnel stages visible on the board.
+    // The technical "deposit processing" column is only used for chats
+    // that are still on the default primary stage.
     if (
       pendingDepositTelegramIds.has(String(chat.telegramId)) &&
-      resolvedStageId !== DEPOSIT_STAGE_ID
+      resolvedStageId !== DEPOSIT_STAGE_ID &&
+      resolvedStageId === primaryStageId
     ) {
       return PENDING_DEPOSIT_STAGE_ID
     }
