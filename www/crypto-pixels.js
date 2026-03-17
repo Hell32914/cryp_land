@@ -2,7 +2,7 @@
     var host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
     var pixelByHost = {
         'crypto.syntr1x.uno': 'D6G7EVJC77UEP1KMS76G',
-        'info.syntr1x.uno': 'D6N9JPBC77U2DGUTS6QG'
+        'info.syntr1x.uno': 'D6SKMKBC77U78F8U0230'
     };
     var pixelId = pixelByHost[host];
     if (!pixelId) {
