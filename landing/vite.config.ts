@@ -59,6 +59,8 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     allowedHosts: [
+      'syntrix.uno',
+      'www.syntrix.uno',
       'website.syntrix.uno',
       'api.syntrix.uno',
       'admin.syntrix.uno',
