@@ -75,10 +75,24 @@
             position: fixed;
             inset: 0;
             background:
-                radial-gradient(900px 480px at 50% 0%, rgba(41, 104, 224, 0.35), transparent 70%),
-                radial-gradient(760px 420px at 12% 82%, rgba(16, 87, 201, 0.22), transparent 72%),
-                radial-gradient(760px 420px at 90% 75%, rgba(16, 87, 201, 0.2), transparent 72%),
-                url("REF_FON.webp") center top / cover no-repeat;
+                radial-gradient(920px 520px at 50% -20%, rgba(36, 120, 255, 0.34), transparent 72%),
+                radial-gradient(680px 380px at 10% 70%, rgba(14, 95, 221, 0.28), transparent 74%),
+                radial-gradient(760px 420px at 90% 78%, rgba(18, 106, 232, 0.22), transparent 74%),
+                repeating-linear-gradient(
+                    to right,
+                    rgba(43, 101, 196, 0.16) 0,
+                    rgba(43, 101, 196, 0.16) 1px,
+                    transparent 1px,
+                    transparent 8px
+                ),
+                repeating-linear-gradient(
+                    to bottom,
+                    rgba(13, 35, 77, 0.2) 0,
+                    rgba(13, 35, 77, 0.2) 1px,
+                    transparent 1px,
+                    transparent 30px
+                ),
+                linear-gradient(180deg, #020b25 0%, #031339 46%, #03102f 100%);
             opacity: 1;
             z-index: -2;
         }
@@ -87,7 +101,9 @@
             content: "";
             position: fixed;
             inset: 0;
-            background: linear-gradient(180deg, rgba(2, 8, 24, 0.78) 0%, rgba(2, 11, 32, 0.58) 45%, rgba(2, 12, 34, 0.84) 100%);
+            background:
+                radial-gradient(700px 360px at 50% 20%, rgba(16, 108, 234, 0.14), transparent 76%),
+                linear-gradient(180deg, rgba(2, 8, 24, 0.8) 0%, rgba(2, 11, 32, 0.56) 46%, rgba(2, 12, 34, 0.84) 100%);
             z-index: -1;
         }
 
@@ -174,24 +190,16 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 14px;
-            margin-bottom: 24px;
-        }
-
-        .hero-logo {
-            width: 56px;
-            height: 56px;
-            border-radius: 14px;
-            border: 1px solid var(--line);
-            box-shadow: 0 0 24px rgba(15, 144, 255, 0.35);
+            margin-bottom: 20px;
         }
 
         .hero-brand {
-            font-size: 54px;
+            font-size: clamp(46px, 6vw, 72px);
             font-weight: 900;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.07em;
             text-transform: uppercase;
             line-height: 1;
+            text-shadow: 0 0 22px rgba(20, 126, 255, 0.22);
         }
 
         .hero h1 {
@@ -525,14 +533,7 @@
             }
 
             .hero-logo-wrap {
-                gap: 9px;
                 margin-bottom: 18px;
-            }
-
-            .hero-logo {
-                width: 42px;
-                height: 42px;
-                border-radius: 10px;
             }
 
             .hero-brand {
@@ -605,7 +606,6 @@
         <section id="top" class="section hero">
             <div class="container">
                 <div class="hero-logo-wrap">
-                    <img class="hero-logo" src="SYNTRIX_REF_LOGO.png" alt="Syntrix logo">
                     <span class="hero-brand">SYNTRIX</span>
                 </div>
                 <h1>
