@@ -318,6 +318,17 @@ type MarketingAttributionLink = {
   trafficerName?: string | null
 }
 
+function normalizeAttributionLookup(value: unknown): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+}
+
+function buildMarketingLinkDisplayName(link: MarketingAttributionLink): string {
+  return [link.trafficerName, link.stream, link.geo, link.creative].filter(Boolean).join('_')
+}
+
 function extractMkLinkId(value: unknown): string | null {
   if (!value) return null
 
@@ -396,6 +407,24 @@ function guessLinkIdByInviteName(inviteName: unknown, marketingLinks: MarketingA
   const raw = String(inviteName || '').trim().toLowerCase()
   if (!raw) return null
 
+  // Prefer exact, deterministic matches before fuzzy scoring.
+  const normalizedRaw = normalizeAttributionLookup(raw)
+  if (normalizedRaw) {
+    const exactMatches = marketingLinks.filter((link) => {
+      const candidates = [
+        normalizeAttributionLookup(link.linkId),
+        normalizeAttributionLookup(link.source),
+        normalizeAttributionLookup(buildMarketingLinkDisplayName(link)),
+      ].filter(Boolean)
+
+      return candidates.includes(normalizedRaw)
+    })
+
+    if (exactMatches.length === 1) {
+      return exactMatches[0].linkId
+    }
+  }
+
   const tokens = raw.split(/[^a-z0-9]+/).map((token) => token.trim()).filter(Boolean)
   if (tokens.length === 0) return null
 
@@ -410,6 +439,7 @@ function guessLinkIdByInviteName(inviteName: unknown, marketingLinks: MarketingA
       String(link.geo || '').toLowerCase(),
       String(link.creative || '').toLowerCase(),
       String(link.trafficerName || '').toLowerCase(),
+      buildMarketingLinkDisplayName(link).toLowerCase(),
     ]
 
     let score = 0

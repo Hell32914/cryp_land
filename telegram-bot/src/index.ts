@@ -68,6 +68,99 @@ function extractMkLinkId(value: unknown): string | null {
   return m ? m[0] : null
 }
 
+type MarketingAttributionLink = {
+  linkId: string
+  source?: string | null
+  stream?: string | null
+  geo?: string | null
+  creative?: string | null
+  trafficerName?: string | null
+}
+
+function normalizeAttributionLookup(value: unknown): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+}
+
+function buildMarketingLinkDisplayName(link: MarketingAttributionLink): string {
+  return [link.trafficerName, link.stream, link.geo, link.creative].filter(Boolean).join('_')
+}
+
+function tokenVariants(token: string): string[] {
+  const normalized = token.toLowerCase().trim()
+  if (!normalized) return []
+  if (normalized === 'fb') return ['fb', 'facebook']
+  if (normalized === 'tt') return ['tt', 'tiktok']
+  if (normalized === 'ig') return ['ig', 'instagram']
+  if (normalized === 'yt') return ['yt', 'youtube']
+  return [normalized]
+}
+
+function guessLinkIdByInviteName(inviteName: unknown, marketingLinks: MarketingAttributionLink[]): string | null {
+  const raw = String(inviteName || '').trim().toLowerCase()
+  if (!raw) return null
+
+  // Prefer exact, deterministic matches before fuzzy scoring.
+  const normalizedRaw = normalizeAttributionLookup(raw)
+  if (normalizedRaw) {
+    const exactMatches = marketingLinks.filter((link) => {
+      const candidates = [
+        normalizeAttributionLookup(link.linkId),
+        normalizeAttributionLookup(link.source),
+        normalizeAttributionLookup(buildMarketingLinkDisplayName(link)),
+      ].filter(Boolean)
+
+      return candidates.includes(normalizedRaw)
+    })
+
+    if (exactMatches.length === 1) {
+      return exactMatches[0].linkId
+    }
+  }
+
+  const tokens = raw.split(/[^a-z0-9]+/).map((token) => token.trim()).filter(Boolean)
+  if (tokens.length === 0) return null
+
+  let best: { linkId: string; score: number } | null = null
+  let secondBestScore = -1
+
+  for (const link of marketingLinks) {
+    const fields = [
+      String(link.linkId || '').toLowerCase(),
+      String(link.source || '').toLowerCase(),
+      String(link.stream || '').toLowerCase(),
+      String(link.geo || '').toLowerCase(),
+      String(link.creative || '').toLowerCase(),
+      String(link.trafficerName || '').toLowerCase(),
+      buildMarketingLinkDisplayName(link).toLowerCase(),
+    ]
+
+    let score = 0
+    for (const token of tokens) {
+      const variants = tokenVariants(token)
+      const matched = variants.some((variant) => fields.some((field) => field.includes(variant)))
+      if (matched) score += 1
+    }
+
+    if (!best || score > best.score) {
+      secondBestScore = best?.score ?? -1
+      best = { linkId: link.linkId, score }
+    } else if (score > secondBestScore) {
+      secondBestScore = score
+    }
+  }
+
+  if (!best) return null
+
+  const minRequiredScore = Math.min(2, tokens.length)
+  if (best.score < minRequiredScore) return null
+  if (best.score === secondBestScore) return null
+
+  return best.linkId
+}
+
 async function resolveMarketingLinkIdFromInvite(inviteLink: any): Promise<string | null> {
   // 1) Best case: invite link has a name equal to mk_...
   const mkFromName = extractMkLinkId(inviteLink?.name)
@@ -92,6 +185,25 @@ async function resolveMarketingLinkIdFromInvite(inviteLink: any): Promise<string
   for (const l of links as any[]) {
     const normalizedStored = normalizeInviteLink(l.channelInviteLink)
     if (normalizedStored && normalizedStored === normalizedInvite) return String(l.linkId)
+  }
+
+  // 3) Fallback: invite links can be named with human-readable labels instead of mk_*.
+  // Try to map invite name to a marketing link using exact and fuzzy matching.
+  const inviteName = String(inviteLink?.name || '').trim()
+  if (inviteName) {
+    const marketingLinks = await prisma.marketingLink.findMany({
+      select: {
+        linkId: true,
+        source: true,
+        stream: true,
+        geo: true,
+        creative: true,
+        trafficerName: true,
+      },
+    }).catch(() => [])
+
+    const guessed = guessLinkIdByInviteName(inviteName, marketingLinks)
+    if (guessed) return guessed
   }
 
   return null
