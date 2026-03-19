@@ -74,11 +74,12 @@
             overflow: hidden;
             background:
                 radial-gradient(760px 470px at 52% 44%, rgba(23, 126, 255, 0.33), rgba(23, 126, 255, 0) 74%),
-                linear-gradient(180deg, rgba(3, 11, 30, 0.84), rgba(3, 9, 25, 0.9)),
-                url("REF_FON.webp");
+                radial-gradient(620px 360px at 14% 88%, rgba(14, 92, 255, 0.2), rgba(14, 92, 255, 0) 78%),
+                radial-gradient(680px 420px at 86% 22%, rgba(20, 114, 255, 0.2), rgba(20, 114, 255, 0) 78%),
+                linear-gradient(180deg, rgba(3, 11, 30, 0.84), rgba(3, 9, 25, 0.9));
             background-repeat: no-repeat;
-            background-size: auto, auto, cover;
-            background-position: center, center, center;
+            background-size: auto;
+            background-position: center;
         }
 
         .site-shell::before {
@@ -89,6 +90,13 @@
             z-index: 0;
             background:
                 radial-gradient(600px 360px at 50% 34%, rgba(33, 146, 255, 0.14), rgba(33, 146, 255, 0) 78%),
+                repeating-linear-gradient(
+                    to right,
+                    rgba(92, 142, 236, 0.07) 0,
+                    rgba(92, 142, 236, 0.07) 1px,
+                    transparent 1px,
+                    transparent 104px
+                ),
                 linear-gradient(180deg, rgba(2, 7, 20, 0.35), rgba(2, 6, 17, 0.62));
         }
 
@@ -107,7 +115,7 @@
             min-height: 64px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
             gap: 14px;
             position: relative;
             z-index: 1;
@@ -127,53 +135,6 @@
             text-transform: uppercase;
         }
 
-        .top-nav {
-            display: flex;
-            align-items: center;
-            gap: 34px;
-        }
-
-        .top-nav a {
-            color: rgba(213, 228, 255, 0.68);
-            text-decoration: none;
-            font-size: 15px;
-            font-weight: 500;
-            transition: color .2s ease;
-        }
-
-        .top-nav a:hover {
-            color: #f0f7ff;
-        }
-
-        .top-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .lang-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 7px 10px;
-            border-radius: 999px;
-            border: 1px solid rgba(146, 177, 239, 0.2);
-            background: rgba(255, 255, 255, 0.02);
-            color: rgba(230, 240, 255, 0.86);
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1;
-        }
-
-        .lang-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #5ac8ff;
-            box-shadow: 0 0 10px rgba(90, 200, 255, 0.8);
-        }
-
-        .top-cta,
         .hero-cta {
             display: inline-flex;
             align-items: center;
@@ -188,13 +149,6 @@
             transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
         }
 
-        .top-cta {
-            min-height: 38px;
-            padding: 0 16px;
-            font-size: 14px;
-            font-weight: 700;
-        }
-
         .hero-cta {
             min-height: 52px;
             padding: 0 30px;
@@ -202,7 +156,6 @@
             font-weight: 700;
         }
 
-        .top-cta:hover,
         .hero-cta:hover {
             transform: translateY(-1px);
             background: linear-gradient(100deg, var(--primary) 0%, var(--primary-hover) 100%);
@@ -386,10 +339,6 @@
                 font-size: 30px;
             }
 
-            .top-nav {
-                display: none;
-            }
-
             .hero {
                 min-height: calc(100vh - 60px);
             }
@@ -414,21 +363,6 @@
                 font-size: 24px;
             }
 
-            .top-actions {
-                gap: 8px;
-            }
-
-            .lang-pill {
-                display: none;
-            }
-
-            .top-cta {
-                min-height: 34px;
-                padding: 0 13px;
-                font-size: 13px;
-                border-radius: 10px;
-            }
-
             .hero {
                 padding-top: 20px;
             }
@@ -451,16 +385,6 @@
         <header class="topbar">
             <div class="topbar-inner">
                 <a class="logo" href="/">SYNTRIX</a>
-
-                <nav class="top-nav" aria-label="Primary">
-                    <a id="channelNav" href="https://t.me/SyntrixAI" target="_blank" rel="noopener noreferrer">Telegram Channel</a>
-                    <a id="whitepaperNav" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">Whitepaper</a>
-                </nav>
-
-                <div class="top-actions">
-                    <span class="lang-pill"><span class="lang-dot" aria-hidden="true"></span>GB</span>
-                    <a id="topStartBtn" class="top-cta" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer"><span id="topStartLabel">Get Started</span></a>
-                </div>
             </div>
         </header>
 
@@ -513,10 +437,6 @@
             };
 
             var primaryBtn = document.getElementById('primaryBtn');
-            var topStartBtn = document.getElementById('topStartBtn');
-            var topStartLabel = document.getElementById('topStartLabel');
-            var channelNav = document.getElementById('channelNav');
-            var whitepaperNav = document.getElementById('whitepaperNav');
             var description = document.getElementById('description');
             var heroTitleTop = document.getElementById('heroTitleTop');
             var heroTitleBottom = document.getElementById('heroTitleBottom');
@@ -531,19 +451,16 @@
                 targetUrl = trackedBotUrl;
             }
 
-            var navChannelUrl = ref && !/^mk_/i.test(ref) ? trackedBotUrl : hostChannelUrl;
-
             function setHref(element, url) {
                 if (!element || !url) return;
                 element.setAttribute('href', url);
             }
 
-            function setBotCopy(withRef) {
+            function setBotCopy() {
                 if (heroTitleTop) heroTitleTop.textContent = 'Automate Your';
                 if (heroTitleBottom) heroTitleBottom.textContent = 'Crypto Trading';
                 if (description) description.textContent = 'Professional AI-powered trading bot for 24/7 cryptocurrency trading on all major exchanges.';
                 if (primaryBtn) primaryBtn.innerHTML = 'Start Trading <span class="arrow" aria-hidden="true">-&gt;</span>';
-                if (topStartLabel) topStartLabel.textContent = 'Get Started';
             }
 
             function setChannelCopy() {
@@ -551,13 +468,9 @@
                 if (heroTitleBottom) heroTitleBottom.textContent = 'Telegram Channel';
                 if (description) description.textContent = 'Open the official Syntrix channel in Telegram.';
                 if (primaryBtn) primaryBtn.innerHTML = 'Join Channel <span class="arrow" aria-hidden="true">-&gt;</span>';
-                if (topStartLabel) topStartLabel.textContent = 'Join';
             }
 
             setHref(primaryBtn, targetUrl);
-            setHref(topStartBtn, targetUrl);
-            setHref(channelNav, navChannelUrl);
-            setHref(whitepaperNav, trackedBotUrl);
 
             if (channelInviteByHost[host]) {
                 setChannelCopy();
@@ -573,8 +486,6 @@
                     .then(function (data) {
                         if (!data || !data.inviteLink) return;
                         setHref(primaryBtn, data.inviteLink);
-                        setHref(topStartBtn, data.inviteLink);
-                        setHref(channelNav, data.inviteLink);
                         setChannelCopy();
                     })
                     .catch(function () {
