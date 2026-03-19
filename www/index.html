@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Official Syntrix gateway page for Telegram bot and channel access.">
-    <title>Syntrix - Telegram Gateway</title>
-    
+    <meta name="description" content="Official Syntrix transition page to open Telegram bot or channel.">
+    <title>SYNTRIX - Automated Crypto Trading Platform</title>
+
     <script>
     (function() {
         var host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
@@ -37,24 +37,20 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --bg-a: #e8f3ff;
-            --bg-b: #f9fcff;
-            --panel: rgba(255, 255, 255, 0.78);
-            --line: rgba(12, 41, 87, 0.14);
-            --line-strong: rgba(12, 41, 87, 0.24);
-            --text: #0f2344;
-            --muted: #4d5e7d;
-            --primary: #00b07d;
-            --primary-hover: #00996d;
-            --secondary: rgba(13, 50, 103, 0.08);
-            --secondary-hover: rgba(13, 50, 103, 0.14);
-            --accent-blue: #1774ff;
-            --accent-cyan: #00bcd4;
-            --shadow: 0 26px 68px rgba(17, 59, 122, 0.21);
+            --bg-0: #04091c;
+            --bg-1: #05153d;
+            --bg-2: #0b2a66;
+            --text: #eaf1ff;
+            --muted: rgba(219, 232, 255, 0.64);
+            --line: rgba(129, 164, 230, 0.22);
+            --primary: #1988ff;
+            --primary-hover: #1f97ff;
+            --primary-shadow: rgba(25, 136, 255, 0.44);
+            --header-bg: rgba(3, 10, 28, 0.84);
         }
 
         * {
@@ -64,418 +60,418 @@
         html,
         body {
             margin: 0;
-            padding: 0;
+            min-height: 100%;
         }
 
         body {
-            min-height: 100vh;
-            font-family: "Manrope", "Trebuchet MS", "Verdana", sans-serif;
+            font-family: "Inter", "Segoe UI", Arial, sans-serif;
             color: var(--text);
             background:
-                radial-gradient(700px 450px at 8% 10%, rgba(23, 116, 255, 0.2), transparent 70%),
-                radial-gradient(840px 500px at 93% 86%, rgba(0, 188, 212, 0.14), transparent 75%),
-                linear-gradient(168deg, var(--bg-a), var(--bg-b));
-            position: relative;
+                radial-gradient(760px 460px at 50% 48%, rgba(28, 109, 255, 0.4), transparent 72%),
+                radial-gradient(620px 420px at 15% 70%, rgba(6, 43, 121, 0.7), transparent 75%),
+                radial-gradient(780px 520px at 85% 15%, rgba(11, 49, 139, 0.62), transparent 75%),
+                linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 80%);
             overflow-x: hidden;
         }
 
-        body::before,
-        body::after {
-            content: "";
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(38px);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        body::before {
-            width: 240px;
-            height: 240px;
-            top: -70px;
-            left: -40px;
-            background: rgba(0, 176, 125, 0.2);
-        }
-
-        body::after {
-            width: 300px;
-            height: 300px;
-            bottom: -130px;
-            right: -60px;
-            background: rgba(23, 116, 255, 0.18);
-        }
-
-        .page {
-            width: 100%;
-            max-width: 1080px;
-            margin: 0 auto;
-            padding: 28px clamp(16px, 3.8vw, 44px) 48px;
+        .site-shell {
+            min-height: 100vh;
             position: relative;
-            z-index: 1;
-        }
-
-        .panel {
-            border: 1px solid var(--line);
-            border-radius: 22px;
-            background: var(--panel);
-            backdrop-filter: blur(12px);
-            box-shadow: var(--shadow);
+            isolation: isolate;
         }
 
         .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 1px solid rgba(129, 164, 230, 0.17);
+            background: var(--header-bg);
+            backdrop-filter: blur(10px);
+        }
+
+        .topbar-inner {
+            width: min(1120px, 100% - 28px);
+            margin: 0 auto;
+            min-height: 64px;
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 14px;
         }
 
-        .brand {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .brand img {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            object-fit: cover;
-            border: 1px solid var(--line);
-            box-shadow: 0 8px 18px rgba(20, 66, 132, 0.18);
-        }
-
-        .brand-title {
-            display: flex;
-            flex-direction: column;
-            line-height: 1.1;
-        }
-
-        .brand-title strong {
-            font-family: "Sora", "Tahoma", sans-serif;
-            font-size: 18px;
-            letter-spacing: 0.01em;
-        }
-
-        .brand-title span {
-            color: var(--muted);
-            font-size: 12px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .status {
-            border: 1px solid var(--line-strong);
-            border-radius: 999px;
-            padding: 7px 12px;
-            background: rgba(255, 255, 255, 0.66);
-            font-size: 12px;
-            font-weight: 700;
-            color: #15335f;
+        .logo {
+            font-family: "Orbitron", "Inter", sans-serif;
+            font-size: 29px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            text-decoration: none;
+            background: linear-gradient(90deg, #46a7ff 0%, #0ea5ff 55%, #68d4ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
             white-space: nowrap;
         }
 
-        .hero {
-            display: grid;
-            grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.85fr);
-            gap: 18px;
-            margin-bottom: 22px;
+        .top-nav {
+            display: flex;
+            align-items: center;
+            gap: 26px;
         }
 
-        .hero-main,
-        .hero-side {
-            padding: clamp(18px, 3.5vw, 30px);
+        .top-nav a {
+            color: rgba(218, 231, 255, 0.72);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color .2s ease;
         }
 
-        .eyebrow {
-            margin: 0 0 12px;
+        .top-nav a:hover {
+            color: #f0f7ff;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .lang-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(146, 177, 239, 0.22);
+            background: rgba(255, 255, 255, 0.03);
+            color: rgba(230, 240, 255, 0.9);
             font-size: 12px;
-            letter-spacing: 0.13em;
-            text-transform: uppercase;
-            color: #1f5baa;
-            font-weight: 800;
+            font-weight: 600;
+            line-height: 1;
         }
 
-        h1 {
+        .lang-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #5ac8ff;
+            box-shadow: 0 0 10px rgba(90, 200, 255, 0.8);
+        }
+
+        .top-cta,
+        .hero-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            border: 0;
+            border-radius: 12px;
+            color: #f4f8ff;
+            background: linear-gradient(100deg, #1a80ff 0%, #1f96ff 100%);
+            box-shadow: 0 14px 34px var(--primary-shadow);
+            transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+        }
+
+        .top-cta {
+            min-height: 38px;
+            padding: 0 16px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .hero-cta {
+            min-height: 54px;
+            padding: 0 34px;
+            font-size: 23px;
+            font-weight: 700;
+        }
+
+        .top-cta:hover,
+        .hero-cta:hover {
+            transform: translateY(-1px);
+            background: linear-gradient(100deg, var(--primary) 0%, var(--primary-hover) 100%);
+            box-shadow: 0 18px 40px rgba(31, 151, 255, 0.5);
+        }
+
+        .hero {
+            min-height: calc(100vh - 64px);
+            display: grid;
+            place-items: center;
+            position: relative;
+            overflow: hidden;
+            padding: 42px 16px 36px;
+        }
+
+        .hero::before,
+        .hero::after {
+            content: "";
+            position: absolute;
+            pointer-events: none;
+            z-index: -1;
+            border-radius: 50%;
+        }
+
+        .hero::before {
+            width: 760px;
+            height: 760px;
+            left: -210px;
+            top: -260px;
+            background: radial-gradient(circle, rgba(25, 106, 255, 0.34) 0%, rgba(25, 106, 255, 0) 72%);
+        }
+
+        .hero::after {
+            width: 860px;
+            height: 860px;
+            right: -280px;
+            bottom: -320px;
+            background: radial-gradient(circle, rgba(30, 125, 255, 0.28) 0%, rgba(30, 125, 255, 0) 72%);
+        }
+
+        .rain-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .rain-layer::before {
+            content: "";
+            position: absolute;
+            inset: -12% -5%;
+            background:
+                linear-gradient(transparent 0%, rgba(7, 24, 72, 0.7) 30%, rgba(4, 12, 34, 0.96) 100%),
+                repeating-linear-gradient(
+                    to right,
+                    transparent 0,
+                    transparent 62px,
+                    rgba(112, 162, 255, 0.08) 62px,
+                    rgba(112, 162, 255, 0.08) 63px,
+                    transparent 63px,
+                    transparent 126px
+                );
+        }
+
+        .drop {
+            position: absolute;
+            top: -130px;
+            width: 2px;
+            height: 85px;
+            border-radius: 4px;
+            background: linear-gradient(180deg, rgba(67, 150, 255, 0) 0%, rgba(67, 150, 255, 0.65) 62%, rgba(67, 150, 255, 0) 100%);
+            animation: drop-fall var(--speed, 11s) linear infinite;
+            animation-delay: var(--delay, 0s);
+            opacity: var(--opacity, 0.55);
+            left: var(--left, 50%);
+        }
+
+        @keyframes drop-fall {
+            to {
+                transform: translateY(calc(100vh + 180px));
+            }
+        }
+
+        .hero-content {
+            width: min(1060px, 100%);
+            z-index: 1;
+            text-align: center;
+            animation: fade-up .7s ease both;
+        }
+
+        .hero-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            filter: drop-shadow(0 8px 20px rgba(18, 117, 255, 0.34));
+        }
+
+        .hero-logo img {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 1px solid rgba(152, 187, 247, 0.34);
+        }
+
+        .hero-logo-text {
+            font-family: "Orbitron", "Inter", sans-serif;
+            font-size: clamp(44px, 10vw, 98px);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: #f4f8ff;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+
+        .hero-logo-spark {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            margin-left: 3px;
+            margin-top: -30px;
+            background: radial-gradient(circle at 30% 30%, #85d8ff 0%, #1f97ff 45%, rgba(31, 151, 255, 0) 80%);
+            box-shadow: 0 0 16px rgba(31, 151, 255, 0.8);
+        }
+
+        .hero-title {
             margin: 0;
-            font-family: "Sora", "Tahoma", sans-serif;
-            font-size: clamp(29px, 5vw, 48px);
-            line-height: 1.07;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            line-height: 1.02;
             letter-spacing: -0.02em;
-            max-width: 17ch;
+            font-size: clamp(34px, 6.4vw, 96px);
+            font-weight: 800;
+            color: #eaf2ff;
+        }
+
+        .hero-title-accent {
+            background: linear-gradient(90deg, #2e8fff 0%, #0ea5ff 45%, #5ec2ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            background-size: 200% auto;
+            animation: slide-gradient 3.5s linear infinite;
+        }
+
+        @keyframes slide-gradient {
+            to {
+                background-position: 200% center;
+            }
         }
 
         #description {
-            margin: 16px 0 0;
+            margin: 20px auto 0;
+            width: min(850px, 100%);
             color: var(--muted);
-            font-size: clamp(15px, 1.65vw, 18px);
-            max-width: 60ch;
-            line-height: 1.55;
+            font-size: clamp(16px, 2vw, 34px);
+            line-height: 1.35;
         }
 
-        .actions {
-            margin-top: 22px;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            border: 1px solid transparent;
-            border-radius: 12px;
-            min-height: 48px;
-            padding: 10px 14px;
-            font-size: 15px;
-            font-weight: 700;
-            text-decoration: none;
-            cursor: pointer;
-            transition: transform .2s ease, background-color .2s ease, border-color .2s ease;
-        }
-
-        .btn-primary {
-            color: #032016;
-            background: linear-gradient(135deg, #23db9d 0%, var(--primary) 60%, #08a373 100%);
-            box-shadow: 0 14px 28px rgba(0, 176, 125, 0.29);
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary,
-        .btn-ghost {
-            color: var(--text);
-            background: var(--secondary);
-            border: 1px solid var(--line);
-        }
-
-        .btn-secondary:hover {
-            background: var(--secondary-hover);
-            transform: translateY(-1px);
-        }
-
-        .meta {
-            margin-top: 14px;
+        .hero-actions {
+            margin-top: 34px;
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .meta-pill {
-            border: 1px solid var(--line-strong);
-            border-radius: 999px;
-            padding: 7px 12px;
-            background: rgba(255, 255, 255, 0.67);
-            font-size: 12px;
-            color: #2e476f;
-        }
-
-        .hero-side p {
-            margin: 0;
-        }
-
-        .side-title {
-            font-family: "Sora", "Tahoma", sans-serif;
-            font-size: 21px;
-            margin-bottom: 16px;
-            line-height: 1.3;
-        }
-
-        .side-list {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-            display: grid;
-            gap: 12px;
-        }
-
-        .side-list li {
-            position: relative;
-            padding-left: 20px;
-            color: var(--muted);
-            line-height: 1.5;
-        }
-
-        .side-list li::before {
-            content: "";
-            position: absolute;
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            left: 0;
-            top: 8px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
-        }
-
-        .pulse-note {
-            margin-top: 18px;
-            border: 1px dashed var(--line-strong);
-            border-radius: 12px;
-            padding: 12px;
-            font-size: 13px;
-            color: #1d406f;
-            background: rgba(23, 116, 255, 0.06);
-        }
-
-        .section {
-            margin-top: 20px;
-        }
-
-        .section-title {
-            margin: 0 0 14px;
-            font-family: "Sora", "Tahoma", sans-serif;
-            font-size: clamp(22px, 3.2vw, 32px);
-            line-height: 1.2;
-            letter-spacing: -0.01em;
-        }
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-        }
-
-        .feature-card {
-            padding: 18px;
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.73);
-        }
-
-        .feature-card h3 {
-            margin: 0;
-            font-size: 17px;
-            font-family: "Sora", "Tahoma", sans-serif;
-        }
-
-        .feature-card p {
-            margin: 10px 0 0;
-            color: var(--muted);
-            line-height: 1.52;
-            font-size: 14px;
-        }
-
-        .feature-card:nth-child(1) {
-            border-top: 3px solid #1774ff;
-        }
-
-        .feature-card:nth-child(2) {
-            border-top: 3px solid #00bcd4;
-        }
-
-        .feature-card:nth-child(3) {
-            border-top: 3px solid #00b07d;
-        }
-
-        .steps {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
-        }
-
-        .steps li {
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 16px;
-            background: rgba(255, 255, 255, 0.72);
-        }
-
-        .step-label {
-            display: inline-flex;
-            align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            font-weight: 800;
-            font-size: 14px;
-            margin-bottom: 10px;
-            color: #053b38;
-            background: linear-gradient(135deg, #67d4ff, #7ff4cb);
         }
 
-        .steps h3 {
-            margin: 0;
-            font-family: "Sora", "Tahoma", sans-serif;
-            font-size: 17px;
+        .hero-meta {
+            margin: 16px auto 0;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            color: rgba(188, 210, 245, 0.82);
+            font-size: 12px;
         }
 
-        .steps p {
-            margin: 8px 0 0;
-            color: var(--muted);
-            line-height: 1.5;
-            font-size: 14px;
+        .hero-meta span {
+            border: 1px solid rgba(148, 181, 244, 0.2);
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: rgba(5, 20, 54, 0.42);
         }
 
-        .footer {
-            margin-top: 22px;
-            border-top: 1px solid var(--line);
-            padding-top: 14px;
-            color: #3f5374;
-            font-size: 13px;
+        .arrow {
+            transition: transform .2s ease;
         }
 
-        .animate-in {
-            opacity: 0;
-            transform: translateY(16px);
-            animation: rise-in .65s cubic-bezier(.2, .75, .28, 1) forwards;
+        .hero-cta:hover .arrow {
+            transform: translateX(2px);
         }
 
-        .delay-1 {
-            animation-delay: .08s;
+        .hide-on-desktop {
+            display: none;
         }
 
-        .delay-2 {
-            animation-delay: .16s;
-        }
-
-        .delay-3 {
-            animation-delay: .24s;
-        }
-
-        @keyframes rise-in {
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
 
-        @media (max-width: 960px) {
+        @media (max-width: 980px) {
+            .topbar-inner {
+                width: calc(100% - 24px);
+                min-height: 60px;
+            }
+
+            .top-nav {
+                display: none;
+            }
+
             .hero {
-                grid-template-columns: 1fr;
+                min-height: calc(100vh - 60px);
             }
 
-            .features,
-            .steps {
-                grid-template-columns: 1fr;
+            .hero-logo img {
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
             }
 
-            h1 {
-                max-width: none;
+            .hero-logo {
+                gap: 8px;
+                margin-bottom: 14px;
+            }
+
+            .hero-logo-spark {
+                margin-top: -18px;
+                width: 10px;
+                height: 10px;
+            }
+
+            #description {
+                width: min(640px, 100%);
             }
         }
 
-        @media (max-width: 640px) {
-            .topbar {
-                flex-direction: column;
-                align-items: flex-start;
+        @media (max-width: 620px) {
+            .logo {
+                font-size: 24px;
             }
 
-            .page {
+            .top-actions {
+                gap: 8px;
+            }
+
+            .lang-pill {
+                display: none;
+            }
+
+            .top-cta {
+                min-height: 34px;
+                padding: 0 13px;
+                font-size: 13px;
+                border-radius: 10px;
+            }
+
+            .hero {
                 padding-top: 20px;
-                padding-bottom: 30px;
             }
 
-            .actions {
-                grid-template-columns: 1fr;
+            .hero-cta {
+                min-height: 48px;
+                padding: 0 24px;
+                font-size: 19px;
+                border-radius: 11px;
+            }
+
+            .hero-meta {
+                margin-top: 14px;
+                gap: 8px;
+            }
+
+            .hero-meta span {
+                padding: 5px 8px;
+                font-size: 11px;
             }
         }
     </style>
@@ -484,89 +480,53 @@
     <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id=1070190051929151&ev=PageView&noscript=1"
     /></noscript>
-    <main class="page">
-        <header class="topbar animate-in">
-            <div class="brand">
-                <img src="SYNTRIX_REF_LOGO.png" alt="Syntrix">
-                <div class="brand-title">
-                    <strong>Syntrix</strong>
-                    <span>Official Gateway</span>
+
+    <div class="site-shell">
+        <header class="topbar">
+            <div class="topbar-inner">
+                <a class="logo" href="/">SYNTRIX</a>
+
+                <nav class="top-nav" aria-label="Primary">
+                    <a id="channelNav" href="https://t.me/SyntrixAI" target="_blank" rel="noopener noreferrer">Telegram Channel</a>
+                    <a id="whitepaperNav" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">Whitepaper</a>
+                </nav>
+
+                <div class="top-actions">
+                    <span class="lang-pill"><span class="lang-dot" aria-hidden="true"></span>GB</span>
+                    <a id="topStartBtn" class="top-cta" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer"><span id="topStartLabel">Get Started</span></a>
                 </div>
             </div>
-            <span id="accessMode" class="status">Bot access</span>
         </header>
 
-        <section class="hero">
-            <article class="hero-main panel animate-in delay-1">
-                <p class="eyebrow">Telegram Trading Gateway</p>
-                <h1 id="heroTitle">Launch your Syntrix flow in one tap</h1>
-                <p id="description">Open the official Syntrix bot in Telegram.</p>
+        <main class="hero" aria-label="Syntrix Telegram entry">
+            <div class="rain-layer" id="rainLayer" aria-hidden="true"></div>
 
-                <div class="actions">
-                    <a id="primaryBtn" class="btn btn-primary" href="https://t.me/AiSyntrixTrade_bot">Open Telegram</a>
-                    <a class="btn btn-secondary" href="#how-it-works">How it works</a>
+            <div class="hero-content">
+                <div class="hero-logo">
+                    <img src="SYNTRIX_REF_LOGO.png" alt="Syntrix">
+                    <span class="hero-logo-text">SYNTRIX</span>
+                    <span class="hero-logo-spark" aria-hidden="true"></span>
                 </div>
 
-                <div class="meta">
-                    <span class="meta-pill">Host: <strong id="hostValue">-</strong></span>
-                    <span id="refMeta" class="meta-pill" hidden>Referral: <strong id="refValue">-</strong></span>
+                <h1 class="hero-title">
+                    <span id="heroTitleTop">Automate Your</span>
+                    <span id="heroTitleBottom" class="hero-title-accent">Crypto Trading</span>
+                </h1>
+
+                <p id="description">Professional AI-powered trading bot for 24/7 cryptocurrency trading on all major exchanges.</p>
+
+                <div class="hero-actions">
+                    <a id="primaryBtn" class="hero-cta" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">Start Trading <span class="arrow" aria-hidden="true">-&gt;</span></a>
                 </div>
-            </article>
 
-            <aside class="hero-side panel animate-in delay-2">
-                <p class="side-title">What happens after the click</p>
-                <ul class="side-list">
-                    <li>You are sent directly to the official Syntrix Telegram destination.</li>
-                    <li>Referral parameters are preserved for campaign attribution.</li>
-                    <li>Host-based routing can open the correct public channel invite.</li>
-                </ul>
-                <p class="pulse-note">No extra registration form on this page. The next step always happens inside Telegram.</p>
-            </aside>
-        </section>
-
-        <section class="section animate-in delay-2">
-            <h2 class="section-title">Why this transition page works</h2>
-            <div class="features">
-                <article class="feature-card">
-                    <h3>Fast handoff</h3>
-                    <p>The primary action routes users to the right Telegram target with a single click.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Campaign-aware links</h3>
-                    <p>Referral tags are automatically attached to bot links when campaign parameters exist.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Reliable fallback</h3>
-                    <p>If invite data is unavailable, the page keeps a safe default destination so traffic is never blocked.</p>
-                </article>
+                <div class="hero-meta" aria-live="polite">
+                    <span id="accessMode">Bot access</span>
+                    <span id="hostMeta">Host: -</span>
+                    <span id="refMeta" hidden>Referral: -</span>
+                </div>
             </div>
-        </section>
-
-        <section id="how-it-works" class="section animate-in delay-3">
-            <h2 class="section-title">How it works</h2>
-            <ol class="steps">
-                <li>
-                    <span class="step-label">1</span>
-                    <h3>Open link</h3>
-                    <p>The page inspects host and query parameters at load time.</p>
-                </li>
-                <li>
-                    <span class="step-label">2</span>
-                    <h3>Resolve destination</h3>
-                    <p>Logic chooses bot, referral bot, or channel invite depending on campaign context.</p>
-                </li>
-                <li>
-                    <span class="step-label">3</span>
-                    <h3>Continue in Telegram</h3>
-                    <p>User lands in the intended Syntrix entry point without extra friction.</p>
-                </li>
-            </ol>
-        </section>
-
-        <footer class="footer animate-in delay-3">
-            Official Syntrix transition endpoint for Telegram traffic.
-        </footer>
-    </main>
+        </main>
+    </div>
 
     <script>
         (function () {
@@ -574,82 +534,130 @@
             var params = new URLSearchParams(window.location.search);
             var ref = params.get('ref');
 
-            // Map channel hosts to direct channel links.
+            var API_BASE = 'https://api.syntrix.uno';
+            var BOT_URL = 'https://t.me/AiSyntrixTrade_bot';
+            var DEFAULT_CHANNEL_URL = 'https://t.me/SyntrixAI';
+
             var channelInviteByHost = {
                 'info.siintrix.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
                 'info.syntr1x.uno': 'https://t.me/+ETuBMJ9s2Js1NmIy',
+                'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
                 'ss.siintrix.site': 'https://t.me/+YmFilnI8DbFjNWEy',
+                'ss.syntrixxx.site': 'https://t.me/+YmFilnI8DbFjNWEy',
+                'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
                 'road.siintrix.site': 'https://t.me/+TLo5_JI7r0wxODky',
+                'road.syntrixxx.site': 'https://t.me/+TLo5_JI7r0wxODky',
+                'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
                 'invest.siintrix.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
+                'invest.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
                 'official.siintrix.site': 'https://t.me/+tvQ2u0yoEJRhOTBi'
             };
 
             var primaryBtn = document.getElementById('primaryBtn');
+            var topStartBtn = document.getElementById('topStartBtn');
+            var topStartLabel = document.getElementById('topStartLabel');
+            var channelNav = document.getElementById('channelNav');
+            var whitepaperNav = document.getElementById('whitepaperNav');
             var description = document.getElementById('description');
-            var heroTitle = document.getElementById('heroTitle');
+            var heroTitleTop = document.getElementById('heroTitleTop');
+            var heroTitleBottom = document.getElementById('heroTitleBottom');
             var accessMode = document.getElementById('accessMode');
-            var hostValue = document.getElementById('hostValue');
+            var hostMeta = document.getElementById('hostMeta');
             var refMeta = document.getElementById('refMeta');
-            var refValue = document.getElementById('refValue');
 
-            if (hostValue) {
-                hostValue.textContent = host || 'unknown';
+            var hostChannelUrl = channelInviteByHost[host] || DEFAULT_CHANNEL_URL;
+            var trackedBotUrl = ref ? BOT_URL + '?start=' + encodeURIComponent(ref) : BOT_URL;
+            var targetUrl = BOT_URL;
+
+            if (channelInviteByHost[host]) {
+                targetUrl = hostChannelUrl;
+            } else if (ref) {
+                targetUrl = trackedBotUrl;
             }
 
-            if (ref && refMeta && refValue) {
-                refValue.textContent = ref;
-                refMeta.hidden = false;
+            var navChannelUrl = ref && !/^mk_/i.test(ref) ? trackedBotUrl : hostChannelUrl;
+
+            function setHref(element, url) {
+                if (!element || !url) return;
+                element.setAttribute('href', url);
             }
 
             function setBotCopy(withRef) {
-                if (heroTitle) heroTitle.textContent = 'Launch your Syntrix flow in one tap';
+                if (heroTitleTop) heroTitleTop.textContent = 'Automate Your';
+                if (heroTitleBottom) heroTitleBottom.textContent = 'Crypto Trading';
                 if (description) {
                     description.textContent = withRef
-                        ? 'Open the Syntrix bot with your referral code.'
-                        : 'Open the official Syntrix bot in Telegram.';
+                        ? 'Open the Syntrix bot with your referral code and start your trading flow.'
+                        : 'Professional AI-powered trading bot for 24/7 cryptocurrency trading on all major exchanges.';
                 }
-                if (primaryBtn) primaryBtn.textContent = 'Open Telegram';
-                if (accessMode) accessMode.textContent = withRef ? 'Bot access - referral' : 'Bot access';
+                if (primaryBtn) primaryBtn.innerHTML = 'Start Trading <span class="arrow" aria-hidden="true">-&gt;</span>';
+                if (topStartLabel) topStartLabel.textContent = 'Get Started';
+                if (accessMode) accessMode.textContent = withRef ? 'Bot access (ref)' : 'Bot access';
             }
 
             function setChannelCopy() {
-                if (heroTitle) heroTitle.textContent = 'Join the official Syntrix Telegram channel';
+                if (heroTitleTop) heroTitleTop.textContent = 'Join Official';
+                if (heroTitleBottom) heroTitleBottom.textContent = 'Telegram Channel';
                 if (description) description.textContent = 'Open the official Syntrix channel in Telegram.';
-                if (primaryBtn) primaryBtn.textContent = 'Join Channel';
+                if (primaryBtn) primaryBtn.innerHTML = 'Join Channel <span class="arrow" aria-hidden="true">-&gt;</span>';
+                if (topStartLabel) topStartLabel.textContent = 'Join';
                 if (accessMode) accessMode.textContent = 'Channel access';
             }
 
-            var targetUrl;
+            setHref(primaryBtn, targetUrl);
+            setHref(topStartBtn, targetUrl);
+            setHref(channelNav, navChannelUrl);
+            setHref(whitepaperNav, trackedBotUrl);
+
+            if (hostMeta) {
+                hostMeta.textContent = 'Host: ' + (host || 'unknown');
+            }
+
+            if (ref && refMeta) {
+                refMeta.textContent = 'Referral: ' + ref;
+                refMeta.hidden = false;
+            }
+
             if (channelInviteByHost[host]) {
-                targetUrl = channelInviteByHost[host];
                 setChannelCopy();
-            } else if (ref) {
-                targetUrl = 'https://t.me/AiSyntrixTrade_bot?start=' + encodeURIComponent(ref);
-                setBotCopy(true);
             } else {
-                targetUrl = 'https://t.me/AiSyntrixTrade_bot';
-                setBotCopy(false);
+                setBotCopy(Boolean(ref));
             }
 
-            if (primaryBtn) {
-                primaryBtn.setAttribute('href', targetUrl);
-            }
-
-            // If the ref points to a channel campaign, prefer the generated channel invite.
             if (ref && /^mk_/i.test(ref)) {
-                var apiBase = 'https://api.syntrix.uno';
-                fetch(apiBase + '/api/marketing-links/' + encodeURIComponent(ref) + '/channel-invite')
+                fetch(API_BASE + '/api/marketing-links/' + encodeURIComponent(ref) + '/channel-invite')
                     .then(function (response) {
                         return response.ok ? response.json() : null;
                     })
                     .then(function (data) {
-                        if (!data || !data.inviteLink || !primaryBtn) return;
-                        primaryBtn.setAttribute('href', data.inviteLink);
+                        if (!data || !data.inviteLink) return;
+                        setHref(primaryBtn, data.inviteLink);
+                        setHref(topStartBtn, data.inviteLink);
+                        setHref(channelNav, data.inviteLink);
                         setChannelCopy();
                     })
                     .catch(function () {
                         // Keep fallback URL when API is unavailable.
                     });
+            }
+
+            var rainLayer = document.getElementById('rainLayer');
+            if (rainLayer) {
+                var count = window.innerWidth < 768 ? 36 : 72;
+                var fragment = document.createDocumentFragment();
+
+                for (var i = 0; i < count; i++) {
+                    var drop = document.createElement('span');
+                    drop.className = 'drop';
+                    drop.style.setProperty('--left', (Math.random() * 100).toFixed(2) + '%');
+                    drop.style.setProperty('--delay', '-' + (Math.random() * 12).toFixed(2) + 's');
+                    drop.style.setProperty('--speed', (8 + Math.random() * 8).toFixed(2) + 's');
+                    drop.style.setProperty('--opacity', (0.25 + Math.random() * 0.55).toFixed(2));
+                    drop.style.height = (40 + Math.random() * 80).toFixed(0) + 'px';
+                    fragment.appendChild(drop);
+                }
+
+                rainLayer.appendChild(fragment);
             }
         })();
     </script>
