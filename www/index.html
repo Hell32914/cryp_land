@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Official Syntrix transition page to open Telegram bot or channel.">
-    <title>Syntrix - Open in Telegram</title>
-    
+    <meta name="description" content="Official Syntrix transition landing for Telegram bot and channel.">
+    <title>SYNTRIX - Automated Crypto Trading</title>
+
     <script>
     (function() {
         var host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
@@ -34,210 +34,792 @@
     fbq('track', 'PageView');
     </script>
     <!-- End Meta Pixel Code -->
-    
+
     <style>
         :root {
             color-scheme: dark;
-            --bg-a: #0b1220;
-            --bg-b: #111827;
-            --panel: rgba(17, 24, 39, 0.86);
-            --line: rgba(148, 163, 184, 0.22);
-            --text: #e5e7eb;
-            --muted: #94a3b8;
-            --primary: #22c55e;
-            --primary-hover: #16a34a;
-            --secondary: #1f2937;
-            --secondary-hover: #334155;
+            --bg: #040f2b;
+            --line: rgba(106, 132, 196, 0.28);
+            --line-soft: rgba(106, 132, 196, 0.16);
+            --text: #eaf1ff;
+            --muted: #9caed1;
+            --primary: #0f90ff;
+            --primary-hover: #2ea3ff;
+            --panel: rgba(7, 20, 52, 0.66);
+            --panel-strong: rgba(6, 17, 42, 0.82);
+            --radius: 18px;
+            --header-height: 72px;
         }
 
         * {
             box-sizing: border-box;
         }
 
+        html,
         body {
             margin: 0;
-            min-height: 100vh;
-            font-family: "Segoe UI", Tahoma, sans-serif;
-            color: var(--text);
-            background: radial-gradient(900px 500px at 20% 0%, #1e293b 0%, transparent 70%),
-                        radial-gradient(700px 400px at 85% 100%, #0f172a 0%, transparent 65%),
-                        linear-gradient(160deg, var(--bg-a), var(--bg-b));
-            display: grid;
-            place-items: center;
-            padding: 24px;
+            padding: 0;
+            min-height: 100%;
         }
 
-        .card {
-            width: 100%;
-            max-width: 560px;
-            border: 1px solid var(--line);
-            border-radius: 18px;
-            background: var(--panel);
-            backdrop-filter: blur(8px);
-            padding: 24px;
-            box-shadow: 0 20px 60px rgba(2, 6, 23, 0.45);
+        body {
+            position: relative;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(900px 480px at 50% 0%, rgba(41, 104, 224, 0.35), transparent 70%),
+                radial-gradient(760px 420px at 12% 82%, rgba(16, 87, 201, 0.22), transparent 72%),
+                radial-gradient(760px 420px at 90% 75%, rgba(16, 87, 201, 0.2), transparent 72%),
+                url("REF_FON.webp") center top / cover no-repeat;
+            opacity: 1;
+            z-index: -2;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(2, 8, 24, 0.78) 0%, rgba(2, 11, 32, 0.58) 45%, rgba(2, 12, 34, 0.84) 100%);
+            z-index: -1;
+        }
+
+        .container {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            height: var(--header-height);
+            border-bottom: 1px solid var(--line-soft);
+            background: rgba(3, 11, 31, 0.74);
+            backdrop-filter: blur(10px);
+        }
+
+        .site-header .container {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
         }
 
         .brand {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--primary);
+            text-decoration: none;
+            line-height: 1;
+        }
+
+        .top-nav {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
+            gap: 28px;
         }
 
-        .brand img {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            object-fit: cover;
-            border: 1px solid var(--line);
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 24px;
-            line-height: 1.2;
-        }
-
-        p {
-            margin: 8px 0;
+        .top-nav a {
             color: var(--muted);
-            line-height: 1.5;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: color 0.2s ease;
         }
 
-        .actions {
-            margin-top: 18px;
-            display: grid;
-            gap: 10px;
+        .top-nav a:hover {
+            color: #d5e4ff;
         }
 
-        .btn {
+        .lang-badge {
+            color: #d8e5ff;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+
+        .lang-badge::before {
+            content: "\25CF";
+            color: var(--primary);
+            font-size: 10px;
+        }
+
+        .section {
+            position: relative;
+            padding: 64px 0;
+        }
+
+        .hero {
+            padding-top: 88px;
+            padding-bottom: 94px;
+            text-align: center;
+        }
+
+        .hero-logo-wrap {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 100%;
-            border: 0;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .hero-logo {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            box-shadow: 0 0 24px rgba(15, 144, 255, 0.35);
+        }
+
+        .hero-brand {
+            font-size: 54px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: clamp(36px, 6vw, 72px);
+            line-height: 1.06;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .hero h1 span {
+            display: inline-block;
+            color: var(--primary);
+        }
+
+        .hero p {
+            margin: 18px auto 34px;
+            max-width: 720px;
+            color: var(--muted);
+            font-size: clamp(16px, 2.2vw, 23px);
+            line-height: 1.5;
+        }
+
+        .cta-button {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 210px;
+            min-height: 54px;
+            padding: 0 28px;
+            border-radius: 14px;
+            border: 1px solid rgba(126, 182, 255, 0.26);
+            background: linear-gradient(180deg, #26a3ff, #0f90ff);
+            color: #f4f9ff;
+            text-decoration: none;
+            font-size: 17px;
+            font-weight: 700;
+            box-shadow: 0 14px 28px rgba(8, 48, 98, 0.32);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            overflow: hidden;
+            isolation: isolate;
+        }
+
+        .cta-button::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 18%, rgba(255, 255, 255, 0.26) 50%, transparent 82%);
+            transform: translateX(-130%);
+            transition: transform 0.5s ease;
+            z-index: -1;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 20px 36px rgba(8, 48, 98, 0.42);
+            filter: brightness(1.05);
+        }
+
+        .cta-button:hover::before {
+            transform: translateX(130%);
+        }
+
+        .matrix-grid {
+            display: grid;
+            gap: 28px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            align-items: center;
+        }
+
+        .kicker {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(8, 25, 58, 0.55);
+            color: #8bb8ff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .matrix-copy h2 {
+            margin: 18px 0 16px;
+            font-size: clamp(32px, 4vw, 52px);
+            line-height: 1.08;
+            font-weight: 800;
+        }
+
+        .matrix-copy h2 span {
+            color: var(--primary);
+        }
+
+        .matrix-copy p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.6;
+            font-size: 18px;
+            max-width: 560px;
+        }
+
+        .feature-row {
+            margin-top: 20px;
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .feature {
+            flex: 1 1 200px;
+            border: 1px solid var(--line-soft);
+            border-radius: 14px;
+            background: rgba(8, 27, 66, 0.48);
+            padding: 14px;
+        }
+
+        .feature strong {
+            display: block;
+            color: #dfeaff;
+            margin-bottom: 3px;
+            font-size: 14px;
+        }
+
+        .feature span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .matrix-panel {
+            border: 1px solid var(--line);
+            border-radius: calc(var(--radius) + 4px);
+            background: linear-gradient(180deg, rgba(10, 28, 66, 0.74), rgba(5, 15, 40, 0.9));
+            min-height: 390px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            box-shadow: 0 24px 48px rgba(0, 6, 20, 0.45);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .matrix-panel::before,
+        .matrix-panel::after {
+            content: "";
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            filter: blur(36px);
+            z-index: 0;
+        }
+
+        .matrix-panel::before {
+            top: -70px;
+            right: -60px;
+            background: rgba(23, 146, 255, 0.22);
+        }
+
+        .matrix-panel::after {
+            bottom: -80px;
+            left: -80px;
+            background: rgba(16, 97, 221, 0.2);
+        }
+
+        .matrix-panel-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .panel-badge {
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            margin: 0 auto 18px;
+            border: 1px solid rgba(96, 173, 255, 0.45);
+            background: radial-gradient(circle at 30% 30%, rgba(32, 177, 255, 0.35), rgba(13, 48, 120, 0.55));
+            display: grid;
+            place-items: center;
+            box-shadow: 0 0 28px rgba(20, 117, 238, 0.35);
+            color: #d7ecff;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+        }
+
+        .matrix-panel h3 {
+            margin: 0;
+            font-size: clamp(26px, 3.2vw, 40px);
+            font-weight: 800;
+            letter-spacing: 0.03em;
+        }
+
+        .matrix-panel p {
+            margin: 8px 0 0;
+            color: #9cb2dc;
+            font-size: 15px;
+        }
+
+        .faq-wrap {
+            margin-top: 8px;
+            border-radius: var(--radius);
+            border: 1px solid var(--line-soft);
+            background: var(--panel);
+            padding: 8px;
+        }
+
+        .faq-item {
+            border: 1px solid transparent;
             border-radius: 12px;
-            min-height: 44px;
-            padding: 10px 14px;
+            background: rgba(5, 18, 48, 0.62);
+            margin: 7px 0;
+            overflow: hidden;
+        }
+
+        .faq-item summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 16px 18px;
+            color: #deebff;
             font-size: 15px;
             font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-            transition: background-color .2s ease;
+            position: relative;
         }
 
-        .btn-primary {
-            color: #071011;
-            background: var(--primary);
+        .faq-item summary::-webkit-details-marker {
+            display: none;
         }
 
-        .btn-primary:hover {
-            background: var(--primary-hover);
+        .faq-item summary::after {
+            content: "+";
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #95b9f7;
+            font-size: 18px;
         }
 
-        .btn-secondary {
-            color: var(--text);
-            background: var(--secondary);
-            border: 1px solid var(--line);
+        .faq-item[open] {
+            border-color: var(--line);
+            background: rgba(8, 24, 58, 0.78);
         }
 
-        .btn-secondary:hover {
-            background: var(--secondary-hover);
+        .faq-item[open] summary::after {
+            content: "-";
         }
 
-        .meta {
-            margin-top: 14px;
-            font-size: 12px;
+        .faq-answer {
+            padding: 0 18px 16px;
             color: var(--muted);
-            border-top: 1px solid var(--line);
-            padding-top: 12px;
+            font-size: 14px;
+            line-height: 1.55;
         }
 
-        .meta code {
-            color: #cbd5e1;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 12px;
+        .final-cta {
+            padding-top: 72px;
+            padding-bottom: 110px;
         }
 
-        @media (max-width: 640px) {
-            .card {
-                padding: 18px;
+        .final-card {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--panel-strong);
+            text-align: center;
+            padding: 54px 24px;
+            box-shadow: 0 24px 58px rgba(0, 7, 23, 0.5);
+        }
+
+        .final-card h2 {
+            margin: 0;
+            font-size: clamp(34px, 4.8vw, 64px);
+            line-height: 1.08;
+            font-weight: 800;
+        }
+
+        .final-card p {
+            margin: 16px auto 30px;
+            max-width: 760px;
+            color: var(--muted);
+            font-size: clamp(16px, 2vw, 22px);
+            line-height: 1.55;
+        }
+
+        @media (max-width: 980px) {
+            .hero-brand {
+                font-size: 44px;
             }
 
-            h1 {
-                font-size: 20px;
+            .matrix-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .matrix-panel {
+                min-height: 330px;
+            }
+        }
+
+        @media (max-width: 720px) {
+            :root {
+                --header-height: 62px;
+            }
+
+            .container {
+                width: min(1120px, calc(100% - 20px));
+            }
+
+            .brand {
+                font-size: 19px;
+            }
+
+            .top-nav {
+                gap: 12px;
+            }
+
+            .top-nav a {
+                font-size: 12px;
+            }
+
+            .lang-badge {
+                font-size: 12px;
+            }
+
+            .hero {
+                padding-top: 66px;
+                padding-bottom: 60px;
+            }
+
+            .hero-logo-wrap {
+                gap: 9px;
+                margin-bottom: 18px;
+            }
+
+            .hero-logo {
+                width: 42px;
+                height: 42px;
+                border-radius: 10px;
+            }
+
+            .hero-brand {
+                font-size: 32px;
+            }
+
+            .hero p {
+                margin-bottom: 26px;
+                font-size: 15px;
+            }
+
+            .cta-button {
+                min-width: 180px;
+                min-height: 48px;
+                font-size: 15px;
+                padding: 0 20px;
+            }
+
+            .section {
+                padding: 42px 0;
+            }
+
+            .matrix-copy p {
+                font-size: 15px;
+            }
+
+            .feature {
+                flex-basis: 100%;
+            }
+
+            .final-cta {
+                padding-top: 56px;
+                padding-bottom: 72px;
+            }
+
+            .final-card {
+                padding: 38px 18px;
+            }
+
+            .final-card p {
+                margin: 14px auto 24px;
+                font-size: 15px;
             }
         }
     </style>
 </head>
 <body>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=1070190051929151&ev=PageView&noscript=1"
-    /></noscript>
-    <main class="card">
-        <div class="brand">
-            <img src="SYNTRIX_REF_LOGO.png" alt="Syntrix">
-            <h1>Syntrix</h1>
-        </div>
+    <noscript>
+        <img
+            height="1"
+            width="1"
+            style="display:none"
+            src="https://www.facebook.com/tr?id=1070190051929151&ev=PageView&noscript=1"
+            alt=""
+        >
+    </noscript>
 
-        <p id="description">Open the official Syntrix bot in Telegram.</p>
-
-        <div class="actions">
-            <a id="primaryBtn" class="btn btn-primary" href="https://t.me/AiSyntrixTrade_bot">Open Telegram</a>
+    <header class="site-header">
+        <div class="container">
+            <a class="brand" href="#top">SYNTRIX</a>
+            <nav class="top-nav" aria-label="Main navigation">
+                <a id="channelNav" href="https://t.me/SyntrixAI" target="_blank" rel="noopener noreferrer">Telegram Channel</a>
+                <a href="https://website.syntrix.uno" target="_blank" rel="noopener noreferrer">Whitepaper</a>
+            </nav>
+            <span class="lang-badge">GB</span>
         </div>
+    </header>
+
+    <main>
+        <section id="top" class="section hero">
+            <div class="container">
+                <div class="hero-logo-wrap">
+                    <img class="hero-logo" src="SYNTRIX_REF_LOGO.png" alt="Syntrix logo">
+                    <span class="hero-brand">SYNTRIX</span>
+                </div>
+                <h1>
+                    Automate Your<br>
+                    <span>Crypto Trading</span>
+                </h1>
+                <p id="heroDescription">Professional AI-powered trading bot for 24/7 cryptocurrency trading on all major exchanges.</p>
+                <a id="heroBtn" class="cta-button" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">Start Trading</a>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="container matrix-grid">
+                <div class="matrix-copy">
+                    <span class="kicker">Future Technology</span>
+                    <h2>Intelligent Trading with <span>SYNTRIX</span></h2>
+                    <p>Powerful system based on Smart Money concepts, ICT, and liquidity strategies. Our bot adapts to the market in real-time, ensuring maximum efficiency.</p>
+                    <div class="feature-row">
+                        <div class="feature">
+                            <strong>Instant Response</strong>
+                            <span>Analysis in milliseconds</span>
+                        </div>
+                        <div class="feature">
+                            <strong>High Accuracy</strong>
+                            <span>AI algorithms</span>
+                        </div>
+                    </div>
+                </div>
+                <article class="matrix-panel" aria-label="Syntrix AI panel">
+                    <div class="matrix-panel-content">
+                        <div class="panel-badge">AI</div>
+                        <h3>SYNTRIX AI</h3>
+                        <p>Trade with Artificial Intelligence</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="container">
+                <div class="faq-wrap">
+                    <details class="faq-item">
+                        <summary>Concept used</summary>
+                        <div class="faq-answer">Our model uses Smart Money Concepts (SMC), liquidity analysis, and adaptive risk control.</div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Referral system availability</summary>
+                        <div class="faq-answer">A multi-level referral system is available and updates earnings statistics in real-time.</div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Supported assets</summary>
+                        <div class="faq-answer">Major crypto assets are supported across top exchanges with automated balancing.</div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Withdrawals</summary>
+                        <div class="faq-answer">Withdrawals are available 24/7 with fast processing after internal checks.</div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Strategy updates</summary>
+                        <div class="faq-answer">Strategies are regularly updated according to market conditions and volatility.</div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>Weekend trading</summary>
+                        <div class="faq-answer">The system keeps working on weekends and can adjust to low-liquidity sessions.</div>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+        <section class="section final-cta">
+            <div class="container">
+                <div class="final-card">
+                    <h2>Ready to Start Trading?</h2>
+                    <p id="finalDescription">Start automated crypto trading today and maximize your profits with AI-powered strategies.</p>
+                    <a id="finalBtn" class="cta-button" href="https://t.me/AiSyntrixTrade_bot" target="_blank" rel="noopener noreferrer">JOIN BOT</a>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script>
         (function () {
-            var host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
-            var params = new URLSearchParams(window.location.search);
-            var ref = params.get('ref');
+            var API_BASE_URL = 'https://api.syntrix.uno';
+            var TELEGRAM_BOT_URL = 'https://t.me/AiSyntrixTrade_bot';
+            var DEFAULT_CHANNEL_URL = 'https://t.me/SyntrixAI';
 
-            // Map channel hosts to direct channel links.
             var channelInviteByHost = {
                 'info.siintrix.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
                 'info.syntr1x.uno': 'https://t.me/+ETuBMJ9s2Js1NmIy',
+                'info.syntrixxx.site': 'https://t.me/+ETuBMJ9s2Js1NmIy',
                 'ss.siintrix.site': 'https://t.me/+YmFilnI8DbFjNWEy',
+                'ss.syntrixxx.site': 'https://t.me/+YmFilnI8DbFjNWEy',
+                'ss.syntrixxx.website': 'https://t.me/+YmFilnI8DbFjNWEy',
                 'road.siintrix.site': 'https://t.me/+TLo5_JI7r0wxODky',
+                'road.syntrixxx.site': 'https://t.me/+TLo5_JI7r0wxODky',
+                'road.syntrixxx.website': 'https://t.me/+TLo5_JI7r0wxODky',
                 'invest.siintrix.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
+                'invest.syntrixxx.site': 'https://t.me/+6w-QvvLfkt9iNzg6',
                 'official.siintrix.site': 'https://t.me/+tvQ2u0yoEJRhOTBi'
             };
 
-            var primaryBtn = document.getElementById('primaryBtn');
-            var description = document.getElementById('description');
+            var host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
+            var params = new URLSearchParams(window.location.search);
+            var ref = (params.get('ref') || '').trim();
 
-            var targetUrl;
-            if (channelInviteByHost[host]) {
-                targetUrl = channelInviteByHost[host];
-                if (description) description.textContent = 'Open the official Syntrix channel in Telegram.';
-                if (primaryBtn) primaryBtn.textContent = 'Join Channel';
-            } else if (ref) {
-                targetUrl = 'https://t.me/AiSyntrixTrade_bot?start=' + encodeURIComponent(ref);
-                if (description) description.textContent = 'Open the Syntrix bot with your referral code.';
-            } else {
-                targetUrl = 'https://t.me/AiSyntrixTrade_bot';
-            }
+            var heroBtn = document.getElementById('heroBtn');
+            var finalBtn = document.getElementById('finalBtn');
+            var heroDescription = document.getElementById('heroDescription');
+            var finalDescription = document.getElementById('finalDescription');
+            var channelNav = document.getElementById('channelNav');
 
-            if (primaryBtn) {
-                primaryBtn.setAttribute('href', targetUrl);
-            }
+            var botUrl = ref
+                ? TELEGRAM_BOT_URL + '?start=' + encodeURIComponent(ref)
+                : TELEGRAM_BOT_URL;
 
-            // If the ref points to a channel campaign, prefer the generated channel invite.
+            var fallbackChannelUrl = channelInviteByHost[host] || DEFAULT_CHANNEL_URL;
+            var mode = channelInviteByHost[host] ? 'channel' : 'bot';
+            var targetUrl = mode === 'channel' ? fallbackChannelUrl : botUrl;
+
+            var safeSetHref = function (el, url) {
+                if (!el || !url) return;
+                el.setAttribute('href', url);
+            };
+
+            var applyCtaMode = function (currentMode, url) {
+                safeSetHref(heroBtn, url);
+                safeSetHref(finalBtn, url);
+
+                if (currentMode === 'channel') {
+                    if (heroBtn) heroBtn.textContent = 'Join Channel';
+                    if (finalBtn) finalBtn.textContent = 'JOIN CHANNEL';
+                    if (heroDescription) {
+                        heroDescription.textContent = 'Open the official Syntrix channel in Telegram.';
+                    }
+                    if (finalDescription) {
+                        finalDescription.textContent = 'Join the official Syntrix channel and stay updated with all strategy updates.';
+                    }
+                } else {
+                    if (heroBtn) heroBtn.textContent = 'Start Trading';
+                    if (finalBtn) finalBtn.textContent = 'JOIN BOT';
+                    if (heroDescription) {
+                        heroDescription.textContent = ref
+                            ? 'Open the Syntrix bot with your referral code.'
+                            : 'Professional AI-powered trading bot for 24/7 cryptocurrency trading on all major exchanges.';
+                    }
+                    if (finalDescription) {
+                        finalDescription.textContent = 'Start automated crypto trading today and maximize your profits with AI-powered strategies.';
+                    }
+                }
+            };
+
+            applyCtaMode(mode, targetUrl);
+            safeSetHref(channelNav, fallbackChannelUrl);
+
             if (ref && /^mk_/i.test(ref)) {
-                var apiBase = 'https://api.syntrix.uno';
-                fetch(apiBase + '/api/marketing-links/' + encodeURIComponent(ref) + '/channel-invite')
+                fetch(API_BASE_URL + '/api/marketing-links/' + encodeURIComponent(ref) + '/channel-invite')
                     .then(function (response) {
                         return response.ok ? response.json() : null;
                     })
                     .then(function (data) {
-                        if (!data || !data.inviteLink || !primaryBtn) return;
-                        primaryBtn.setAttribute('href', data.inviteLink);
-                        primaryBtn.textContent = 'Join Channel';
-                        if (description) description.textContent = 'Open the official Syntrix channel in Telegram.';
+                        if (!data || typeof data.inviteLink !== 'string' || !data.inviteLink.trim()) {
+                            return;
+                        }
+                        mode = 'channel';
+                        targetUrl = data.inviteLink;
+                        applyCtaMode(mode, targetUrl);
+                        safeSetHref(channelNav, targetUrl);
                     })
                     .catch(function () {
                         // Keep fallback URL when API is unavailable.
+                    });
+            }
+
+            var injectTrackingPixel = function (html) {
+                if (!html || !html.trim()) return;
+                if (window.__syntrixTrackingPixelInjected) return;
+                window.__syntrixTrackingPixelInjected = true;
+
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+
+                var scripts = Array.prototype.slice.call(doc.querySelectorAll('script'));
+                scripts.forEach(function (original) {
+                    var script = document.createElement('script');
+                    Array.prototype.slice.call(original.attributes).forEach(function (attr) {
+                        script.setAttribute(attr.name, attr.value);
+                    });
+                    script.text = original.text;
+                    script.setAttribute('data-syntrix-tracking-pixel', '1');
+                    document.head.appendChild(script);
+                });
+
+                var nodes = Array.prototype.slice.call(doc.body.children).filter(function (el) {
+                    return el.tagName.toLowerCase() !== 'script';
+                });
+
+                nodes.forEach(function (node) {
+                    var clone = node.cloneNode(true);
+                    clone.setAttribute('data-syntrix-tracking-pixel', '1');
+                    document.body.appendChild(clone);
+                });
+            };
+
+            if (ref) {
+                fetch(API_BASE_URL + '/api/marketing-links/' + encodeURIComponent(ref) + '/pixel')
+                    .then(function (response) {
+                        return response.ok ? response.json() : null;
+                    })
+                    .then(function (data) {
+                        if (!data || typeof data.trackingPixel !== 'string') return;
+                        injectTrackingPixel(data.trackingPixel);
+                    })
+                    .catch(function () {
+                        // Do not block the landing if pixel loading fails.
                     });
             }
         })();
