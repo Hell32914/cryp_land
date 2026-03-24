@@ -4135,12 +4135,11 @@ app.get('/api/admin/overview', requireAdminAuth, async (req, res) => {
       }
       if (fullDaily) {
         const dailyEntry = ensureDailyEntry(key)
+        // Count ALL new registrations as leads so daily table matches the KPI header
+        dailyEntry.traffic += 1
+        addDailyLinkStat(key, attributedLinkId, 'leads')
         if (isConverted) {
           dailyEntry.users += 1
-          addDailyLinkStat(key, attributedLinkId, 'users')
-        } else {
-          dailyEntry.traffic += 1
-          addDailyLinkStat(key, attributedLinkId, 'leads')
         }
       }
     })

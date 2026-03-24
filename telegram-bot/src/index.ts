@@ -1025,7 +1025,7 @@ bot.command('start', async (ctx) => {
     if (referrerId) notifyMessage += `\n👥 Referred by: ${referrerId}`
     if (marketingSource) notifyMessage += `\n📢 Source: ${marketingSource}`
     
-    await bot.api.sendMessage(ADMIN_ID, notifyMessage)
+    await notifyAdmins(notifyMessage).catch((e) => console.error('Failed to notify admins about new user:', e))
 
     // Referral will be activated when user reaches $1000 deposit
   }
