@@ -315,9 +315,13 @@ export interface DepositRecord {
   status: string
   paymentMethod?: string
   amount: number
+  sourceAmount?: number | null
+  sourceCurrency?: string | null
+  exchangeRate?: number | null
   currency: string
   network?: string | null
   txHash?: string | null
+  trackId?: string | null
   createdAt: string
   user: UserRecord
   depStatus: 'processing' | 'paid' | 'failed'
@@ -801,6 +805,27 @@ const MOCK_DEPOSITS: DepositRecord[] = [
     referralLink: 'https://website.syntrix.uno/?ref=QA-003',
     trafficerName: 'QA Team',
     linkName: 'QA Link C',
+  },
+  {
+    id: 9004,
+    status: 'PENDING',
+    paymentMethod: 'SEPA',
+    amount: 108.25,
+    sourceAmount: 100,
+    sourceCurrency: 'EUR',
+    exchangeRate: 1.0825,
+    currency: 'USD',
+    network: 'SEPA',
+    txHash: null,
+    trackId: 'SEPA-QA-9004',
+    createdAt: isoDaysAgo(0),
+    user: MOCK_USERS[0],
+    depStatus: 'processing',
+    leadStatus: 'active',
+    trafficSource: 'telegram',
+    referralLink: 'https://website.syntrix.uno/?ref=QA-004',
+    trafficerName: 'QA Team',
+    linkName: 'QA Link D',
   },
 ]
 

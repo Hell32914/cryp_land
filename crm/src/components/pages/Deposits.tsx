@@ -164,7 +164,14 @@ export function Deposits() {
 
   const getPaymentMethodLabel = (paymentMethod?: string) => {
     const pm = (paymentMethod || 'OXAPAY').toUpperCase()
-    return pm === 'PAYPAL' ? 'PAYPAL' : 'CRYPTO'
+    if (pm === 'PAYPAL') return 'PAYPAL'
+    if (pm === 'SEPA') return 'SEPA'
+    return 'CRYPTO'
+  }
+
+  const getSourceAmountLabel = (deposit: DepositRecord) => {
+    if (!Number.isFinite(deposit.sourceAmount) || !deposit.sourceCurrency) return null
+    return `${String(deposit.sourceCurrency).toUpperCase()} ${Number(deposit.sourceAmount).toFixed(2)}`
   }
 
   return (
@@ -266,7 +273,10 @@ export function Deposits() {
                         </TableCell>
                         <TableCell className="text-sm hidden lg:table-cell">{latest.user.fullName}</TableCell>
                         <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
-                          ${latest.amount.toFixed(2)}
+                          <div>${latest.amount.toFixed(2)}</div>
+                          {getSourceAmountLabel(latest) ? (
+                            <div className="text-[11px] font-normal text-muted-foreground">{getSourceAmountLabel(latest)}</div>
+                          ) : null}
                         </TableCell>
                         <TableCell className="text-sm hidden lg:table-cell">{latest.user.country}</TableCell>
                         <TableCell>
@@ -336,7 +346,10 @@ export function Deposits() {
                               <TableCell className="font-medium text-sm hidden sm:table-cell">{deposit.user.username || 'N/A'}</TableCell>
                               <TableCell className="text-sm hidden lg:table-cell">{deposit.user.fullName}</TableCell>
                               <TableCell className="text-right font-mono font-semibold text-green-500 text-sm">
-                                ${deposit.amount.toFixed(2)}
+                                <div>${deposit.amount.toFixed(2)}</div>
+                                {getSourceAmountLabel(deposit) ? (
+                                  <div className="text-[11px] font-normal text-muted-foreground">{getSourceAmountLabel(deposit)}</div>
+                                ) : null}
                               </TableCell>
                               <TableCell className="text-sm hidden lg:table-cell">{deposit.user.country}</TableCell>
                               <TableCell>
@@ -447,8 +460,21 @@ export function Deposits() {
                 <div className="text-xs text-muted-foreground mt-1">
                   Method: {getPaymentMethodLabel(selectedDeposit.paymentMethod)}
                 </div>
+                {getSourceAmountLabel(selectedDeposit) ? (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Source amount: {getSourceAmountLabel(selectedDeposit)}
+                  </div>
+                ) : null}
+                {selectedDeposit.exchangeRate ? (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Rate used: 1 EUR = ${selectedDeposit.exchangeRate.toFixed(4)}
+                  </div>
+                ) : null}
                 <div className="text-xs text-muted-foreground mt-1">
                   Network: {selectedDeposit.network || '—'}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Reference: {selectedDeposit.trackId || '—'}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Tx Hash: {selectedDeposit.txHash || '—'}

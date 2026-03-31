@@ -73,6 +73,8 @@ const COUNTRY_ALIAS_TO_CANONICAL = Object.entries(COUNTRY_CANONICAL_ALIASES).red
   return acc
 }, {} as Record<string, string>)
 
+const SEPA_MIN_AMOUNT_EUR = 10
+
 function normalizeCountryName(value: unknown): string {
   const raw = String(value ?? '').trim()
   if (!raw || raw.toLowerCase() === 'unknown') return 'Unknown'
@@ -114,6 +116,23 @@ async function getIpGeoData(ip: string) {
     console.error('Error fetching IP geo data:', error)
   }
   return { country: null, city: null, isp: null, timezone: null, isVpnProxy: null }
+}
+
+async function getSepaUsdExchangeRate() {
+  const response = await axios.get('https://api.frankfurter.app/latest', {
+    params: {
+      from: 'EUR',
+      to: 'USD',
+    },
+    timeout: 10000,
+  })
+
+  const rate = Number(response.data?.rates?.USD)
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error('Invalid EUR/USD rate')
+  }
+
+  return rate
 }
 
 // Tariff plans configuration
@@ -5640,9 +5659,13 @@ app.get('/api/admin/deposits', requireAdminAuth, async (req, res) => {
         status: deposit.status,
         paymentMethod: (deposit as any).paymentMethod,
         amount: deposit.amount,
+        sourceAmount: (deposit as any).sourceAmount,
+        sourceCurrency: (deposit as any).sourceCurrency,
+        exchangeRate: (deposit as any).exchangeRate,
         currency: deposit.currency,
         network: deposit.network,
         txHash: deposit.txHash,
+        trackId: deposit.trackId,
         createdAt: deposit.createdAt,
         user: mapUserSummary(deposit.user),
         depStatus,
@@ -6536,14 +6559,71 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
       return res.status(404).json({ error: 'User not found' })
     }
 
-    if (!amount || amount < 10) {
-      return res.status(400).json({ error: 'Minimum deposit amount is $10' })
-    }
-
+    const depositAmount = Number(amount)
     const paymentMethod = String(method || 'OXAPAY').toUpperCase()
 
-    if (paymentMethod !== 'OXAPAY' && paymentMethod !== 'PAYPAL') {
+    if (paymentMethod !== 'OXAPAY' && paymentMethod !== 'PAYPAL' && paymentMethod !== 'SEPA') {
       return res.status(400).json({ error: 'Invalid payment method' })
+    }
+
+    if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid deposit amount' })
+    }
+
+    const minimumAmount = paymentMethod === 'SEPA' ? SEPA_MIN_AMOUNT_EUR : 10
+    if (depositAmount < minimumAmount) {
+      return res.status(400).json({
+        error:
+          paymentMethod === 'SEPA'
+            ? `Minimum SEPA deposit amount is EUR ${SEPA_MIN_AMOUNT_EUR.toFixed(2)}`
+            : 'Minimum deposit amount is $10'
+      })
+    }
+
+    if (paymentMethod === 'SEPA') {
+      let exchangeRate: number
+
+      try {
+        exchangeRate = await getSepaUsdExchangeRate()
+      } catch (rateError) {
+        console.error('❌ Failed to fetch SEPA EUR/USD rate:', rateError)
+        return res.status(503).json({
+          error: 'SEPA is temporarily unavailable. Live EUR/USD rate could not be loaded.',
+          code: 'SEPA_RATE_UNAVAILABLE'
+        })
+      }
+
+      const sourceAmount = Number(depositAmount.toFixed(2))
+      const creditedAmountUsd = Number((sourceAmount * exchangeRate).toFixed(2))
+      const reference = `SEPA-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`
+
+      const deposit = await prisma.deposit.create({
+        data: {
+          userId: user.id,
+          amount: creditedAmountUsd,
+          sourceAmount,
+          sourceCurrency: 'EUR',
+          exchangeRate,
+          status: 'PENDING',
+          currency: 'USD',
+          paymentMethod: 'SEPA',
+          network: 'SEPA',
+          trackId: reference,
+        }
+      })
+
+      return res.json({
+        success: true,
+        depositId: deposit.id,
+        method: 'SEPA',
+        status: 'PENDING',
+        reference,
+        trackId: reference,
+        amount: creditedAmountUsd,
+        sourceAmount,
+        sourceCurrency: 'EUR',
+        exchangeRate,
+      })
     }
 
     if (paymentMethod === 'PAYPAL') {
@@ -6560,7 +6640,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
       const deposit = await prisma.deposit.create({
         data: {
           userId: user.id,
-          amount,
+          amount: depositAmount,
           status: 'PENDING',
           currency: 'USD',
           paymentMethod: 'PAYPAL',
@@ -6572,7 +6652,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
 
       const { createPayPalOrder } = await import('./paypal.js')
       const order = await createPayPalOrder({
-        amount,
+        amount: depositAmount,
         currency: 'USD',
         returnUrl,
         cancelUrl,
@@ -6612,7 +6692,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
     
     // Create invoice with amount in USD and selected crypto as payCurrency
     const invoice = await createInvoice({
-      amount,
+      amount: depositAmount,
       currency: 'USD', // Amount is always in USD
       payCurrency: currency, // BTC, ETH, USDT, etc. - crypto to pay with
       description: `Deposit for ${user.username || user.telegramId}`,
@@ -6623,7 +6703,7 @@ app.post('/api/user/:telegramId/create-deposit', depositLimiter, requireUserAuth
     const deposit = await prisma.deposit.create({
       data: {
         userId: user.id,
-        amount,
+        amount: depositAmount,
         status: 'PENDING',
         currency,
         paymentMethod: 'OXAPAY',

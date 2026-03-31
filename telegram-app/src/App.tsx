@@ -17,6 +17,15 @@ import { GameTab } from '@/components/GameTab'
 import { TradeTab } from '@/components/TradeTab'
 
 type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'trade' | 'game' | 'ai' | 'profile'
+type DepositMethod = 'OXAPAY' | 'PAYPAL' | 'SEPA'
+
+const SEPA_MIN_AMOUNT_EUR = 10
+const SEPA_BANK_DETAILS = [
+  { label: 'Account number (IBAN)', value: 'GB81CLJU00997190789010' },
+  { label: 'BIC', value: 'CLJUGB21' },
+  { label: 'Account holder name', value: 'LOMAKINA ZHANNA' },
+  { label: 'Bank', value: 'Clear Junction Limited' },
+]
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home')
@@ -51,7 +60,13 @@ function App() {
   const [depositQrCode, setDepositQrCode] = useState<string>('')
   const [depositAddress, setDepositAddress] = useState<string>('')
   const [depositPaymentUrl, setDepositPaymentUrl] = useState<string>('')
-  const [depositMethod, setDepositMethod] = useState<'OXAPAY' | 'PAYPAL'>('OXAPAY')
+  const [depositMethod, setDepositMethod] = useState<DepositMethod>('OXAPAY')
+  const [sepaExchangeRate, setSepaExchangeRate] = useState<number | null>(null)
+  const [sepaRateLoading, setSepaRateLoading] = useState(false)
+  const [sepaRateError, setSepaRateError] = useState<string | null>(null)
+  const [sepaDetailsVisible, setSepaDetailsVisible] = useState(false)
+  const [sepaDepositReference, setSepaDepositReference] = useState('')
+  const [sepaConfirmedUsdAmount, setSepaConfirmedUsdAmount] = useState<number | null>(null)
   const [withdrawMethod, setWithdrawMethod] = useState<'OXAPAY' | 'PAYPAL'>('OXAPAY')
   const [withdrawPaypalEmail, setWithdrawPaypalEmail] = useState<string>('')
   const [contactSupportOpen, setContactSupportOpen] = useState(false)
@@ -89,12 +104,67 @@ function App() {
     setDepositAddress('')
     setDepositPaymentUrl('')
   }, [depositMethod])
+
+  useEffect(() => {
+    if (!depositOpen || depositMethod !== 'SEPA') return
+
+    const controller = new AbortController()
+
+    const loadSepaExchangeRate = async () => {
+      setSepaRateLoading(true)
+      setSepaRateError(null)
+
+      try {
+        const response = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD', {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Unexpected response: ${response.status}`)
+        }
+
+        const data = await response.json()
+        const rate = Number(data?.rates?.USD)
+
+        if (!Number.isFinite(rate) || rate <= 0) {
+          throw new Error('Invalid EUR/USD rate received')
+        }
+
+        setSepaExchangeRate(rate)
+      } catch (error: any) {
+        if (error?.name === 'AbortError') return
+        console.error('Error loading SEPA exchange rate:', error)
+        setSepaExchangeRate(null)
+        setSepaRateError('Live EUR/USD rate is temporarily unavailable.')
+      } finally {
+        if (!controller.signal.aborted) {
+          setSepaRateLoading(false)
+        }
+      }
+    }
+
+    void loadSepaExchangeRate()
+
+    return () => {
+      controller.abort()
+    }
+  }, [depositOpen, depositMethod])
   
   const t = translations[selectedLanguage || 'ENGLISH']
 
   const formatUsd = (value: number) => {
     const safe = Number.isFinite(value) ? value : 0
     return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(safe)
+  }
+
+  const formatEur = (value: number) => {
+    const safe = Number.isFinite(value) ? value : 0
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'EUR',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(safe)
@@ -142,6 +212,13 @@ function App() {
   const whitepaperContent = t.whitepaperContent
   const securitySections = t.securitySections ?? []
   const advantagesSections = t.advantagesSections ?? []
+  const parsedDepositAmountInput = Number.parseFloat(depositAmountInput)
+  const hasDepositAmount = Number.isFinite(parsedDepositAmountInput) && parsedDepositAmountInput > 0
+  const sepaEstimatedUsd =
+    depositMethod === 'SEPA' && hasDepositAmount && sepaExchangeRate
+      ? parsedDepositAmountInput * sepaExchangeRate
+      : null
+  const displayedSepaUsdAmount = sepaConfirmedUsdAmount ?? sepaEstimatedUsd
 
   // Get Telegram user ID (fallback to 503856039 for local testing)
   const telegramUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString() || '503856039'
@@ -510,8 +587,14 @@ function App() {
     }
 
     const amount = parseFloat(depositAmountInput)
-    if (isNaN(amount) || amount < 10) {
-      toast.error('Minimum deposit amount is $10')
+    const minimumAmount = depositMethod === 'SEPA' ? SEPA_MIN_AMOUNT_EUR : 10
+
+    if (isNaN(amount) || amount < minimumAmount) {
+      toast.error(
+        depositMethod === 'SEPA'
+          ? `Minimum SEPA deposit amount is ${formatEur(SEPA_MIN_AMOUNT_EUR)}`
+          : 'Minimum deposit amount is $10'
+      )
       return
     }
 
@@ -534,9 +617,32 @@ function App() {
         setDepositAddress('')
 
         setDepositPaymentUrl(data.paymentUrl || '')
+        setSepaDetailsVisible(false)
+        setSepaDepositReference('')
+        setSepaConfirmedUsdAmount(null)
 
-        if ((data.method || '').toString().toUpperCase() === 'PAYPAL') {
+        const createdMethod = (data.method || depositMethod).toString().toUpperCase()
+
+        if (createdMethod === 'PAYPAL') {
           toast.success('PayPal payment created. Continue to PayPal to complete payment.')
+        } else if (createdMethod === 'SEPA') {
+          const responseRate = Number(data.exchangeRate)
+          const responseUsdAmount = Number(data.amount)
+          const responseReference = [data.reference, data.trackId]
+            .find((value: unknown) => typeof value === 'string' && value.trim().length > 0) as string | undefined
+
+          if (Number.isFinite(responseRate) && responseRate > 0) {
+            setSepaExchangeRate(responseRate)
+            setSepaRateError(null)
+          }
+
+          if (Number.isFinite(responseUsdAmount) && responseUsdAmount > 0) {
+            setSepaConfirmedUsdAmount(responseUsdAmount)
+          }
+
+          setSepaDepositReference(responseReference || '')
+          setSepaDetailsVisible(true)
+          toast.success('SEPA deposit request created. Send the payment receipt to support for payment confirmation.')
         } else {
           setDepositQrCode(data.qrCode)
           setDepositAddress(data.address)
@@ -1287,11 +1393,14 @@ function App() {
               <Select
                 value={depositMethod}
                 onValueChange={(v) => {
-                  setDepositMethod(v as any)
+                  setDepositMethod(v as DepositMethod)
                   // Clear previous results when switching method
                   setDepositQrCode('')
                   setDepositAddress('')
                   setDepositPaymentUrl('')
+                  setSepaDetailsVisible(false)
+                  setSepaDepositReference('')
+                  setSepaConfirmedUsdAmount(null)
                 }}
               >
                 <SelectTrigger className="w-full h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg">
@@ -1299,7 +1408,8 @@ function App() {
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border/50 rounded-lg">
                   <SelectItem value="OXAPAY">Crypto</SelectItem>
-                    {enablePayPalDeposit && <SelectItem value="PAYPAL">PayPal</SelectItem>}
+                  <SelectItem value="SEPA">SEPA Bank Transfer</SelectItem>
+                  {enablePayPalDeposit && <SelectItem value="PAYPAL">PayPal</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -1326,17 +1436,50 @@ function App() {
 
             <div className="space-y-2">
               <label className="text-xs sm:text-sm text-muted-foreground font-medium">
-                {t.enterAmountDollar}
+                {depositMethod === 'SEPA' ? 'Enter amount EUR' : t.enterAmountDollar}
               </label>
               <Input
                 id="deposit-amount-input"
                 type="number"
                 value={depositAmountInput}
-                onChange={(e) => setDepositAmountInput(e.target.value)}
-                placeholder="$10 - $100,000+"
+                onChange={(e) => {
+                  setDepositAmountInput(e.target.value)
+                  setSepaDetailsVisible(false)
+                  setSepaDepositReference('')
+                  setSepaConfirmedUsdAmount(null)
+                }}
+                placeholder={depositMethod === 'SEPA' ? '€10 - €100,000+' : '$10 - $100,000+'}
                 className="h-11 sm:h-12 bg-background/50 border-border/50 text-foreground text-sm sm:text-base rounded-lg"
               />
             </div>
+
+            {depositMethod === 'SEPA' && (
+              <div className="rounded-xl border border-primary/20 bg-secondary/20 p-3 sm:p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">Minimum SEPA transfer</span>
+                  <span className="font-semibold text-foreground">{formatEur(SEPA_MIN_AMOUNT_EUR)}</span>
+                </div>
+
+                {sepaRateLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading live EUR/USD rate...</p>
+                ) : sepaExchangeRate ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Live EUR/USD rate</span>
+                      <span className="font-semibold text-foreground">1 EUR = ${formatUsd(sepaExchangeRate)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Estimated balance credit</span>
+                      <span className="font-bold text-primary">
+                        {displayedSepaUsdAmount !== null ? `$${formatUsd(displayedSepaUsdAmount)}` : 'Enter an amount'}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-300">{sepaRateError}</p>
+                )}
+              </div>
+            )}
 
             <Button
               className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-4 sm:py-5 text-sm sm:text-base rounded-lg shadow-lg shadow-accent/20 transition-all"
@@ -1348,6 +1491,105 @@ function App() {
             >
               {t.continue}
             </Button>
+
+            {depositMethod === 'SEPA' && sepaDetailsVisible && (
+              <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-foreground">SEPA Bank Details</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Send your transfer to the bank account below. Your balance will be credited after payment confirmation.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 space-y-1">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-primary/80">Transfer summary</p>
+                  <p className="text-sm text-foreground">
+                    Transfer amount:{' '}
+                    <span className="font-semibold text-primary">{formatEur(parsedDepositAmountInput)}</span>
+                  </p>
+                  {displayedSepaUsdAmount !== null ? (
+                    <p className="text-sm text-foreground">
+                      Estimated balance credit:{' '}
+                      <span className="font-semibold text-primary">${formatUsd(displayedSepaUsdAmount)}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Live EUR/USD data is unavailable right now. The final USD credit will be confirmed manually.
+                    </p>
+                  )}
+                </div>
+
+                {sepaDepositReference && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Support reference</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={sepaDepositReference}
+                        readOnly
+                        className="flex-1 bg-background text-xs sm:text-sm"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(sepaDepositReference)
+                          toast.success('Support reference copied!')
+                        }}
+                      >
+                        <Copy size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {SEPA_BANK_DETAILS.map((detail) => (
+                    <div key={detail.label} className="space-y-2">
+                      <p className="text-xs text-muted-foreground">{detail.label}</p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={detail.value}
+                          readOnly
+                          className="flex-1 bg-background text-xs sm:text-sm"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            navigator.clipboard.writeText(detail.value)
+                            toast.success(`${detail.label} copied!`)
+                          }}
+                        >
+                          <Copy size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <p className="text-xs text-foreground">
+                    After payment, send the receipt to support for payment confirmation.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full border-border text-foreground hover:bg-muted/50"
+                  onClick={() => {
+                    const url = supportBotLink || requiredSupportBotLink
+                    const tg = (window as any).Telegram?.WebApp
+                    if (tg?.openTelegramLink) {
+                      tg.openTelegramLink(url)
+                    } else {
+                      window.open(url, '_blank')
+                    }
+                  }}
+                >
+                  Open Support
+                </Button>
+              </div>
+            )}
 
             {enablePayPalDeposit && depositMethod === 'PAYPAL' && depositPaymentUrl && (
               <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-3">

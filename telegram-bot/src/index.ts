@@ -667,6 +667,21 @@ function formatAdminDisplay(admin: { username?: string | null } | undefined, adm
   return adminId
 }
 
+function formatPendingDepositAmount(deposit: {
+  amount: number
+  paymentMethod?: string | null
+  sourceAmount?: number | null
+  sourceCurrency?: string | null
+}) {
+  const paymentMethod = String(deposit.paymentMethod || 'OXAPAY').toUpperCase()
+  if (paymentMethod === 'SEPA' && Number.isFinite(deposit.sourceAmount)) {
+    const sourceCurrency = String(deposit.sourceCurrency || 'EUR').toUpperCase()
+    return `💶 ${sourceCurrency} ${Number(deposit.sourceAmount).toFixed(2)} -> 💵 $${deposit.amount.toFixed(2)} | SEPA`
+  }
+
+  return `💵 $${deposit.amount.toFixed(2)} | ${paymentMethod}`
+}
+
 // Send notification to support team (admins + supports)
 export async function notifySupport(message: string, options?: any) {
   const results = []
@@ -3522,7 +3537,10 @@ bot.on('message:text', async (ctx) => {
         message += 'No pending deposits for this user.'
       } else {
         deposits.forEach((d, idx) => {
-          message += `${idx + 1}. 💵 $${d.amount.toFixed(2)} | 📅 ${d.createdAt.toLocaleString()}\n`
+          message += `${idx + 1}. ${formatPendingDepositAmount(d)} | 📅 ${d.createdAt.toLocaleString()}\n`
+          if (String(d.paymentMethod || '').toUpperCase() === 'SEPA' && d.trackId) {
+            message += `   🔖 ${d.trackId}\n`
+          }
         })
       }
 
@@ -4230,7 +4248,10 @@ bot.callbackQuery(/^admin_pending_deposits(?:_(\d+))?$/, async (ctx) => {
     const username = (deposit.user.username || 'no_username').replace(/_/g, '\\_')
     const num = skip + index + 1
     message += `${num}. @${username}\n`
-    message += `   💵 $${deposit.amount.toFixed(2)} | ⏳ PENDING\n`
+    message += `   ${formatPendingDepositAmount(deposit)} | ⏳ PENDING\n`
+    if (String(deposit.paymentMethod || '').toUpperCase() === 'SEPA' && deposit.trackId) {
+      message += `   🔖 ${deposit.trackId}\n`
+    }
     message += `   🆔 ${deposit.user.telegramId} | 📅 ${deposit.createdAt.toLocaleDateString()}\n\n`
   })
 

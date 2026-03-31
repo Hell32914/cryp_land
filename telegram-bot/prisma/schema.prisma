@@ -102,6 +102,9 @@ model Deposit {
   userId      Int
   user        User           @relation(fields: [userId], references: [id])
   amount      Float
+  sourceAmount Float?
+  sourceCurrency String?
+  exchangeRate Float?
   status      String         @default("PENDING")
   paymentMethod String       @default("OXAPAY")
   currency    String         @default("USDT")
