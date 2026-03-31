@@ -1496,13 +1496,13 @@ function App() {
               <div className="mt-6 p-4 bg-background/50 rounded-lg border border-border space-y-4">
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-foreground">SEPA Bank Details</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-foreground/90">
                     Send your transfer to the bank account below. Your balance will be credited after payment confirmation.
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 space-y-1">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-primary/80">Transfer summary</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-foreground/75">Transfer summary</p>
                   <p className="text-sm text-foreground">
                     Transfer amount:{' '}
                     <span className="font-semibold text-primary">{formatEur(parsedDepositAmountInput)}</span>
@@ -1513,7 +1513,7 @@ function App() {
                       <span className="font-semibold text-primary">${formatUsd(displayedSepaUsdAmount)}</span>
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-foreground/85">
                       Live EUR/USD data is unavailable right now. The final USD credit will be confirmed manually.
                     </p>
                   )}
@@ -1521,22 +1521,23 @@ function App() {
 
                 {sepaDepositReference && (
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Support reference</p>
+                    <p className="text-xs font-medium text-foreground">Support reference</p>
                     <div className="flex items-center gap-2">
                       <Input
                         value={sepaDepositReference}
                         readOnly
-                        className="flex-1 bg-background text-xs sm:text-sm"
+                        className="flex-1 bg-background text-foreground text-xs sm:text-sm"
                       />
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        className="shrink-0 border-border text-foreground hover:bg-muted/50 px-3"
                         onClick={() => {
                           navigator.clipboard.writeText(sepaDepositReference)
                           toast.success('Support reference copied!')
                         }}
                       >
-                        <Copy size={16} />
+                        <Copy size={16} className="mr-1.5" />
+                        <span className="text-xs sm:text-sm">Copy</span>
                       </Button>
                     </div>
                   </div>
@@ -1545,22 +1546,23 @@ function App() {
                 <div className="space-y-3">
                   {SEPA_BANK_DETAILS.map((detail) => (
                     <div key={detail.label} className="space-y-2">
-                      <p className="text-xs text-muted-foreground">{detail.label}</p>
+                      <p className="text-xs font-medium text-foreground">{detail.label}</p>
                       <div className="flex items-center gap-2">
                         <Input
                           value={detail.value}
                           readOnly
-                          className="flex-1 bg-background text-xs sm:text-sm"
+                          className="flex-1 bg-background text-foreground text-xs sm:text-sm"
                         />
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="outline"
+                          className="shrink-0 border-border text-foreground hover:bg-muted/50 px-3"
                           onClick={() => {
                             navigator.clipboard.writeText(detail.value)
                             toast.success(`${detail.label} copied!`)
                           }}
                         >
-                          <Copy size={16} />
+                          <Copy size={16} className="mr-1.5" />
+                          <span className="text-xs sm:text-sm">Copy</span>
                         </Button>
                       </div>
                     </div>
