@@ -1960,23 +1960,6 @@ function App() {
         <div className="max-w-2xl mx-auto">
           {activeTab === 'home' && (
             <div className="space-y-5 pb-4">
-              <a 
-                href="https://syntrix.cc/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="block bg-gradient-to-r from-accent/80 to-accent/60 rounded-xl p-6 sm:p-8 text-center hover:from-accent hover:to-accent/70 transition-all duration-300 shadow-lg shadow-accent/30 border-2 border-accent/40 hover:border-accent/60 cursor-pointer transform hover:scale-[1.02]"
-              >
-                <div className="space-y-2">
-                  <p className="text-xs sm:text-sm font-semibold text-accent-foreground/80 uppercase tracking-wide">Limited Time Offer</p>
-                  <h3 className="text-xl sm:text-3xl font-bold text-accent-foreground uppercase tracking-wider">
-                    AIRDROP $SNTRX TOKEN
-                  </h3>
-                  <p className="text-sm sm:text-lg font-bold text-accent-foreground">
-                    CLICK TO CLAIM YOUR PROFIT
-                  </p>
-                </div>
-              </a>
-
               <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 space-y-4 border border-border/50 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
