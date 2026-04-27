@@ -1974,7 +1974,6 @@ function App() {
                   <p className="text-sm sm:text-lg font-bold text-accent-foreground">
                     CLICK TO CLAIM YOUR PROFIT
                   </p>
-                  <p className="text-xs text-accent-foreground/70 mt-2">Visit syntrix.cc →</p>
                 </div>
               </a>
 
