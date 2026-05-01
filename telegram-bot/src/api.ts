@@ -6311,8 +6311,48 @@ app.get('/api/user/:telegramId/referrals', requireUserAuth, async (req, res) => 
       orderBy: { createdAt: 'desc' }
     })
 
+    // Also include direct referrals that registered via this user but are not activated yet.
+    // Activation happens after reaching referral activation deposit threshold.
+    const pendingDirectUsers = await prisma.user.findMany({
+      where: { referredBy: telegramId },
+      select: {
+        id: true,
+        telegramId: true,
+        username: true,
+        createdAt: true,
+        totalDeposit: true,
+        isActiveReferral: true,
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    const activatedDirectIds = new Set(
+      referrals
+        .filter((ref) => ref.level === 1)
+        .map((ref) => ref.referredUserId)
+    )
+
+    const pendingReferrals = pendingDirectUsers
+      .filter((u) => !u.isActiveReferral || !activatedDirectIds.has(u.id))
+      .filter((u) => !activatedDirectIds.has(u.id))
+      .map((u) => ({
+        id: -u.id,
+        userId: user.id,
+        referredUserId: u.id,
+        referredUsername: u.username || `user_${u.telegramId}`,
+        level: 1,
+        earnings: 0,
+        createdAt: u.createdAt,
+        status: 'PENDING',
+        activationDepositLeft: Math.max(0, 500 - Number(u.totalDeposit || 0))
+      }))
+
+    const mergedReferrals = [...referrals, ...pendingReferrals].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+
     res.json({
-      referrals,
+      referrals: mergedReferrals,
       totalReferralEarnings: user.referralEarnings
     })
   } catch (error) {
