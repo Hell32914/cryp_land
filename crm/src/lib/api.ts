@@ -1,6 +1,9 @@
 import { decodeJwtClaims, normalizeCrmRole } from '@/lib/jwt'
 
-const API_BASE_URL = 'https://api.syntrix.uno';
+const rawApiBaseUrl = (import.meta.env.VITE_API_URL || '').trim()
+const API_BASE_URL = rawApiBaseUrl
+  ? rawApiBaseUrl.replace(/\/$/, '')
+  : ''
 
 export class ApiError extends Error {
   status: number
