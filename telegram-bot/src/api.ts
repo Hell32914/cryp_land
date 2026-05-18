@@ -182,6 +182,7 @@ const allowedOrigins = [
   'https://official.siintrix.site',
   'https://appmini.syntrix.uno',
   'https://admin.syntrix.uno',
+  'https://admin.syntrix.website',
   'https://syntrix-crm.onrender.com',
   'http://localhost:5173', // Development
   'http://localhost:3000'  // Development

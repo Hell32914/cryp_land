@@ -26,6 +26,7 @@ export default defineConfig({
       'website.syntrix.uno',
       'api.syntrix.uno',
       'admin.syntrix.uno',
+        'admin.syntrix.website',
       'appmini.syntrix.uno',
       'info.syntrixxx.site',
       'crypto.syntrixxx.site',
