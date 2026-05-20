@@ -1020,8 +1020,8 @@ function App() {
     }
   }
 
-  // Feature flag: hide Game tab in production when disabled.
-  const GAME_ENABLED = import.meta.env.VITE_ENABLE_GAME === 'true'
+  // Restrict the hidden game tab to a single Telegram account.
+  const GAME_ENABLED = telegramUserId === '503856039'
 
   const tabs = [
     { id: 'wallet' as TabType, icon: Wallet, label: t.wallet },
