@@ -661,7 +661,7 @@ function formatUserDisplay(user: { username?: string | null, phoneNumber?: strin
   }
 }
 
-function formatAdminDisplay(admin: { username?: string | null } | undefined, adminId: string): string {
+function formatAdminDisplay(admin: { username?: string | null } | null | undefined, adminId: string): string {
   if (admin?.username) {
     return '@' + admin.username.replace(/_/g, '\\_')
   }
