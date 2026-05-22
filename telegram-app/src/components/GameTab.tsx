@@ -32,6 +32,14 @@ type BuyBoxResponse = {
   prizeIndex: number
   prize: number
   newBonusTokens: number
+  newBalance: number
+}
+
+type PersistedGameState = {
+  roulette: BuyBoxResponse
+  rouletteBalance: number | null
+  spinDone: boolean
+  idleIndex: number
 }
 
 function formatAmount(n: number): string {
@@ -42,10 +50,14 @@ export function GameTab(props: {
   t: any
   telegramUserId: string | undefined
   getAuthHeaders: () => Record<string, string>
-  bonusTokens: number
+  depositBalance: number
   refreshData: () => Promise<void>
+  allowPurchases?: boolean
+  onExit?: () => void
 }) {
-  const { t, telegramUserId, getAuthHeaders, bonusTokens, refreshData } = props
+  const { t, telegramUserId, getAuthHeaders, depositBalance, refreshData, allowPurchases = true, onExit } = props
+  const storageKey = telegramUserId ? `syntrix.game.active.${telegramUserId}` : null
+  const hydratedRef = useRef(false)
 
   const boxes: GameBox[] = useMemo(
     () => [
@@ -64,7 +76,7 @@ export function GameTab(props: {
   const [buying, setBuying] = useState(false)
 
   const [roulette, setRoulette] = useState<BuyBoxResponse | null>(null)
-  const [rouletteTokenBalance, setRouletteTokenBalance] = useState<number | null>(null)
+  const [rouletteBalance, setRouletteBalance] = useState<number | null>(null)
   const [spinning, setSpinning] = useState(false)
   const [spinSequence, setSpinSequence] = useState<number[]>([])
   const [spinPos, setSpinPos] = useState(0)
@@ -75,6 +87,56 @@ export function GameTab(props: {
 
   const REEL_VIEW_HEIGHT = 360
   const REEL_ITEM_HEIGHT = 84
+
+  useEffect(() => {
+    if (!storageKey) return
+
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      if (!raw) {
+        hydratedRef.current = true
+        return
+      }
+
+      const saved = JSON.parse(raw) as PersistedGameState
+      if (!saved?.roulette || !Array.isArray(saved.roulette.outcomes)) {
+        window.localStorage.removeItem(storageKey)
+        hydratedRef.current = true
+        return
+      }
+
+      setRoulette(saved.roulette)
+      setRouletteBalance(saved.rouletteBalance ?? null)
+      setSpinDone(Boolean(saved.spinDone))
+      setSpinning(false)
+      setSpinSequence([])
+      setSpinPos(0)
+      setIdleIndex(Number.isFinite(saved.idleIndex) ? saved.idleIndex : 0)
+    } catch (error) {
+      console.error('Failed to restore game state:', error)
+    } finally {
+      hydratedRef.current = true
+    }
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!storageKey || !hydratedRef.current) return
+
+    if (!roulette) {
+      window.localStorage.removeItem(storageKey)
+      return
+    }
+
+    const state: PersistedGameState = {
+      roulette,
+      rouletteBalance,
+      // If the mini app closes during animation, restore the purchased case as pending spin.
+      spinDone: spinning ? false : spinDone,
+      idleIndex,
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(state))
+  }, [storageKey, roulette, rouletteBalance, spinDone, idleIndex, spinning])
 
   useEffect(() => {
     return () => {
@@ -89,7 +151,7 @@ export function GameTab(props: {
     }
   }, [])
 
-  const canAfford = (box: GameBox) => bonusTokens >= box.cost
+  const canAfford = (box: GameBox) => depositBalance >= box.cost
 
   const openConfirm = (box: GameBox) => {
     if (!canAfford(box)) {
@@ -103,11 +165,14 @@ export function GameTab(props: {
   const goBackToGrid = async () => {
     if (spinning) return
     setRoulette(null)
-    setRouletteTokenBalance(null)
+    setRouletteBalance(null)
     setSpinSequence([])
     setSpinPos(0)
     setSpinDone(false)
     await refreshData()
+    if (!allowPurchases) {
+      onExit?.()
+    }
   }
 
   const startSpin = async (data: BuyBoxResponse) => {
@@ -166,9 +231,9 @@ export function GameTab(props: {
       setSpinPos(stopAt)
       setSpinning(false)
       setSpinDone(true)
-      setRouletteTokenBalance(data.newBonusTokens)
+      setRouletteBalance(data.newBalance)
       toast.success(
-        `${(t as any).gameYouWon ?? 'You won'} ${formatAmount(data.prize)} ${(t as any).gameTokenLabel ?? 'tokens'}`
+        `${(t as any).gameYouWon ?? 'You won'} $${formatAmount(data.prize)}`
       )
       refreshData()
     }
@@ -232,7 +297,7 @@ export function GameTab(props: {
       setRoulette(data)
       // Show balance after purchase (cost deducted) but before prize reveal.
       // The backend may have already computed/credited the prize; we delay reflecting it in UI until Spin completes.
-      setRouletteTokenBalance(Math.max(0, bonusTokens - pendingBox.cost))
+      setRouletteBalance(Math.max(0, depositBalance - pendingBox.cost))
       setIdleIndex(Math.floor(Math.random() * data.outcomes.length))
       setSpinSequence([])
       setSpinPos(0)
@@ -281,12 +346,9 @@ export function GameTab(props: {
         <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 border border-border/50 shadow-lg space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {(t as any).gameTokenBalance ?? 'Token balance'}
+              {(t as any).availableBalance ?? 'Available balance'}
             </p>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-primary">{formatAmount(rouletteTokenBalance ?? bonusTokens)}</span>
-              <Coins size={18} weight="fill" className="text-accent" />
-            </div>
+            <span className="text-base font-bold text-primary">${formatAmount(rouletteBalance ?? depositBalance)}</span>
           </div>
 
           <div className="relative rounded-2xl border border-border/50 bg-background/40 overflow-hidden shadow-lg" style={{ height: REEL_VIEW_HEIGHT }}>
@@ -328,8 +390,7 @@ export function GameTab(props: {
                       }
                     >
                       <Gift size={20} weight="duotone" className="text-primary" />
-                      <span className="text-3xl font-extrabold text-foreground tabular-nums">{formatAmount(value)}</span>
-                      <Coins size={16} weight="fill" className="text-accent" />
+                      <span className="text-3xl font-extrabold text-foreground tabular-nums">${formatAmount(value)}</span>
                     </div>
                   </div>
                 )
@@ -368,6 +429,27 @@ export function GameTab(props: {
     )
   }
 
+  if (!allowPurchases) {
+    return (
+      <div className="space-y-5 pb-4">
+        <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 space-y-3 border border-border/50 shadow-lg text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Gift size={28} weight="duotone" className="text-primary" />
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-foreground">
+            {(t as any).gameGiftOnlyTitle ?? 'Gift box only'}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {(t as any).gameGiftOnlyText ?? 'Open your gifted box from Home. Regular box purchases are hidden for this account.'}
+          </p>
+          <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6" onClick={() => onExit?.()}>
+            {(t as any).back ?? 'Back'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5 pb-4">
       <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 space-y-3 border border-border/50 shadow-lg">
@@ -383,11 +465,8 @@ export function GameTab(props: {
           </div>
 
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">{(t as any).gameTokenBalance ?? 'Token balance'}</p>
-            <div className="flex items-center justify-end gap-2">
-              <span className="text-lg font-bold text-primary">{formatAmount(bonusTokens)}</span>
-              <Coins size={18} weight="fill" className="text-accent" />
-            </div>
+            <p className="text-xs text-muted-foreground">{(t as any).availableBalance ?? 'Available balance'}</p>
+            <span className="text-lg font-bold text-primary">${formatAmount(depositBalance)}</span>
           </div>
         </div>
       </div>
@@ -421,13 +500,12 @@ export function GameTab(props: {
               </div>
 
               <div className="flex items-center justify-center gap-2">
-                <span className="text-lg font-bold text-foreground">{box.cost.toLocaleString('en-US')}</span>
-                <Coins size={18} weight="fill" className="text-accent" />
+                <span className="text-lg font-bold text-foreground">${box.cost.toLocaleString('en-US')}</span>
               </div>
 
               {!affordable && (
                 <p className="mt-2 text-center text-xs text-muted-foreground">
-                  {(t as any).gameNotEnough ?? 'Not enough tokens'}
+                  {(t as any).gameNotEnough ?? 'Not enough balance'}
                 </p>
               )}
             </button>
@@ -445,7 +523,7 @@ export function GameTab(props: {
               {pendingBox
                 ? `${(t as any).gameConfirmText ?? 'Do you want to buy'} “${pendingBox.name}” ${
                     (t as any).gameFor ?? 'for'
-                  } ${pendingBox.cost} ${(t as any).gameTokenLabel ?? 'tokens'}?`
+                  } $${pendingBox.cost}?`
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>

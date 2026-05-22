@@ -6,6 +6,7 @@ import { scheduleTradingCards, postTradingCard, rescheduleCards } from './tradin
 import { generateTradingCard, formatCardCaption, getLastTradingPostData } from './cardGenerator.js'
 import { getCardSettings, updateCardSettings } from './cardSettings.js'
 import { claimContactSupportBonus } from './contactSupportBonus.js'
+import { GAME_BOXES, GAME_BOX_IDS, getGameBoxLabel, type GameBoxId } from './gameBoxes.js'
 import cron from 'node-cron'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
@@ -680,6 +681,18 @@ function formatPendingDepositAmount(deposit: {
   }
 
   return `💵 $${deposit.amount.toFixed(2)} | ${paymentMethod}`
+}
+
+function buildGiftBoxSelectionKeyboard(userId: number) {
+  const keyboard = new InlineKeyboard()
+
+  GAME_BOX_IDS.forEach((boxId) => {
+    const box = GAME_BOXES[boxId]
+    keyboard.text(`${box.label} · $${box.cost.toLocaleString('en-US')}`, `gift_box_grant_${userId}_${boxId}`).row()
+  })
+
+  keyboard.text('◀️ Back', `manage_${userId}`)
+  return keyboard
 }
 
 // Send notification to support team (admins + supports)
@@ -2002,6 +2015,7 @@ bot.callbackQuery(/^manage_(\d+)(?:_(\d+))?$/, async (ctx) => {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
+    keyboard.text('🎰 Gift Game Box', `gift_box_menu_${userId}`).row()
   }
   
   // Support can manage bonus tokens
@@ -2127,6 +2141,7 @@ bot.callbackQuery(/^status_(\d+)_(\w+)$/, async (ctx) => {
     keyboard.text('💰 Add Balance', `add_balance_${userId}`)
       .text('💸 Withdraw Balance', `withdraw_balance_${userId}`).row()
     keyboard.text('📈 Add Profit', `add_profit_${userId}`).row()
+    keyboard.text('🎰 Gift Game Box', `gift_box_menu_${userId}`).row()
   }
   
   // Support can manage bonus tokens
@@ -2259,6 +2274,126 @@ bot.callbackQuery(/^add_profit_(\d+)$/, async (ctx) => {
     { reply_markup: keyboard, parse_mode: 'Markdown' }
   )
   await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery(/^gift_box_menu_(\d+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  await safeEditMessage(
+    ctx,
+    `🎰 *Gift Game Box*\n\n` +
+      `User: ${formatUserDisplay(user)}\n` +
+      `Telegram ID: \`${user.telegramId}\`\n\n` +
+      `Choose which roulette box to grant:`,
+    { reply_markup: buildGiftBoxSelectionKeyboard(userId), parse_mode: 'Markdown' }
+  )
+  await safeAnswerCallback(ctx)
+})
+
+bot.callbackQuery(/^gift_box_grant_(\d+)_(\w+)$/, async (ctx) => {
+  const adminId = ctx.from?.id.toString()
+  if (!adminId || !(await isAdmin(adminId))) {
+    await safeAnswerCallback(ctx, 'Access denied')
+    return
+  }
+
+  const userId = parseInt(ctx.match![1])
+  const boxId = ctx.match![2] as GameBoxId
+  if (!GAME_BOX_IDS.includes(boxId)) {
+    await safeAnswerCallback(ctx, 'Invalid box')
+    return
+  }
+
+  const [user, adminUser] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId } }),
+    prisma.user.findUnique({ where: { telegramId: adminId } }),
+  ])
+
+  if (!user) {
+    await safeAnswerCallback(ctx, 'User not found')
+    return
+  }
+
+  const boxLabel = getGameBoxLabel(boxId)
+  const adminName = formatAdminDisplay(adminUser, adminId)
+
+  try {
+    await prisma.gameGift.create({
+      data: {
+        userId: user.id,
+        boxId,
+        grantedByTelegramId: adminId,
+        grantedByName: adminName,
+      }
+    })
+
+    const userMessage = `🎁 *Bonus box received!*\n\n` +
+      `You received *${boxLabel}*.\n` +
+      `Open the *Home* tab and tap the gift notification to open it.`
+
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        type: 'GAME_GIFT',
+        message: userMessage,
+      }
+    })
+
+    let notifyIssue = ''
+    try {
+      await bot.api.sendMessage(user.telegramId, userMessage, { parse_mode: 'Markdown' })
+    } catch (error) {
+      console.error('Failed to notify user about gifted game box:', error)
+      notifyIssue = '\n⚠️ User bot notification failed.'
+    }
+
+    const pendingCount = await prisma.gameGift.count({
+      where: {
+        userId: user.id,
+        isClaimed: false,
+      }
+    })
+
+    await safeEditMessage(
+      ctx,
+      `✅ *Game box granted*\n\n` +
+        `User: ${formatUserDisplay(user)}\n` +
+        `Box: ${boxLabel}\n` +
+        `Pending unopened boxes: ${pendingCount}${notifyIssue}`,
+      {
+        reply_markup: new InlineKeyboard()
+          .text('🎰 Gift another box', `gift_box_menu_${userId}`).row()
+          .text('◀️ Back to user', `manage_${userId}`),
+        parse_mode: 'Markdown',
+      }
+    )
+    await safeAnswerCallback(ctx, 'Box granted')
+  } catch (error) {
+    console.error('Failed to grant game box:', error)
+    await safeAnswerCallback(ctx, 'Failed to grant box')
+    await safeEditMessage(
+      ctx,
+      `❌ Failed to grant *${boxLabel}* to ${formatUserDisplay(user)}.`,
+      {
+        reply_markup: new InlineKeyboard()
+          .text('Try again', `gift_box_menu_${userId}`).row()
+          .text('◀️ Back to user', `manage_${userId}`),
+        parse_mode: 'Markdown',
+      }
+    )
+  }
 })
 
 // Add bonus tokens to user (admin/support)

@@ -68,6 +68,7 @@ model User {
   deposits          Deposit[]
   withdrawals       Withdrawal[]
   notifications     Notification[]
+  gameGifts         GameGift[]
   referrals         Referral[]    @relation("UserReferrals")
   dailyUpdates      DailyProfitUpdate[] @relation("UserDailyUpdates")
   aiAnalyticsRequestLogs AiAnalyticsRequestLog[]
@@ -159,6 +160,21 @@ model Notification {
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model GameGift {
+  id                 Int      @id @default(autoincrement())
+  userId             Int
+  user               User     @relation(fields: [userId], references: [id])
+  boxId              String
+  grantedByTelegramId String?
+  grantedByName      String?
+  isClaimed          Boolean  @default(false)
+  claimedAt          DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, isClaimed, createdAt])
 }
 
 model TradingPost {

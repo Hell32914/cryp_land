@@ -18,6 +18,35 @@ import { TradeTab } from '@/components/TradeTab'
 
 type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'trade' | 'game' | 'ai' | 'profile'
 type DepositMethod = 'OXAPAY' | 'PAYPAL' | 'SEPA'
+type GameBoxId = 'genesis' | 'matrix' | 'quantum' | 'vault' | 'liquidity' | 'whale'
+
+type BuyBoxResponse = {
+  success: true
+  boxId: GameBoxId
+  cost: number
+  maxPrize: number
+  outcomes: number[]
+  prizeIndex: number
+  prize: number
+  newBonusTokens: number
+  newBalance: number
+  isGift?: boolean
+  giftId?: number
+}
+
+type PersistedGameState = {
+  roulette: BuyBoxResponse
+  rouletteBalance: number | null
+  spinDone: boolean
+  idleIndex: number
+}
+
+type PendingGiftBox = {
+  id: number
+  boxId: GameBoxId
+  boxName: string
+  createdAt: string
+}
 
 const SEPA_MIN_AMOUNT_EUR = 10
 const SEPA_BANK_DETAILS = [
@@ -76,6 +105,10 @@ function App() {
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [pendingGiftBox, setPendingGiftBox] = useState<PendingGiftBox | null>(null)
+  const [pendingGiftCount, setPendingGiftCount] = useState(0)
+  const [giftGameUnlocked, setGiftGameUnlocked] = useState(false)
+  const [giftOpening, setGiftOpening] = useState(false)
 
   // Additional gate: user must press Start in the Support bot.
   const requiredSupportBotLink = 'https://t.me/syntrix_support_bot?start=activate'
@@ -398,6 +431,7 @@ function App() {
 
   // Fetch real user data from bot API
   const { userData, loading, error, refreshData } = useUserData(telegramUserId, authToken)
+  const gameStorageKey = telegramUserId ? `syntrix.game.active.${telegramUserId}` : null
 
   // If the user arrived via a marketing/ref link with a forced language, the bot stores it in user.languageCode.
   // Apply it only when the app is still on default language (don't override user's manual choice).
@@ -433,6 +467,72 @@ function App() {
     }
     return headers
   }
+
+  const fetchPendingGiftBox = useCallback(async () => {
+    if (!telegramUserId || !authToken) return
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.uno'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/gift-box`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) return
+
+      const data = await response.json()
+      setPendingGiftBox(data?.pendingGift || null)
+      setPendingGiftCount(Number(data?.pendingCount || 0))
+    } catch (error) {
+      console.error('Error fetching pending gift box:', error)
+    }
+  }, [telegramUserId, authToken])
+
+  const exitGiftGame = useCallback(() => {
+    setGiftGameUnlocked(false)
+    setActiveTab('home')
+    void fetchPendingGiftBox()
+  }, [fetchPendingGiftBox])
+
+  const openGiftBox = useCallback(async () => {
+    if (!telegramUserId || !authToken || !pendingGiftBox || !gameStorageKey) return
+
+    setGiftOpening(true)
+    const toastId = toast.loading((t as any).loading ?? 'Loading…')
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.uno'
+      const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/open-gift-box`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        toast.error(payload?.error || 'Failed to open gift box')
+        return
+      }
+
+      const data = (await response.json()) as BuyBoxResponse
+      const persistedState: PersistedGameState = {
+        roulette: data,
+        rouletteBalance: userData?.totalDeposit || 0,
+        spinDone: false,
+        idleIndex: Math.floor(Math.random() * Math.max(1, data.outcomes.length)),
+      }
+
+      window.localStorage.setItem(gameStorageKey, JSON.stringify(persistedState))
+      setPendingGiftBox(null)
+      setPendingGiftCount((current) => Math.max(0, current - 1))
+      setGiftGameUnlocked(true)
+      setActiveTab('game')
+    } catch (error) {
+      console.error('Error opening gift box:', error)
+      toast.error('Failed to open gift box')
+    } finally {
+      toast.dismiss(toastId)
+      setGiftOpening(false)
+    }
+  }, [telegramUserId, authToken, pendingGiftBox, gameStorageKey, userData?.totalDeposit, t])
 
   const runAccessGateChecks = async () => {
     if (!telegramUserId || !authToken) return
@@ -479,6 +579,26 @@ function App() {
   useEffect(() => {
     void runAccessGateChecks()
   }, [telegramUserId, authToken])
+
+  useEffect(() => {
+    if (activeTab !== 'home') return
+    void fetchPendingGiftBox()
+  }, [activeTab, fetchPendingGiftBox])
+
+  useEffect(() => {
+    if (!gameStorageKey || !telegramUserId) return
+
+    try {
+      const savedState = window.localStorage.getItem(gameStorageKey)
+      if (!savedState) return
+      setGiftGameUnlocked(true)
+      if (telegramUserId !== '503856039') {
+        setActiveTab('game')
+      }
+    } catch (error) {
+      console.error('Failed to restore stored game access:', error)
+    }
+  }, [gameStorageKey, telegramUserId])
 
   // Fetch referrals
   const fetchReferrals = async () => {
@@ -1020,8 +1140,9 @@ function App() {
     }
   }
 
-  // Restrict the hidden game tab to a single Telegram account.
-  const GAME_ENABLED = telegramUserId === '503856039'
+  // Restrict the hidden game tab to a small Telegram allowlist.
+  const GAME_ENABLED = telegramUserId === '503856039' || telegramUserId === '8489877755'
+  const canAccessGame = GAME_ENABLED || giftGameUnlocked
 
   const tabs = [
     { id: 'wallet' as TabType, icon: Wallet, label: t.wallet },
@@ -1035,16 +1156,16 @@ function App() {
   ]
 
   const handleTabClick = (tabId: TabType) => {
-    if (tabId === 'game' && !GAME_ENABLED) return
+    if (tabId === 'game' && !canAccessGame) return
     setActiveTab(tabId)
   }
 
   // Safety: if something persisted or forces Game, bounce back.
   useEffect(() => {
-    if (!GAME_ENABLED && activeTab === 'game') {
+    if (!canAccessGame && activeTab === 'game') {
       setActiveTab('home')
     }
-  }, [GAME_ENABLED, activeTab])
+  }, [canAccessGame, activeTab])
 
   // Safety: if Trade is disabled server-side while open, bounce back.
   useEffect(() => {
@@ -2049,6 +2170,44 @@ function App() {
                 </div>
               </div>
 
+              {pendingGiftBox && (
+                <button
+                  type="button"
+                  className="w-full text-left bg-card/60 backdrop-blur-sm rounded-xl p-5 sm:p-6 border border-primary/30 shadow-lg hover:bg-card/80 transition-colors disabled:opacity-70"
+                  onClick={() => void openGiftBox()}
+                  disabled={giftOpening}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <Gift size={24} weight="duotone" className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-base font-bold text-foreground">
+                          {(t as any).gameGiftBannerTitle ?? 'Gift box ready'}
+                        </p>
+                        {pendingGiftCount > 1 && (
+                          <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10">
+                            +{pendingGiftCount - 1}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {(t as any).gameGiftBannerText ?? 'You received a roulette gift.'} <span className="text-foreground font-semibold">{pendingGiftBox.boxName}</span>
+                      </p>
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <span className="text-xs text-muted-foreground">
+                          {(t as any).gameGiftBannerHint ?? 'Tap to open exactly one gifted box'}
+                        </span>
+                        <span className="text-sm font-bold text-primary">
+                          {giftOpening ? ((t as any).loading ?? 'Loading…') : ((t as any).open ?? 'Open')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              )}
+
               <div className="bg-card rounded-lg p-6 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-5 pointer-events-none">
                   <svg className="w-full h-full">
@@ -2229,13 +2388,15 @@ function App() {
             />
           )}
 
-          {GAME_ENABLED && activeTab === 'game' && (
+          {canAccessGame && activeTab === 'game' && (
             <GameTab
               t={t}
               telegramUserId={telegramUserId}
               getAuthHeaders={getAuthHeaders}
-              bonusTokens={userData?.bonusTokens || 0}
+              depositBalance={userData?.totalDeposit || 0}
               refreshData={refreshData}
+              allowPurchases={GAME_ENABLED}
+              onExit={exitGiftGame}
             />
           )}
 

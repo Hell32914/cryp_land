@@ -15,6 +15,7 @@ import path from 'node:path'
 import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 import multer from 'multer'
+import { buildGameOutcomes, GAME_BOXES, GAME_BOX_IDS, getGameBoxLabel, type GameBoxId } from './gameBoxes.js'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 const BIND_HOST = process.env.API_BIND_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0')
@@ -6224,6 +6225,175 @@ app.get('/api/user/:telegramId/notifications', requireUserAuth, async (req, res)
   }
 })
 
+app.get('/api/user/:telegramId/game/gift-box', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const [gift, pendingCount] = await Promise.all([
+      prisma.gameGift.findFirst({
+        where: {
+          userId: user.id,
+          isClaimed: false,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.gameGift.count({
+        where: {
+          userId: user.id,
+          isClaimed: false,
+        },
+      }),
+    ])
+
+    if (!gift) {
+      return res.json({ pendingGift: null, pendingCount: 0 })
+    }
+
+    const boxId = gift.boxId as GameBoxId
+
+    return res.json({
+      pendingCount,
+      pendingGift: {
+        id: gift.id,
+        boxId,
+        boxName: getGameBoxLabel(boxId),
+        createdAt: gift.createdAt,
+      },
+    })
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+async function notifyGamePurchase(user: {
+  telegramId: string
+  username: string | null
+  firstName: string | null
+  lastName: string | null
+}, boxId: GameBoxId, prize: number, balance: number) {
+  try {
+    const { notifyAdmins } = await import('./index.js')
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+    const displayName = user.username ? `@${user.username}` : fullName || user.telegramId
+
+    await notifyAdmins(
+      [
+        '🎰 Box purchase',
+        `User: ${displayName}`,
+        `Telegram ID: ${user.telegramId}`,
+        `Box: ${getGameBoxLabel(boxId)}`,
+        `Prize: $${prize.toFixed(2)}`,
+        `New deposit balance: $${balance.toFixed(2)}`,
+      ].join('\n')
+    )
+  } catch (error) {
+    console.error('Failed to notify admins about game purchase:', error)
+  }
+}
+
+async function openGiftBoxForUser(userId: number) {
+  const claimedGift = await prisma.$transaction(async (tx) => {
+    const gift = await tx.gameGift.findFirst({
+      where: {
+        userId,
+        isClaimed: false,
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    if (!gift) return null
+
+    const boxId = gift.boxId as GameBoxId
+    const box = GAME_BOXES[boxId]
+    const outcomes = buildGameOutcomes(box.cost, box.maxPrize)
+    const prizeIndex = crypto.randomInt(0, outcomes.length)
+    const prize = outcomes[prizeIndex]
+
+    await tx.gameGift.update({
+      where: { id: gift.id },
+      data: {
+        isClaimed: true,
+        claimedAt: new Date(),
+      },
+    })
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        balance: { increment: prize },
+        totalDeposit: { increment: prize },
+      },
+    })
+
+    return {
+      giftId: gift.id,
+      box,
+      outcomes,
+      prizeIndex,
+      prize,
+    }
+  })
+
+  if (!claimedGift) {
+    return null
+  }
+
+  const refreshed = await prisma.user.findUnique({ where: { id: userId } })
+  if (!refreshed) {
+    throw new Error('User missing after gift claim')
+  }
+
+  const nextPlan = calculatePlanProgress(refreshed.totalDeposit).currentPlan
+  if (refreshed.plan !== nextPlan) {
+    await prisma.user.update({
+      where: { id: refreshed.id },
+      data: { plan: nextPlan },
+    })
+    refreshed.plan = nextPlan
+  }
+
+  return {
+    success: true as const,
+    isGift: true,
+    giftId: claimedGift.giftId,
+    boxId: claimedGift.box.id,
+    cost: claimedGift.box.cost,
+    maxPrize: claimedGift.box.maxPrize,
+    outcomes: claimedGift.outcomes,
+    prizeIndex: claimedGift.prizeIndex,
+    prize: claimedGift.prize,
+    newBonusTokens: refreshed.bonusTokens || 0,
+    newBalance: refreshed.totalDeposit,
+  }
+}
+
+app.post('/api/user/:telegramId/game/open-gift-box', requireUserAuth, async (req, res) => {
+  try {
+    const telegramId = (req as any).verifiedTelegramId
+
+    const user = await prisma.user.findUnique({ where: { telegramId } })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const result = await openGiftBoxForUser(user.id)
+    if (!result) {
+      return res.status(404).json({ error: 'No gifted box available' })
+    }
+
+    res.json(result)
+  } catch (error) {
+    console.error('API Error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 // Reinvest profit to balance
 app.post('/api/user/:telegramId/reinvest', requireUserAuth, async (req, res) => {
   try {
@@ -6469,67 +6639,10 @@ app.post('/api/user/:telegramId/referral-reinvest', requireUserAuth, async (req,
 })
 
 const gameBuyBoxSchema = z.object({
-  boxId: z.enum(['genesis', 'matrix', 'quantum', 'vault', 'liquidity', 'whale'])
+  boxId: z.enum(GAME_BOX_IDS)
 })
 
-type GameBoxId = z.infer<typeof gameBuyBoxSchema>['boxId']
-
-type GameBoxConfig = {
-  id: GameBoxId
-  cost: number
-  maxPrize: number
-}
-
-const GAME_BOXES: Record<GameBoxId, GameBoxConfig> = {
-  genesis: { id: 'genesis', cost: 150, maxPrize: 250 },
-  matrix: { id: 'matrix', cost: 525, maxPrize: 700 },
-  quantum: { id: 'quantum', cost: 1500, maxPrize: 2000 },
-  vault: { id: 'vault', cost: 3750, maxPrize: 5000 },
-  liquidity: { id: 'liquidity', cost: 7500, maxPrize: 10000 },
-  whale: { id: 'whale', cost: 18750, maxPrize: 25000 }
-}
-
-function round2(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100
-}
-
-function buildGameOutcomes(cost: number, maxPrize: number): number[] {
-  // 60 distinct prize options. Most outcomes are below cost so users lose more often than win.
-  const values = new Set<number>()
-
-  const push = (v: number) => {
-    let x = Math.max(0, round2(v))
-    while (values.has(x)) x = round2(x + 0.01)
-    values.add(x)
-  }
-
-  // 45 loss-leaning values: 0 .. 0.9 * cost
-  for (let i = 0; i < 45; i++) {
-    const t = i / 44
-    push(t * (cost * 0.9))
-  }
-
-  // 10 near break-even values: 0.9 * cost .. 1.05 * cost
-  for (let i = 0; i < 10; i++) {
-    const t = (i + 1) / 10
-    push(cost * 0.9 + t * (cost * 0.15))
-  }
-
-  // 4 higher wins
-  push(maxPrize * 0.35)
-  push(maxPrize * 0.5)
-  push(maxPrize * 0.7)
-  push(maxPrize * 0.9)
-
-  // 1 jackpot
-  push(maxPrize)
-
-  return Array.from(values)
-    .slice(0, 60)
-    .sort((a, b) => a - b)
-}
-
-// Buy a game box using bonusTokens (virtual credits)
+// Buy a game box using the working deposit balance.
 app.post('/api/user/:telegramId/game/buy-box', requireUserAuth, async (req, res) => {
   try {
     // SECURITY: Use verified telegramId from JWT, not from URL params
@@ -6556,18 +6669,33 @@ app.post('/api/user/:telegramId/game/buy-box', requireUserAuth, async (req, res)
     const updated = await prisma.user.updateMany({
       where: {
         id: user.id,
-        bonusTokens: { gte: box.cost }
+        totalDeposit: { gte: box.cost }
       },
       data: {
-        bonusTokens: { increment: delta }
+        balance: { increment: delta },
+        totalDeposit: { increment: delta }
       }
     })
 
     if (updated.count === 0) {
-      return res.status(400).json({ error: 'Insufficient bonus tokens' })
+      return res.status(400).json({ error: 'Insufficient balance' })
     }
 
     const refreshed = await prisma.user.findUnique({ where: { id: user.id } })
+    if (!refreshed) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const nextPlan = calculatePlanProgress(refreshed.totalDeposit).currentPlan
+    if (refreshed.plan !== nextPlan) {
+      await prisma.user.update({
+        where: { id: refreshed.id },
+        data: { plan: nextPlan }
+      })
+      refreshed.plan = nextPlan
+    }
+
+    await notifyGamePurchase(user, box.id, prize, refreshed.totalDeposit)
 
     res.json({
       success: true,
@@ -6577,7 +6705,8 @@ app.post('/api/user/:telegramId/game/buy-box', requireUserAuth, async (req, res)
       outcomes,
       prizeIndex,
       prize,
-      newBonusTokens: refreshed?.bonusTokens ?? 0
+      newBonusTokens: refreshed.bonusTokens || 0,
+      newBalance: refreshed.totalDeposit
     })
   } catch (error) {
     console.error('API Error:', error)
