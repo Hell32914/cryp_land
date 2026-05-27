@@ -54,7 +54,7 @@ export function GameTab(props: {
   const boxes: GameBoxConfig[] = useMemo(() => GAME_BOXES, [])
 
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [pendingBox, setPendingBox] = useState<GameBox | null>(null)
+  const [pendingBox, setPendingBox] = useState<GameBoxConfig | null>(null)
   const [buying, setBuying] = useState(false)
 
   const [roulette, setRoulette] = useState<BuyBoxResponse | null>(null)
