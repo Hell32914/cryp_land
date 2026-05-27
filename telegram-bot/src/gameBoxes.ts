@@ -1,4 +1,4 @@
-export const GAME_BOX_IDS = ['genesis', 'matrix', 'quantum', 'vault', 'liquidity', 'whale'] as const
+export const GAME_BOX_IDS = ['starter', 'silver', 'gold', 'platinum'] as const
 
 export type GameBoxId = (typeof GAME_BOX_IDS)[number]
 
@@ -10,12 +10,19 @@ export type GameBoxConfig = {
 }
 
 export const GAME_BOXES: Record<GameBoxId, GameBoxConfig> = {
-  genesis: { id: 'genesis', cost: 150, maxPrize: 250, label: 'Genesis Pack' },
-  matrix: { id: 'matrix', cost: 525, maxPrize: 700, label: 'Matrix Crate' },
-  quantum: { id: 'quantum', cost: 1500, maxPrize: 2000, label: 'Quantum Capsule' },
-  vault: { id: 'vault', cost: 3750, maxPrize: 5000, label: 'Secure Vault' },
-  liquidity: { id: 'liquidity', cost: 7500, maxPrize: 10000, label: 'Liquidity Locker' },
-  whale: { id: 'whale', cost: 18750, maxPrize: 25000, label: 'Whale Chest' }
+  starter: { id: 'starter', cost: 150, maxPrize: 250, label: 'STARTER BOX' },
+  silver: { id: 'silver', cost: 525, maxPrize: 700, label: 'SILVER BOX' },
+  gold: { id: 'gold', cost: 1500, maxPrize: 2000, label: 'GOLD BOX' },
+  platinum: { id: 'platinum', cost: 3750, maxPrize: 5000, label: 'PLATINUM BOX' }
+}
+
+const LEGACY_GAME_BOX_MAPPING: Record<string, GameBoxId> = {
+  genesis: 'starter',
+  matrix: 'silver',
+  quantum: 'gold',
+  vault: 'platinum',
+  liquidity: 'platinum',
+  whale: 'platinum',
 }
 
 function round2(n: number): number {
@@ -52,6 +59,14 @@ export function buildGameOutcomes(cost: number, maxPrize: number): number[] {
     .sort((a, b) => a - b)
 }
 
-export function getGameBoxLabel(boxId: GameBoxId): string {
-  return GAME_BOXES[boxId].label
+export function getGameBox(boxId: string): GameBoxConfig | null {
+  const resolvedId = GAME_BOX_IDS.includes(boxId as GameBoxId)
+    ? (boxId as GameBoxId)
+    : LEGACY_GAME_BOX_MAPPING[boxId]
+
+  return resolvedId ? GAME_BOXES[resolvedId] : null
+}
+
+export function getGameBoxLabel(boxId: string): string {
+  return getGameBox(boxId)?.label ?? String(boxId || 'UNKNOWN BOX').toUpperCase()
 }

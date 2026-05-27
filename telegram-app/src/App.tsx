@@ -12,13 +12,13 @@ import { translations, type Language } from '@/lib/translations'
 import { type WhitepaperParagraph, type WhitepaperListItem } from '@/lib/whitepaperContent'
 import { AnimatedBackground } from '@/components/AnimatedBackground'
 import { useUserData } from '@/hooks/useUserData'
+import { type GameBoxId } from '@/lib/gameBoxes'
 import { AiAnalyticsTab } from '@/components/AiAnalyticsTab'
 import { GameTab } from '@/components/GameTab'
 import { TradeTab } from '@/components/TradeTab'
 
 type TabType = 'wallet' | 'invite' | 'home' | 'calculator' | 'trade' | 'game' | 'ai' | 'profile'
 type DepositMethod = 'OXAPAY' | 'PAYPAL' | 'SEPA'
-type GameBoxId = 'genesis' | 'matrix' | 'quantum' | 'vault' | 'liquidity' | 'whale'
 
 type BuyBoxResponse = {
   success: true

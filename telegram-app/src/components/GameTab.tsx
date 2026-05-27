@@ -3,6 +3,7 @@ import { ArrowLeft, Gift } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { GAME_BOXES, type GameBoxConfig, type GameBoxId } from '@/lib/gameBoxes'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,15 +14,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-
-type GameBoxId = 'genesis' | 'matrix' | 'quantum' | 'vault' | 'liquidity' | 'whale'
-
-type GameBox = {
-  id: GameBoxId
-  name: string
-  cost: number
-  maxPrize: number
-}
 
 type BuyBoxResponse = {
   success: true
@@ -59,17 +51,7 @@ export function GameTab(props: {
   const storageKey = telegramUserId ? `syntrix.game.active.${telegramUserId}` : null
   const hydratedRef = useRef(false)
 
-  const boxes: GameBox[] = useMemo(
-    () => [
-      { id: 'genesis', name: (t as any).gameBoxGenesis ?? 'Genesis Pack', cost: 150, maxPrize: 250 },
-      { id: 'matrix', name: (t as any).gameBoxMatrix ?? 'Matrix Crate', cost: 525, maxPrize: 700 },
-      { id: 'quantum', name: (t as any).gameBoxQuantum ?? 'Quantum Capsule', cost: 1500, maxPrize: 2000 },
-      { id: 'vault', name: (t as any).gameBoxVault ?? 'Secure Vault', cost: 3750, maxPrize: 5000 },
-      { id: 'liquidity', name: (t as any).gameBoxLiquidity ?? 'Liquidity Locker', cost: 7500, maxPrize: 10000 },
-      { id: 'whale', name: (t as any).gameBoxWhale ?? 'Whale Chest', cost: 18750, maxPrize: 25000 },
-    ],
-    [t]
-  )
+  const boxes: GameBoxConfig[] = useMemo(() => GAME_BOXES, [])
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingBox, setPendingBox] = useState<GameBox | null>(null)
@@ -151,9 +133,9 @@ export function GameTab(props: {
     }
   }, [])
 
-  const canAfford = (box: GameBox) => depositBalance >= box.cost
+  const canAfford = (box: GameBoxConfig) => depositBalance >= box.cost
 
-  const openConfirm = (box: GameBox) => {
+  const openConfirm = (box: GameBoxConfig) => {
     if (!canAfford(box)) {
       toast.error((t as any).gameInsufficientTokens ?? 'Insufficient tokens')
       return
@@ -493,8 +475,8 @@ export function GameTab(props: {
               </div>
 
               <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <Gift size={44} weight="duotone" className="text-primary" />
+                <div className="w-24 h-24 rounded-2xl bg-primary/10 border border-primary/20 overflow-hidden flex items-center justify-center p-2">
+                  <img src={box.imageSrc} alt={box.name} className="w-full h-full object-contain" />
                 </div>
                 <p className="text-sm font-bold text-foreground text-center leading-tight">{box.name}</p>
               </div>

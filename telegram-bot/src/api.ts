@@ -15,7 +15,7 @@ import path from 'node:path'
 import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 import multer from 'multer'
-import { buildGameOutcomes, GAME_BOXES, GAME_BOX_IDS, getGameBoxLabel, type GameBoxId } from './gameBoxes.js'
+import { buildGameOutcomes, GAME_BOXES, GAME_BOX_IDS, getGameBox, getGameBoxLabel, type GameBoxId } from './gameBoxes.js'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 const BIND_HOST = process.env.API_BIND_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0')
@@ -6254,14 +6254,17 @@ app.get('/api/user/:telegramId/game/gift-box', requireUserAuth, async (req, res)
       return res.json({ pendingGift: null, pendingCount: 0 })
     }
 
-    const boxId = gift.boxId as GameBoxId
+    const box = getGameBox(gift.boxId)
+    if (!box) {
+      return res.json({ pendingGift: null, pendingCount: 0 })
+    }
 
     return res.json({
       pendingCount,
       pendingGift: {
         id: gift.id,
-        boxId,
-        boxName: getGameBoxLabel(boxId),
+        boxId: box.id,
+        boxName: box.label,
         createdAt: gift.createdAt,
       },
     })
@@ -6309,8 +6312,10 @@ async function openGiftBoxForUser(userId: number) {
 
     if (!gift) return null
 
-    const boxId = gift.boxId as GameBoxId
-    const box = GAME_BOXES[boxId]
+    const box = getGameBox(gift.boxId)
+    if (!box) {
+      return null
+    }
     const outcomes = buildGameOutcomes(box.cost, box.maxPrize)
     const prizeIndex = crypto.randomInt(0, outcomes.length)
     const prize = outcomes[prizeIndex]

@@ -1,0 +1,23 @@
+import starterBoxImage from '../../../BOX/1.webp'
+import silverBoxImage from '../../../BOX/2.webp'
+import goldBoxImage from '../../../BOX/3.webp'
+import platinumBoxImage from '../../../BOX/4.webp'
+
+export const GAME_BOX_IDS = ['starter', 'silver', 'gold', 'platinum'] as const
+
+export type GameBoxId = (typeof GAME_BOX_IDS)[number]
+
+export type GameBoxConfig = {
+  id: GameBoxId
+  name: string
+  cost: number
+  maxPrize: number
+  imageSrc: string
+}
+
+export const GAME_BOXES: GameBoxConfig[] = [
+  { id: 'starter', name: 'STARTER BOX', cost: 150, maxPrize: 250, imageSrc: starterBoxImage },
+  { id: 'silver', name: 'SILVER BOX', cost: 525, maxPrize: 700, imageSrc: silverBoxImage },
+  { id: 'gold', name: 'GOLD BOX', cost: 1500, maxPrize: 2000, imageSrc: goldBoxImage },
+  { id: 'platinum', name: 'PLATINUM BOX', cost: 3750, maxPrize: 5000, imageSrc: platinumBoxImage },
+]
