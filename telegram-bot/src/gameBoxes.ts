@@ -10,10 +10,10 @@ export type GameBoxConfig = {
 }
 
 export const GAME_BOXES: Record<GameBoxId, GameBoxConfig> = {
-  starter: { id: 'starter', cost: 150, maxPrize: 250, label: 'STARTER BOX' },
-  silver: { id: 'silver', cost: 525, maxPrize: 700, label: 'SILVER BOX' },
-  gold: { id: 'gold', cost: 1500, maxPrize: 2000, label: 'GOLD BOX' },
-  platinum: { id: 'platinum', cost: 3750, maxPrize: 5000, label: 'PLATINUM BOX' }
+  starter: { id: 'starter', cost: 10, maxPrize: 250, label: 'STARTER BOX' },
+  silver: { id: 'silver', cost: 50, maxPrize: 700, label: 'SILVER BOX' },
+  gold: { id: 'gold', cost: 250, maxPrize: 2000, label: 'GOLD BOX' },
+  platinum: { id: 'platinum', cost: 1000, maxPrize: 5000, label: 'PLATINUM BOX' }
 }
 
 const LEGACY_GAME_BOX_MAPPING: Record<string, GameBoxId> = {
