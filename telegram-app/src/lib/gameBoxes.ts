@@ -16,8 +16,8 @@ export type GameBoxConfig = {
 }
 
 export const GAME_BOXES: GameBoxConfig[] = [
-  { id: 'starter', name: 'STARTER BOX', cost: 10, maxPrize: 250, imageSrc: starterBoxImage },
-  { id: 'silver', name: 'SILVER BOX', cost: 50, maxPrize: 700, imageSrc: silverBoxImage },
-  { id: 'gold', name: 'GOLD BOX', cost: 250, maxPrize: 2000, imageSrc: goldBoxImage },
-  { id: 'platinum', name: 'PLATINUM BOX', cost: 1000, maxPrize: 5000, imageSrc: platinumBoxImage },
+  { id: 'starter', name: 'STARTER BOX', cost: 10, maxPrize: 100, imageSrc: starterBoxImage },
+  { id: 'silver', name: 'SILVER BOX', cost: 50, maxPrize: 500, imageSrc: silverBoxImage },
+  { id: 'gold', name: 'GOLD BOX', cost: 250, maxPrize: 2500, imageSrc: goldBoxImage },
+  { id: 'platinum', name: 'PLATINUM BOX', cost: 1000, maxPrize: 10000, imageSrc: platinumBoxImage },
 ]

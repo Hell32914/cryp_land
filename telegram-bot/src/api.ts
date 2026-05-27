@@ -15,7 +15,7 @@ import path from 'node:path'
 import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 import multer from 'multer'
-import { buildGameOutcomes, GAME_BOXES, GAME_BOX_IDS, getGameBox, getGameBoxLabel, type GameBoxId } from './gameBoxes.js'
+import { GAME_BOXES, GAME_BOX_IDS, getGameBox, getGameBoxLabel, pickGamePrize, type GameBoxId } from './gameBoxes.js'
 const app = express()
 const PORT = process.env.PORT || process.env.API_PORT || 3001
 const BIND_HOST = process.env.API_BIND_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0')
@@ -6316,9 +6316,7 @@ async function openGiftBoxForUser(userId: number) {
     if (!box) {
       return null
     }
-    const outcomes = buildGameOutcomes(box.cost, box.maxPrize)
-    const prizeIndex = crypto.randomInt(0, outcomes.length)
-    const prize = outcomes[prizeIndex]
+    const { outcomes, prizeIndex, prize } = pickGamePrize(box.cost)
 
     await tx.gameGift.update({
       where: { id: gift.id },
@@ -6659,11 +6657,7 @@ app.post('/api/user/:telegramId/game/buy-box', requireUserAuth, async (req, res)
     }
 
     const box = GAME_BOXES[parsed.data.boxId]
-    const outcomes = buildGameOutcomes(box.cost, box.maxPrize)
-
-    // Pick outcome uniformly across 60 options
-    const prizeIndex = crypto.randomInt(0, outcomes.length)
-    const prize = outcomes[prizeIndex]
+    const { outcomes, prizeIndex, prize } = pickGamePrize(box.cost)
     const delta = prize - box.cost
 
     const user = await prisma.user.findUnique({ where: { telegramId } })
