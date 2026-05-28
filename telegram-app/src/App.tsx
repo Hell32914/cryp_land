@@ -1189,8 +1189,7 @@ function App() {
     }
   }
 
-  // Restrict the hidden game tab to a small Telegram allowlist.
-  const GAME_ENABLED = telegramUserId === '503856039' || telegramUserId === '8489877755'
+  const GAME_ENABLED = true
   const hasPendingGiftBoxes = pendingGiftCount > 0 || pendingGiftBoxes.length > 0
   const canAccessGame = GAME_ENABLED || giftGameUnlocked || hasPendingGiftBoxes
 
