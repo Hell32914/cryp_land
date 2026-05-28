@@ -34,6 +34,13 @@ type PersistedGameState = {
   idleIndex: number
 }
 
+type PendingGiftBox = {
+  id: number
+  boxId: GameBoxId
+  boxName: string
+  createdAt: string
+}
+
 function formatAmount(n: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
@@ -44,10 +51,24 @@ export function GameTab(props: {
   getAuthHeaders: () => Record<string, string>
   depositBalance: number
   refreshData: () => Promise<void>
+  pendingGiftBoxes: PendingGiftBox[]
+  giftOpening: boolean
+  onOpenGiftBox: (giftId?: number) => Promise<BuyBoxResponse | null>
   allowPurchases?: boolean
   onExit?: () => void
 }) {
-  const { t, telegramUserId, getAuthHeaders, depositBalance, refreshData, allowPurchases = true, onExit } = props
+  const {
+    t,
+    telegramUserId,
+    getAuthHeaders,
+    depositBalance,
+    refreshData,
+    pendingGiftBoxes,
+    giftOpening,
+    onOpenGiftBox,
+    allowPurchases = true,
+    onExit,
+  } = props
   const storageKey = telegramUserId ? `syntrix.game.active.${telegramUserId}` : null
   const hydratedRef = useRef(false)
 
@@ -56,6 +77,7 @@ export function GameTab(props: {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingBox, setPendingBox] = useState<GameBoxConfig | null>(null)
   const [buying, setBuying] = useState(false)
+  const [showGiftBoxes, setShowGiftBoxes] = useState(false)
 
   const [roulette, setRoulette] = useState<BuyBoxResponse | null>(null)
   const [rouletteBalance, setRouletteBalance] = useState<number | null>(null)
@@ -134,6 +156,20 @@ export function GameTab(props: {
   }, [])
 
   const canAfford = (box: GameBoxConfig) => depositBalance >= box.cost
+  const hasGiftBoxes = pendingGiftBoxes.length > 0
+
+  const handleOpenGiftBox = async (giftId: number) => {
+    const data = await onOpenGiftBox(giftId)
+    if (!data) return
+
+    setRoulette(data)
+    setRouletteBalance(depositBalance)
+    setIdleIndex(Math.floor(Math.random() * data.outcomes.length))
+    setSpinSequence([])
+    setSpinPos(0)
+    setSpinDone(false)
+    setShowGiftBoxes(false)
+  }
 
   const openConfirm = (box: GameBoxConfig) => {
     if (!canAfford(box)) {
@@ -422,8 +458,49 @@ export function GameTab(props: {
             {(t as any).gameGiftOnlyTitle ?? 'Gift box only'}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {(t as any).gameGiftOnlyText ?? 'Open your gifted box from Home. Regular box purchases are hidden for this account.'}
+            {(t as any).gameGiftOnlyText ?? 'Your gifted boxes are stored here. Open any of them for free.'}
           </p>
+          <Button
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-6"
+            onClick={() => setShowGiftBoxes((current) => !current)}
+          >
+            {(t as any).gameGiftButton ?? 'Gift Box'}
+            {hasGiftBoxes ? ` (${pendingGiftBoxes.length})` : ''}
+          </Button>
+
+          {showGiftBoxes && (
+            <div className="space-y-3 text-left">
+              {hasGiftBoxes ? (
+                pendingGiftBoxes.map((giftBox) => (
+                  <div key={giftBox.id} className="rounded-xl border border-border/50 bg-background/50 p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{giftBox.boxName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(t as any).gameGiftGrantedAt ?? 'Granted'} {new Date(giftBox.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                        {(t as any).free ?? 'Free'}
+                      </Badge>
+                    </div>
+
+                    <Button
+                      className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
+                      disabled={giftOpening}
+                      onClick={() => void handleOpenGiftBox(giftBox.id)}
+                    >
+                      {giftOpening ? ((t as any).loading ?? 'Loading…') : ((t as any).open ?? 'Open')}
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
+                  {(t as any).gameNoGiftBoxes ?? 'No gifted boxes available right now.'}
+                </div>
+              )}
+            </div>
+          )}
           <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold py-6" onClick={() => onExit?.()}>
             {(t as any).back ?? 'Back'}
           </Button>
@@ -451,6 +528,48 @@ export function GameTab(props: {
             <span className="text-lg font-bold text-primary">${formatAmount(depositBalance)}</span>
           </div>
         </div>
+
+        <Button
+          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-6"
+          onClick={() => setShowGiftBoxes((current) => !current)}
+        >
+          {(t as any).gameGiftButton ?? 'Gift Box'}
+          {hasGiftBoxes ? ` (${pendingGiftBoxes.length})` : ''}
+        </Button>
+
+        {showGiftBoxes && (
+          <div className="space-y-3 rounded-xl border border-border/50 bg-background/40 p-4">
+            {hasGiftBoxes ? (
+              pendingGiftBoxes.map((giftBox) => (
+                <div key={giftBox.id} className="rounded-xl border border-border/50 bg-card/50 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{giftBox.boxName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(t as any).gameGiftGrantedAt ?? 'Granted'} {new Date(giftBox.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                      {(t as any).free ?? 'Free'}
+                    </Badge>
+                  </div>
+
+                  <Button
+                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
+                    disabled={giftOpening}
+                    onClick={() => void handleOpenGiftBox(giftBox.id)}
+                  >
+                    {giftOpening ? ((t as any).loading ?? 'Loading…') : ((t as any).open ?? 'Open')}
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/50 bg-card/40 p-4 text-sm text-muted-foreground text-center">
+                {(t as any).gameNoGiftBoxes ?? 'No gifted boxes available right now.'}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">

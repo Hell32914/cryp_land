@@ -6234,39 +6234,43 @@ app.get('/api/user/:telegramId/game/gift-box', requireUserAuth, async (req, res)
       return res.status(404).json({ error: 'User not found' })
     }
 
-    const [gift, pendingCount] = await Promise.all([
-      prisma.gameGift.findFirst({
-        where: {
-          userId: user.id,
-          isClaimed: false,
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      prisma.gameGift.count({
-        where: {
-          userId: user.id,
-          isClaimed: false,
-        },
-      }),
-    ])
+    const gifts = await prisma.gameGift.findMany({
+      where: {
+        userId: user.id,
+        isClaimed: false,
+      },
+      orderBy: { createdAt: 'asc' },
+    })
 
-    if (!gift) {
-      return res.json({ pendingGift: null, pendingCount: 0 })
-    }
+    const pendingGifts = gifts
+      .map((gift) => {
+        const box = getGameBox(gift.boxId)
+        if (!box) {
+          return null
+        }
 
-    const box = getGameBox(gift.boxId)
-    if (!box) {
+        return {
+          id: gift.id,
+          boxId: box.id,
+          boxName: box.label,
+          createdAt: gift.createdAt,
+        }
+      })
+      .filter((gift): gift is {
+        id: number
+        boxId: GameBoxId
+        boxName: string
+        createdAt: Date
+      } => Boolean(gift))
+
+    if (pendingGifts.length === 0) {
       return res.json({ pendingGift: null, pendingCount: 0 })
     }
 
     return res.json({
-      pendingCount,
-      pendingGift: {
-        id: gift.id,
-        boxId: box.id,
-        boxName: box.label,
-        createdAt: gift.createdAt,
-      },
+      pendingCount: pendingGifts.length,
+      pendingGift: pendingGifts[0],
+      pendingGifts,
     })
   } catch (error) {
     console.error('API Error:', error)
@@ -6300,12 +6304,13 @@ async function notifyGamePurchase(user: {
   }
 }
 
-async function openGiftBoxForUser(userId: number) {
+async function openGiftBoxForUser(userId: number, requestedGiftId?: number) {
   const claimedGift = await prisma.$transaction(async (tx) => {
     const gift = await tx.gameGift.findFirst({
       where: {
         userId,
         isClaimed: false,
+        ...(requestedGiftId ? { id: requestedGiftId } : {}),
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -6379,15 +6384,21 @@ async function openGiftBoxForUser(userId: number) {
 app.post('/api/user/:telegramId/game/open-gift-box', requireUserAuth, async (req, res) => {
   try {
     const telegramId = (req as any).verifiedTelegramId
+    const rawGiftId = req.body?.giftId
+    const requestedGiftId = Number.isInteger(rawGiftId)
+      ? Number(rawGiftId)
+      : typeof rawGiftId === 'string' && /^\d+$/.test(rawGiftId)
+        ? Number(rawGiftId)
+        : undefined
 
     const user = await prisma.user.findUnique({ where: { telegramId } })
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    const result = await openGiftBoxForUser(user.id)
+    const result = await openGiftBoxForUser(user.id, requestedGiftId)
     if (!result) {
-      return res.status(404).json({ error: 'No gifted box available' })
+      return res.status(404).json({ error: requestedGiftId ? 'Gifted box not found' : 'No gifted box available' })
     }
 
     res.json(result)

@@ -106,6 +106,7 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [pendingGiftBox, setPendingGiftBox] = useState<PendingGiftBox | null>(null)
+  const [pendingGiftBoxes, setPendingGiftBoxes] = useState<PendingGiftBox[]>([])
   const [pendingGiftCount, setPendingGiftCount] = useState(0)
   const [giftGameUnlocked, setGiftGameUnlocked] = useState(false)
   const [giftOpening, setGiftOpening] = useState(false)
@@ -480,8 +481,15 @@ function App() {
       if (!response.ok) return
 
       const data = await response.json()
-      setPendingGiftBox(data?.pendingGift || null)
-      setPendingGiftCount(Number(data?.pendingCount || 0))
+      const gifts = Array.isArray(data?.pendingGifts)
+        ? (data.pendingGifts as PendingGiftBox[])
+        : data?.pendingGift
+          ? [data.pendingGift as PendingGiftBox]
+          : []
+
+      setPendingGiftBoxes(gifts)
+      setPendingGiftBox(gifts[0] || null)
+      setPendingGiftCount(Number(data?.pendingCount || gifts.length || 0))
     } catch (error) {
       console.error('Error fetching pending gift box:', error)
     }
@@ -493,26 +501,47 @@ function App() {
     void fetchPendingGiftBox()
   }, [fetchPendingGiftBox])
 
-  const openGiftBox = useCallback(async () => {
-    if (!telegramUserId || !authToken || !pendingGiftBox || !gameStorageKey) return
+  const requestOpenGiftBox = useCallback(async (giftId?: number) => {
+    if (!telegramUserId || !authToken) return null
 
     setGiftOpening(true)
-    const toastId = toast.loading((t as any).loading ?? 'Loading…')
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'https://api.syntrix.uno'
       const response = await fetch(`${API_URL}/api/user/${telegramUserId}/game/open-gift-box`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        body: giftId ? JSON.stringify({ giftId }) : undefined,
       })
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}))
         toast.error(payload?.error || 'Failed to open gift box')
-        return
+        return null
       }
 
       const data = (await response.json()) as BuyBoxResponse
+      setGiftGameUnlocked(true)
+      void fetchPendingGiftBox()
+      return data
+    } catch (error) {
+      console.error('Error opening gift box:', error)
+      toast.error('Failed to open gift box')
+      return null
+    } finally {
+      setGiftOpening(false)
+    }
+  }, [telegramUserId, authToken, fetchPendingGiftBox, t])
+
+  const openGiftBox = useCallback(async (giftId?: number) => {
+    if (!pendingGiftBox || !gameStorageKey) return
+
+    const toastId = toast.loading((t as any).loading ?? 'Loading…')
+
+    try {
+      const data = await requestOpenGiftBox(giftId)
+      if (!data) return
+
       const persistedState: PersistedGameState = {
         roulette: data,
         rouletteBalance: userData?.totalDeposit || 0,
@@ -521,18 +550,14 @@ function App() {
       }
 
       window.localStorage.setItem(gameStorageKey, JSON.stringify(persistedState))
-      setPendingGiftBox(null)
-      setPendingGiftCount((current) => Math.max(0, current - 1))
-      setGiftGameUnlocked(true)
       setActiveTab('game')
     } catch (error) {
-      console.error('Error opening gift box:', error)
+      console.error('Error preparing gift box game state:', error)
       toast.error('Failed to open gift box')
     } finally {
       toast.dismiss(toastId)
-      setGiftOpening(false)
     }
-  }, [telegramUserId, authToken, pendingGiftBox, gameStorageKey, userData?.totalDeposit, t])
+  }, [pendingGiftBox, gameStorageKey, requestOpenGiftBox, userData?.totalDeposit, t])
 
   const runAccessGateChecks = async () => {
     if (!telegramUserId || !authToken) return
@@ -1166,7 +1191,8 @@ function App() {
 
   // Restrict the hidden game tab to a small Telegram allowlist.
   const GAME_ENABLED = telegramUserId === '503856039' || telegramUserId === '8489877755'
-  const canAccessGame = GAME_ENABLED || giftGameUnlocked
+  const hasPendingGiftBoxes = pendingGiftCount > 0 || pendingGiftBoxes.length > 0
+  const canAccessGame = GAME_ENABLED || giftGameUnlocked || hasPendingGiftBoxes
 
   const tabs = [
     { id: 'wallet' as TabType, icon: Wallet, label: t.wallet },
@@ -1174,7 +1200,7 @@ function App() {
     { id: 'home' as TabType, icon: House, label: t.home },
     { id: 'calculator' as TabType, icon: Calculator, label: t.calculator },
     ...(userData?.arbitrageTradeEnabled ? [{ id: 'trade' as TabType, icon: ArrowsLeftRight, label: (t as any).trade ?? 'Trade' }] : []),
-    ...(GAME_ENABLED ? [{ id: 'game' as TabType, icon: Gift, label: (t as any).game ?? 'Game' }] : []),
+    ...(canAccessGame ? [{ id: 'game' as TabType, icon: Gift, label: (t as any).game ?? 'Game' }] : []),
     { id: 'ai' as TabType, icon: ChartLineUp, label: (t as any).ai ?? 'AI' },
     { id: 'profile' as TabType, icon: User, label: t.profile }
   ]
@@ -2419,6 +2445,9 @@ function App() {
               getAuthHeaders={getAuthHeaders}
               depositBalance={userData?.totalDeposit || 0}
               refreshData={refreshData}
+              pendingGiftBoxes={pendingGiftBoxes}
+              giftOpening={giftOpening}
+              onOpenGiftBox={requestOpenGiftBox}
               allowPurchases={GAME_ENABLED}
               onExit={exitGiftGame}
             />
