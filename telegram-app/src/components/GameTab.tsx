@@ -310,13 +310,25 @@ export function GameTab(props: {
         return
       }
 
+      const nextIdleIndex = Math.floor(Math.random() * data.outcomes.length)
+      const pendingPurchaseState: PersistedGameState = {
+        roulette: data,
+        rouletteBalance: Math.max(0, depositBalance - pendingBox.cost),
+        spinDone: false,
+        idleIndex: nextIdleIndex,
+      }
+
+      if (storageKey) {
+        window.localStorage.setItem(storageKey, JSON.stringify(pendingPurchaseState))
+      }
+
       setConfirmOpen(false)
       setPendingBox(null)
       setRoulette(data)
       // Show balance after purchase (cost deducted) but before prize reveal.
       // The backend may have already computed/credited the prize; we delay reflecting it in UI until Spin completes.
       setRouletteBalance(Math.max(0, depositBalance - pendingBox.cost))
-      setIdleIndex(Math.floor(Math.random() * data.outcomes.length))
+      setIdleIndex(nextIdleIndex)
       setSpinSequence([])
       setSpinPos(0)
       setSpinDone(false)
