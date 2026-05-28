@@ -586,6 +586,30 @@ function App() {
   }, [activeTab, fetchPendingGiftBox])
 
   useEffect(() => {
+    if (!telegramUserId || !authToken) return
+
+    const refreshGiftBox = () => {
+      void fetchPendingGiftBox()
+    }
+
+    const intervalId = window.setInterval(refreshGiftBox, 15000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshGiftBox()
+      }
+    }
+
+    window.addEventListener('focus', refreshGiftBox)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshGiftBox)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [telegramUserId, authToken, fetchPendingGiftBox])
+
+  useEffect(() => {
     if (!gameStorageKey || !telegramUserId) return
 
     try {
