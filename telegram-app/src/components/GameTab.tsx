@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Gift } from '@phosphor-icons/react'
+import { Gift } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -356,20 +356,10 @@ export function GameTab(props: {
     return (
       <div className="space-y-5 pb-4">
         <div className="bg-card/50 backdrop-blur-sm rounded-xl p-5 sm:p-6 border border-border/50 shadow-lg">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              className="px-2"
-              onClick={goBackToGrid}
-              disabled={spinning}
-              aria-label={(t as any).back ?? 'Back'}
-            >
-              <ArrowLeft size={20} weight="bold" />
-            </Button>
+          <div className="flex items-center justify-center">
             <h2 className="text-base sm:text-lg font-bold text-foreground">
               {(t as any).gameRouletteTitle ?? 'Roulette'}
             </h2>
-            <div className="w-10" />
           </div>
         </div>
 
