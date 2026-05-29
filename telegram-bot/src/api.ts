@@ -6278,29 +6278,30 @@ app.get('/api/user/:telegramId/game/gift-box', requireUserAuth, async (req, res)
   }
 })
 
-async function notifyGamePurchase(user: {
+async function notifyGameBoxOpened(user: {
   telegramId: string
   username: string | null
   firstName: string | null
   lastName: string | null
-}, boxId: GameBoxId, prize: number, balance: number) {
+}, boxId: GameBoxId, prize: number, balance: number, source: 'paid' | 'gift') {
   try {
-    const { notifyAdmins } = await import('./index.js')
+    const { notifyGameActivity } = await import('./index.js')
     const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
     const displayName = user.username ? `@${user.username}` : fullName || user.telegramId
 
-    await notifyAdmins(
+    await notifyGameActivity(
       [
-        '🎰 Box purchase',
+        source === 'gift' ? '🎁 Gift box opened' : '🎰 Box opened',
         `User: ${displayName}`,
         `Telegram ID: ${user.telegramId}`,
         `Box: ${getGameBoxLabel(boxId)}`,
         `Prize: $${prize.toFixed(2)}`,
         `New deposit balance: $${balance.toFixed(2)}`,
+        `Source: ${source === 'gift' ? 'Gift' : 'Regular purchase'}`,
       ].join('\n')
     )
   } catch (error) {
-    console.error('Failed to notify admins about game purchase:', error)
+    console.error('Failed to notify game activity recipients about box opening:', error)
   }
 }
 
@@ -6400,6 +6401,8 @@ app.post('/api/user/:telegramId/game/open-gift-box', requireUserAuth, async (req
     if (!result) {
       return res.status(404).json({ error: requestedGiftId ? 'Gifted box not found' : 'No gifted box available' })
     }
+
+    await notifyGameBoxOpened(user, result.boxId, result.prize, result.newBalance, 'gift')
 
     res.json(result)
   } catch (error) {
@@ -6705,7 +6708,7 @@ app.post('/api/user/:telegramId/game/buy-box', requireUserAuth, async (req, res)
       refreshed.plan = nextPlan
     }
 
-    await notifyGamePurchase(user, box.id, prize, refreshed.totalDeposit)
+    await notifyGameBoxOpened(user, box.id, prize, refreshed.totalDeposit, 'paid')
 
     res.json({
       success: true,

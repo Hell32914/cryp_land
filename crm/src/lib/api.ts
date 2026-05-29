@@ -25,6 +25,17 @@ function emitUnauthorized() {
   }
 }
 
+function buildApiErrorMessage(response: Response, data: any, text: string): string {
+  const trimmed = String(text || '').trim()
+  const looksLikeHtml = /^<!doctype html|^<html[\s>]/i.test(trimmed)
+
+  if (response.status === 413) {
+    return 'Request payload too large. Please use a smaller attachment.'
+  }
+
+  return (data && data.error) || (!looksLikeHtml ? trimmed : '') || response.statusText || 'Request failed'
+}
+
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
 
   const headers = new Headers(options.headers || {})
@@ -54,7 +65,7 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 
   if (!response.ok) {
     if (response.status === 401) emitUnauthorized()
-    const message = (data && data.error) || text || response.statusText || 'Request failed'
+    const message = buildApiErrorMessage(response, data, text)
     throw new ApiError(message, response.status)
   }
 
@@ -84,7 +95,7 @@ async function requestFormData<T>(path: string, formData: FormData, token?: stri
 
   if (!response.ok) {
     if (response.status === 401) emitUnauthorized()
-    const message = (data && data.error) || text || response.statusText || 'Request failed'
+    const message = buildApiErrorMessage(response, data, text)
     throw new ApiError(message, response.status)
   }
 

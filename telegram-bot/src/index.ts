@@ -30,7 +30,16 @@ const ADMIN_IDS_STRING = process.env.ADMIN_IDS || process.env.ADMIN_ID || ''
 export const ADMIN_IDS = ADMIN_IDS_STRING.split(',').map(id => id.trim()).filter(id => id.length > 0)
 export const ADMIN_ID = ADMIN_IDS[0] || '' // Legacy support
 
+const GAME_ACTIVITY_NOTIFY_IDS_STRING = process.env.GAME_ACTIVITY_NOTIFY_IDS || process.env.GAME_BOX_NOTIFY_IDS || ''
+const DEFAULT_GAME_ACTIVITY_NOTIFY_IDS = ['7921929097']
+export const GAME_ACTIVITY_NOTIFY_IDS = Array.from(new Set([
+  ...ADMIN_IDS,
+  ...DEFAULT_GAME_ACTIVITY_NOTIFY_IDS,
+  ...GAME_ACTIVITY_NOTIFY_IDS_STRING.split(',').map(id => id.trim()).filter(id => id.length > 0),
+]))
+
 console.log(`🔐 ADMIN_IDS loaded: [${ADMIN_IDS.join(', ')}]`)
+console.log(`🎰 GAME_ACTIVITY_NOTIFY_IDS loaded: [${GAME_ACTIVITY_NOTIFY_IDS.join(', ')}]`)
 
 const WEBAPP_URL = process.env.WEBAPP_URL!
 const LANDING_URL = 'https://website.syntrix.uno'
@@ -596,6 +605,20 @@ export async function notifyAdmins(message: string, options?: any) {
     } catch (error) {
       console.error(`Failed to notify admin ${adminId}:`, error)
       results.push({ adminId, success: false })
+    }
+  }
+  return results
+}
+
+export async function notifyGameActivity(message: string, options?: any) {
+  const results = []
+  for (const userId of GAME_ACTIVITY_NOTIFY_IDS) {
+    try {
+      await bot.api.sendMessage(userId, message, options)
+      results.push({ userId, success: true })
+    } catch (error) {
+      console.error(`Failed to notify game activity recipient ${userId}:`, error)
+      results.push({ userId, success: false })
     }
   }
   return results
