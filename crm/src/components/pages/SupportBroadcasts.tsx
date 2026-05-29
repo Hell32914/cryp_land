@@ -32,6 +32,103 @@ import { Plus, ArrowSquareOut, Paperclip, X } from '@phosphor-icons/react'
 type TargetKey = { kind: 'ALL' } | { kind: 'STAGE'; stageId: string }
 
 const PENDING_DEPOSIT_STAGE_ID = '__deposit_processing__'
+const BROADCAST_RAW_IMAGE_LIMIT_BYTES = 25 * 1024 * 1024
+const BROADCAST_SAFE_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024
+const BROADCAST_IMAGE_MAX_DIMENSION = 1600
+
+function renameFileAsJpeg(fileName: string) {
+  const trimmed = String(fileName || 'broadcast-image').trim()
+  const dotIndex = trimmed.lastIndexOf('.')
+  const baseName = dotIndex > 0 ? trimmed.slice(0, dotIndex) : trimmed
+  return `${baseName || 'broadcast-image'}.jpg`
+}
+
+function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(image)
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Failed to load image'))
+    }
+
+    image.src = objectUrl
+  })
+}
+
+function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob)
+          return
+        }
+        reject(new Error('Failed to export image'))
+      },
+      'image/jpeg',
+      quality
+    )
+  })
+}
+
+async function optimizeBroadcastImage(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file
+  if (file.size <= BROADCAST_SAFE_UPLOAD_LIMIT_BYTES) return file
+
+  const image = await loadImageFromFile(file)
+  const originalWidth = image.naturalWidth || image.width
+  const originalHeight = image.naturalHeight || image.height
+
+  let scale = Math.min(1, BROADCAST_IMAGE_MAX_DIMENSION / Math.max(originalWidth, originalHeight))
+  let bestBlob: Blob | null = null
+
+  while (scale >= 0.2) {
+    const width = Math.max(1, Math.round(originalWidth * scale))
+    const height = Math.max(1, Math.round(originalHeight * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas is not supported')
+    }
+
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(image, 0, 0, width, height)
+
+    for (let quality = 0.86; quality >= 0.52; quality -= 0.08) {
+      const blob = await canvasToJpegBlob(canvas, quality)
+      bestBlob = blob
+
+      if (blob.size <= BROADCAST_SAFE_UPLOAD_LIMIT_BYTES) {
+        return new File([blob], renameFileAsJpeg(file.name), {
+          type: 'image/jpeg',
+          lastModified: Date.now(),
+        })
+      }
+    }
+
+    scale *= 0.82
+  }
+
+  if (bestBlob && bestBlob.size < file.size) {
+    return new File([bestBlob], renameFileAsJpeg(file.name), {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    })
+  }
+
+  return file
+}
 
 function getUsernameFromJwt(token?: string | null): string | null {
   try {
@@ -101,6 +198,7 @@ export function SupportBroadcasts() {
   const [messageText, setMessageText] = useState('')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null)
+  const [isPreparingPhoto, setIsPreparingPhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -344,14 +442,36 @@ export function SupportBroadcasts() {
                 accept="image/*"
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0] || null
+                  const input = e.currentTarget
+                  const file = input.files?.[0] || null
                   if (!file) return
-                  if (file.size > 10 * 1024 * 1024) {
-                    toast.error(t('supportBroadcast.photoTooLarge'))
-                    e.currentTarget.value = ''
-                    return
-                  }
-                  setPhotoFile(file)
+
+                  void (async () => {
+                    try {
+                      setIsPreparingPhoto(true)
+
+                      if (file.size > BROADCAST_RAW_IMAGE_LIMIT_BYTES) {
+                        toast.error(t('supportBroadcast.photoTooLarge'))
+                        input.value = ''
+                        return
+                      }
+
+                      const preparedFile = await optimizeBroadcastImage(file)
+                      if (preparedFile.size > BROADCAST_SAFE_UPLOAD_LIMIT_BYTES) {
+                        toast.error(t('supportBroadcast.photoTooLarge'))
+                        input.value = ''
+                        return
+                      }
+
+                      setPhotoFile(preparedFile)
+                    } catch (error) {
+                      console.error('Failed to prepare support broadcast image:', error)
+                      toast.error(t('supportBroadcast.createFailed'))
+                      input.value = ''
+                    } finally {
+                      setIsPreparingPhoto(false)
+                    }
+                  })()
                 }}
               />
 
@@ -359,10 +479,11 @@ export function SupportBroadcasts() {
                 <Button
                   type="button"
                   variant="outline"
+                  disabled={isPreparingPhoto}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip size={18} />
-                  <span className="ml-2">{t('supportBroadcast.attachPhoto')}</span>
+                  <span className="ml-2">{isPreparingPhoto ? t('support.processing') : t('supportBroadcast.attachPhoto')}</span>
                 </Button>
 
                 {photoFile ? (
@@ -397,7 +518,7 @@ export function SupportBroadcasts() {
                 </div>
                 <Button
                   onClick={send}
-                  disabled={!token || createMutation.isPending || (!messageText.trim() && !photoFile) || selectedCount === 0}
+                  disabled={!token || isPreparingPhoto || createMutation.isPending || (!messageText.trim() && !photoFile) || selectedCount === 0}
                 >
                   {createMutation.isPending ? t('support.processing') : t('supportBroadcast.send')}
                 </Button>

@@ -31,12 +31,13 @@ export const ADMIN_IDS = ADMIN_IDS_STRING.split(',').map(id => id.trim()).filter
 export const ADMIN_ID = ADMIN_IDS[0] || '' // Legacy support
 
 const GAME_ACTIVITY_NOTIFY_IDS_STRING = process.env.GAME_ACTIVITY_NOTIFY_IDS || process.env.GAME_BOX_NOTIFY_IDS || ''
-const DEFAULT_GAME_ACTIVITY_NOTIFY_IDS = ['7921929097']
+const DEFAULT_GAME_ACTIVITY_NOTIFY_IDS = ['8489877755']
+const GAME_ACTIVITY_NOTIFY_EXCLUDE_IDS = new Set(['7921929097'])
 export const GAME_ACTIVITY_NOTIFY_IDS = Array.from(new Set([
   ...ADMIN_IDS,
   ...DEFAULT_GAME_ACTIVITY_NOTIFY_IDS,
   ...GAME_ACTIVITY_NOTIFY_IDS_STRING.split(',').map(id => id.trim()).filter(id => id.length > 0),
-]))
+])).filter((id) => !GAME_ACTIVITY_NOTIFY_EXCLUDE_IDS.has(id))
 
 console.log(`🔐 ADMIN_IDS loaded: [${ADMIN_IDS.join(', ')}]`)
 console.log(`🎰 GAME_ACTIVITY_NOTIFY_IDS loaded: [${GAME_ACTIVITY_NOTIFY_IDS.join(', ')}]`)
