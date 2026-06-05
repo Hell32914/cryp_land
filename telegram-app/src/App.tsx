@@ -210,6 +210,8 @@ function App() {
     switch (normalized) {
       case 'en':
         return 'ENGLISH'
+      case 'ru':
+        return 'RUSSIAN'
       case 'de':
         return 'GERMAN'
       case 'es':
@@ -225,6 +227,8 @@ function App() {
         switch (code.toString().trim().toUpperCase()) {
           case 'EN':
             return 'ENGLISH'
+          case 'RU':
+            return 'RUSSIAN'
           case 'DE':
             return 'GERMAN'
           case 'ES':
@@ -1232,11 +1236,12 @@ function App() {
     { name: 'Black', minAmount: '$20000+', dailyPercent: '1.70%' }
   ]
 
-  const languages: Language[] = ['ENGLISH', 'GERMAN', 'SPANISH', 'FRENCH', 'ITALIAN', 'DUTCH']
+  const languages: Language[] = ['ENGLISH', 'RUSSIAN', 'GERMAN', 'SPANISH', 'FRENCH', 'ITALIAN', 'DUTCH']
 
   const getLanguageDisplayName = (lang: Language): string => {
     const names: Record<Language, string> = {
       ENGLISH: 'English',
+      RUSSIAN: 'Русский',
       GERMAN: 'Deutsch',
       SPANISH: 'Español',
       FRENCH: 'Français',

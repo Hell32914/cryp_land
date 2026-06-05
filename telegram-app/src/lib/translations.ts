@@ -1806,7 +1806,7 @@ const dutchAdvantagesSections: InfoSection[] = [
   }
 ]
 
-export const translations = {
+const baseTranslations = {
   ENGLISH: {
     appTitle: 'Syntrix Bot',
     wallet: 'Wallet',
@@ -3195,6 +3195,68 @@ export const translations = {
     faq: 'FAQ',
     welcomeMatrix: 'WELKOM BIJ SYNTRIX',
     profitsNotRandom: 'Winsten zijn geen toeval'
+  },
+} as const
+
+export const translations = {
+  ...baseTranslations,
+  RUSSIAN: {
+    ...baseTranslations.ENGLISH,
+    wallet: 'Кошелёк',
+    invite: 'Пригласить',
+    home: 'Главная',
+    calculator: 'Калькулятор',
+    trade: 'Трейд',
+    ai: 'AI',
+    game: 'Игра',
+    profile: 'Профиль',
+    syntrixGameTitle: 'Syntrix Game',
+    gameSubtitle: 'Купите бокс и крутите рулетку',
+    gameGiftButton: 'Gift Box',
+    gameGiftBannerTitle: 'Подарочный бокс готов',
+    gameGiftBannerText: 'Вы получили подарочный рулеточный бокс.',
+    gameGiftBannerHint: 'Нажмите, чтобы открыть один подарочный бокс',
+    gameGiftOnlyTitle: 'Только подарочный бокс',
+    gameGiftOnlyText: 'Ваши подарочные боксы хранятся здесь. Откройте любой бесплатно.',
+    gameNoGiftBoxes: 'Сейчас нет доступных подарочных боксов.',
+    gameGiftGrantedAt: 'Выдан',
+    gameRouletteTitle: 'Рулетка',
+    gameSpinButton: 'Крутить',
+    gameSpinning: 'Кручение…',
+    gameSpinDone: 'Результат готов',
+    gameBackToBoxes: 'Назад к боксам',
+    gameYouWon: 'Вы выиграли',
+    gameNotEnough: 'Недостаточно токенов',
+    gameInsufficientTokens: 'Недостаточно токенов',
+    gameConfirmTitle: 'Подтверждение покупки',
+    gameConfirmText: 'Вы хотите купить',
+    gameFor: 'за',
+    loading: 'Загрузка…',
+    totalBalance: 'Общий баланс:',
+    profit: 'Прибыль:',
+    deposit: 'Депозит:',
+    reinvest: 'РЕИНВЕСТ',
+    depositBtn: 'ПОПОЛНИТЬ',
+    inactive: 'НЕАКТИВЕН',
+    availableBalance: 'Доступный баланс:',
+    buy: 'Купить',
+    cancel: 'Отмена',
+    close: 'Закрыть',
+    back: 'Назад',
+    continue: 'ПРОДОЛЖИТЬ',
+    selectLanguage: 'Выберите язык',
+    languageChanged: 'Язык изменён на',
+    support: 'Поддержка',
+    advantages: 'Преимущества',
+    security: 'Безопасность',
+    faqSubtitle: 'Часто задаваемые вопросы',
+    profileTitle: 'Профиль',
+    nickname: 'Никнейм',
+    currentPlan: 'Текущий план',
+    status: 'Статус',
+    language: 'Язык',
+    welcomeMatrix: 'ДОБРО ПОЖАЛОВАТЬ В SYNTRIX',
+    profitsNotRandom: 'Прибыль не случайна'
   },
 } as const
 
