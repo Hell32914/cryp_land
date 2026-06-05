@@ -323,6 +323,45 @@ function getSupportWelcomeMessage(languageCode: string | null): string {
   )
 }
 
+function prefersRussian(languageCode: string | null | undefined): boolean {
+  const lang = String(languageCode || '').toLowerCase()
+  return lang.startsWith('ru') || lang.startsWith('uk') || lang.startsWith('be')
+}
+
+function getBotStartCopy(languageCode: string | null | undefined) {
+  if (prefersRussian(languageCode)) {
+    return {
+      blockedMessage: '⛔️ Ваш аккаунт заблокирован. Если это ошибка, пожалуйста, свяжитесь с поддержкой.',
+      openButton: '🚀 Открыть Syntrix',
+      websiteButton: '🌐 Перейти на сайт',
+      supportButton: '💬 Поддержка',
+      welcomeMessage:
+        `*Добро пожаловать в SyntrixBot\\!*\n` +
+        `*Прибыль больше не случайна\\!*\n\n` +
+        `⮕ Начните свой путь в криптотрейдинге с нашим автоматизированным ботом\n` +
+        `⮕ Зарабатывайте до 17% в день на ваших инвестициях\n` +
+        `⮕ Отслеживайте результаты в режиме реального времени\n\n` +
+        `🌐 Узнать больше: https://syntrix\\.website/\n\n` +
+        `Нажмите кнопку ниже, чтобы открыть торговую платформу:`,
+    }
+  }
+
+  return {
+    blockedMessage: '⛔️ Your account has been blocked. Please contact support if you believe this is a mistake.',
+    openButton: '🚀 Open Syntrix',
+    websiteButton: '🌐 Visit Website',
+    supportButton: '💬 Support',
+    welcomeMessage:
+      `*Welcome to SyntrixBot\\!*\n` +
+      `*Profits are no longer random\\!*\n\n` +
+      `⮕ Start your crypto trading journey with our automated bot\n` +
+      `⮕ Earn up to 17% daily from your investments\n` +
+      `⮕ Track your performance in real\\-time\n\n` +
+      `🌐 Learn more: https://syntrix\\.website/\n\n` +
+      `Click the button below to open the trading platform:`,
+  }
+}
+
 // Arbitrage Trade admin flow is English-only by request.
 const ARBITRAGE_TRADE_EN = {
   menu: '⚖️ Arbitrage Trade',
@@ -995,7 +1034,8 @@ bot.command('start', async (ctx) => {
   })
   
   if (existingUser?.isBlocked) {
-    await ctx.reply('⛔️ Your account has been blocked. Please contact support if you believe this is a mistake.')
+    const botCopy = getBotStartCopy(existingUser.languageCode || preferredLanguage || ctx.from?.language_code)
+    await ctx.reply(botCopy.blockedMessage)
     return
   }
 
@@ -1082,19 +1122,14 @@ bot.command('start', async (ctx) => {
     // Referral will be activated when user reaches $1000 deposit
   }
 
-  const keyboard = new InlineKeyboard()
-    .webApp('🚀 Open Syntrix', WEBAPP_URL).row()
-    .url('🌐 Visit Website', LANDING_URL)
-    .url('💬 Support', 'https://t.me/syntrix_support_bot?start=activate')
+  const botCopy = getBotStartCopy(user.languageCode || preferredLanguage || ctx.from?.language_code)
 
-  const welcomeMessage = 
-    `*Welcome to SyntrixBot\\!*\n` +
-    `*Profits are no longer random\\!*\n\n` +
-    `⮕ Start your crypto trading journey with our automated bot\n` +
-    `⮕ Earn up to 17% daily from your investments\n` +
-    `⮕ Track your performance in real\\-time\n\n` +
-    `🌐 Learn more: https://syntrix\\.website/\n\n` +
-    `Click the button below to open the trading platform:`
+  const keyboard = new InlineKeyboard()
+    .webApp(botCopy.openButton, WEBAPP_URL).row()
+    .url(botCopy.websiteButton, LANDING_URL)
+    .url(botCopy.supportButton, 'https://t.me/syntrix_support_bot?start=activate')
+
+  const welcomeMessage = botCopy.welcomeMessage
 
   try {
     // Path to logo: go up from dist/ to telegram-bot root where logo.jpg is located
